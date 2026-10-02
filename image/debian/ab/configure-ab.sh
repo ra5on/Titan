@@ -15,6 +15,9 @@ rm -f /etc/resolv.conf
 printf 'nameserver 169.254.2.3\n' > /etc/resolv.conf
 apt-get -o APT::Update::Error-Mode=any -o Acquire::Retries=3 update
 apt-get install -y --no-install-recommends rauc grub-efi-amd64-bin grub2-common initramfs-tools
+if dpkg-query -W -f='${Status}' cloud-initramfs-growroot 2>/dev/null | grep -q 'install ok installed'; then
+    apt-get purge -y cloud-initramfs-growroot
+fi
 install -d /etc/rauc /boot/titan /boot/efi /var/lib/titan-system
 install -m 0644 /tmp/titan-ab/system.conf /etc/rauc/system.conf
 install -m 0644 /tmp/titan-ab/rauc-root.pem /usr/share/titan/rauc-root.pem

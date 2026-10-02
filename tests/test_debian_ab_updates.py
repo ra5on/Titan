@@ -91,6 +91,29 @@ class DebianABTests(unittest.TestCase):
             with self.assertRaises(Error):updates.confirm_boot()
         self.assertFalse(updates.BOOT_OK.exists())
 
+    def test_missing_persistent_mount_blocks_mutation_before_lock_or_command(self):
+        with patch.object(updates.os.path,'ismount',return_value=False):
+            with self.assertRaises(Error):updates.confirm_boot()
+        self.assertEqual(self.commands,[])
+
+    def test_pending_digest_mismatch_never_confirms(self):
+        state=self.state();state['pending']={'slot':'A','digest':'sha256:'+'f'*64,'kind':'update'}
+        updates.save_state(state)
+        with self.assertRaises(Error):updates.confirm_boot()
+        self.assertFalse(any('mark-good' in cmd for cmd in self.commands))
+        self.assertFalse(updates.BOOT_OK.exists())
+
+    def test_device_check_rejects_another_physical_disk(self):
+        paths={'/dev/disk/by-partlabel/TITAN-A':Path('/dev/vda3'),
+               '/dev/disk/by-partlabel/TITAN-B':Path('/dev/vdb4'),'/dev/vda3':Path('/dev/vda3')}
+        def resolve(path, strict=False):return paths[str(path)]
+        def run(args,**kwargs):
+            if args[0]=='findmnt':return '/dev/vda3'
+            return 'vda' if args[-1]=='/dev/vda3' else 'vdb'
+        def read(path,*args,**kwargs):return '3' if 'vda3' in str(path) else '4'
+        with patch.object(Path,'resolve',resolve),patch.object(Path,'read_text',read),patch.object(updates,'run',side_effect=run):
+            with self.assertRaises(Error):updates.verify_devices('A','B')
+
     def test_bad_manifest_rejected_before_install(self):
         value={**self.info,'boot_test':'passed','runtime_test':'passed','update_test':'passed','rollback_test':'passed',
                'bundle':{'name':'titan-0.4.6-alpha.1-amd64.raucb','size':1024,'sha256':'c'*64},'rootfs_sha256':'d'*64}

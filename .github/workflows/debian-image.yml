@@ -10,7 +10,7 @@ permissions:
   contents: write
 concurrency:
   group: titan-debian-ab-image
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   image:
     runs-on: ubuntu-24.04

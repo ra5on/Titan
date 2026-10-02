@@ -31,5 +31,5 @@ fi
 for task_path in etc var/lib/titan var/lib/titan-agent var/lib/titan-proxy var/lib/docker var/lib/containerd var/lib/libvirt var/lib/samba var/cache/samba var/srv/titan home; do
     [ -d "$task_data/persistent/$task_path" ] || panic 'Titan: Persistente Verzeichnisse sind unvollständig.'
     mkdir -p "$task_root/$task_path"
-    mount --bind "$task_data/persistent/$task_path" "$task_root/$task_path" || panic 'Titan: Persistente Daten konnten nicht eingebunden werden.'
+    mount -o bind "$task_data/persistent/$task_path" "$task_root/$task_path" || panic 'Titan: Persistente Daten konnten nicht eingebunden werden.'
 done

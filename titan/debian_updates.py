@@ -396,9 +396,12 @@ def confirm_boot():
     for path in ('/var/lib/titan-system', '/etc', '/var/lib/titan', '/var/lib/docker',
                  '/var/lib/libvirt', '/var/lib/samba', '/var/srv/titan'):
         run(['mountpoint', '-q', path], timeout=10)
-    run(['systemctl', 'is-active', '--quiet', 'titan-firstboot.service', 'titan-runtime.service',
-         'titan-agent.service', 'titan-web.service', 'titan-proxy.service',
-         'docker.service', 'smbd.service', 'libvirtd.socket'], timeout=30)
+    for unit in ('titan-firstboot.service', 'titan-runtime.service', 'titan-agent.service',
+                 'titan-web.service', 'titan-proxy.service', 'docker.service',
+                 'smbd.service', 'libvirtd.socket'):
+        # systemctl is-active with multiple units succeeds when ANY is active.
+        # Each required service must be checked independently.
+        run(['systemctl', 'is-active', '--quiet', unit], timeout=30)
     run(['docker', 'info', '--format', '{{.ServerVersion}}'], timeout=30)
     run(['virsh', '-c', 'qemu:///system', 'list', '--all', '--name'], timeout=30)
     run(['testparm', '-s'], timeout=30)

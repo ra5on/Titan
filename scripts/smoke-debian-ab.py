@@ -210,7 +210,15 @@ finally:subprocess.run(['umount','/mnt'],check=True)
             target=next(x for x in status['rollback_options'] if x['slot']=='B')
             client.action('update_rollback',{'expected_digest':target['digest'],'confirmation':'ROLLBACK'})
             client.action('system_reboot',{'expected_digest':target['digest'],'confirmation':'NEUSTART'})
-            time.sleep(75)  # Scheduled reboot plus GRUB attempt; broken slot cannot run QGA.
+            deadline=time.monotonic()+180
+            while time.monotonic()<deadline:
+                try:agent.call('guest-ping')
+                except (OSError,ValueError,RuntimeError):break
+                time.sleep(3)
+            else:raise RuntimeError('Scheduled fallback test reboot never began')
+            # QGA has stopped for shutdown. Allow the one GRUB attempt to fail
+            # before the explicit reset; no hardware watchdog is assumed.
+            time.sleep(30)
             qmp(work/'qmp.sock','system_reset')
             boot,status=agent.ready('A',baseline,boot)
             assert status['last_failure']['slot']=='B' and not status['rollback_options']
