@@ -66,6 +66,11 @@ A/B-Wechsel samt Rückkehr auf den vorherigen Stand bestanden sind. Die Dateien
 Prüfungen und gegebenenfalls übersprungene Prüfungen. Der A/B-Test verwendet einen
 lokalen Test-Download statt einer bereits veröffentlichten GitHub-Version; die
 RAUC-Signaturprüfung, Systeminstallation, Starts und Rollback-API laufen real.
+Der Ausgangsstand ist eine private Kopie desselben Images mit einer älteren
+signierten Versionskennung und einer abweichenden Test-Konfigurationsdatei.
+Das prüft den vollständigen Partitionswechsel und die Persistenz, noch nicht
+die Kompatibilität zwischen zwei unterschiedlich weiterentwickelten Releases.
+Dieser zusätzliche Test folgt mit der nächsten veröffentlichten Systemversion.
 
 Das ist noch keine Beta-Freigabe: Proxmox-Tests mit deiner Hardwarekonfiguration,
 langfristiger Betrieb, echte installierte VM-Gastsysteme und Wiederherstellung nach
