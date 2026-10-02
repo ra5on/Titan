@@ -322,6 +322,16 @@ def install(repo, channel, expected_version, database):
         if (booted != current['booted']['slot'] or detail.get('checksum', {}).get('sha256') != manifest['rootfs_sha256'] or
                 detail.get('bundle', {}).get('build') != manifest['release_id']):
             raise Error('Der inaktive Systemslot wurde nicht vollständig bestätigt.', 503)
+        verify_devices(current['booted']['slot'], target)
+        device = str(Path('/dev/disk/by-partlabel/TITAN-' + target).resolve(strict=True))
+        # RAUC has finished and unmounted its post-install hook mount. Changing
+        # an ext4 UUID while mounted is forbidden; verify that boundary first.
+        mounted = run(['findmnt', '--json', '--list', '--output', 'SOURCE'], timeout=10)
+        mounts = common.strict_json(mounted).get('filesystems', [])
+        if any(str(Path(row.get('source', '').split('[')[0]).resolve()) == device for row in mounts):
+            raise Error('Der neue Systemslot ist noch eingehängt. Keine Aktivierung.', 409)
+        run(['tune2fs', '-U', 'random', device], timeout=120)
+        run(['sync'], timeout=60)
         record = {'identity': {key: manifest[key] for key in ('format', 'platform', 'compatible', 'architecture', 'state_schema', 'release_id', 'release_stage', 'version')},
                   'confirmed': False, 'installed_at': time.time(), 'rootfs_sha256': manifest['rootfs_sha256']}
         state['slots'][target] = record

@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 
@@ -23,12 +24,15 @@ def main():
     parser.add_argument('--evidence', type=Path)
     args = parser.parse_args()
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
+    match = re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-(alpha|beta)\.[0-9]+)?', args.version)
+    if not match: raise ValueError('Invalid release version')
+    stage = match.group(1) or 'stable'
     commit = os.environ['GITHUB_SHA']
     release_id = 'sha256:' + hashlib.sha256(('Titan A/B v1\n'+commit+'\n'+args.version).encode()).hexdigest()
     info = {'format':'titan-debian-ab-v1', 'platform':'debian-rauc',
             'compatible':'titan-debian13-amd64-ab-v1', 'architecture':'x86_64',
             'state_schema':1, 'release_id':release_id, 'version':args.version,
-            'release_stage':'alpha', 'source_commit':commit}
+            'release_stage':stage, 'source_commit':commit}
     if args.mode == 'manifest':
         evidence = json.loads(args.evidence.read_text())
         assert all(evidence.get(k) == 'passed' for k in ('boot_test','runtime_test','update_test','rollback_test'))

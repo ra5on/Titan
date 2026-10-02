@@ -1,5 +1,8 @@
 # Titan · Debian 13 · A/B-Alpha
 
+Diese Anleitung beschreibt den Freigabekandidaten. Ein Download ist erst mit
+einem signierten GitHub-Release nach bestandenen Tests verfügbar.
+
 Titan ist eine frühe Alpha. Verwende eine separate Test-VM und unabhängige
 Sicherungen. Das Image ist für eine Neuinstallation bestimmt; es konvertiert
 kein bestehendes RaNAS-/uCore-System und übernimmt dessen Daten nicht automatisch.

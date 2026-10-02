@@ -7,7 +7,7 @@ on:
       - '.github/workflows/debian-image.yml'
       - 'scripts/build-debian-ab-image.sh'
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: titan-debian-ab-image
   cancel-in-progress: false
@@ -40,8 +40,10 @@ jobs:
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
       - name: Signed update, reboot, rollback, fallback and persistent data checks
         run: python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" --confirm-disposable-guest
-      # Publication stays disabled until this complete gate has actually passed.
-      # No unverified image is released or presented as a user download.
+      - name: Publish the complete tested system and installation image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/publish-debian-system.sh
       - name: Remove temporary private signing material
         if: always()
         run: rm -rf "$RUNNER_TEMP/titan-signing"

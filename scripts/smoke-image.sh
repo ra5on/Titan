@@ -11,6 +11,10 @@ case "${2:-}" in
 esac
 task_image="$(realpath -- "$1")"
 test -f "$task_image"  # Never accept a host block device as a smoke image.
+if [[ "${2:-}" == --debian-ab ]]; then
+    task_machine_id=$(guestfish --ro -a "$task_image" -m /dev/sda3 cat /etc/machine-id)
+    [[ -z "$task_machine_id" ]] || { echo 'Distribution image contains a fixed machine ID.' >&2; exit 1; }
+fi
 task_raw_hash="$(sha256sum -- "$task_image")"
 task_raw_hash="${task_raw_hash%% *}"
 task_dir="$(mktemp -d /tmp/titan-image-smoke.XXXXXXXX)"
