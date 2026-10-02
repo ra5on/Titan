@@ -97,6 +97,14 @@ class DebianABTests(unittest.TestCase):
             with self.assertRaises(Error):updates.confirm_boot()
         self.assertEqual(self.commands,[])
 
+    def test_health_keeps_literal_ip_for_tls_certificate_selection(self):
+        updates.save_state(self.state())
+        with patch.dict(updates.os.environ, {'TITAN_ORIGIN':'https://192.168.10.18:5000'}):
+            updates.confirm_boot()
+        request=next(cmd for cmd in self.commands if cmd[0]=='curl')
+        self.assertNotIn('--connect-to',request)
+        self.assertEqual(request[-1],'https://192.168.10.18:5000/api/session')
+
     def test_one_failed_service_prevents_health_confirmation(self):
         updates.save_state(self.state())
         def run(args, **kwargs):

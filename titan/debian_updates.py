@@ -6,6 +6,7 @@ the running OS and no update operation reboots the machine implicitly.
 import fcntl
 import functools
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -431,8 +432,15 @@ def confirm_boot():
     if (origin.scheme != 'https' or not origin.hostname or origin.port != 5000 or
             origin.username or origin.password or origin.path or origin.query or origin.fragment):
         raise Error('Startprüfung: Ungültige NAS-Adresse.', 503)
+    connection = []
+    try:
+        ipaddress.ip_address(origin.hostname)
+    except ValueError:
+        connection = ['--connect-to', origin.netloc + ':127.0.0.1:5000']
+    # TLS clients do not send SNI for literal IPs. In that case Caddy selects
+    # the certificate by the socket's local IP, so keep the real NAS address.
     run(['curl', '--fail', '--silent', '--insecure', '--noproxy', '*', '--max-time', '15',
-         '--connect-to', origin.netloc + ':127.0.0.1:5000', origin.geturl() + '/api/session'], timeout=20)
+         *connection, origin.geturl() + '/api/session'], timeout=20)
     pending = state.get('pending')
     if pending and pending['slot'] == current and pending['digest'] != info['release_id']:
         raise Error('Startprüfung: Erwarteter Systemwechsel stimmt nicht überein.', 503)
