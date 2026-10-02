@@ -13,7 +13,8 @@ jobs:
         run: python3 -m unittest discover -s tests -v
       - name: Shell syntax
         run: |
-          for task_script in bootstrap.sh install.sh scripts/*.sh image/*.sh; do bash -n "$task_script"; done
+          shopt -s nullglob
+          for task_script in bootstrap.sh install.sh scripts/*.sh image/*.sh image/debian/*.sh packaging/debian/*.sh legacy/ucore/image/*.sh; do bash -n "$task_script"; done
       - name: JavaScript syntax
         run: |
           for task_js in titan/web/*.js; do node --check "$task_js"; done
