@@ -234,6 +234,14 @@ finally:subprocess.run(['umount','/mnt'],check=True)
             passed('failed_candidate_fallback_after_reset')
             report['ok']=True
         finally:
+            if proc is not None and not report['ok']:
+                try:
+                    print('TITAN_AB_RAUC_DIAGNOSTICS',flush=True)
+                    print(agent.execute(['/usr/bin/journalctl','-u','rauc.service','-n','100','--no-pager','-o','cat'],timeout=20)[-20000:],flush=True)
+                    print(agent.execute(['/usr/bin/df','-h'],timeout=20),flush=True)
+                except (OSError,ValueError,RuntimeError) as diagnostic_error:
+                    print('Guest diagnostics unavailable: '+str(diagnostic_error),flush=True)
+                subprocess.run(['df','-h',str(directory)],check=False)
             if proc is not None:
                 proc.terminate()
                 try:proc.wait(timeout=15)

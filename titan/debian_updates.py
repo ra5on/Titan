@@ -339,7 +339,16 @@ def install(repo, channel, expected_version, database):
         # installs must never leave an old digest selectable for a partial slot.
         state['slots'].pop(target, None)
         save_state(state)
-        run(['rauc', 'install', str(bundle)], timeout=1800)
+        try:
+            run(['rauc', 'install', str(bundle)], timeout=1800)
+        except Error as exc:
+            # The CLI often reports only 'Installing ... failed' on stderr;
+            # the service journal contains the actual installer failure.
+            try:
+                detail = run(['journalctl', '-u', 'rauc.service', '-n', '35', '--no-pager', '-o', 'cat'], timeout=15)
+            except Error:
+                detail = ''
+            raise Error('Systemupdate fehlgeschlagen. ' + str(exc) + ('\n' + detail[-3000:] if detail else ''), 503) from None
         _, slots, booted = rauc_status()
         detail = slots[target].get('slot_status', {})
         if (booted != current['booted']['slot'] or detail.get('checksum', {}).get('sha256') != manifest['rootfs_sha256'] or
