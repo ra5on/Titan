@@ -89,6 +89,15 @@ def main():
     if (info.get('platform'), info.get('format')) not in (('ucore-hci', 'titan-ucore-image-v1'), ('debian-preview', 'titan-debian-preview-v1'), ('debian-rauc', 'titan-debian-ab-v1')):
         raise RuntimeError('This is not a supported Titan image.')
     if info.get('platform') == 'debian-rauc':
+        import pwd, grp
+        contract = info['system_accounts']
+        for name, identity in contract['users'].items():
+            account = pwd.getpwnam(name)
+            if (account.pw_uid, account.pw_gid) != (identity['uid'], identity['gid']):
+                raise RuntimeError('System account identity changed: ' + name)
+        for name, identity in contract['groups'].items():
+            if grp.getgrnam(name).gr_gid != identity:
+                raise RuntimeError('System group identity changed: ' + name)
         # Never initialize an apparently empty NAS when initramfs persistence
         # failed. All services requiring firstboot remain stopped in that case.
         for mount in ('/var/lib/titan-system', '/etc', '/var/lib/titan', '/var/lib/titan-agent',

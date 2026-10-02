@@ -109,11 +109,13 @@ def main():
         try:
             command(['qemu-img','create','-q','-f','qcow2','-F','raw','-b',str(image),str(work/'test.qcow2')])
             baseline='0.4.5-alpha.1'
-            command(['python3','scripts/system-release-metadata.py','identity','--version',baseline,'--output',str(work/'image-info.json')])
+            command(['python3','scripts/system-release-metadata.py','identity','--version',baseline,'--accounts',str(directory/'ab-input/system-accounts.json'),'--output',str(work/'image-info.json')])
             # Signed older system identity only in the private overlay; complete
             # root filesystem replacement then proves A -> B -> A transitions.
             command(['guestfish','-a',str(work/'test.qcow2'),'-m','/dev/sda3','upload',str(work/'image-info.json'),'/usr/share/titan/image-info.json'])
             command(['guestfish','-a',str(work/'test.qcow2'),'-m','/dev/sda3','upload',str(work/'image-info.json.sig'),'/usr/share/titan/image-info.json.sig'])
+            (work/'factory-probe').write_text('baseline factory default\n')
+            command(['guestfish','-a',str(work/'test.qcow2'),'-m','/dev/sda3','upload',str(work/'factory-probe'),'/etc/titan-ci-factory'])
             shutil.copyfile('/usr/share/OVMF/OVMF_VARS_4M.fd',work/'vars.fd')
             accel='kvm' if os.access('/dev/kvm',os.R_OK|os.W_OK) else 'tcg'
             with (work/'console.log').open('wb') as console:
@@ -131,9 +133,10 @@ def main():
             client=runtime.GuestClient(work/'qmp.sock');smoke=runtime.RuntimeSmoke(client);smoke.setup()
             client.action('share_create',{'name':'ab-persist','readers':[smoke.username],'writers':[smoke.username]})
             agent.python("from pathlib import Path;p=Path('/var/srv/titan/ab-persist/rollback-sentinel');p.write_text('preserved across A/B update and rollback\\n')")
+            agent.python("from pathlib import Path;assert Path('/etc/titan-ci-factory').read_text()=='baseline factory default\\n';Path('/etc/titan-ci-local').write_text('persistent local change\\n')")
             snapshot_code="""import hashlib,json,subprocess
 from pathlib import Path
-items={p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in ['/etc/passwd','/etc/shadow','/etc/group','/etc/samba/titan-shares.conf','/var/srv/titan/ab-persist/rollback-sentinel']}
+items={p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in ['/etc/passwd','/etc/shadow','/etc/group','/etc/samba/titan-shares.conf','/etc/titan-ci-local','/var/srv/titan/ab-persist/rollback-sentinel']}
 items['acl']=subprocess.check_output(['getfacl','-p','/var/srv/titan/ab-persist'],text=True)
 print(json.dumps(items,sort_keys=True))"""
             snapshot=agent.python(snapshot_code)
@@ -189,6 +192,7 @@ print('prepared')
             boot,status=agent.ready('B',identity['version'],boot)
             assert agent.python(snapshot_code)==snapshot
             assert status['rollback_available'] and status['rollback_options'][0]['slot']=='A'
+            agent.python("from pathlib import Path;assert not Path('/etc/titan-ci-factory').exists()")
             passed('update_boot_and_preserved_accounts_acls_data')
             # Existing browser session and API are used to select the real old slot.
             client.request('/api/session')
@@ -197,6 +201,8 @@ print('prepared')
             client.action('system_reboot',{'expected_digest':old['digest'],'confirmation':'NEUSTART'})
             boot,status=agent.ready('A',baseline,boot)
             assert agent.python(snapshot_code)==snapshot
+            agent.python("from pathlib import Path;assert Path('/etc/titan-ci-factory').read_text()=='baseline factory default\\n'")
+            passed('factory_defaults_follow_selected_slot')
             passed('manual_rollback_and_preserved_accounts_acls_data')
             # Deliberately make the *inactive test slot* unbootable. GRUB must
             # consume its one attempt and choose healthy A after the test reset.

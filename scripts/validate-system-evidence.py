@@ -8,7 +8,7 @@ RUNTIME={'administrator_setup_login','system_update_state_confirmation','cpu_ram
          'smb_multiuser_access','runtime_components','docker_app_lifecycle','docker_custom_network_lifecycle'}
 AB={'baseline_boot_health','proxmox_style_data_growth','signed_update_staged_without_reboot',
     'update_boot_and_preserved_accounts_acls_data','manual_rollback_and_preserved_accounts_acls_data',
-    'failed_candidate_fallback_after_reset'}
+    'failed_candidate_fallback_after_reset','factory_defaults_follow_selected_slot'}
 
 
 def validate(directory):

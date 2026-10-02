@@ -34,7 +34,7 @@ jobs:
         env:
           TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}
         run: bash scripts/prepare-system-signing.sh
-      - name: Build signed Debian A/B system with explicit kernel links
+      - name: Build signed Debian A/B system with compatible persistent configuration
         run: bash scripts/build-debian-ab-image.sh --disposable-runner
       - name: Boot and runtime checks on disposable overlay
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab

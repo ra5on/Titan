@@ -67,6 +67,24 @@ def validate_identity(value):
             value.get('release_stage') not in ('alpha', 'beta', 'stable')):
         raise Error('Kein kompatibler Titan-Debian-Systemstand.', 409)
     version(value.get('version'))
+    accounts = value.get('system_accounts')
+    if not isinstance(accounts, dict) or set(accounts) != {'users','groups'}:
+        raise Error('Der Systemstand enthält keinen gültigen Kontenvertrag.', 409)
+    for kind in ('users','groups'):
+        entries = accounts[kind]
+        if not isinstance(entries, dict) or not 1 <= len(entries) <= 256:
+            raise Error('Ungültige Systemkonten im Update.', 409)
+        for name, record in entries.items():
+            if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.-]{0,63}', name):
+                raise Error('Ungültiger Systemkontoname.', 409)
+            if kind == 'users':
+                if not isinstance(record, dict) or set(record) != {'uid','gid'}:
+                    raise Error('Ungültige Systembenutzerkennung.', 409)
+                numbers = record.values()
+            else:
+                numbers = [record]
+            if any(type(number) is not int or not 0 <= number < 2**31 for number in numbers):
+                raise Error('Ungültige Systemkontenkennung.', 409)
     return value
 
 
@@ -232,6 +250,8 @@ def check(repo, channel='stable', token=None):
         _, release, stage = max(candidates, key=lambda item: item[0])
         manifest, assets = common.verified_release(release, token)
         validate_manifest(manifest)
+        if manifest['system_accounts'] != info['system_accounts']:
+            raise Error('Geänderte Systemkonten erfordern eine gesonderte Migration. Kein Update ausgeführt.', 409)
         if (manifest['release_stage'] != stage or common.version(manifest['version']) != common.version(release['tag_name']) or
                 manifest['bundle']['name'] not in assets):
             raise Error('Signiertes Update und GitHub-Release stimmen nicht überein.')
@@ -294,6 +314,8 @@ def install(repo, channel, expected_version, database):
         raise Error(offer.get('error') or 'Update-Angebot hat sich geändert. Bitte erneut prüfen.', 409)
     manifest, assets = common.verified_release({'assets': [{'name': name, 'url': url} for name, url in offer['assets'].items()], 'html_url': offer['url']}, token)
     validate_manifest(manifest)
+    if manifest['system_accounts'] != image_info()['system_accounts']:
+        raise Error('Systemkontenvertrag des Updates ist nicht kompatibel.', 409)
     if common.version(manifest['version']) != common.version(expected_version) or not common.allowed_stage(channel, manifest['release_stage']):
         raise Error('Update-Version oder Kanal hat sich geändert.', 409)
     current = system_status()
@@ -332,7 +354,7 @@ def install(repo, channel, expected_version, database):
             raise Error('Der neue Systemslot ist noch eingehängt. Keine Aktivierung.', 409)
         run(['tune2fs', '-U', 'random', device], timeout=120)
         run(['sync'], timeout=60)
-        record = {'identity': {key: manifest[key] for key in ('format', 'platform', 'compatible', 'architecture', 'state_schema', 'release_id', 'release_stage', 'version')},
+        record = {'identity': {key: manifest[key] for key in ('format', 'platform', 'compatible', 'architecture', 'state_schema', 'release_id', 'release_stage', 'version', 'system_accounts')},
                   'confirmed': False, 'installed_at': time.time(), 'rootfs_sha256': manifest['rootfs_sha256']}
         state['slots'][target] = record
         prepared = activate(target, record, state, 'update')

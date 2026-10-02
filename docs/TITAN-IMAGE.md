@@ -43,7 +43,10 @@ bestätigten Update kann der vorherige Stand ausgewählt werden; auch der Rollba
 wird erst beim ausdrücklich bestätigten Neustart aktiv.
 
 Benutzer, Freigabenrechte, NAS-Konfiguration sowie App-, VM- und Nutzdaten bleiben
-über den Versionswechsel hinweg erhalten. Rollback ist keine Datenwiederherstellung
+über den Versionswechsel hinweg erhalten. Unveränderte Systemkonfigurationen
+folgen dem gewählten Debian-Systemstand; eigene Änderungen unter `/etc` bleiben
+in einer gemeinsamen Overlay-Schicht erhalten. System-UIDs und -GIDs sind Teil
+des signierten Kompatibilitätsvertrags und dürfen sich bei diesen Updates nicht ändern. Rollback ist keine Datenwiederherstellung
 und ersetzt kein Backup. Die geteilten Daten müssen zum Schema 1 kompatibel bleiben;
 inkompatible Systemupdates werden nicht angeboten. Eigene Änderungen außerhalb
 der persistenten Verzeichnisse (beispielsweise unter `/usr` oder `/root`) gehören

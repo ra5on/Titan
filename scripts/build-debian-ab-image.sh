@@ -10,8 +10,19 @@ task_work="$task_dir/ab-input"
 mkdir -p "$task_work"
 cp image/debian/ab/* "$task_work/"
 cp packaging/rauc-root.pem "$task_work/"
-python3 scripts/system-release-metadata.py identity --version "$TITAN_SYSTEM_VERSION" --output "$task_work/image-info.json"
 task_base="$task_dir/titan-debian-preview-20261002-amd64.img"
+guestfish --ro -a "$task_base" -i download /etc/passwd "$task_dir/factory-passwd"
+guestfish --ro -a "$task_base" -i download /etc/group "$task_dir/factory-group"
+python3 - "$task_dir" "$task_work/system-accounts.json" <<'PYACCOUNTS'
+import json,sys
+from pathlib import Path
+p=Path(sys.argv[1])
+users={v[0]:{'uid':int(v[2]),'gid':int(v[3])} for line in (p/'factory-passwd').read_text().splitlines() if (v:=line.split(':')) and len(v)==7}
+groups={v[0]:int(v[2]) for line in (p/'factory-group').read_text().splitlines() if (v:=line.split(':')) and len(v)==4}
+Path(sys.argv[2]).write_text(json.dumps({'users':users,'groups':groups},sort_keys=True)+'\n')
+PYACCOUNTS
+rm "$task_dir/factory-passwd" "$task_dir/factory-group"
+python3 scripts/system-release-metadata.py identity --version "$TITAN_SYSTEM_VERSION" --accounts "$task_work/system-accounts.json" --output "$task_work/image-info.json"
 virt-customize -a "$task_base" --memsize 4096 --copy-in "$task_work:/tmp" \
     --run-command 'mv /tmp/ab-input /tmp/titan-ab && /bin/bash /tmp/titan-ab/configure-ab.sh'
 task_root=$(guestfish --ro -a "$task_base" -i inspect-get-roots)

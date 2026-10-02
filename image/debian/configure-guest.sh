@@ -25,6 +25,9 @@ printf 'nameserver 169.254.2.3\n' > /etc/resolv.conf
 getent ahostsv4 deb.debian.org
 apt-get -o APT::Update::Error-Mode=any -o Acquire::Retries=3 update
 apt-get install -y --no-install-recommends /tmp/titan-preview.deb systemd systemd-resolved qemu-guest-agent
+# Resolve service identities in the factory image so all A/B releases can
+# compare an explicit UID/GID contract before touching an inactive slot.
+systemd-sysusers /usr/lib/sysusers.d/titan.conf
 # The NAS works without an external cloud-init seed or baked login credentials.
 mkdir -p /etc/cloud /etc/systemd/network
 touch /etc/cloud/cloud-init.disabled

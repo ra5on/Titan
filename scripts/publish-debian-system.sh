@@ -6,7 +6,7 @@ set -euo pipefail
 task_dir=$(realpath dist/debian-image)
 python3 scripts/validate-system-evidence.py "$task_dir"
 python3 scripts/system-release-metadata.py manifest --version "$TITAN_SYSTEM_VERSION" \
-    --output "$task_dir/manifest.json" --bundle "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
+    --accounts "$task_dir/ab-input/system-accounts.json" --output "$task_dir/manifest.json" --bundle "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
     --rootfs "$task_dir/bundle/rootfs.ext4" --evidence "$task_dir/release-evidence.json"
 cp packaging/release-public.pem "$task_dir/release-public.pem"
 cp packaging/rauc-root.pem "$task_dir/rauc-root.pem"

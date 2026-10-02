@@ -7,9 +7,12 @@ GRUB attempts a candidate once; absence of health confirmation makes the next
 boot select the other healthy slot. A hung machine still needs a reset (or a
 working hardware watchdog); boot selection is not a hardware watchdog.
 
-`/etc`, NAS metadata, Samba identities, Docker/containerd, libvirt, homes and
+`/etc` uses a persistent overlay upper layer over each slot's factory defaults.
+Unmodified OS configuration follows the selected release; local changes persist.
+NAS metadata, Samba identities, Docker/containerd, libvirt, homes and
 NAS data are persisted before PID 1 through an initramfs script. `/var/lib/dpkg`
-and the kernel belong to each system slot. Configuration/data schema is fixed at
+and the kernel belong to each system slot. The signed factory user/group UID/GID
+contract must match the running image before installation; changes require a separate migration. Configuration/data schema is fixed at
 1: releases requiring incompatible shared state are rejected. Rollback preserves
 current NAS configuration and user data; it is not a database/data restore.
 New base services/configuration need explicit compatible initialization, not an

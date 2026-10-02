@@ -18,7 +18,8 @@ class DebianABTests(unittest.TestCase):
             p = patch.object(updates, name, path); p.start(); self.addCleanup(p.stop)
         self.info = {'format':updates.FORMAT, 'platform':'debian-rauc', 'compatible':updates.COMPATIBLE,
                      'architecture':'x86_64', 'state_schema':1, 'release_id':'sha256:'+'a'*64,
-                     'version':'0.4.6-alpha.1', 'release_stage':'alpha'}
+                     'version':'0.4.6-alpha.1', 'release_stage':'alpha',
+                     'system_accounts':{'users':{'root':{'uid':0,'gid':0}},'groups':{'root':0}}}
         self.old = {**self.info, 'version':'0.4.5-alpha.1', 'release_id':'sha256:'+'b'*64}
         p = patch.object(updates, 'image_info', return_value=self.info); p.start(); self.addCleanup(p.stop)
         p = patch('titan.updates.architecture', return_value='x86_64'); p.start(); self.addCleanup(p.stop)
@@ -95,6 +96,18 @@ class DebianABTests(unittest.TestCase):
         with patch.object(updates.os.path,'ismount',return_value=False):
             with self.assertRaises(Error):updates.confirm_boot()
         self.assertEqual(self.commands,[])
+
+    def test_one_failed_service_prevents_health_confirmation(self):
+        updates.save_state(self.state())
+        def run(args, **kwargs):
+            self.commands.append(args)
+            if args[0]=='rauc':return json.dumps(self.rauc)
+            if args==['systemctl','is-active','--quiet','smbd.service']:raise Error('SMB unavailable')
+            return ''
+        with patch.object(updates,'run',side_effect=run):
+            with self.assertRaises(Error):updates.confirm_boot()
+        self.assertFalse(updates.BOOT_OK.exists())
+        self.assertFalse(any('mark-good' in cmd for cmd in self.commands))
 
     def test_pending_digest_mismatch_never_confirms(self):
         state=self.state();state['pending']={'slot':'A','digest':'sha256:'+'f'*64,'kind':'update'}
