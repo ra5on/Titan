@@ -132,12 +132,14 @@ def main():
             boot,status=agent.ready('A',baseline);passed('baseline_boot_health')
             client=runtime.GuestClient(work/'qmp.sock');smoke=runtime.RuntimeSmoke(client);smoke.setup()
             client.action('share_create',{'name':'ab-persist','readers':[smoke.username],'writers':[smoke.username]})
-            agent.python("from pathlib import Path;p=Path('/var/srv/titan/ab-persist/rollback-sentinel');p.write_text('preserved across A/B update and rollback\\n')")
+            share=next(item for item in client.request('/api/shares') if item['name']=='ab-persist')
+            assert share['path']=='/var/srv/titan/shares/ab-persist'
+            agent.python("from pathlib import Path;p=Path('/var/srv/titan/shares/ab-persist/rollback-sentinel');p.write_text('preserved across A/B update and rollback\\n')")
             agent.python("from pathlib import Path;assert Path('/etc/titan-ci-factory').read_text()=='baseline factory default\\n';Path('/etc/titan-ci-local').write_text('persistent local change\\n')")
             snapshot_code="""import hashlib,json,subprocess
 from pathlib import Path
-items={p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in ['/etc/passwd','/etc/shadow','/etc/group','/etc/samba/titan-shares.conf','/etc/titan-ci-local','/var/srv/titan/ab-persist/rollback-sentinel']}
-items['acl']=subprocess.check_output(['getfacl','-p','/var/srv/titan/ab-persist'],text=True)
+items={p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in ['/etc/passwd','/etc/shadow','/etc/group','/etc/samba/titan-shares.conf','/etc/titan-ci-local','/var/srv/titan/shares/ab-persist/rollback-sentinel']}
+items['acl']=subprocess.check_output(['getfacl','-p','/var/srv/titan/shares/ab-persist'],text=True)
 print(json.dumps(items,sort_keys=True))"""
             snapshot=agent.python(snapshot_code)
             # Grow this named private overlay while running, then exercise the

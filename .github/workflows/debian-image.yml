@@ -38,7 +38,7 @@ jobs:
         run: bash scripts/build-debian-ab-image.sh --disposable-runner
       - name: Boot, HTTPS health and runtime checks on disposable overlay
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
-      - name: Signed update, reboot, rollback, fallback and persistent data checks
+      - name: Signed update, reboot, rollback and persistent share checks
         run: python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" --confirm-disposable-guest
       - name: Publish the complete tested system and installation image
         env:
