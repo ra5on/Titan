@@ -14,11 +14,18 @@ fi
 rm -f /etc/resolv.conf
 printf 'nameserver 169.254.2.3\n' > /etc/resolv.conf
 apt-get -o APT::Update::Error-Mode=any -o Acquire::Retries=3 update
-apt-get install -y --no-install-recommends rauc grub-efi-amd64-bin grub2-common initramfs-tools
+apt-get install -y --no-install-recommends rauc rauc-service grub-efi-amd64-bin grub2-common initramfs-tools
 if dpkg-query -W -f='${Status}' cloud-initramfs-growroot 2>/dev/null | grep -q 'install ok installed'; then
     apt-get purge -y cloud-initramfs-growroot
 fi
-install -d /etc/rauc /boot/titan /boot/efi /var/lib/titan-system
+install -d /etc/rauc /boot/titan /boot/efi /var/lib/titan-system /etc/systemd/system/rauc.service.d
+# Debian splits the CLI and D-Bus service into separate packages.
+test -f /usr/share/dbus-1/system-services/de.pengutronix.rauc.service
+test -f /usr/lib/systemd/system/rauc.service
+cat > /etc/systemd/system/rauc.service.d/titan.conf <<'RAUCUNIT'
+[Unit]
+RequiresMountsFor=/boot/titan /var/lib/titan-system
+RAUCUNIT
 install -m 0644 /tmp/titan-ab/system.conf /etc/rauc/system.conf
 install -m 0644 /tmp/titan-ab/rauc-root.pem /usr/share/titan/rauc-root.pem
 install -m 0644 /tmp/titan-ab/image-info.json /usr/share/titan/image-info.json

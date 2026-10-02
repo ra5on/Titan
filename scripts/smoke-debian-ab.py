@@ -237,7 +237,11 @@ finally:subprocess.run(['umount','/mnt'],check=True)
                 try:proc.wait(timeout=15)
                 except subprocess.TimeoutExpired:proc.kill();proc.wait(timeout=10)
             if server is not None:server.shutdown();server.server_close()
-            if (work/'console.log').exists():shutil.copyfile(work/'console.log',directory/'ab-console.log')
+            if (work/'console.log').exists():
+                shutil.copyfile(work/'console.log',directory/'ab-console.log')
+                if not report['ok']:
+                    print('TITAN_AB_CONSOLE_TAIL',flush=True)
+                    print((work/'console.log').read_text(errors='replace')[-20000:],flush=True)
             report['raw_image_unchanged']=sha(image)==original
             report['ok']=report['ok'] and report['raw_image_unchanged']
             (directory/'ab-test.json').write_text(json.dumps(report,indent=2)+'\n')
