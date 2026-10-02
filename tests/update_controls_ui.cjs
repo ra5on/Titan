@@ -6,12 +6,25 @@ const context={window:{addEventListener(){}},document:{hidden:false,querySelecto
 vm.createContext(context);vm.runInContext(fs.readFileSync('titan/web/update_controls.js','utf8'),context);vm.runInContext(fs.readFileSync('titan/web/app.js','utf8').replace(/boot\(\)\.catch\(error=>toast\(error.message,true\)\);\s*$/,''),context);const evaluate=code=>vm.runInContext(code,context);
 const previous={version:'0.4.1',digest:'sha256:'+'a'.repeat(64),image:'ghcr.io/ra5on/titan@sha256:'+'a'.repeat(64)},current={version:'0.4.2',digest:'sha256:'+'b'.repeat(64),image:'ghcr.io/ra5on/titan@sha256:'+'b'.repeat(64)};
 const ui=context.window.TitanUpdates;assert.equal(ui.rollbackChoices({rollback:previous}).length,1);assert.equal(ui.rollbackChoices({rollback_options:[{digest:'bad'}]}).length,0);let html=ui.panel({booted:current,rollback:null,rollback_available:false,rollback_reason:'Noch kein Update durchgeführt.'});assert(html.includes('Keine Version'));assert(html.includes('id="rollback-version" disabled'));assert(html.includes('Kein vorheriger Systemstand verfügbar'));assert(html.includes('Noch kein Update'));assert(/data-action="update-rollback" disabled/.test(html));html=ui.panel({booted:current,rollback:previous,rollback_available:true,rollback_queued:true,reboot_required:true,next_boot:previous});assert(html.includes('Neustart erforderlich'));assert(html.includes('v0.4.1'));assert(html.includes('Datensicherung'));assert(!html.includes('<script>'));assert(ui.panel({},'Fehler <script>').includes('Fehler &lt;script&gt;'));
+const older={version:'0.4.0',digest:'sha256:'+'c'.repeat(64),slot:'B',installed_at:1790841600};
+html=ui.panel({booted:current,rollback_options:[previous,older],rollback_available:true});
+assert(html.includes('v0.4.0'));assert(html.includes('Slot B'));
+assert.equal((html.match(/<option value=/g)||[]).length,2);
+html=ui.panel({booted:current,rollback_options:[],rollback_available:true});
+assert(/data-action="update-rollback" disabled/.test(html),'No usable versions means no rollback action, even with a stale availability flag');
+html=ui.panel({booted:current,rollback_options:[older],rollback_available:true,reboot_scheduled:true});
+assert(html.includes('id="rollback-version" disabled'));
+assert(/data-action="update-rollback" disabled/.test(html));
 (async()=>{
  evaluate('session={version:"0.4.2",stage:"alpha",demo:false,user:{role:"admin"}}');
  replies['/api/settings']={channel:'alpha',repository:'ra5on/Titan',installation:'manual'};replies['/api/updates']={channel:'alpha',latest:'v0.4.3',available:true,signed:true};replies['/api/updates/system']={booted:current,rollback:previous,rollback_available:true,next_boot:current};
  const page=await evaluate('pages.updates()');assert(page.includes('Systemversionen'));assert(page.includes('Systemimage vorbereiten'));assert(requests.some(item=>item.path==='/api/updates/system'));
  replies['/api/updates/system'].reboot_required=true;const pending=await evaluate('pages.updates()');assert(!pending.includes('data-action="update-install"'),'A live pending deployment hides an obsolete cached offer');
  await evaluate('actions["update-rollback"]({closest:()=>({querySelector:()=>({value:"sha256:"+ "a".repeat(64)})})})');assert(node('#dialog-body').innerHTML.includes('ROLLBACK'));assert(node('#dialog-body').innerHTML.includes('v0.4.1'));
+ replies['/api/updates/system']={booted:current,rollback_options:[previous,older],rollback_available:true,next_boot:current};
+ await evaluate('actions["update-rollback"]({closest:()=>({querySelector:()=>({value:"sha256:"+ "c".repeat(64)})})})');assert(node('#dialog-body').innerHTML.includes('v0.4.0'),'Confirmation must use the selected version, not the first option');
+ replies['/api/updates/system'].rollback_options=[previous];
+ await assert.rejects(evaluate('actions["update-rollback"]({closest:()=>({querySelector:()=>({value:"sha256:"+ "c".repeat(64)})})})'),/nicht mehr verfügbar/);
  await evaluate('actions["system-reboot"]()');assert(node('#dialog-body').innerHTML.includes('NEUSTART'));assert(node('#dialog-body').innerHTML.includes('nicht zwangsweise'));
  replies['/api/updates/system']={rollback_available:false,rollback_reason:'Keine vorherige Version.'};await assert.rejects(evaluate('actions["update-rollback"]({closest:()=>({querySelector:()=>({value:"sha256:"+ "a".repeat(64)})})})'),/Keine vorherige/);
  const root={querySelector:()=>({})};ui.mount(root,{api:async()=>({})});assert.equal(timers.at(-1).delay,5000);ui.dispose();assert(cleared.length);
