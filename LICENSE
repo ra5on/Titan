@@ -1,0 +1,105 @@
+Titan Noncommercial License 1.0
+SPDX-License-Identifier: LicenseRef-Titan-Noncommercial-1.0
+
+Copyright (c) 2026 ra5on
+
+1. Scope and acceptance
+
+The "Software" is the original Titan code, scripts, documentation and assets
+made available under this license, including copies of that material in
+modified versions and derivative works. The "Licensor" is the copyright
+holder offering that material under this license. "You" means the person
+or entity exercising the permissions below.
+
+This license grants rights only in material the Licensor has authority to
+license. It does not replace licenses for third-party software, operating
+systems, container images or other separately licensed material. It does
+not apply to files or data that users store or manage with the Software.
+
+By exercising the permissions below, you accept these terms. If you do
+not accept them, this license grants you no permission.
+
+2. Permissions for noncommercial purposes
+
+Subject to every condition of this license, the Licensor grants you a
+worldwide, non-exclusive, royalty-free copyright license to download,
+inspect, use, copy, modify and create derivative works of the Software,
+and to distribute original or modified copies in source or binary form,
+solely for noncommercial purposes. Distribution must be free of charge.
+
+You may change the functionality, appearance and code of the Software
+without asking the Licensor. These permissions do not include any right
+to commercialize the original Software or a modified version.
+
+3. Noncommercial restriction
+
+A noncommercial purpose does not monetize the Software or a derivative
+work and is not directed toward a commercial product, commercial service
+or for-profit business operation. Personal, hobby, educational, research
+and community uses are permitted only when they meet these conditions.
+Ordinary cost savings from running a private personal or hobby server do
+not by themselves make that use commercial.
+
+Without a separate written grant from the relevant copyright holder,
+you must not, directly or indirectly:
+
+  a. Sell, rent, lease or otherwise supply the Software or a modified
+     version for money or other financial consideration, even if you
+     charge only for copying, delivery or distribution.
+  b. Include the Software or a modified version in a paid product,
+     appliance, software bundle or commercial offering, including
+     describing the Software as a free part of that paid offering.
+  c. Charge for access to, hosting of or operation of the Software or a
+     modified version, including SaaS and managed NAS services.
+  d. Exercise rights granted by this license as part of paid installation,
+     customization, maintenance or support services for the Software.
+  e. Generate advertising, subscription, sponsorship, affiliate or other
+     revenue from distributing, providing access to or operating the
+     Software or a modified version.
+  f. Use the Software or a modified version to support for-profit business
+     operations or another commercial product or service.
+
+These restrictions apply to original and modified copies, whether they
+are offered separately or combined with other material. Offering a copy
+for free does not permit commercial use of that copy. These terms grant
+no commercial exception based on the identity or funding of a user.
+
+4. Notices and downstream copies
+
+Every copy you distribute must include this complete license and the
+copyright notices that apply to the included Software. You must not
+remove or change those notices to suggest that you own another person's
+work. For modified distributions, identify the version as modified.
+
+Recipients receive permission in the original Software directly from
+its copyright holders under these same terms. You must not sublicense,
+relicense or impose terms on the original Software that grant broader
+rights, remove the noncommercial restriction or prevent recipients from
+exercising the permissions granted here. You retain copyright in your
+own contributions; those rights do not let you grant commercial rights
+in original Titan material that you do not own.
+
+5. Other rights
+
+Copyright ownership is not transferred. To the extent the Licensor can
+grant such rights, this license also grants a royalty-free patent license
+for claims necessarily infringed by exercising the permitted rights in
+the Software, solely for the noncommercial purposes allowed above.
+No other rights are granted by implication. Rights you have independently
+under applicable law, including statutory exceptions, are not limited.
+
+6. Termination
+
+Your permissions under this license terminate automatically if you
+violate its conditions. Termination does not terminate the permissions
+of recipients who themselves remain in compliance. Reinstatement of
+your permissions requires the relevant Licensor's written consent.
+
+7. Warranty and liability
+
+To the extent permitted by applicable law, the Software is provided
+"as is", without warranty of any kind, and the Licensor is not liable
+for loss or damage arising from its use or these terms. This exclusion
+does not apply where liability cannot legally be excluded, including
+mandatory liability for intentional misconduct, gross negligence or
+death or personal injury. Mandatory statutory rights remain unaffected.
