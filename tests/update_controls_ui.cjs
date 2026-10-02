@@ -1,0 +1,19 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nodes=new Map(),node=selector=>{if(!nodes.has(selector))nodes.set(selector,{innerHTML:'',hidden:false,open:false,addEventListener(){},querySelectorAll:()=>[],querySelector:node,showModal(){this.open=true;},close(){this.open=false;},focus(){},textContent:''});return nodes.get(selector);};
+let replies={},requests=[],timers=[],cleared=[];
+const context={window:{addEventListener(){}},document:{hidden:false,querySelector:node,querySelectorAll:()=>[],addEventListener(){},createElement(){return {innerHTML:'',querySelector:node};}},location:{hash:'#updates',hostname:'nas.local'},URL,URLSearchParams,FormData,console,setTimeout:()=>0,setInterval:(fn,delay)=>{timers.push({fn,delay});return timers.length;},clearInterval:id=>cleared.push(id),fetch:async(path,options)=>{requests.push({path,options});assert(Object.hasOwn(replies,path),'Unexpected API '+path);return {ok:true,json:async()=>replies[path]};}};
+vm.createContext(context);vm.runInContext(fs.readFileSync('titan/web/update_controls.js','utf8'),context);vm.runInContext(fs.readFileSync('titan/web/app.js','utf8').replace(/boot\(\)\.catch\(error=>toast\(error.message,true\)\);\s*$/,''),context);const evaluate=code=>vm.runInContext(code,context);
+const previous={version:'0.4.1',digest:'sha256:'+'a'.repeat(64),image:'ghcr.io/ra5on/titan@sha256:'+'a'.repeat(64)},current={version:'0.4.2',digest:'sha256:'+'b'.repeat(64),image:'ghcr.io/ra5on/titan@sha256:'+'b'.repeat(64)};
+const ui=context.window.TitanUpdates;let html=ui.panel({booted:current,rollback:null,rollback_available:false,rollback_reason:'Noch kein Update durchgeführt.'});assert(html.includes('Keine Version'));assert(html.includes('Noch kein Update'));assert(/data-action="update-rollback" disabled/.test(html));html=ui.panel({booted:current,rollback:previous,rollback_available:true,rollback_queued:true,reboot_required:true,next_boot:previous});assert(html.includes('Neustart erforderlich'));assert(html.includes('v0.4.1'));assert(html.includes('Datenbanken'));assert(!html.includes('<script>'));assert(ui.panel({},'Fehler <script>').includes('Fehler &lt;script&gt;'));
+(async()=>{
+ evaluate('session={version:"0.4.2",stage:"alpha",demo:false,user:{role:"admin"}}');
+ replies['/api/settings']={channel:'alpha',repository:'ra5on/Titan',installation:'manual'};replies['/api/updates']={channel:'alpha',latest:'v0.4.3',available:true,signed:true};replies['/api/updates/system']={booted:current,rollback:previous,rollback_available:true,next_boot:current};
+ const page=await evaluate('pages.updates()');assert(page.includes('Systemversionen'));assert(page.includes('Systemimage vorbereiten'));assert(requests.some(item=>item.path==='/api/updates/system'));
+ replies['/api/updates/system'].reboot_required=true;const pending=await evaluate('pages.updates()');assert(!pending.includes('data-action="update-install"'),'A live pending deployment hides an obsolete cached offer');
+ await evaluate('actions["update-rollback"]()');assert(node('#dialog-body').innerHTML.includes('ROLLBACK'));assert(node('#dialog-body').innerHTML.includes('v0.4.1'));
+ await evaluate('actions["system-reboot"]()');assert(node('#dialog-body').innerHTML.includes('NEUSTART'));assert(node('#dialog-body').innerHTML.includes('nicht zwangsweise'));
+ replies['/api/updates/system']={rollback_available:false,rollback_reason:'Keine vorherige Version.'};await assert.rejects(evaluate('actions["update-rollback"]()'),/Keine vorherige/);
+ const root={querySelector:()=>({})};ui.mount(root,{api:async()=>({})});assert.equal(timers.at(-1).delay,5000);ui.dispose();assert(cleared.length);
+ console.log('Update UI: live deployments, initial no-rollback state, cached-offer suppression, captured rollback/reboot confirmation and polling disposal passed.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,0 +1,32 @@
+# A raw disk image only. No shared passwords, SSH keys or instance secrets.
+[customizations.kernel]
+append = "console=tty0 console=ttyS0,115200n8"
+
+[customizations.disk]
+type = "gpt"
+minsize = "22 GiB"
+
+# Fedora CoreOS needs a separate /boot partition, including in custom raw images.
+[[customizations.disk.partitions]]
+type = "plain"
+mountpoint = "/boot/efi"
+fs_type = "vfat"
+label = "EFI-SYSTEM"
+part_label = "EFI-SYSTEM"
+minsize = "512 MiB"
+
+[[customizations.disk.partitions]]
+type = "plain"
+mountpoint = "/boot"
+fs_type = "ext4"
+label = "boot"
+part_label = "boot"
+minsize = "1 GiB"
+
+[[customizations.disk.partitions]]
+type = "plain"
+mountpoint = "/"
+fs_type = "xfs"
+label = "root"
+part_label = "root"
+minsize = "20 GiB"

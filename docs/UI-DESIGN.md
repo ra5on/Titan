@@ -1,0 +1,82 @@
+# Titan: Dashboard und Verwaltung
+
+Stand: 2. Oktober 2026. Titan bleibt Alpha. „VDSM“ verstehen wir hier als die Bedienidee von Synology DSM bzw. Virtual DSM, nicht als eine zusätzliche Titan-Laufzeit.
+
+## Was die Recherche hergibt
+
+Diese Auswahl ist eine kleine qualitative Stichprobe öffentlich auffindbarer Erfahrungsberichte. Sie enthält positive und negative Rückmeldungen, teils zu älteren Versionen. Sie ist weder eine Nutzerumfrage noch ein repräsentativer Beliebtheitsvergleich. Einzelne Fehlerberichte beweisen keinen allgemeinen Produktmangel. Herstellerdokumentation erklärt die Organisation, ersetzt aber keine Nutzererfahrung. Die beiden CasaOS-Berichte wurden vollständig im Browserwerkzeug gelesen; der DSM-Forenbericht wurde im abschließenden Quellencheck gelesen. Nur als Suchtreffer gelesene, später nicht erneut abrufbare Beiträge wurden durch diese überprüften Quellen ersetzt.
+
+| Quelle | Beobachtung | Schluss für Titan |
+| --- | --- | --- |
+| [Anyone tried CasaOS?](https://lowendspirit.com/discussion/8494/anyone-tried-casaos), Oktober/November 2024 | Nutzer berichten von einfacher App-Verwaltung und einem hilfreichen Dashboard. Ein Nutzer beschreibt in derselben Diskussion einen zeitweise unerreichbaren Zugang. | App-Kacheln und direkte Installation behalten; Status und Fehler sichtbar machen. |
+| [CasaOS: Apps finden eingehängtes Laufwerk nicht, Issue #1765](https://github.com/IceWhaleTech/CasaOS/issues/1765), April 2024, inzwischen geschlossen | Ein Nutzer berichtet, dass Jellyfin/Plex die Inhalte eines eingehängten Datenlaufwerks nicht sehen. | Speicherbereiche vor der Installation benennen und auswählen lassen. Berechtigungen und tatsächliche Verfügbarkeit erklären. |
+| [DSM: Container Manager als Desktop-Verknüpfung](https://www.reddit.com/r/synology/comments/1apmauc), Februar 2024 | Ein Nutzer sucht die Verknüpfung zum Container Manager; die Lösung führt über das Hauptmenü. | Werkzeuge über eine feste Navigation und eine zentrale Verwaltung erreichbar machen. Direkter Zugriff über Navigation und Verwaltung; ab v0.4.5 zusätzlich ein NAS-Desktop nach der ausdrücklich gewünschten FygoOS-Vorlage. |
+| [Synology DS725+ Hands-on](https://www.techradar.com/pro/synology-ds725-nas-review), 2026 | Der Tester beschreibt einfache Einrichtung und Nutzung auf Telefon, Tablet und Desktop sowie verständliche Volume-Verwaltung. | Durchgängige responsive Formulare; Laufwerke und Aufgaben mit verständlichen Namen darstellen. |
+| [CasaOS – offizielle Produktseite](https://casaos.zimaspace.com/) | Dashboard und App-Installation stehen im Vordergrund. | Persönliche Übersicht mit Apps, Dateien und echten Statuswerten behalten. |
+| [Synology Package Center](https://kb.synology.com/en-me/DSM/tutorial/How_to_install_applications_with_Package_Center), aktualisiert Mai 2026; [DSM-7.3-Handbuch](https://global.synologydownload.com/download/Document/Software/UserGuide/Os/DSM/7.3/enu/Syno_UsersGuide_NAServer_7_3_enu.pdf) | Paketverwaltung und Systemverwaltung sind als eigene Aufgaben organisiert. | App Store, Dateimanager, Speicher und Systemverwaltung klar trennen und gegenseitig verlinken. |
+
+Der Hybridansatz ist unsere Designentscheidung aus diesen Hinweisen und den Titan-Anforderungen. Daraus lässt sich kein objektiver Sieger zwischen CasaOS und DSM ableiten.
+
+## Konkrete Oberfläche
+
+- **Übersicht:** gespeicherte, verschiebbare Kacheln für den täglichen Blick. CPU-Auslastung kommt aus echten CPU-Zeitdifferenzen; Load bleibt separat. Fehlende Temperaturwerte werden nicht erfunden. Der Verlauf verwendet echte Messzeitpunkte und zeigt Messlücken. Die Demo kennzeichnet Beispieldaten.
+- **Verwaltung:** eigener Einstieg mit Aufgabenbereichen Dateien/Speicher, Anwendungen/Virtualisierung und NAS-Verwaltung. Eine Suche findet Werkzeuge anhand von Name und Zweck. Alle Seiten sind über das Hauptmenü und die Aufgabenbereiche erreichbar.
+- **App Store:** installierte Apps oben, entdeckbare Vorlagen darunter. Suche über Name, Beschreibung und Kategorie; kombinierbare Filter für Kategorie und Installationsstatus; sichtbare Trefferzahl. 42 gepflegte Vorlagen mit „Details & Anmeldung“ erklären Standardzugänge, Erst-Einrichtung, selbst gewählte oder temporär generierte Kennwörter. Die Hinweise stehen vor Installation und beim Verwalten zur Verfügung. Das Formular zeigt ausschließlich die Optionen der kuratierten Vorlage. Persönliche Passwörter werden als Passwortfelder erfasst und nicht wieder ausgelesen.
+- **Dienste:** eine Liste mit Suche und Zustandsfilter. Der Dienstname öffnet Details, Logs, Autostart, erlaubte Aktionen und – soweit tatsächlich verfügbar – Prozessmetriken und Abhängigkeiten. Geschützte Titan-Zugangsdienste bleiben erkennbar.
+- **Pfadauswahl:** VM-Speicher, ISO-Bibliothek, Laufwerksimages und Freigaben verwenden vorhandene benannte Dropdowns. Apps wählen eine freigegebene Datenquelle mit passendem Dienstkontozugriff. Sicherungsziele und Dienst-Arbeitsverzeichnisse wählen jetzt benannte Speicherorte und vorhandene Unterordner; ein technischer Pfad ist zusätzliche Information. Eigene Dienstprogramme sind eine ausdrücklich erweiterte Option.
+
+## Daten- und Sicherheitsgrenzen der Auswahl
+
+`GET /api/storage-locations` steht nur Administratoren offen und verändert keine Laufwerke. Die Liste basiert auf vorhandenen Verzeichnissen, Freigaben und eingehängten Laufwerken. Als Backupziel werden nur vom bestehenden Backupvalidator geprüfte separate beschreibbare Dateisysteme angeboten. Kanonische uCore-Orte `/var/mnt` und `/var/media` werden unterstützt. Unverfügbare oder nicht sicher geprüfte Laufwerke werden nicht als Sicherungsziele angeboten.
+
+Der Ordnerpicker verwendet die bestehende Administrator-Dateiliste, respektiert deren Lesbarkeit, überspringt symbolische Links und bietet weitere Seiten bei großen Ordnern an. Das Auswählen ersetzt keine Backendprüfung: jede eigentliche Aktion prüft Rechte, Mounts und Pfade erneut. Die Auswahlliste kann sich zwischen Anzeige und Ausführung ändern.
+
+App-Datenbindung bleibt bewusst auf verwaltete Freigaben begrenzt. Das Formular bietet keine freien Compose-Texte, Umgebungsvariablen oder ungeprüften Host-Mounts. Titan-App-Konfiguration, App-Nutzdaten und Docker-interne Images sind unterschiedliche Speicherbereiche; das Auswählen einer Freigabe verschiebt nicht den globalen Docker-Datenbestand.
+
+## Verifikation
+
+Gezielte Node-Regressionen prüfen Such-/Filterkombinationen, nur kuratierte App-Optionen, Passwortfelder, Escaping, bestehende Unterordner, Mount-Auswahl, Paging und das Verwerfen verspäteter Antworten nach dem Verlassen eines Pickers. Python-Tests prüfen verfügbare Mounts, ausgeschlossene unsichere Sicherungsziele, fehlende Verzeichnisse, doppelte Einträge und Lookupfehler.
+
+Im zusammengeführten Stand wurde die isolierte Demo auf Desktop und bei 390 px geprüft: Verwaltung, Navigation, App-Suche/Kategorien/Installationsoptionen, Backup-Laufwerksauswahl mit Unterordnern und Dienstanlage mit Programm-/Ordnerauswahl. Die Dienstanlage erzeugte einen erfolgreichen Demo-Auftrag. Die mobile Ansicht zeigte keinen horizontalen Überlauf. Gefundene Fokusprobleme beim Ordnerwechsel, Dialogschließen und Speichern wurden korrigiert und gezielt durch Node-Regressionen abgesichert.
+
+Screenshots: [Verwaltung Desktop](images/titan-040-control-desktop.png), [Verwaltung Mobil](images/titan-040-control-mobile.png), [App Store Desktop](images/titan-040-appstore-desktop.png). Die zusätzliche HTTP-Regression bestätigt, dass normale Nutzer keine Speicherortliste erhalten (403) und Administratoren den richtigen Leseaufruf auslösen (200). Die abschließende Browserprobe bestätigte 26 App-Vorlagen, passende Kategoriefilter sowie den erhaltenen Fokus nach Ordnerauswahl und dem Speichern der Sicherungseinstellungen.
+
+Die Prüfung für v0.4.1 bestätigt zusätzlich 42 Vorlagen, öffentliche Standardzugänge im Detail- und Installationsdialog sowie den fokussierten Sprung aus einer installierten Demo-App zum Protokoll. Die 390-Pixel-Ansicht zeigt keinen horizontalen Überlauf. Die Kopierfunktion bietet bei nicht verfügbarem Browser-Clipboard einen markierten Wert zum manuellen Kopieren.
+
+Eine Demo bestätigt Bedienabläufe, ersetzt aber keine reale App-Installation, Berechtigungsprüfung auf einem NAS oder einen Image-Starttest.
+
+## Dateimanager und Hauptmenü ab v0.4.4
+
+Jede bearbeitbare reguläre Datei bietet einen Stift direkt in der Zeile und die Taste F4. Die Vorschau prüft UTF-8-Inhalt anstelle einer Liste erlaubter Textendungen. Der Editor speichert mit Strg/Cmd+S oder dem Speichern-Knopf, bleibt geöffnet und zeigt Änderung, Dateigröße, Zeile/Spalte sowie Speichern/Fehler an. BOM und einheitliche LF-, CRLF- oder CR-Zeilenenden bleiben erhalten; gemischte Zeilenenden werden erst bei einer gespeicherten Änderung ausdrücklich auf LF vereinheitlicht. Binäre Inhalte, zu große Dateien und schreibgeschützte Ziele werden nicht überschrieben. Titan prüft die gelesene Dateiversion vor dem Schreiben und die gespeicherten Bytes anschließend erneut.
+
+Die Dateimanager-Seite nutzt die sichtbare Fensterhöhe: Befehle, Pfad und Suche bleiben stehen, Dateiorte und Inhalte scrollen innerhalb ihrer Bereiche. Auf Mobilgeräten sind Liste und Eigenschaften gemeinsam erreichbar. Sehr kurze Fenster erhalten einen vertikalen Scroll-Fallback, damit die Aktionen erreichbar bleiben.
+
+Über den Knopf links in der Kopfzeile lässt sich die Desktop-Navigation auf Symbole reduzieren. Namen bleiben über Tooltips und barrierefreie Beschriftungen verfügbar. Ab v0.4.5 startet sie auf Desktop und Tablet ohne gespeicherte Einstellung platzsparend; die persönliche Auswahl hat Vorrang. Sie wird im Browser pro Benutzer gespeichert. Bis 760 Pixeln bleibt die Navigation ein aufklappbares Menü mit Escape- und Fokussteuerung.
+
+
+## NAS-Desktop ab v0.4.5
+
+Auf ausdrücklichen Wunsch dient [FygoOS](https://fygonas.com/de-DE) als neue Bedienvorlage. Die öffentlich sichtbaren Desktop-, Datei- und VM-Ansichten wurden im Browser gelesen: farbige App-Symbole, ein schmales Dock, helle Verwaltungsfenster mit interner Navigation und direkt auswählbare Systembereiche. Titan verwendet eigene SVG-Symbole und einen CSS-Hintergrund; Markenbilder und Produktgrafiken werden nicht übernommen.
+
+Der Desktop zeigt zwölf direkte Werkzeuge und daneben die bisherigen sechs Statuskarten. Die gespeicherte Reihenfolge bleibt erhalten, CPU/RAM und Uhrzeit aktualisieren sich weiter. Appseiten haben eine Titelleiste mit echter Rückkehr zum Desktop und einem Knopf für mehr Fensterbreite. Eine vorhandene Menüpräferenz bleibt gültig; neue Desktop-Sitzungen beginnen mit dem kompakten Dock. Das Dock scrollt bei geringer Höhe und hält das Konto erreichbar.
+
+Das Einstellungszentrum bietet zehn Kategorien mit kombinierbarer Suche. Server/Zugriff, Update-Kanal und Komponentenprüfung haben eigene Unterseiten. Getrennte Formulare bewahren alle ausgeblendeten Werte; das Speichern des Servernamens ändert keine Update-Einstellung. Die weiteren Kategorien öffnen die bestehenden Verwaltungsbereiche.
+
+VM- und Docker-Manager ordnen ihre Daten mit internen Tabs, Suche und Statusfilter. Die VM-Ansichten zeigen Maschinen, konfigurierte Ressourcensummen, ISO-Medien und tatsächliche Host-CPUs inklusive zuverlässig gemeldeter P-/E-Kerne. Es werden keine nicht gemessenen Gast-Auslastungen erfunden. Docker zeigt verwaltete Apps, Status, Adressen und die vorhandenen Steuerungs-, Anmelde- und Netzwerkaktionen. Der separate App Store behält 42 Vorlagen und Installationsoptionen. Tabs und Filter bleiben innerhalb der Sitzung pro Konto erhalten.
+
+Der Dateimanager behält System-/Freigabeorte, Listen-/Symbolansicht, Vorschau, direkten Texteditor und feste Befehlsleisten. Alle Verwaltungsseiten, Formulare, Dialoge, Diagramme und Hinweise verwenden das neue helle Thema. Auf dem Telefon werden die internen Manager-Tabs horizontal und die Einstellungs-Kacheln untereinander angezeigt.
+
+
+## Gemeinsamer Fensterrahmen und Hauptmenü ab v0.4.6
+
+v0.4.6 ersetzt die oben historisch beschriebenen Seitenleisten-/Dockvarianten vollständig. Die globale linke Navigation und ihr Drawer-Code sind entfernt. Hauptmenü, Meldungen, Aufträge und Konto sind beschriftete Schaltflächen in der Kopfzeile. Die internen, auf die jeweilige App begrenzten Ansichten von VM-/Docker-Manager sowie die Dateiorte bleiben erhalten.
+
+Die erneut betrachteten öffentlichen [FygoOS-Ansichten](https://fygonas.com/de-DE) zeigen ruhige Verwaltungsfenster und kompakte Anwendungssymbole. Die offiziellen Beschreibungen von [Synology DSM](https://kb.synology.com/index.php/en-us/DSM/help/DSM/MainMenu/get_started?version=7) und [QNAP QTS](https://docs.qnap.com/operating-system/qts/5.1.x/en-us/desktop-CEDCE7CF.html) dienen zusätzlich als Orientierung für Hauptmenü, Appfenster und Desktop. Die folgenden Maße sind eigene Titan-Entscheidungen, keine übernommenen Herstellervorgaben.
+
+- Appfenster sind normalerweise maximal 1080 px (Einstellungen), 1120 px (Verwaltung), 1200 px (Terminal), 1280 px (Dateien/VMs/Docker) oder 1360 px (App Store) breit und höchstens 820 px hoch. Verfügbarer Platz und Browserzoom begrenzen diese Maße immer. Maximieren nutzt die gesamte Arbeitsfläche; die Wahl bleibt pro Konto und App gespeichert.
+- Auf breiten Desktops lässt sich die Größe über den nativen Griff rechts unten verändern. Container-Abfragen passen VM-/Docker-Inhalte an die tatsächliche Fensterbreite an. Bis 1000 px werden Apps automatisch flächig; die manuell gewählte Desktopgröße kann dies nicht übersteuern.
+- Das Hauptmenü verwendet 112 px breite Appkacheln mit 56 px großen Symbolen. Bei geringerer Breite sind die Symbole 48 px groß. Mehr Platz erzeugt mehr Spalten statt immer größerer Symbole. Einstellungs-Kacheln verwenden ein einheitliches Raster innerhalb aller Kategorien.
+- Hauptmenü und Statuskarten scrollen am Desktop unabhängig. Alle Verwaltungsfenster begrenzen die Inhaltshöhe; Fensterkopf, Manager-Navigation und Befehle bleiben erreichbar. Bei sehr geringer Höhe wird ausdrücklich der gesamte Appinhalt scrollbar. Dateiaktionen behalten die bestehenden eigenen Scrollbereiche.
+- Der Telefonkopf hält die Beschriftung „Aufträge“ auch bei 320 px sichtbar. Dialoge, mehrspaltige Formulare, Tabellen, Dateimanager, Appkatalog und Verwaltungsseiten passen sich dem verfügbaren Platz an. Bewegungsreduzierung wird respektiert.
+
+Der native Größenwechsel verändert weder NAS-Daten noch die laufenden Dienste. Das Schließen einer Appansicht kehrt zum Hauptmenü zurück; bestehende Lebenszyklen von Terminal, Pickern und Live-Abfragen bleiben erhalten.

@@ -1,0 +1,59 @@
+{
+  "mount_configuration": "none",
+  "partition_table": {
+    "type": "gpt",
+    "uuid": "00000000-0000-4000-a000-000000000001",
+    "extra_padding": 1031168,
+    "partitions": [
+      {
+        "bootable": true,
+        "label": "BIOS-BOOT",
+        "size": "1 MiB",
+        "type": "21686148-6449-6E6F-744E-656564454649"
+      },
+      {
+        "label": "EFI-SYSTEM",
+        "size": "512 MiB",
+        "type": "C12A7328-F81F-11D2-BA4B-00A0C93EC93B",
+        "payload_type": "filesystem",
+        "payload": {
+          "fstab_freq": 0,
+          "fstab_options": "umask=0077,shortname=winnt",
+          "fstab_passno": 2,
+          "label": "EFI-SYSTEM",
+          "mountpoint": "/boot/efi",
+          "type": "vfat"
+        }
+      },
+      {
+        "label": "boot",
+        "size": "1 GiB",
+        "type": "BC13C2FF-59E6-4262-A352-B275FD6F7172",
+        "payload_type": "filesystem",
+        "payload": {
+          "fstab_freq": 0,
+          "fstab_options": "defaults",
+          "fstab_passno": 0,
+          "label": "boot",
+          "mountpoint": "/boot",
+          "type": "ext4",
+          "uuid": "96d15588-3596-4b3c-adca-a2ff7279ea63"
+        }
+      },
+      {
+        "label": "root",
+        "type": "4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709",
+        "payload_type": "filesystem",
+        "payload": {
+          "fstab_freq": 0,
+          "fstab_options": "defaults",
+          "fstab_passno": 0,
+          "label": "root",
+          "mountpoint": "/",
+          "type": "xfs",
+          "uuid": "910678ff-f77e-4a7d-8d53-86f2ac47a823"
+        }
+      }
+    ]
+  }
+}

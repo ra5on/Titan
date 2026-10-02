@@ -1,0 +1,29 @@
+name: Retire obsolete package downloads
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/retire-packages.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Remove superseded downloads and notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Only the eleven explicitly superseded package releases are affected.
+          for task_tag in v0.1.0 v0.2.{0..9}; do
+            gh release view "$task_tag" --json assets --jq '.assets[].name' > "$RUNNER_TEMP/old-assets.txt"
+            while IFS= read -r task_asset; do
+              case "$task_asset" in
+                titan_*.deb|manifest.json|manifest.json.sig) gh release delete-asset "$task_tag" "$task_asset" --yes ;;
+              esac
+            done < "$RUNNER_TEMP/old-assets.txt"
+            printf '# Titan %s · Archivierte Alpha\n\nDiese Version wurde durch das vollständige uCore-HCI-Systemimage ersetzt. Die alten Paketdownloads wurden zurückgezogen. Aktuelle Installation und Teststatus: https://github.com/ra5on/Titan/releases\n' "$task_tag" > "$RUNNER_TEMP/retired-notes.md"
+            gh release edit "$task_tag" --title "Titan $task_tag · Archivierte Alpha" --notes-file "$RUNNER_TEMP/retired-notes.md" --prerelease --latest=false
+          done

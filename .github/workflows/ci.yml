@@ -1,0 +1,22 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python and API tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Shell syntax
+        run: |
+          for task_script in bootstrap.sh install.sh scripts/*.sh image/*.sh; do bash -n "$task_script"; done
+      - name: JavaScript syntax
+        run: |
+          for task_js in titan/web/*.js; do node --check "$task_js"; done
+      - name: All UI behavior suites
+        run: |
+          for task_test in tests/*.cjs; do node "$task_test"; done

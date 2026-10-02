@@ -1,0 +1,12 @@
+import RFB from '/novnc/core/rfb.js';
+const vm = new URLSearchParams(location.search).get('vm');
+const screen = document.querySelector('#screen');
+screen.style.height = 'calc(100vh - 82px)';
+const status = document.querySelector('#console-status');
+const rfb = new RFB(screen, `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/vnc?vm=${encodeURIComponent(vm)}`);
+rfb.scaleViewport = true;
+rfb.resizeSession = true;
+rfb.addEventListener('connect', () => status.textContent = 'Verbunden');
+rfb.addEventListener('disconnect', () => status.textContent = 'Verbindung getrennt. Seite zum erneuten Verbinden neu laden.');
+rfb.addEventListener('credentialsrequired', () => status.textContent = 'Die VM-Konsole benötigt Zugangsdaten. Konfiguration auf dem Host prüfen.');
+document.querySelector('#ctrl-alt-del').addEventListener('click', () => rfb.sendCtrlAltDel());

@@ -1,0 +1,74 @@
+name: Debian preview image
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: debian-preview-image
+  cancel-in-progress: true
+jobs:
+  image:
+    if: false # Superseded single-root preview; A/B workflow follows.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare disposable image builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient
+          # Hosted runners restrict passt user namespaces; use QEMU SLIRP in this disposable builder.
+          sudo apt-get remove -y passt
+          sudo chmod a+r /boot/vmlinuz-*
+          if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
+      - name: Regression tests
+        run: |
+          python3 -m unittest discover -s tests
+          for script in image/debian/*.sh scripts/build-debian-image.sh scripts/smoke-image.sh; do bash -n "$script"; done
+      - name: Build Debian preview disk
+        run: bash scripts/build-debian-image.sh --disposable-runner
+      - name: Boot and runtime checks on disposable overlay
+        run: bash scripts/smoke-image.sh dist/debian-image/titan-debian-preview-20261002-amd64.img --debian-preview
+      - name: Compress and sign verified preview
+        env:
+          SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}
+        run: |
+          xz -T2 -3 dist/debian-image/titan-debian-preview-20261002-amd64.img
+          cp packaging/release-public.pem dist/debian-image/release-public.pem
+          cp docs/DEBIAN-PREVIEW.md dist/debian-image/README-DEBIAN.md
+          cp image/debian/base.json dist/debian-image/debian-base.json
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('dist/debian-image')
+          assert (p/'boot-status').read_text().strip()=='passed'
+          assert json.loads((p/'runtime-test.json').read_text())['ok'] is True
+          assert (p/'titan-debian-preview-20261002-amd64.img.xz').stat().st_size < 2147483648
+          PY
+          cd dist/debian-image
+          sha256sum titan-*.img.xz runtime-test.json debian-base.json README-DEBIAN.md > SHA256SUMS
+          task_key="$RUNNER_TEMP/debian-preview-key.pem"
+          trap 'rm -f "$task_key"' EXIT
+          umask 077
+          printf '%s\n' "$SIGNING_KEY" > "$task_key"
+          openssl pkeyutl -sign -rawin -inkey "$task_key" -in SHA256SUMS -out SHA256SUMS.sig
+          openssl pkeyutl -verify -rawin -pubin -inkey release-public.pem -in SHA256SUMS -sigfile SHA256SUMS.sig
+      - name: Publish separate Debian preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create debian-preview-20261002 \
+            dist/debian-image/titan-*.img.xz dist/debian-image/SHA256SUMS dist/debian-image/SHA256SUMS.sig \
+            dist/debian-image/release-public.pem dist/debian-image/runtime-test.json \
+            dist/debian-image/debian-base.json dist/debian-image/README-DEBIAN.md \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title 'Titan Debian 13 · Testimage 2026-10-02' --notes-file docs/DEBIAN-PREVIEW.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debian-image-diagnostics
+          path: |
+            dist/debian-image/boot-status
+            dist/debian-image/boot-console.log
+            dist/debian-image/boot-http-error.txt
+            dist/debian-image/runtime-test.json
+          retention-days: 7

@@ -1,0 +1,29 @@
+# Offline installation media. Storage is intentionally left unconfigured:
+# Anaconda must request a target disk and confirmation in its interactive UI.
+[customizations.iso]
+volume_id = "TITAN_INSTALL"
+
+[customizations.installer.modules]
+enable = ["org.fedoraproject.Anaconda.Modules.Localization", "org.fedoraproject.Anaconda.Modules.Timezone"]
+
+[customizations.installer.kickstart]
+contents = '''
+text
+lang de_DE.UTF-8
+keyboard --xlayouts=de
+timezone Europe/Berlin --utc
+rootpw --lock
+selinux --enforcing
+network --bootproto=dhcp --device=link --activate --onboot=on
+bootloader --append="console=tty0 console=ttyS0,115200n8"
+
+# No automatic partitioning or disk erasure. The administrator selects disks.
+# The builder adds the local OCI payload and original bootc update reference.
+%pre --erroronfail
+if ! test -s /run/install/repo/container/index.json; then
+    echo 'Titan ISO: missing offline system payload' > /dev/ttyS0
+    exit 1
+fi
+echo 'TITAN_ISO_READY: offline payload present; target disk selection required' > /dev/ttyS0
+%end
+'''

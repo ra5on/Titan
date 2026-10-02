@@ -1,0 +1,8 @@
+{
+  "format": "titan-ucore-image-v1",
+  "platform": "ucore-hci",
+  "version": "0.4.6",
+  "release_stage": "alpha",
+  "architecture": "x86_64",
+  "image_repository": "ghcr.io/ra5on/titan"
+}

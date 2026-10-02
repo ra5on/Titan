@@ -1,0 +1,31 @@
+[Unit]
+Description=Titan HTTPS endpoint on port 5000
+After=network.target titan-web.service
+Wants=titan-web.service
+
+Requires=titan-firstboot.service
+After=titan-firstboot.service
+
+[Service]
+Type=exec
+User=titan-proxy
+Group=titan-proxy
+Environment=XDG_DATA_HOME=/var/lib/titan-proxy
+Environment=XDG_CONFIG_HOME=/var/lib/titan-proxy
+ExecStart=/usr/bin/caddy run --config /etc/titan/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=3
+StateDirectory=titan-proxy
+StateDirectoryMode=0700
+StandardOutput=journal+console
+StandardError=journal+console
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/titan-proxy
+
+SELinuxContext=system_u:system_r:unconfined_service_t:s0
+
+[Install]
+WantedBy=multi-user.target

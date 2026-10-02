@@ -1,0 +1,105 @@
+name: Publish verified v0.4.0 media
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-v040.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: titan-publish-v0.4.0
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'ra5on/Titan'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERIFIED_RUN: '36944018416'
+      VERIFIED_SOURCE: b3c081c1619d18f4c6868390f6429ae98e61c20c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b3c081c1619d18f4c6868390f6429ae98e61c20c
+      - name: Verify exact retained build
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_RUN" > "$RUNNER_TEMP/build.json"
+          python3 - <<'PY'
+          import json,os
+          value=json.load(open(os.environ['RUNNER_TEMP']+'/build.json'))
+          if (value['id'] != int(os.environ['VERIFIED_RUN']) or value['head_sha'] != os.environ['VERIFIED_SOURCE']
+              or value['path'] != '.github/workflows/release.yml' or value['status'] != 'completed'):
+              raise SystemExit('Unexpected build source; publication refused.')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: '11202913778'
+          run-id: '36944018416'
+          github-token: ${{ github.token }}
+          path: dist
+          merge-multiple: true
+      - name: Verify signatures, all six gates and every asset
+        run: |
+          openssl pkeyutl -verify -rawin -pubin -inkey packaging/release-public.pem -in dist/manifest.json -sigfile dist/manifest.json.sig
+          openssl pkeyutl -verify -rawin -pubin -inkey packaging/release-public.pem -in dist/SHA256SUMS -sigfile dist/SHA256SUMS.sig
+          python3 - <<'PY'
+          import hashlib,json,os,re
+          from pathlib import Path
+          root=Path('dist'); value=json.loads((root/'manifest.json').read_text())
+          if (value.get('version') != '0.4.0' or value.get('release_stage') != 'alpha'
+              or value.get('platform') != 'ucore-hci' or value.get('architecture') != 'x86_64'
+              or value.get('asset') != 'titan-0.4.0-x86_64.img.xz'):
+              raise SystemExit('Unexpected signed release identity.')
+          statuses=[value.get('boot_test'),value.get('runtime_test')]
+          statuses += [value.get('iso',{}).get(key) for key in ('boot_test','install_test','system_boot_test','runtime_test')]
+          if statuses != ['passed']*6: raise SystemExit('Critical verification incomplete.')
+          proof=json.loads((root/'boot-test.json').read_text())
+          if proof.get('source') != os.environ['VERIFIED_SOURCE'] or proof.get('run') != 'https://github.com/ra5on/Titan/actions/runs/'+os.environ['VERIFIED_RUN']:
+              raise SystemExit('Unexpected retained artifact source.')
+          for report in ('runtime-test.json','iso-runtime-test.json','iso-test.json'):
+              if json.loads((root/report).read_text()).get('ok') is not True:
+                  raise SystemExit('Retained runtime report failed.')
+          names=set()
+          for asset in value['assets']:
+              name=asset['name']; path=root/name
+              if (not re.fullmatch(r'[A-Za-z0-9._-]+',name) or name in names
+                  or not path.is_file() or path.is_symlink() or asset['size'] <= 0
+                  or asset['size'] >= 2147483648 or path.stat().st_size != asset['size']):
+                  raise SystemExit('Unsafe or incomplete retained asset.')
+              with path.open('rb') as stream:
+                  if hashlib.file_digest(stream,'sha256').hexdigest() != asset['sha256']:
+                      raise SystemExit('Retained asset checksum mismatch.')
+              names.add(name)
+          if (root/'release-public.pem').read_bytes() != Path('packaging/release-public.pem').read_bytes():
+              raise SystemExit('Release key mismatch.')
+          print('Exact retained media, signatures and all six critical outcomes verified.')
+          PY
+      - name: Complete the existing draft and publish
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/401462480" > "$RUNNER_TEMP/draft.json"
+          python3 - <<'PY'
+          import json,os,subprocess
+          from pathlib import Path
+          draft=json.load(open(os.environ['RUNNER_TEMP']+'/draft.json'))
+          if (draft['tag_name'] != 'v0.4.0' or draft['draft'] is not True
+              or draft['target_commitish'] != os.environ['VERIFIED_SOURCE']):
+              raise SystemExit('Only the exact unpublished verified draft may be completed.')
+          for asset in draft['assets']:
+              if asset['name'] in ('boot-http-error.txt','iso-http-error.txt') and asset['size'] == 0:
+                  subprocess.run(['gh','api','--method','DELETE','repos/'+os.environ['GITHUB_REPOSITORY']+'/releases/assets/'+str(asset['id'])],check=True)
+          root=Path('dist'); manifest=json.loads((root/'manifest.json').read_text())
+          names=[asset['name'] for asset in manifest['assets']]
+          names += ['manifest.json','manifest.json.sig','SHA256SUMS','SHA256SUMS.sig','boot-test.json','boot-console.log','iso-test.json','iso-console.log','iso-system-boot-console.log','iso-runtime-test.json','runtime-test.json']
+          for name in ('boot-http-error.txt','iso-http-error.txt'):
+              path=root/name
+              if path.is_file() and not path.is_symlink() and path.stat().st_size: names.append(name)
+          paths=[root/name for name in names]
+          if any(not path.is_file() or path.is_symlink() or not path.stat().st_size for path in paths):
+              raise SystemExit('A required publication file is missing or empty.')
+          subprocess.run(['gh','release','upload','v0.4.0',*[str(path) for path in paths],'--clobber'],check=True)
+          PY
+          cp docs/RELEASE-0.4.0.md "$RUNNER_TEMP/release-notes.md"
+          printf '\nIMG und ISO: **alle sechs automatischen Start-, Installations- und Laufzeitprüfungen bestanden**. Docker-App-Webseite vor/nach erneutem Start und authentifizierte VM-Konsole geprüft. Veröffentlichung aus dem unveränderten signierten Artefakt von Lauf 36944018416. Physische Hardware, SMB, echtes Gastbetriebssystem und Update/Rollback bleiben separat zu prüfen.\n' >> "$RUNNER_TEMP/release-notes.md"
+          gh release edit v0.4.0 --draft=false --prerelease --latest=false --notes-file "$RUNNER_TEMP/release-notes.md"

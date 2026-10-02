@@ -1,0 +1,21 @@
+module titan_shares 1.0;
+require {
+    type smbd_t;
+    type container_t;
+    attribute file_type;
+    attribute virt_domain;
+    attribute virt_driver_domain;
+    attribute virt_system_domain;
+    class dir { add_name create getattr ioctl lock open read remove_name rename reparent rmdir search setattr write };
+    class file { append create getattr ioctl link lock map open read rename setattr unlink write };
+    class lnk_file { create getattr read rename setattr unlink };
+}
+# Only Titan-managed shares carry this type. Linux users, ACLs and bind mounts
+# still decide which app and SMB account can access a particular share.
+type titan_share_t, file_type;
+allow { smbd_t container_t } titan_share_t:dir { add_name create getattr ioctl lock open read remove_name rename reparent rmdir search setattr write };
+allow { smbd_t container_t } titan_share_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
+allow { smbd_t container_t } titan_share_t:lnk_file { create getattr read rename setattr unlink };
+
+# Guests must traverse a volume parent to their separately labeled disk directory.
+allow { virt_domain virt_driver_domain virt_system_domain } titan_share_t:dir { search getattr };

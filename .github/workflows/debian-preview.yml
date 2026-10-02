@@ -1,0 +1,45 @@
+name: Debian integration preview
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    container: debian:13-slim
+    timeout-minutes: 25
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare disposable Debian container
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3 ca-certificates
+          printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+      - name: Build and install preview with real Debian dependencies
+        run: |
+          python3 scripts/build-debian-package.py
+          apt-get install -y --no-install-recommends ./dist/debian/*.deb
+      - name: Verify packaged binaries and integration
+        run: |
+          docker compose version
+          virsh --version
+          qemu-img --version
+          test -f /usr/share/novnc/core/rfb.js
+          test -f /usr/lib/systemd/system/virtlockd.socket
+          test -f /usr/lib/systemd/system/virtlogd.socket
+          test -f /usr/lib/systemd/system/libvirtd.socket
+          test -f /usr/lib/systemd/system/smbd.service
+          getent passwd libvirt-qemu
+          PYTHONPATH=/usr/lib/titan python3 -c 'from titan.platforms import current; assert current().name == "debian-preview"'
+          python3 -m unittest discover -s tests -p test_debian_platform.py -v
+          dpkg-query -W > dist/debian/packages.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debian-preview-not-a-bootable-image
+          path: dist/debian/
+          retention-days: 7

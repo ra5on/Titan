@@ -1,0 +1,299 @@
+name: uCore update
+on:
+  push:
+    branches: ['release/v*']
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      installer_image:
+        description: 'Also publish a downloadable installation IMG'
+        type: boolean
+        required: false
+        default: false
+permissions:
+  contents: write
+  packages: write
+concurrency:
+  group: titan-release
+  cancel-in-progress: true
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Verify source and release
+        id: release
+        env:
+          INSTALLER_IMAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.installer_image || false }}
+        run: |
+          python3 -m unittest discover -s tests
+          for task_test in tests/*.cjs; do node "$task_test"; done
+          for task_script in bootstrap.sh install.sh scripts/*.sh image/*.sh; do bash -n "$task_script"; done
+          task_version="$(python3 -c 'from titan import __version__; print(__version__)')"
+          task_stage="$(python3 -c 'from titan import __release_stage__; print(__release_stage__)')"
+          test -s "docs/RELEASE-$task_version.md" || { echo 'Versionsgebundene Release-Notizen fehlen.' >&2; exit 1; }
+          task_tag="v$task_version"
+          [[ "$task_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9]+)?$ ]]
+          [[ "$task_stage" =~ ^(alpha|beta|stable)$ ]]
+          case "$GITHUB_EVENT_NAME" in
+            push)
+              if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$task_tag";
+              else test "$GITHUB_REF_TYPE" = branch && test "$GITHUB_REF_NAME" = "release/$task_tag"; fi ;;
+          esac
+          if git show-ref --verify --quiet "refs/tags/$task_tag"; then
+            test "$(git rev-parse "${task_tag}^{commit}")" = "$GITHUB_SHA"
+          fi
+          printf 'tag=%s\nversion=%s\nstage=%s\n' "$task_tag" "$task_version" "$task_stage" >> "$GITHUB_OUTPUT"
+          printf 'installer_image=%s\n' "$INSTALLER_IMAGE" >> "$GITHUB_OUTPUT"
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.4.3
+      - name: Prepare isolated runner
+        timeout-minutes: 20
+        run: |
+          # Use Ubuntu's main archive; the Azure mirror can stall large downloads.
+          for task_source in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+            if [[ -f "$task_source" ]]; then
+              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$task_source"
+            fi
+          done
+          sudo timeout 5m apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=45 -o Acquire::https::Timeout=45 update
+          sudo timeout 12m apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=45 -o Acquire::https::Timeout=45 install -y podman skopeo qemu-system-x86 qemu-utils ovmf xz-utils smbclient
+          # Allow this isolated runner's user to use KVM when provided by GitHub.
+          if [[ -c /dev/kvm ]]; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
+          # Make room on this disposable runner, never on a user's NAS.
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache
+          mkdir -p dist
+      - name: Build complete uCore-HCI image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          export DOCKER_CONFIG="$RUNNER_TEMP/docker"
+          mkdir -p "$DOCKER_CONFIG"
+          printf 'DOCKER_CONFIG=%s/docker\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf '%s' "$GH_TOKEN" | sudo podman login --authfile "$RUNNER_TEMP/docker/config.json" ghcr.io --username "$GITHUB_REPOSITORY_OWNER" --password-stdin
+          sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/docker/config.json"
+          task_reuse=false
+          if skopeo inspect --authfile "$DOCKER_CONFIG/config.json" "docker://ghcr.io/ra5on/titan:$RELEASE_TAG" > "$RUNNER_TEMP/previous-image.json" 2>/dev/null; then
+            mapfile -t task_existing < <(python3 - "$RUNNER_TEMP/previous-image.json" "$RELEASE_VERSION" <<'PYIMAGE'
+          import json,re,sys
+          value=json.load(open(sys.argv[1])); labels=value.get('Labels') or {}
+          source=labels.get('org.opencontainers.image.revision',''); digest=value.get('Digest','')
+          if (re.fullmatch('[a-f0-9]{40}',source) and re.fullmatch('sha256:[a-f0-9]{64}',digest)
+              and labels.get('org.opencontainers.image.version') == sys.argv[2]):
+              print(source); print(digest)
+          PYIMAGE
+            )
+            if [[ ${#task_existing[@]} == 2 ]] && git merge-base --is-ancestor "${task_existing[0]}" "$GITHUB_SHA" && \
+               git diff --quiet "${task_existing[0]}" "$GITHUB_SHA" -- Containerfile .containerignore titan packaging image \
+                 scripts/diagnose.sh scripts/component-functions.sh scripts/install-components.sh LICENSE NOTICE; then
+              printf '%s\n' "${task_existing[1]}" > dist/image.digest
+              task_reuse=true
+              echo 'Reusing identical system sources; full signature and raw-boot gates still apply.'
+            fi
+          fi
+          if ! "$task_reuse"; then
+            sudo podman build --platform linux/amd64 --format oci --pull=always \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --label "org.opencontainers.image.version=$RELEASE_VERSION" \
+              --tag "ghcr.io/ra5on/titan:$RELEASE_TAG" .
+            sudo podman push --authfile "$RUNNER_TEMP/docker/config.json" --digestfile dist/image.digest "ghcr.io/ra5on/titan:$RELEASE_TAG"
+            sudo chown "$(id -u):$(id -g)" dist/image.digest
+          fi
+      - name: Sign and verify OCI image
+        env:
+          SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}
+          COSIGN_PASSWORD: ''
+        run: |
+          test -n "$SIGNING_KEY" || { echo 'TITAN_SIGNING_KEY fehlt.' >&2; exit 1; }
+          umask 077
+          task_key="$RUNNER_TEMP/titan-release.pem"
+          trap 'rm -f -- "$task_key" "$RUNNER_TEMP/titan-cosign.key" "$RUNNER_TEMP/titan-cosign.pub"' EXIT
+          printf '%s\n' "$SIGNING_KEY" > "$task_key"
+          cosign import-key-pair --key "$task_key" --output-key-prefix "$RUNNER_TEMP/titan-cosign"
+          cmp packaging/release-public.pem "$RUNNER_TEMP/titan-cosign.pub"
+          task_image="ghcr.io/ra5on/titan@$(cat dist/image.digest)"
+          # v2 attachments are also understood by bootc's container trust policy.
+          cosign sign --yes --tlog-upload=false --key "$RUNNER_TEMP/titan-cosign.key" "$task_image"
+          cosign verify --insecure-ignore-tlog --key packaging/release-public.pem "$task_image"
+          python3 - <<'PY'
+          import json
+          policy={'default':[{'type':'reject'}], 'transports':{'docker':{'ghcr.io/ra5on/titan':[
+            {'type':'sigstoreSigned','keyPath':str(__import__('pathlib').Path('packaging/release-public.pem').resolve()),
+             'signedIdentity':{'type':'matchRepository'}}]}}}
+          open('dist/build-policy.json','w').write(json.dumps(policy))
+          PY
+          mkdir -p "$RUNNER_TEMP/registries.d"
+          cp image/registries.yaml "$RUNNER_TEMP/registries.d/titan.yaml"
+          sudo skopeo --policy dist/build-policy.json --registries.d "$RUNNER_TEMP/registries.d" \
+            copy --remove-signatures --preserve-digests --authfile "$DOCKER_CONFIG/config.json" "docker://$task_image" oci:dist/verified-oci:titan
+          # The verified temporary copy is not part of the installation download.
+          # The disk builder fetches the exact signed digest anonymously below.
+          sudo rm -rf dist/verified-oci
+          rm -f dist/build-policy.json
+      - name: Create temporary boot test disk
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          task_image="ghcr.io/ra5on/titan@$(cat dist/image.digest)"
+          # The disk builder must have no registry credential mounted into it.
+          # This also proves the deployed NAS can fetch its image anonymously.
+          printf '{"auths":{}}\n' > "$RUNNER_TEMP/anonymous-auth.json"
+          sudo podman pull --authfile "$RUNNER_TEMP/anonymous-auth.json" "$task_image"
+          sudo podman run --rm --privileged --security-opt label=disable \
+            -v "$PWD/image/disk.toml:/config.toml:ro" -v "$PWD/dist:/output" \
+            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            quay.io/centos-bootc/bootc-image-builder@sha256:afeffdb5a7ab6bb9d0593b5765412c4d821a9492dbaf26bb5a494e27181d2019 \
+            --type raw --rootfs xfs --use-librepo=True "$task_image"
+          sudo chown -R "$(id -u):$(id -g)" dist
+          mv dist/image/disk.raw "dist/titan-$RELEASE_VERSION-x86_64.img"
+      - name: Boot the raw image in a disposable VM
+        id: boot
+        continue-on-error: true
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: bash scripts/smoke-image.sh "dist/titan-$RELEASE_VERSION-x86_64.img"
+      - name: Report actual boot and runtime outcomes
+        if: ${{ always() && steps.boot.outcome != 'skipped' }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          boot=Path('dist/boot-status').read_text().strip() if Path('dist/boot-status').exists() else 'not-run'
+          report=Path('dist/runtime-test.json')
+          runtime='passed' if report.exists() and json.loads(report.read_text()).get('ok') is True else 'failed' if report.exists() else 'not-run'
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
+              summary.write(f'## Systemimage-Prüfung\n\n| Prüfung | Ergebnis |\n| --- | --- |\n| HTTPS-Erststart | {boot} |\n| Laufzeit | {runtime} |\n\nEin erfolgreicher Build ersetzt keinen bestandenen Betriebsnachweis.\n')
+          if boot != 'passed' or runtime != 'passed':
+              print(f'::warning title=Image verification incomplete::Boot={boot}; runtime={runtime}. Artifacts only; public release and automatic updates remain blocked.')
+          PY
+      - name: Preserve boot diagnostics before compression
+        if: ${{ always() && steps.boot.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: titan-boot-diagnostics
+          path: |
+            dist/boot-status
+            dist/boot-console.log
+            dist/boot-http-error.txt
+            dist/runtime-test.json
+          if-no-files-found: warn
+      - name: Compress the tested raw image
+        id: compress
+        if: ${{ !cancelled() && steps.release.outputs.installer_image == 'true' && steps.boot.outcome == 'success' }}
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          xz -T2 -6 "dist/titan-$RELEASE_VERSION-x86_64.img"
+          test "$(stat -c %s "dist/titan-$RELEASE_VERSION-x86_64.img.xz")" -lt 2147483648
+      - name: Sign system update manifest and checksums
+        id: sign
+        if: ${{ !cancelled() && (steps.boot.outcome == 'success' || steps.boot.outcome == 'failure') && (steps.release.outputs.installer_image != 'true' || steps.compress.outcome == 'success') }}
+        env:
+          SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          INSTALLER_IMAGE: ${{ steps.release.outputs.installer_image }}
+        run: |
+          umask 077
+          task_key="$RUNNER_TEMP/titan-release.pem"
+          trap 'rm -f -- "$task_key"' EXIT
+          printf '%s\n' "$SIGNING_KEY" > "$task_key"
+          task_distribution=(--update-only)
+          if [[ "$INSTALLER_IMAGE" == true ]]; then
+            task_distribution=(--image-file "dist/titan-$RELEASE_VERSION-x86_64.img.xz")
+          fi
+          python3 scripts/sign_release.py --key "$task_key" \
+            --image "ghcr.io/ra5on/titan@$(cat dist/image.digest)" \
+            "${task_distribution[@]}" \
+            --boot-test "$(cat dist/boot-status)" \
+            --runtime-test "$(python3 -c 'import json,pathlib; p=pathlib.Path("dist/runtime-test.json"); print("passed" if p.exists() and json.load(p.open()).get("ok") is True else "failed" if p.exists() else "not-run")')"
+          python3 - <<'PY'
+          import json,os
+          manifest=json.load(open('dist/manifest.json'))
+          status={'boot_test':manifest['boot_test'],'runtime_test':manifest['runtime_test'],
+                  'source':os.environ['GITHUB_SHA'],
+                  'run':'https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID']}
+          open('dist/boot-test.json','w').write(json.dumps(status,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && !cancelled() }}
+        with:
+          name: titan-ucore-update
+          path: |
+            dist/release-public.pem
+            dist/manifest.json*
+            dist/SHA256SUMS*
+            dist/boot-test.json
+            dist/boot-console.log
+            dist/boot-http-error.txt
+            dist/runtime-test.json
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.release.outputs.installer_image == 'true' && steps.compress.outcome == 'success' }}
+        with:
+          name: titan-ucore-img
+          path: dist/*.img.xz
+          compression-level: 0
+          if-no-files-found: error
+      - name: Require verified system update before public release
+        id: verified
+        if: ${{ !cancelled() }}
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from scripts.sign_release import require_public_release
+          path=Path('dist/manifest.json')
+          if not path.exists():
+              raise SystemExit('No signed system update manifest. Test artifacts remain available; public release blocked.')
+          manifest=json.loads(path.read_text())
+          try:
+              require_public_release(manifest)
+          except ValueError as error:
+              raise SystemExit(str(error)+' Public release blocked, including Alpha; inspect Actions diagnostics or test artifacts in Proxmox.')
+          PY
+      - name: Publish signed system image with test status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_STAGE: ${{ steps.release.outputs.stage }}
+          INSTALLER_IMAGE: ${{ steps.release.outputs.installer_image }}
+        run: |
+          task_boot="$(python3 -c 'import json; print(json.load(open("dist/manifest.json"))["boot_test"])')"
+          task_runtime="$(python3 -c 'import json; print(json.load(open("dist/manifest.json"))["runtime_test"])')"
+          test "$task_boot" = passed && test "$task_runtime" = passed
+          cp "docs/RELEASE-$RELEASE_VERSION.md" "$RUNNER_TEMP/release-notes.md"
+          if [[ "$INSTALLER_IMAGE" == true ]]; then
+            printf '\n**[Systemimage direkt herunterladen (.img.xz)](https://github.com/%s/releases/download/%s/titan-%s-x86_64.img.xz)**\n' \
+              "$GITHUB_REPOSITORY" "$RELEASE_TAG" "$RELEASE_VERSION" >> "$RUNNER_TEMP/release-notes.md"
+          else
+            printf '\nDiese Version wird über den Titan-Update-Kanal verteilt. Das vorhandene System lässt sich über die Weboberfläche aktualisieren; diese Veröffentlichung enthält keinen neuen Installationsdownload.\n' >> "$RUNNER_TEMP/release-notes.md"
+          fi
+          if [[ "$task_boot" == passed ]]; then
+            printf '\nAutomatischer Erststart: **bestanden** (HTTPS auf Port 5000 und Ersteinrichtung).\n' >> "$RUNNER_TEMP/release-notes.md"
+          fi
+          printf '\nLaufzeitprüfung (Metriken, Docker, libvirt/VM): **%s**. Ergebnisse in `runtime-test.json`; fehlendes Nested-KVM wird ausdrücklich als übersprungen ausgewiesen.\n' "$task_runtime" >> "$RUNNER_TEMP/release-notes.md"
+          task_flags=()
+          if [[ "$RELEASE_STAGE" != stable ]]; then task_flags+=(--prerelease --latest=false); fi
+          task_assets=(dist/release-public.pem dist/manifest.json dist/manifest.json.sig dist/SHA256SUMS dist/SHA256SUMS.sig dist/boot-test.json dist/boot-console.log dist/runtime-test.json)
+          if [[ "$INSTALLER_IMAGE" == true ]]; then task_assets+=("dist/titan-$RELEASE_VERSION-x86_64.img.xz"); fi
+          for task_asset in "${task_assets[@]}"; do
+            if [[ ! -f "$task_asset" || ! -s "$task_asset" ]]; then
+              printf 'Missing or empty required release asset: %s\n' "$task_asset" >&2
+              exit 1
+            fi
+          done
+          if [[ -s dist/boot-http-error.txt ]]; then task_assets+=(dist/boot-http-error.txt); fi
+          gh release create "$RELEASE_TAG" "${task_assets[@]}" \
+            --draft \
+            --target "$GITHUB_SHA" --title "Titan $RELEASE_TAG · ${RELEASE_STAGE^} · uCore" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" "${task_flags[@]}"
+          gh release edit "$RELEASE_TAG" --draft=false "${task_flags[@]}"

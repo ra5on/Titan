@@ -1,0 +1,22 @@
+Titan
+Copyright (c) 2026 ra5on
+
+Original Titan material is licensed under the Titan Noncommercial License 1.0.
+See LICENSE. Preserve these notices and the license when sharing copies.
+
+Third-party packages, guest operating systems and container images retain
+their own licenses. The Titan license does not cover user files or data.
+
+The locally bundled terminal renderer @xterm/xterm 6.0.0 and @xterm/addon-fit
+0.11.0 are licensed under MIT by their respective contributors. See
+titan/web/vendor/terminal/*-LICENSE and manifest.json. Generated xterm styles
+are patched to carry Titan response-specific CSP nonces. These third-party
+assets retain their MIT license independently of the Titan license.
+
+Titan uCore system: Fedora CoreOS/uCore-HCI, Linux, Docker, Samba, ZFS, libvirt, QEMU, noVNC and Caddy retain their respective licenses. RPM component notices remain in /usr/share/licenses. Original Titan licensing does not restrict these upstream components.
+
+Installed MIT notices:
+/usr/lib/titan/titan/web/vendor/terminal/xterm-LICENSE
+/usr/lib/titan/titan/web/vendor/terminal/addon-fit-LICENSE
+
+Titan derives from the original RaNAS project by ra5on. Debian migration source: ff828eae7d4c50662e225dbf8f7ba0d9e5e47c59. Existing third-party notices remain applicable.

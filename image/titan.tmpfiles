@@ -1,0 +1,7 @@
+d /etc/titan 0755 root root -
+d /var/srv/titan 0755 root root -
+d /var/lib/titan 0700 titan titan -
+d /var/lib/titan-agent 0700 root root -
+d /var/lib/titan-proxy 0700 titan-proxy titan-proxy -
+d /var/lib/libvirt/images/titan 0755 root root -
+d /var/lib/libvirt/images/titan/iso 0755 root root -

@@ -1,0 +1,3 @@
+u titan - "Titan web interface" /var/lib/titan /sbin/nologin
+u titan-files - "Titan file owner" /var/empty /sbin/nologin
+u titan-proxy - "Titan HTTPS proxy" /var/lib/titan-proxy /sbin/nologin
