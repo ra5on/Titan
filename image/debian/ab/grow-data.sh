@@ -8,6 +8,8 @@ task_data=$(readlink -f /dev/disk/by-partlabel/TITAN-DATA)
 [[ "$(lsblk -dnro TYPE "$task_data")" == part ]] || exit 1
 task_parent=$(lsblk -dnro PKNAME "$task_data")
 [[ "$task_parent" =~ ^(sd[a-z]+|vd[a-z]+|nvme[0-9]+n[0-9]+)$ ]] || exit 1
+task_root=$(readlink -f "$(findmnt -nro SOURCE /)")
+[[ "$(lsblk -dnro PKNAME "$task_root")" == "$task_parent" ]] || exit 1
 task_number=$(cat "/sys/class/block/${task_data##*/}/partition")
 [[ "$task_number" == 5 ]] || exit 1
 task_status=0

@@ -38,7 +38,9 @@ jobs:
         run: bash scripts/build-debian-ab-image.sh --disposable-runner
       - name: Boot and runtime checks on disposable overlay
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
-      # Publication stays disabled until the full update/rollback smoke gate exists.
+      - name: Signed update, reboot, rollback, fallback and persistent data checks
+        run: python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" --confirm-disposable-guest
+      # Publication stays disabled until this complete gate has actually passed.
       # No unverified image is released or presented as a user download.
       - name: Remove temporary private signing material
         if: always()
@@ -52,4 +54,6 @@ jobs:
             dist/debian-image/boot-console.log
             dist/debian-image/boot-http-error.txt
             dist/debian-image/runtime-test.json
+            dist/debian-image/ab-test.json
+            dist/debian-image/ab-console.log
           retention-days: 7

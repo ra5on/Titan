@@ -82,4 +82,10 @@ hooks=post-install
 ''')
 PY
 rauc bundle --cert="$RUNNER_TEMP/titan-signing/bundle.pem" --key="$RUNNER_TEMP/titan-signing/bundle.key" "$task_dir/bundle" "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb"
-rauc info --keyring=packaging/rauc-root.pem "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb"
+# `rauc info` needs an explicit configuration to apply codesign purpose.
+python3 - "$task_dir/builder-system.conf" <<'PYCONFIG'
+import sys
+from pathlib import Path
+Path(sys.argv[1]).write_text('[system]\ncompatible=titan-debian13-amd64-ab-v1\nbootloader=noop\n[keyring]\npath='+str(Path('packaging/rauc-root.pem').resolve())+'\ncheck-purpose=codesign\n')
+PYCONFIG
+rauc --conf="$task_dir/builder-system.conf" info --keyring=packaging/rauc-root.pem "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb"

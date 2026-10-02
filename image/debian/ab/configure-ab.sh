@@ -54,6 +54,8 @@ PY
 # Explicit root=LABEL in GRUB; do not embed the build appliance root UUID.
 printf 'RESUME=none\n' > /etc/initramfs-tools/conf.d/resume
 update-initramfs -u -k all
+test -e /vmlinuz
+test -e /initrd.img
 printf 'search --no-floppy --label TITAN-BOOT --set=root\nconfigfile /grub.cfg\n' > /tmp/titan-grub-early.cfg
 grub-mkstandalone -O x86_64-efi -o /tmp/titan-BOOTX64.EFI --modules='part_gpt fat ext2 normal linux search search_label loadenv test' 'boot/grub/grub.cfg=/tmp/titan-grub-early.cfg'
 rm -f /tmp/titan-grub-early.cfg /usr/sbin/policy-rc.d /var/lib/systemd/random-seed

@@ -33,6 +33,8 @@ DIGEST = re.compile(r'sha256:[a-f0-9]{64}')
 def locked(function):
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
+        if not os.path.ismount('/var/lib/titan-system'):
+            raise Error('Die persistente Systempartition ist nicht eingehängt.', 503)
         LOCK.parent.mkdir(parents=True, exist_ok=True)
         with LOCK.open('a') as lock:
             try:
@@ -60,7 +62,7 @@ def validate_identity(value):
     from .updates import version, architecture
     if (not isinstance(value, dict) or value.get('format') != FORMAT or
             value.get('platform') != 'debian-rauc' or value.get('compatible') != COMPATIBLE or
-            value.get('architecture') != architecture() or value.get('state_schema') != 1 or
+            value.get('architecture') != architecture() or type(value.get('state_schema')) is not int or value.get('state_schema') != 1 or
             not isinstance(value.get('release_id'), str) or not DIGEST.fullmatch(value['release_id']) or
             value.get('release_stage') not in ('alpha', 'beta', 'stable')):
         raise Error('Kein kompatibler Titan-Debian-Systemstand.', 409)
@@ -80,7 +82,7 @@ def load_state():
         value = strict_json(STATE.read_bytes())
     except FileNotFoundError:
         return {'schema': 1, 'slots': {}}
-    if (not isinstance(value, dict) or value.get('schema') != 1 or
+    if (not isinstance(value, dict) or type(value.get('schema')) is not int or value.get('schema') != 1 or
             not isinstance(value.get('slots'), dict) or set(value['slots']) - set(SLOTS)):
         raise Error('Ungültiger Titan-Systemstatus. Keine Systemänderung ausgeführt.', 503)
     for slot, record in value['slots'].items():
@@ -127,6 +129,17 @@ def rauc_status():
     if set(slots) != set(SLOTS) or len(current) != 1:
         raise Error('Kein eindeutiger aktiver Titan-Systemslot.', 503)
     return value, slots, current[0]
+
+
+def verify_devices(current, target):
+    mounted = Path(run(['findmnt', '-nro', 'SOURCE', '/'], timeout=10).strip()).resolve(strict=True)
+    devices = {name: Path('/dev/disk/by-partlabel/TITAN-' + name).resolve(strict=True) for name in SLOTS}
+    if mounted != devices[current] or devices[current] == devices[target]:
+        raise Error('Systempartitionen stimmen nicht mit dem gestarteten NAS überein.', 409)
+    parents = {name: run(['lsblk', '-dnro', 'PKNAME', str(device)], timeout=10).strip() for name, device in devices.items()}
+    numbers = {name: Path('/sys/class/block', device.name, 'partition').read_text().strip() for name, device in devices.items()}
+    if not parents[current] or parents[current] != parents[target] or numbers != {'A':'3','B':'4'}:
+        raise Error('Das A/B-Partitionslayout ist nicht eindeutig. Kein Systemupdate ausgeführt.', 409)
 
 
 def deployment(slot, record):
@@ -261,6 +274,8 @@ def download(url, destination, bundle, token=None):
 
 
 def activate(slot, record, state, kind):
+    _, _, current = rauc_status()
+    verify_devices(current, slot)
     state['pending'] = {'slot': slot, 'digest': record['identity']['release_id'], 'kind': kind}
     save_state(state)
     run(['rauc', 'status', 'mark-active', SLOTS[slot]], timeout=60)
@@ -291,10 +306,11 @@ def install(repo, channel, expected_version, database):
         bundle = Path(work) / manifest['bundle']['name']
         download(assets[manifest['bundle']['name']], bundle, manifest['bundle'], token)
         # RAUC performs its own certificate, compatible and verity verification.
-        run(['rauc', 'info', '--keyring=/usr/share/titan/rauc-root.pem', str(bundle)], timeout=120)
+        run(['rauc', '--conf=/etc/rauc/system.conf', 'info', '--keyring=/usr/share/titan/rauc-root.pem', str(bundle)], timeout=120)
         fresh = system_status()
         if fresh['booted'] != current['booted'] or fresh['reboot_required'] or fresh['reboot_scheduled']:
             raise Error('Systemstatus hat sich während des Downloads geändert.', 409)
+        verify_devices(current['booted']['slot'], target)
         state = load_state()
         # Invalidate the overwritten rollback entry before writing. Interrupted
         # installs must never leave an old digest selectable for a partial slot.

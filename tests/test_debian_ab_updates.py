@@ -26,6 +26,7 @@ class DebianABTests(unittest.TestCase):
         self.rauc = {'compatible':updates.COMPATIBLE, 'boot_primary':'rootfs.0', 'slots':[
             {'rootfs.0':{'bootname':'A','state':'booted','device':'/dev/disk/by-partlabel/TITAN-A','type':'ext4','boot_status':'good'}},
             {'rootfs.1':{'bootname':'B','state':'inactive','device':'/dev/disk/by-partlabel/TITAN-B','type':'ext4','boot_status':'good'}}]}
+        p = patch.object(updates.os.path, 'ismount', return_value=True); p.start(); self.addCleanup(p.stop)
         self.commands=[]
         def run(args, **kwargs):
             self.commands.append(args)

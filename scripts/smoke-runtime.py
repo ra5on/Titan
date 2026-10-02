@@ -973,7 +973,10 @@ class RuntimeSmoke:
     def debian_updates(self):
         deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
-            status = self.client.request('/api/updates/system')
+            try:
+                status = self.client.request('/api/updates/system')
+            except SmokeFailure:
+                status = {}
             if status.get('health_confirmed'):
                 break
             time.sleep(3)
