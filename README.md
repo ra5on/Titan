@@ -1,6 +1,6 @@
 # Titan · Debian NAS · Alpha
 
-Titan wird als eigenes NAS-System auf **Debian 13** entwickelt. Dies ist der neue Entwicklungsstand des bisherigen RaNAS-Projekts, einschließlich Dateimanager, App Store, Docker-Netzen, virtuellen Maschinen, Freigaben, Diensten und Web-Terminal.
+Titan wird als eigenes NAS-System auf **Debian 13** entwickelt. Dies ist der neue Entwicklungsstand, einschließlich Dateimanager, App Store, Docker-Netzen, virtuellen Maschinen, Freigaben, Diensten und Web-Terminal.
 
 **Alpha: Der Debian-Unterbau wird gerade auf vollständige Systemupdates mit Rollback umgebaut. Ein Titan-Installationsimage wird erst nach erfolgreichen Boot- und Update-Tests veröffentlicht. Noch nicht für produktive Daten verwenden.**
 
