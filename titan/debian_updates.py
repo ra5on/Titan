@@ -414,6 +414,11 @@ def confirm_boot():
     existing = state['slots'].get(current)
     if existing and existing['identity']['release_id'] != info['release_id']:
         raise Error('Startprüfung: Slotkennung stimmt nicht mit dem gestarteten System überein.', 503)
+    if (existing and existing['confirmed'] and BOOT_OK.is_file() and
+            BOOT_OK.read_text().strip() == info['release_id']):
+        # A manual restart of the health unit in this boot must not interpret
+        # an update that is waiting for reboot as a failed boot attempt.
+        return {'ok': True, 'slot': current, 'version': info['version'], 'already_confirmed': True}
     # Shared state must actually be on the dedicated data partition. A missing
     # initramfs bind mount must never be mistaken for a healthy empty NAS.
     for path in ('/var/lib/titan-system', '/etc', '/var/lib/titan', '/var/lib/docker',

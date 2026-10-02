@@ -97,6 +97,14 @@ class DebianABTests(unittest.TestCase):
             with self.assertRaises(Error):updates.confirm_boot()
         self.assertEqual(self.commands,[])
 
+    def test_restarting_health_unit_does_not_cancel_a_prepared_update(self):
+        state=self.state();state['pending']={'slot':'B','digest':self.old['release_id'],'kind':'update'}
+        updates.save_state(state);updates.BOOT_OK.write_text(self.info['release_id'])
+        result=updates.confirm_boot()
+        self.assertTrue(result['already_confirmed'])
+        self.assertEqual(updates.load_state(),state)
+        self.assertFalse(any('mark-bad' in cmd or 'mark-active' in cmd for cmd in self.commands))
+
     def test_health_keeps_literal_ip_for_tls_certificate_selection(self):
         updates.save_state(self.state())
         with patch.dict(updates.os.environ, {'TITAN_ORIGIN':'https://192.168.10.18:5000'}):
