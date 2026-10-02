@@ -17,6 +17,7 @@ class Profile:
 UCORE = Profile('ucore-hci', 'smb.service', 'virtqemud.socket', 'qemu', 'bootc')
 DEBIAN = Profile('debian-preview', 'smbd.service', 'libvirtd.socket', 'libvirt-qemu', 'disabled')
 
+DEBIAN_AB = Profile('debian-rauc', 'smbd.service', 'libvirtd.socket', 'libvirt-qemu', 'rauc')
 
 def current(path=None):
     path = IMAGE_INFO if path is None else Path(path)
@@ -35,4 +36,6 @@ def current(path=None):
         return UCORE
     if identity == ('debian-preview', 'titan-debian-preview-v1'):
         return DEBIAN
+    if identity == ('debian-rauc', 'titan-debian-ab-v1'):
+        return DEBIAN_AB
     raise Error('Diese Titan-Systemplattform wird nicht unterstützt.', 503)

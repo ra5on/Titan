@@ -6,6 +6,7 @@ task_runtime_options=()
 case "${2:-}" in
     "") ;;
     --debian-preview) task_runtime_options+=(--debian-preview) ;;
+    --debian-ab) task_runtime_options+=(--debian-ab) ;;
     *) exit 2 ;;
 esac
 task_image="$(realpath -- "$1")"
@@ -44,7 +45,11 @@ PY
 }
 trap cleanup EXIT
 qemu-img create -q -f qcow2 -F raw -b "$task_image" "$task_dir/test.qcow2"
-qemu-img resize -q "$task_dir/test.qcow2" 32G
+if [[ "${2:-}" == --debian-ab ]]; then
+    qemu-img resize -q "$task_dir/test.qcow2" 64G
+else
+    qemu-img resize -q "$task_dir/test.qcow2" 32G
+fi
 cp /usr/share/OVMF/OVMF_VARS_4M.fd "$task_dir/vars.fd"
 task_accel=tcg
 task_cpu=max

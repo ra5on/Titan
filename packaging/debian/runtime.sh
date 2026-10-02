@@ -19,7 +19,7 @@ from pathlib import Path
 info=json.loads(Path('/usr/share/titan/image-info.json').read_text())
 osinfo=platform.freedesktop_os_release()
 assert osinfo['ID']=='debian' and osinfo['VERSION_ID']=='13'
-assert (info['platform'],info['format'])==('debian-preview','titan-debian-preview-v1')
+assert (info['platform'],info['format'])in (('debian-preview','titan-debian-preview-v1'),('debian-rauc','titan-debian-ab-v1'))
 PY
 source /usr/share/titan/component-functions.sh
 # Debian 13 uses its packaged monolithic libvirt service. AppArmor stays enabled.

@@ -970,6 +970,19 @@ class RuntimeSmoke:
                 except Exception:
                     pass
 
+    def debian_updates(self):
+        deadline = time.monotonic() + 180
+        while time.monotonic() < deadline:
+            status = self.client.request('/api/updates/system')
+            if status.get('health_confirmed'):
+                break
+            time.sleep(3)
+        if (status.get('platform') != 'debian-rauc' or not status.get('health_confirmed') or
+                status.get('rollback_available') or status.get('reboot_required') or
+                status.get('booted', {}).get('slot') != 'A'):
+            raise SmokeFailure('Debian A/B initial health and slot status failed.')
+        return {'initial_slot':'A', 'health_confirmed':True, 'first_install_rollback_unavailable':True}
+
     def updates(self):
         status = self.client.request("/api/updates/system")
         booted = status.get("booted") if isinstance(status, dict) else None
@@ -1239,18 +1252,21 @@ class RuntimeSmoke:
                 "direct_image_clone": {"inspect": True, "create": True, "start": True,
                     "poweroff": True, "undefine": True, "source_metadata_unchanged": True}}
 
-    def run(self, debian_preview=False):
+    def run(self, debian_preview=False, debian_ab=False):
         if not self.run_check("administrator_setup_login", self.setup):
             return self.report
         self.run_check("app_catalog_first_login", self.catalog)
-        if debian_preview:
+        if debian_ab:
+            self.report['platform'] = 'debian-rauc'
+            self.run_check('system_update_state_confirmation', self.debian_updates)
+        elif debian_preview:
             self.report['platform'] = 'debian-preview'
             self.report['limitations'].append('Debian preview: A/B updates, rollback and data migration are not implemented. Cloud root growth is not tested by the legacy XFS growth test.')
             self.record('system_update_state_confirmation', 'skipped', 'Debian preview does not offer system updates or rollback.')
         else:
             self.run_check("system_update_state_confirmation", self.updates)
         self.run_check("cpu_ram_metrics", self.metrics)
-        if debian_preview:
+        if debian_preview or debian_ab:
             self.record('system_disk_growth', 'skipped', 'Legacy XFS/OSTree growth test does not apply to Debian ext4.')
         else:
             self.run_check("system_disk_growth", self.system_disk)
@@ -1272,6 +1288,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--confirm-disposable-guest", action="store_true")
     parser.add_argument("--debian-preview", action="store_true")
+    parser.add_argument("--debian-ab", action="store_true")
     parser.add_argument("--report", type=Path, default=Path("dist/runtime-test.json"))
     parser.add_argument("--qmp-socket", type=Path)
     options = parser.parse_args(argv)
@@ -1279,7 +1296,7 @@ def main(argv=None):
         parser.error("This mutating smoke is restricted to GitHub Actions and an explicitly confirmed disposable QEMU guest.")
     if options.qmp_socket is None:
         parser.error("The disposable image smoke requires its private QMP socket.")
-    report = RuntimeSmoke(GuestClient(options.qmp_socket)).run(debian_preview=options.debian_preview)
+    report = RuntimeSmoke(GuestClient(options.qmp_socket)).run(debian_preview=options.debian_preview, debian_ab=options.debian_ab)
     options.report.parent.mkdir(parents=True, exist_ok=True)
     options.report.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     return 0 if report["ok"] else 1

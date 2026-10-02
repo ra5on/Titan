@@ -56,6 +56,9 @@ def architecture():
 
 
 def image_info():
+    from . import debian_updates
+    if debian_updates.available():
+        return debian_updates.image_info()
     try:
         value = strict_json(IMAGE_INFO.read_bytes())
     except OSError:
@@ -159,6 +162,9 @@ def rollback_availability(state, info):
 
 
 def system_status():
+    from . import debian_updates
+    if debian_updates.available():
+        return debian_updates.system_status()
     """Read immutable OS state without package refreshes or host mutations."""
     from .host import run
     info = image_info()
@@ -325,6 +331,9 @@ def verified_release(release, token=None):
 
 
 def check(repo, channel="stable", token=None):
+    from . import debian_updates
+    if debian_updates.available():
+        return debian_updates.check(repo, channel, token)
     repo = repository(repo)
     if not isinstance(channel, str) or channel not in STAGES:
         raise Error("Ungültiger Update-Kanal.")
@@ -438,6 +447,9 @@ def authenticate_deployment(repo, target, info):
 
 
 def rollback(repo, expected_digest, confirmation, database):
+    from . import debian_updates
+    if debian_updates.available():
+        return debian_updates.rollback(repo, expected_digest, confirmation, database)
     """Queue the authenticated existing rollback entry without restarting."""
     validate_system_action("update_rollback", {"expected_digest": expected_digest, "confirmation": confirmation})
     info = image_info()
@@ -468,6 +480,9 @@ def rollback(repo, expected_digest, confirmation, database):
 
 
 def reboot(repo, expected_digest, confirmation, database):
+    from . import debian_updates
+    if debian_updates.available():
+        return debian_updates.reboot(repo, expected_digest, confirmation, database)
     """Schedule a regular systemd reboot after the job can reach the browser."""
     validate_system_action("system_reboot", {"expected_digest": expected_digest, "confirmation": confirmation})
     info = image_info()
@@ -503,6 +518,9 @@ def reboot(repo, expected_digest, confirmation, database):
 
 
 def install(repo, channel, expected_version, database):
+    from . import debian_updates
+    if debian_updates.available():
+        return debian_updates.install(repo, channel, expected_version, database)
     """Stage a verified digest; activation is deliberately a separate reboot."""
     repo = repository(repo)
     version(expected_version)

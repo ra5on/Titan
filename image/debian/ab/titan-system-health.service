@@ -1,0 +1,14 @@
+[Unit]
+Description=Confirm a healthy Titan system boot for rollback
+After=network-online.target titan-firstboot.service titan-runtime.service titan-agent.service titan-web.service titan-proxy.service docker.service smbd.service libvirtd.socket
+Wants=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/usr/lib/titan
+ExecStart=/usr/bin/python3 -m titan.debian_updates
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=15
+TimeoutStartSec=180
+[Install]
+WantedBy=multi-user.target
