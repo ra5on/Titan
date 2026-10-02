@@ -1,3 +1,3 @@
 LABEL=TITAN-EFI /boot/efi vfat defaults,umask=0077 0 2
 LABEL=TITAN-BOOT /boot/titan ext4 defaults 0 2
-LABEL=TITAN-DATA /var/lib/titan-system ext4 defaults 0 2
+LABEL=TITAN-DATA /var/lib/titan-system ext4 defaults 0 0

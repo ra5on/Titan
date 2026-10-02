@@ -1,6 +1,7 @@
 #!/bin/bash
 # Runs only inside the disposable libguestfs guest after base provisioning.
 set -euo pipefail
+trap 'echo "Titan A/B guest provisioning failed at line $LINENO" >&2' ERR
 export DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
 [[ -d /tmp/titan-ab && -f /tmp/titan-ab/image-info.json.sig ]] || exit 1
 printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
@@ -54,11 +55,17 @@ PY
 # Explicit root=LABEL in GRUB; do not embed the build appliance root UUID.
 printf 'RESUME=none\n' > /etc/initramfs-tools/conf.d/resume
 update-initramfs -u -k all
+task_kernel=$(find /boot -maxdepth 1 -type f -name 'vmlinuz-*' -printf '%f\n' | sort -V | tail -n 1)
+[[ "$task_kernel" =~ ^vmlinuz-[a-zA-Z0-9.+_-]+$ ]] || exit 1
+test -f "/boot/initrd.img-${task_kernel#vmlinuz-}"
+ln -sfn "boot/$task_kernel" /vmlinuz
+ln -sfn "boot/initrd.img-${task_kernel#vmlinuz-}" /initrd.img
 test -e /vmlinuz
 test -e /initrd.img
 printf 'search --no-floppy --label TITAN-BOOT --set=root\nconfigfile /grub.cfg\n' > /tmp/titan-grub-early.cfg
 grub-mkstandalone -O x86_64-efi -o /tmp/titan-BOOTX64.EFI --modules='part_gpt fat ext2 normal linux search search_label loadenv test' 'boot/grub/grub.cfg=/tmp/titan-grub-early.cfg'
-rm -f /tmp/titan-grub-early.cfg /usr/sbin/policy-rc.d /var/lib/systemd/random-seed
+rm -f /tmp/titan-grub-early.cfg /usr/sbin/policy-rc.d /var/lib/systemd/random-seed /var/lib/dbus/machine-id /etc/ssh/ssh_host_*
+truncate -s 0 /etc/machine-id
 rm -rf /var/lib/apt/lists/* /tmp/titan-ab
 apt-get clean
 find /var/log -type f -exec truncate -s 0 '{}' +

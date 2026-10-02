@@ -8,6 +8,9 @@ case " $(cat /proc/cmdline) " in *' rauc.slot=A '*|*' rauc.slot=B '*) ;; *) exit
 task_root="${rootmnt:-/root}"
 task_data="$task_root/var/lib/titan-system"
 mkdir -p "$task_data"
+task_fsck=0
+/sbin/e2fsck -p /dev/disk/by-partlabel/TITAN-DATA || task_fsck=$?
+case "$task_fsck" in 0|1) ;; *) panic 'Titan: Datenpartition benötigt eine Dateisystemprüfung.' ;; esac
 mount -t ext4 -o rw /dev/disk/by-partlabel/TITAN-DATA "$task_data" || panic 'Titan: Datenpartition konnte nicht eingehängt werden.'
 # A durable completed directory is the publication point; an interrupted seed
 # is rebuilt from the pristine root, never accepted as complete.

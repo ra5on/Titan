@@ -8,4 +8,5 @@ copy_exec /usr/bin/chmod /bin
 copy_exec /usr/bin/mv /bin
 copy_exec /usr/bin/sync /bin
 copy_exec /usr/bin/mount /bin
+copy_exec /usr/sbin/e2fsck /sbin
 manual_add_modules ext4

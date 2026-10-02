@@ -88,6 +88,13 @@ def main():
     info = json.loads(Path('/usr/share/titan/image-info.json').read_text())
     if (info.get('platform'), info.get('format')) not in (('ucore-hci', 'titan-ucore-image-v1'), ('debian-preview', 'titan-debian-preview-v1'), ('debian-rauc', 'titan-debian-ab-v1')):
         raise RuntimeError('This is not a supported Titan image.')
+    if info.get('platform') == 'debian-rauc':
+        # Never initialize an apparently empty NAS when initramfs persistence
+        # failed. All services requiring firstboot remain stopped in that case.
+        for mount in ('/var/lib/titan-system', '/etc', '/var/lib/titan', '/var/lib/titan-agent',
+                      '/var/lib/titan-proxy', '/var/lib/docker', '/var/lib/containerd',
+                      '/var/lib/libvirt', '/var/lib/samba', '/var/srv/titan'):
+            run(['mountpoint', '-q', mount])
     run(['systemd-sysusers', '/usr/lib/sysusers.d/titan.conf'])
     run(['systemd-tmpfiles', '--create', '/usr/lib/tmpfiles.d/titan.conf'])
     configured = Path('/etc/titan/address')

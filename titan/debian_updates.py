@@ -392,8 +392,12 @@ def confirm_boot():
     run(['docker', 'info', '--format', '{{.ServerVersion}}'], timeout=30)
     run(['virsh', '-c', 'qemu:///system', 'list', '--all', '--name'], timeout=30)
     run(['testparm', '-s'], timeout=30)
-    run(['curl', '--fail', '--silent', '--max-time', '15',
-         'http://127.0.0.1:5001/api/session'], timeout=20)
+    origin = urllib.parse.urlsplit(os.environ.get('TITAN_ORIGIN', ''))
+    if (origin.scheme != 'https' or not origin.hostname or origin.port != 5000 or
+            origin.username or origin.password or origin.path or origin.query or origin.fragment):
+        raise Error('Startprüfung: Ungültige NAS-Adresse.', 503)
+    run(['curl', '--fail', '--silent', '--insecure', '--noproxy', '*', '--max-time', '15',
+         '--connect-to', origin.netloc + ':127.0.0.1:5000', origin.geturl() + '/api/session'], timeout=20)
     pending = state.get('pending')
     if pending and pending['slot'] == current and pending['digest'] != info['release_id']:
         raise Error('Startprüfung: Erwarteter Systemwechsel stimmt nicht überein.', 503)
