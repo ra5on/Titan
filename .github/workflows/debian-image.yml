@@ -7,6 +7,9 @@ on:
       - '.github/workflows/debian-image.yml'
       - 'scripts/build-debian-ab-image.sh'
       - 'scripts/publish-debian-system.sh'
+      - 'scripts/smoke-image.sh'
+      - 'scripts/smoke-runtime.py'
+      - 'scripts/smoke-debian-ab.py'
       - 'titan/titan-app-store.json'
 permissions:
   contents: write

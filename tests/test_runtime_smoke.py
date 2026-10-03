@@ -1345,3 +1345,28 @@ class RuntimeTransportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class RegistryThrottleRetryTests(unittest.TestCase):
+    def test_throttled_install_resumes_start_without_recreating_app(self):
+        guest=Mock();guest.action.side_effect=[smoke.SmokeFailure('throttled', {'error_category':'registry_rate_limit'}), {'ok':True}]
+        runtime=smoke.RuntimeSmoke(guest)
+        with patch.object(smoke.time,'sleep') as sleep:
+            self.assertEqual(runtime.install_test_app({'app':'heimdall','port':18080,'network':{'mode':'bridge','name':'test'}}), {'ok':True})
+        self.assertEqual(guest.action.call_args_list[0].args[0],'app_install')
+        self.assertEqual(guest.action.call_args_list[1].args,('app_action',{'app':'heimdall','action':'start'}))
+        sleep.assert_called_once_with(30)
+
+    def test_persistent_throttle_still_fails_release_gate(self):
+        guest=Mock();guest.action.side_effect=smoke.SmokeFailure('throttled', {'error_category':'registry_rate_limit'})
+        with patch.object(smoke.time,'sleep') as sleep,self.assertRaises(smoke.SmokeFailure):
+            smoke.RuntimeSmoke(guest).install_test_app({'app':'heimdall','port':18080})
+        self.assertEqual(guest.action.call_count,4)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list],[30,60,120])
+
+    def test_other_failures_never_retry(self):
+        for category in ('registry_auth','container_runtime','unknown'):
+            with self.subTest(category=category):
+                guest=Mock();guest.action.side_effect=smoke.SmokeFailure('failed', {'error_category':category})
+                with patch.object(smoke.time,'sleep') as sleep,self.assertRaises(smoke.SmokeFailure):
+                    smoke.RuntimeSmoke(guest).install_test_app({'app':'heimdall','port':18080})
+                guest.action.assert_called_once();sleep.assert_not_called()

@@ -510,7 +510,7 @@ class GuestClient:
                     # Never publish job outputs: image pull logs and application
                     # logs are unnecessary evidence and can contain secrets.
                     category = error_category(job.get("result"))
-                    values = None
+                    values = {"error_category": category}
                     if label == "app_install":
                         values = {"error_category": category}
                         try:
@@ -1092,8 +1092,24 @@ class RuntimeSmoke:
             observed["validation_reason"] = reasons.get((app or {}).get("status"), "unknown")
             raise SmokeFailure("Docker app did not reach its expected lifecycle state.", observed)
 
+    def install_test_app(self, arguments):
+        """Retry only registry throttling, resuming the recorded installation."""
+        operation, payload = "app_install", arguments
+        for attempt, delay in enumerate((30, 60, 120, None)):
+            try:
+                return self.client.action(operation, payload)
+            except SmokeFailure as exc:
+                if (not isinstance(exc.values, dict) or
+                        exc.values.get("error_category") != "registry_rate_limit" or delay is None):
+                    raise
+                # Installation records are retained after a failed image pull.
+                # Never reinstall or remove them: start resumes the same recipe.
+                print(f"Docker registry throttled; retry {attempt + 1}/3 in {delay}s.", flush=True)
+                time.sleep(delay)
+                operation, payload = "app_action", {"app": arguments["app"], "action": "start"}
+
     def docker(self):
-        self.client.action("app_install", {"app": "heimdall", "port": 18080})
+        self.install_test_app({"app": "heimdall", "port": 18080})
         self.app_state("running")
         first_http = self.client.app_http_ready()
         self.client.action("app_action", {"app": "heimdall", "action": "stop"})
@@ -1173,7 +1189,7 @@ class RuntimeSmoke:
                             item.get("gateway") == "172.30.241.1" and item.get("family") == 4
                             for item in network.get("subnets", []))):
                 raise SmokeFailure("Created Docker bridge, subnet or gateway differs from the actual network inventory.")
-            self.client.action("app_install", {"app": "heimdall", "port": 18080,
+            self.install_test_app({"app": "heimdall", "port": 18080,
                 "network": {"mode": "bridge", "name": name, "ipv4_address": address}})
             self.app_state("running")
             initial_network = self.app_network_state(name, address)
