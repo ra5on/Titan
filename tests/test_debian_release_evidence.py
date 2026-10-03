@@ -14,7 +14,8 @@ class EvidenceTests(unittest.TestCase):
         self.root=Path(self.temp.name)
         (self.root/'boot-status').write_text('passed\n')
         self.runtime={'ok':True,'raw_image_unchanged':True,'checks':[{'name':n,'status':'passed'} for n in evidence.RUNTIME]}
-        self.ab={'ok':True,'raw_image_unchanged':True,'checks':sorted(evidence.AB)}
+        self.ab={'ok':True,'raw_image_unchanged':True,'checks':sorted(evidence.AB)+['published_release_baseline'],
+                 'baseline_source':'published-release','baseline_version':'0.4.6-alpha.1','baseline_image_unchanged':True}
     def save(self):
         (self.root/'runtime-test.json').write_text(json.dumps(self.runtime))
         (self.root/'ab-test.json').write_text(json.dumps(self.ab))
@@ -31,6 +32,9 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):evidence.validate(self.root)
     def test_missing_fallback_blocks_publication(self):
         self.ab['checks'].remove('failed_candidate_fallback_after_reset');self.save()
+        with self.assertRaises(ValueError):evidence.validate(self.root)
+    def test_synthetic_baseline_cannot_publish_update(self):
+        self.ab['baseline_source']='synthetic';self.save()
         with self.assertRaises(ValueError):evidence.validate(self.root)
     def test_conflicting_duplicate_checks_rejected(self):
         self.runtime['checks'].append({**self.runtime['checks'][0],'status':'failed'});self.save()

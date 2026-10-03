@@ -95,11 +95,15 @@ def qmp(path, method, arguments=None):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('image',type=Path);parser.add_argument('bundle',type=Path)
+    parser.add_argument('--baseline-image',type=Path)
+    parser.add_argument('--baseline-version',default='0.4.6-alpha.1')
     parser.add_argument('--confirm-disposable-guest',action='store_true');args=parser.parse_args()
     assert os.environ.get('GITHUB_ACTIONS')=='true' and args.confirm_disposable_guest
     image=args.image.resolve();bundle=args.bundle.resolve()
     assert image.is_file() and bundle.is_file()
     original=sha(image);directory=image.parent
+    baseline_image=args.baseline_image.resolve() if args.baseline_image else image
+    baseline_hash=sha(baseline_image)
     identity=json.loads((directory/'ab-input/image-info.json').read_text())
     report={'format':'titan-debian-ab-smoke-v1','ok':False,'checks':[]}
     def passed(name):report['checks'].append(name);print(name+': passed',flush=True)
@@ -107,13 +111,17 @@ def main():
     with tempfile.TemporaryDirectory(prefix='titan-ab-smoke-') as temporary:
         work=Path(temporary);agent=Agent(work/'qga.sock')
         try:
-            command(['qemu-img','create','-q','-f','qcow2','-F','raw','-b',str(image),str(work/'test.qcow2')])
-            baseline='0.4.5-alpha.1'
-            command(['python3','scripts/system-release-metadata.py','identity','--version',baseline,'--accounts',str(directory/'ab-input/system-accounts.json'),'--output',str(work/'image-info.json')])
-            # Signed older system identity only in the private overlay; complete
-            # root filesystem replacement then proves A -> B -> A transitions.
-            command(['guestfish','-a',str(work/'test.qcow2'),'-m','/dev/sda3','upload',str(work/'image-info.json'),'/usr/share/titan/image-info.json'])
-            command(['guestfish','-a',str(work/'test.qcow2'),'-m','/dev/sda3','upload',str(work/'image-info.json.sig'),'/usr/share/titan/image-info.json.sig'])
+            command(['qemu-img','create','-q','-f','qcow2','-F','raw','-b',str(baseline_image),str(work/'test.qcow2')])
+            if args.baseline_image:
+                baseline=args.baseline_version
+                report.update(baseline_source='published-release',baseline_version=baseline,baseline_sha256=baseline_hash)
+            else:
+                baseline='0.4.5-alpha.1'
+                command(['python3','scripts/system-release-metadata.py','identity','--version',baseline,'--accounts',str(directory/'ab-input/system-accounts.json'),'--output',str(work/'image-info.json')])
+                # Signed older system identity only in the private overlay; complete
+                # root filesystem replacement then proves A -> B -> A transitions.
+                command(['guestfish','-a',str(work/'test.qcow2'),'-m','/dev/sda3','upload',str(work/'image-info.json'),'/usr/share/titan/image-info.json'])
+                command(['guestfish','-a',str(work/'test.qcow2'),'-m','/dev/sda3','upload',str(work/'image-info.json.sig'),'/usr/share/titan/image-info.json.sig'])
             (work/'factory-probe').write_text('baseline factory default\n')
             command(['guestfish','-a',str(work/'test.qcow2'),'-m','/dev/sda3','upload',str(work/'factory-probe'),'/etc/titan-ci-factory'])
             shutil.copyfile('/usr/share/OVMF/OVMF_VARS_4M.fd',work/'vars.fd')
@@ -130,6 +138,7 @@ def main():
                     '-netdev','user,id=net0,hostfwd=tcp:127.0.0.1:15000-:5000,hostfwd=tcp:127.0.0.1:15445-:445',
                     '-device','virtio-net-pci,netdev=net0'],stdout=console,stderr=console)
             boot,status=agent.ready('A',baseline);passed('baseline_boot_health')
+            if args.baseline_image:passed('published_release_baseline')
             client=runtime.GuestClient(work/'qmp.sock');smoke=runtime.RuntimeSmoke(client);smoke.setup()
             client.action('share_create',{'name':'ab-persist','readers':[smoke.username],'writers':[smoke.username]})
             share=next(item for item in client.request('/api/shares') if item['name']=='ab-persist')
@@ -252,7 +261,8 @@ finally:subprocess.run(['umount','/mnt'],check=True)
                 if not report['ok']:
                     print('TITAN_AB_CONSOLE_TAIL',flush=True)
                     print((work/'console.log').read_text(errors='replace')[-20000:],flush=True)
-            report['raw_image_unchanged']=sha(image)==original
+            report['baseline_image_unchanged']=sha(baseline_image)==baseline_hash
+            report['raw_image_unchanged']=sha(image)==original and report['baseline_image_unchanged']
             report['ok']=report['ok'] and report['raw_image_unchanged']
             (directory/'ab-test.json').write_text(json.dumps(report,indent=2)+'\n')
     assert report['ok']

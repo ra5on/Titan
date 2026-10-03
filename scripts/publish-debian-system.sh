@@ -10,14 +10,18 @@ python3 scripts/system-release-metadata.py manifest --version "$TITAN_SYSTEM_VER
     --rootfs "$task_dir/bundle/rootfs.ext4" --evidence "$task_dir/release-evidence.json"
 cp packaging/release-public.pem "$task_dir/release-public.pem"
 cp packaging/rauc-root.pem "$task_dir/rauc-root.pem"
-cp docs/TITAN-IMAGE.md "$task_dir/INSTALLATION.md"
+cp docs/RELEASE-0.4.7.md "$task_dir/INSTALLATION.md"
 cp image/debian/base.json "$task_dir/debian-base.json"
-xz -T2 -3 "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.img"
-[[ $(stat -c %s "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.img.xz") -lt 2147483648 ]]
+task_image_assets=()
+if [[ "${TITAN_UPDATE_ONLY:-false}" != true ]]; then
+    xz -T2 -3 "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.img"
+    [[ $(stat -c %s "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.img.xz") -lt 2147483648 ]]
+    task_image_assets=("$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.img.xz")
+fi
 [[ $(stat -c %s "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb") -lt 2147483648 ]]
 (
     cd "$task_dir"
-    sha256sum "titan-$TITAN_SYSTEM_VERSION-amd64.img.xz" "titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
+    sha256sum "${task_image_assets[@]}" "titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
         manifest.json manifest.json.sig runtime-test.json ab-test.json INSTALLATION.md debian-base.json rauc-root.pem > SHA256SUMS
     openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/titan-signing/root.key" -in SHA256SUMS -out SHA256SUMS.sig
     openssl pkeyutl -verify -rawin -pubin -inkey release-public.pem -in SHA256SUMS -sigfile SHA256SUMS.sig
@@ -28,8 +32,8 @@ if gh release view "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/nu
     exit 1
 fi
 gh release create "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
-    --title "Titan $TITAN_SYSTEM_VERSION · Debian A/B" --notes-file docs/TITAN-IMAGE.md \
-    "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.img.xz" "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
+    --title "Titan $TITAN_SYSTEM_VERSION · Debian A/B" --notes-file docs/RELEASE-0.4.7.md \
+    "${task_image_assets[@]}" "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
     "$task_dir/manifest.json" "$task_dir/manifest.json.sig" "$task_dir/SHA256SUMS" "$task_dir/SHA256SUMS.sig" \
     "$task_dir/release-public.pem" "$task_dir/rauc-root.pem" "$task_dir/runtime-test.json" "$task_dir/ab-test.json" \
     "$task_dir/INSTALLATION.md" "$task_dir/debian-base.json"

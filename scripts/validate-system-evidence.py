@@ -28,6 +28,9 @@ def validate(directory):
     if any(x.get('status') not in ('passed','skipped') for x in checks):raise ValueError('Runtime check failed')
     if not isinstance(ab.get('checks'),list) or not AB.issubset(ab['checks']):
         raise ValueError('Required update/rollback check missing')
+    if (ab.get('baseline_source') != 'published-release' or ab.get('baseline_version') != '0.4.6-alpha.1'
+            or ab.get('baseline_image_unchanged') is not True or 'published_release_baseline' not in ab['checks']):
+        raise ValueError('Update from the actual published 0.4.6 baseline was not verified')
     return {k:'passed' for k in ('boot_test','runtime_test','update_test','rollback_test')}
 
 

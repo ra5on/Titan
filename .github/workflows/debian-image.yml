@@ -16,7 +16,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      TITAN_SYSTEM_VERSION: 0.4.6-alpha.1
+      TITAN_SYSTEM_VERSION: 0.4.7-alpha.1
+      TITAN_UPDATE_ONLY: "true"
     steps:
       - uses: actions/checkout@v4
       - name: Prepare disposable image builder
@@ -38,9 +39,18 @@ jobs:
         run: bash scripts/build-debian-ab-image.sh --disposable-runner
       - name: Boot, HTTPS health and runtime checks on disposable overlay
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
-      - name: Signed update and rollback with complete installer diagnostics
-        run: python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" --confirm-disposable-guest
-      - name: Publish the complete tested system and installation image
+      - name: Fetch verified published 0.4.6 baseline
+        run: |
+          mkdir -p dist/debian-baseline
+          curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
+            https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz \
+            -o dist/debian-baseline/baseline.img.xz
+          echo '78bc547f20735a55fa40680f82a966e93c248a78b64052c4272667a13bbf2e01  dist/debian-baseline/baseline.img.xz' | sha256sum --check
+          xz -dc dist/debian-baseline/baseline.img.xz | dd of=dist/debian-baseline/baseline.img conv=sparse status=none
+          rm dist/debian-baseline/baseline.img.xz
+      - name: Published 0.4.6 to 0.4.7 update, rollback and failure recovery
+        run: python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" --baseline-image dist/debian-baseline/baseline.img --baseline-version 0.4.6-alpha.1 --confirm-disposable-guest
+      - name: Publish tested signed system update
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash scripts/publish-debian-system.sh
