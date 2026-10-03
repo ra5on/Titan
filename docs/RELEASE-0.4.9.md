@@ -19,3 +19,5 @@ Freigabe erfolgt erst nach Regressionstests, tatsächlichem Image-Start, NAS-Lau
 Die Oberfläche wurde bei 390 Pixeln geprüft. Store-Import wurde an den öffentlichen Quellen geprüft; sämtliche externen Apps wurden nicht einzeln installiert und gestartet. Ein erfolgreicher Vorlagenimport ist keine Zusicherung, dass jede App ohne weitere appinterne Einrichtung funktioniert. Multi-Container-Stacks und zusätzliche Geräteanforderungen bleiben außerhalb dieses Importformats.
 
 Titan bleibt Alpha. Rollback wechselt das Betriebssystem, nicht Nutzdaten oder App-Datenbanken. Neuinstallationen können weiterhin das [0.4.6-IMG](https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz) verwenden und anschließend über Alpha aktualisieren.
+
+Neue Store-Quellen werden getrennt vom bisherigen Titan-JSON-Katalog gespeichert, damit ältere Verwaltungsdienste nach einem Rollback weiter starten. Apps und UEFI-VMs, die erstmals mit neuen Funktionen eingerichtet wurden, können für ihre Verwaltung beziehungsweise Firmware die neuere Systemversion benötigen; ein Betriebssystem-Rollback konvertiert deren Konfigurationen nicht zurück.

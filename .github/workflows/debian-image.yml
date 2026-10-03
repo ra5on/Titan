@@ -48,7 +48,7 @@ jobs:
           echo '78bc547f20735a55fa40680f82a966e93c248a78b64052c4272667a13bbf2e01  dist/debian-baseline/baseline.img.xz' | sha256sum --check
           xz -dc dist/debian-baseline/baseline.img.xz | dd of=dist/debian-baseline/baseline.img conv=sparse status=none
           rm dist/debian-baseline/baseline.img.xz
-      - name: Published 0.4.6 to 0.4.8 update, rollback and failure recovery
+      - name: Published baseline to candidate update, rollback and failure recovery
         run: python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" --baseline-image dist/debian-baseline/baseline.img --baseline-version 0.4.6-alpha.1 --confirm-disposable-guest
       - name: Publish tested signed system update
         env:

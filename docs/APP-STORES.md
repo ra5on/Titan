@@ -50,3 +50,7 @@ Unter VM → Details → **USB-Geräte** können bis zu acht eindeutig erkannte 
 Unter **Einstellungen → Systemkomponenten** zeigt Titan PCI-GPUs, Gerätekennung, gebundenen Kernel-Treiber und VFIO-Reservierung. Ein aktiver Treiber beweist keine funktionierende Medienbeschleunigung. Eine separate Treiberinstallation ist noch nicht implementiert; insbesondere NVIDIA benötigt einen zur GPU und zum Kernel passenden, getesteten Treiber im signierten Systemupdate. Kein Live-`apt install` verändert dafür den aktuellen A/B-Systemstand.
 
 Die neuen Verwaltungswege sind Alpha. Tests mit realen USB-Geräten, GPU-Hardware und einem zusätzlichen Store-Container müssen vor Beta folgen.
+
+## Rollback-Kompatibilität
+
+Neue Quellen liegen in `app-store-sources.json`. Ein vorhandenes `app-stores.json` wird beim ersten Zugriff übernommen, aber nicht mit neuen Formaten überschrieben. Ältere Systemversionen ignorieren die neue Datei und können ihren Verwaltungsdienst weiter starten. Neu importierte Apps benötigen zur Verwaltung die neuere Titan-Version; deren Container und Daten werden durch einen OS-Rollback nicht entfernt.

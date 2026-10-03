@@ -70,6 +70,18 @@ class SourcesTests(unittest.TestCase):
         host.op_app_store_toggle('linuxserver',True)
         self.assertTrue(host.op_app_stores()['stores'][0]['enabled'])
 
+    def test_new_sources_do_not_rewrite_legacy_rollback_catalog(self):
+        class MemoryHost(StoreMixin):
+            def __init__(self): self.rows={'app-stores':[]}
+            def load(self,key,default): return self.rows.get(key,default)
+            def save(self,key,value): self.rows[key]=value
+        host=MemoryHost()
+        host.op_app_store_toggle('linuxserver',False)
+        self.assertEqual(host.rows['app-stores'],[])
+        self.assertEqual(host.rows['app-store-sources'][0]['url'],LINUXSERVER)
+        host.op_app_store_toggle('linuxserver',True)
+        self.assertEqual(host.rows['app-stores'],[])
+
     def test_refresh_keeps_installed_retired_recipe_after_restart_and_disable(self):
         class MemoryHost(StoreMixin):
             def __init__(self): self.rows={}

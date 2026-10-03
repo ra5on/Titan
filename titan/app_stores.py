@@ -1,5 +1,6 @@
 """Explicitly trusted, bounded GitHub catalog imports; no arbitrary Compose execution."""
 import hashlib
+import copy
 import json
 from pathlib import Path
 import re
@@ -25,11 +26,20 @@ def store_url(value):
 
 
 class StoreMixin:
+    def store_records(self):
+        # Keep new source formats out of the pre-0.4.9 startup parser. Rollback
+        # retains the old Titan-JSON catalog file and continues to start normally.
+        records = self.load('app-store-sources', None)
+        return copy.deepcopy(records if records is not None else self.load('app-stores', []))
+
+    def save_store_records(self, records):
+        self.save('app-store-sources', records)
+
     def initialize_app_stores(self):
         document = json.loads((Path(__file__).parent / 'linuxserver-store.json').read_text())
         _, parsed = recipes(document, LINUXSERVER)
         APPS.update(parsed)
-        for store in self.load('app-stores', []):
+        for store in self.store_records():
             _, parsed = recipes(store['document'], store_url(store['url']))
             APPS.update(parsed)
             if store.get('retained'):
@@ -38,7 +48,7 @@ class StoreMixin:
 
     def op_catalog(self):
         result = catalog()
-        stores = self.load('app-stores', [])
+        stores = self.store_records()
         installed = {row['id'] for row in self.load('apps', [])}
         disabled = {row['url'] for row in stores if row.get('enabled', True) is False}
         current = {row['url']: set(recipes(row['document'], row['url'])[1]) for row in stores}
@@ -47,7 +57,7 @@ class StoreMixin:
         return result
 
     def op_app_stores(self):
-        stores = self.load('app-stores', [])
+        stores = self.store_records()
         rows = [{'id': row['id'], 'name': row['name'], 'url': row['url'], 'enabled': row.get('enabled', True),
                  'apps': len(row['document']['apps']) + (sum(not app.get('store_url') for app in APPS.values()) if row['url'] == LINUXSERVER else 0), 'skipped': row.get('skipped', [])} for row in stores]
         if not any(row['url'] == LINUXSERVER for row in rows):
@@ -58,18 +68,18 @@ class StoreMixin:
     def op_app_store_toggle(self, store, enabled):
         if type(enabled) is not bool:
             raise Error('Store-Auswahl ist ungültig.')
-        stores = self.load('app-stores', [])
+        stores = self.store_records()
         if store == 'linuxserver' and not any(row['url'] == LINUXSERVER for row in stores):
             document = json.loads((Path(__file__).parent / 'linuxserver-store.json').read_text())
             stores.append({'id':'linuxserver','name':'LinuxServer.io','url':LINUXSERVER,'document':document})
         found = next((row for row in stores if row['id'] == store), None)
         if found is None: raise Error('Store nicht gefunden.', 404)
         found['enabled'] = enabled
-        self.save('app-stores', stores)
+        self.save_store_records( stores)
         return {'ok': True, 'enabled': enabled}
 
     def op_app_store_refresh(self, store):
-        stores = self.load('app-stores', [])
+        stores = self.store_records()
         found = next((row for row in stores if row['id'] == store), None)
         if store == 'linuxserver' and found is None:
             return self.op_app_store_add(LINUXSERVER, trusted=True)
@@ -83,7 +93,7 @@ class StoreMixin:
             key = next(iter(old_recipe))
             if key in installed and key not in parsed and app not in retained: retained.append(app)
         found.update(document=document, skipped=skipped, name=name, retained=retained)
-        self.save('app-stores', stores)
+        self.save_store_records( stores)
         old = {key for key, value in APPS.items() if value.get('store_url') == found['url']}
         installed = {row['id'] for row in self.load('apps', [])}
         for key in old - set(parsed) - installed:
@@ -137,7 +147,7 @@ class StoreMixin:
         if trusted is not True:
             raise Error('Vertrauen in den Store ausdrücklich bestätigen.')
         url = store_url(url)
-        stores = self.load('app-stores', [])
+        stores = self.store_records()
         if any(row['url'] == url for row in stores):
             raise Error('Store ist bereits hinzugefügt. Vorlagen bleiben bis zum Entfernen unverändert.', 409)
         if len(stores) >= 20:
@@ -145,12 +155,12 @@ class StoreMixin:
         document, skipped = self.store_document(url)
         name, parsed = recipes(document, url)
         identifier = hashlib.sha256(url.encode()).hexdigest()[:10]
-        self.save('app-stores', stores + [{'id': identifier, 'name': name, 'url': url, 'document': document, 'enabled': True, 'skipped': skipped}])
+        self.save_store_records( stores + [{'id': identifier, 'name': name, 'url': url, 'document': document, 'enabled': True, 'skipped': skipped}])
         APPS.update(parsed)
         return {'ok': True, 'name': name, 'apps': len(parsed)}
 
     def op_app_store_remove(self, store):
-        stores = self.load('app-stores', [])
+        stores = self.store_records()
         found = next((row for row in stores if row['id'] == store), None)
         if found is None:
             raise Error('Store nicht gefunden.', 404)
@@ -159,7 +169,7 @@ class StoreMixin:
         _, parsed = recipes({**found['document'], 'apps':found['document']['apps'] + found.get('retained', [])}, found['url'])
         if any(row['id'] in parsed for row in self.load('apps', [])):
             raise Error('Zuerst die installierten Apps dieses Stores entfernen. Deren Daten bleiben erhalten.', 409)
-        self.save('app-stores', [row for row in stores if row['id'] != store])
+        self.save_store_records( [row for row in stores if row['id'] != store])
         for identifier in parsed:
             APPS.pop(identifier, None)
         return {'ok': True}
