@@ -505,6 +505,8 @@ class AppMixin(AppMetricsMixin, AppDevicesMixin, AppNetworkMixin):
     def op_app_install(self, app, port, share=None, options=None, network=None, hardware=None):
         if app not in APPS:
             raise Error("App-Vorlage nicht gefunden.")
+        if APPS[app].get("catalog_status")=="preparation":
+            raise Error("Diese Titan-Vorlage ist noch in Vorbereitung. Neue Installation ist nicht freigegeben.")
         available_devices=app_devices_inventory()
         hardware_ids=validate_devices(hardware,available_devices)
         hardware=[item for item in available_devices if item["id"] in hardware_ids]

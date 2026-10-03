@@ -5,42 +5,44 @@
     {
       "id": "adguardhome-sync",
       "name": "adguardhome-sync",
-      "description": "adguardhome-sync is a tool to synchronize AdGuardHome config to replica instances.",
+      "description": "Einstellungen zwischen mehreren AdGuard-Home-Instanzen abgleichen.",
       "image": "lscr.io/linuxserver/adguardhome-sync:latest",
       "port": 8080,
       "default_port": 18000,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-adguardhome-sync/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. adguardhome-sync",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-adguardhome-sync/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Netzwerk"
     },
     {
       "id": "apprise-api",
       "name": "apprise-api",
-      "description": "apprise-api Takes advantage of [Apprise](https://github.com/caronc/apprise) through your network with a user-friendly API. * Send notifications to more than 100 services. * An incredibly lightweight gateway to Apprise. * A production ready micro-service at your disposal. * A Simple Website to verify and test your configuration with. Apprise API was designed to easily fit into existing (and new) eco-systems that are looking for a simple notification solution.",
+      "description": "Benachrichtigungen über eine gemeinsame Schnittstelle an verschiedene Dienste senden.",
       "image": "lscr.io/linuxserver/apprise-api:latest",
       "port": 8000,
       "default_port": 18001,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-apprise-api/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. apprise-api",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-apprise-api/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Werkzeuge"
     },
     {
       "id": "babybuddy",
       "name": "babybuddy",
-      "description": "babybuddy is a buddy for babies! Helps caregivers track sleep, feedings, diaper changes, tummy time and more to learn about and predict baby's needs without (as much) guess work.",
+      "description": "Schlaf, Mahlzeiten und Entwicklung eines Babys dokumentieren.",
       "image": "lscr.io/linuxserver/babybuddy:latest",
       "port": 8000,
       "default_port": 18002,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-babybuddy/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. babybuddy",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-babybuddy/",
       "settings": [
         {
           "env": "CSRF_TRUSTED_ORIGINS",
@@ -49,19 +51,20 @@
           "secret": false
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Werkzeuge"
     },
     {
       "id": "bitcoin-knots",
       "name": "bitcoin-knots",
-      "description": "[Bitcoin Knots] can be used as a desktop client for regular payments or as a full node server utility for merchants and other payment services.",
+      "description": "Einen eigenen Bitcoin-Knoten betreiben und Transaktionen prüfen.",
       "image": "lscr.io/linuxserver/bitcoin-knots:latest",
       "port": 3000,
       "default_port": 18003,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-bitcoin-knots/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. bitcoin-knots",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-bitcoin-knots/",
       "settings": [],
       "ports": [
         {
@@ -74,19 +77,20 @@
           "published": 18005,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Netzwerk"
     },
     {
       "id": "bookstack",
       "name": "bookstack",
-      "description": "bookstack is a free and open source Wiki designed for creating beautiful documentation. Featuring a simple, but powerful WYSIWYG editor it allows for teams to create detailed and useful documentation with ease. Powered by SQL and including a Markdown editor for those who prefer it, BookStack is geared towards making documentation more of a pleasure than a chore. For more information on BookStack visit their website and check it out: https://www.bookstackapp.com",
+      "description": "Wissen und Dokumentation als übersichtliche Bücher und Kapitel organisieren.",
       "image": "lscr.io/linuxserver/bookstack:latest",
       "port": 80,
       "default_port": 18006,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-bookstack/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. bookstack",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-bookstack/",
       "settings": [
         {
           "env": "APP_URL",
@@ -131,19 +135,20 @@
           "secret": false
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Werkzeuge"
     },
     {
       "id": "budge",
       "name": "budge",
-      "description": "budge is an open source 'budgeting with envelopes' personal finance app.",
+      "description": "Persönliche Budgets und Ausgaben verwalten.",
       "image": "lscr.io/linuxserver/budge:latest",
       "port": 80,
       "default_port": 18007,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-budge/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. budge",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-budge/",
       "settings": [],
       "ports": [
         {
@@ -151,19 +156,20 @@
           "published": 18008,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Werkzeuge"
     },
     {
       "id": "diskover",
       "name": "diskover",
-      "description": "diskover is an open source file system indexer that uses Elasticsearch to index and manage data across heterogeneous storage systems.",
+      "description": "Dateibestände indexieren und große Speicherbereiche analysieren.",
       "image": "lscr.io/linuxserver/diskover:latest",
       "port": 80,
       "default_port": 18009,
       "mount": "/data",
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-diskover/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. diskover",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-diskover/",
       "settings": [
         {
           "env": "ES_HOST",
@@ -178,19 +184,20 @@
           "secret": false
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Dateien"
     },
     {
       "id": "flexget",
       "name": "flexget",
-      "description": "flexget is a multipurpose automation tool for all of your media.",
+      "description": "Medienabläufe mit Regeln und geplanten Aufgaben automatisieren.",
       "image": "lscr.io/linuxserver/flexget:latest",
       "port": 5050,
       "default_port": 18010,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-flexget/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. flexget",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-flexget/",
       "settings": [
         {
           "env": "FG_LOG_LEVEL",
@@ -211,19 +218,20 @@
           "secret": false
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Downloads"
     },
     {
       "id": "habridge",
       "name": "habridge",
-      "description": "habridge emulates Philips Hue API to other home automation gateways such as an Amazon Echo/Dot Gen 1 (gen 2 has issues discovering ha-bridge) or other systems that support Philips Hue. The Bridge handles basic commands such as On, Off and brightness commands of the hue protocol. This bridge can control most devices that have a distinct API.",
+      "description": "Eine Hue-kompatible Schnittstelle für Hausautomatisierung bereitstellen.",
       "image": "lscr.io/linuxserver/habridge:latest",
       "port": 8080,
       "default_port": 18011,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-habridge/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. habridge",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-habridge/",
       "settings": [
         {
           "env": "SEC_KEY",
@@ -238,19 +246,20 @@
           "published": 18012,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Netzwerk"
     },
     {
       "id": "healthchecks",
       "name": "healthchecks",
-      "description": "healthchecks is a watchdog for your cron jobs. It's a web server that listens for pings from your cron jobs, plus a web interface.",
+      "description": "Überwachen, ob geplante Aufgaben regelmäßig erfolgreich laufen.",
       "image": "lscr.io/linuxserver/healthchecks:latest",
       "port": 8000,
       "default_port": 18013,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-healthchecks/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. healthchecks",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-healthchecks/",
       "settings": [
         {
           "env": "SECRET_KEY",
@@ -283,19 +292,20 @@
           "secret": true
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Werkzeuge"
     },
     {
       "id": "hedgedoc",
       "name": "hedgedoc",
-      "description": "[HedgeDoc] gives you access to all your files wherever you are. HedgeDoc is a real-time, multi-platform collaborative markdown note editor. This means that you can write notes with other people on your desktop, tablet or even on the phone. You can sign-in via multiple auth providers like Facebook, Twitter, GitHub and many more on the homepage.",
+      "description": "Markdown-Dokumente gemeinsam im Browser bearbeiten.",
       "image": "lscr.io/linuxserver/hedgedoc:latest",
       "port": 3000,
       "default_port": 18014,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-hedgedoc/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. hedgedoc",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-hedgedoc/",
       "settings": [
         {
           "env": "DB_HOST",
@@ -334,33 +344,35 @@
           "secret": false
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Werkzeuge"
     },
     {
       "id": "htpcmanager",
       "name": "htpcmanager",
-      "description": "htpcmanager is a front end for many htpc related applications.",
+      "description": "Medien- und Download-Dienste über eine gemeinsame Oberfläche steuern.",
       "image": "lscr.io/linuxserver/htpcmanager:latest",
       "port": 8085,
       "default_port": 18015,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-htpcmanager/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. htpcmanager",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-htpcmanager/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Medien"
     },
     {
       "id": "kdenlive",
       "name": "kdenlive",
-      "description": "[Kdenlive] is a powerful free and open source cross-platform video editing program made by the KDE community. Feature rich and production ready.",
+      "description": "Videos mit einem umfangreichen Schnittprogramm bearbeiten.",
       "image": "lscr.io/linuxserver/kdenlive:latest",
       "port": 3000,
       "default_port": 18016,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-kdenlive/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. kdenlive",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-kdenlive/",
       "settings": [],
       "ports": [
         {
@@ -368,19 +380,20 @@
           "published": 18017,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Medien"
     },
     {
       "id": "kimai",
       "name": "kimai",
-      "description": "kimai is a professional grade time-tracking application, free and open-source. It handles use-cases of freelancers as well as companies with dozens or hundreds of users. Kimai was build to track your project times and ships with many advanced features, including but not limited to: JSON API, invoicing, data exports, multi-timer and punch-in punch-out mode, tagging, multi-user - multi-timezones - multi-language ([over 30 translations existing](https://hosted.weblate.org/projects/kimai/)!), authen",
+      "description": "Arbeitszeiten für Projekte und Aufgaben erfassen.",
       "image": "lscr.io/linuxserver/kimai:latest",
       "port": 80,
       "default_port": 18018,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-kimai/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. kimai",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-kimai/",
       "settings": [
         {
           "env": "APP_SECRET",
@@ -407,33 +420,35 @@
           "published": 18019,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Werkzeuge"
     },
     {
       "id": "limnoria",
       "name": "limnoria",
-      "description": "limnoria A robust, full-featured, and user/programmer-friendly Python IRC bot, with many existing plugins. Successor of the well-known Supybot.",
+      "description": "Einen anpassbaren IRC-Bot betreiben.",
       "image": "lscr.io/linuxserver/limnoria:latest",
       "port": 8080,
       "default_port": 18020,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-limnoria/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. limnoria",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-limnoria/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Netzwerk"
     },
     {
       "id": "lm-studio",
       "name": "lm-studio",
-      "description": "[LM Studio] can run local AI models like gpt-oss, Llama, Gemma, Qwen, and DeepSeek privately on your computer.",
+      "description": "Lokale KI-Modelle laden und ausführen.",
       "image": "lscr.io/linuxserver/lm-studio:latest",
       "port": 3000,
       "default_port": 18021,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-lm-studio/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. lm-studio",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-lm-studio/",
       "settings": [],
       "ports": [
         {
@@ -441,19 +456,20 @@
           "published": 18022,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Werkzeuge"
     },
     {
       "id": "lychee",
       "name": "lychee",
-      "description": "lychee is a free photo-management tool, which runs on your server or web-space. Installing is a matter of seconds. Upload, manage and share photos like from a native application. Lychee comes with everything you need and all your photos are stored securely.",
+      "description": "Fotos in einer eigenen Webgalerie organisieren und teilen.",
       "image": "lscr.io/linuxserver/lychee:latest",
       "port": 80,
       "default_port": 18023,
       "mount": "/pictures",
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-lychee/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. lychee",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-lychee/",
       "settings": [
         {
           "env": "DB_CONNECTION",
@@ -492,19 +508,20 @@
           "secret": false
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Medien"
     },
     {
       "id": "manyfold",
       "name": "manyfold",
-      "description": "manyfold is an open source, self-hosted web application for managing a collection of 3D models, particularly focused on 3D printing.",
+      "description": "Eine Sammlung von 3D-Modellen verwalten.",
       "image": "lscr.io/linuxserver/manyfold:latest",
       "port": 3214,
       "default_port": 18024,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-manyfold/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. manyfold",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-manyfold/",
       "settings": [
         {
           "env": "DATABASE_URL",
@@ -525,19 +542,20 @@
           "secret": true
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Dateien"
     },
     {
       "id": "orcaslicer",
       "name": "orcaslicer",
-      "description": "[Orca Slicer] is an open source slicer for FDM printers. OrcaSlicer is fork of Bambu Studio, it was previously known as BambuStudio-SoftFever, Bambu Studio is forked from PrusaSlicer by Prusa Research, which is from Slic3r by Alessandro Ranellucci and the RepRap community",
+      "description": "3D-Modelle für FDM-Drucker vorbereiten.",
       "image": "lscr.io/linuxserver/orcaslicer:latest",
       "port": 3000,
       "default_port": 18025,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-orcaslicer/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. orcaslicer",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-orcaslicer/",
       "settings": [],
       "ports": [
         {
@@ -545,47 +563,50 @@
           "published": 18026,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Werkzeuge"
     },
     {
       "id": "phpmyadmin",
       "name": "phpmyadmin",
-      "description": "phpmyadmin is a free software tool written in PHP, intended to handle the administration of MySQL over the Web. phpMyAdmin supports a wide range of operations on MySQL and MariaDB.",
+      "description": "MySQL- und MariaDB-Datenbanken im Browser verwalten.",
       "image": "lscr.io/linuxserver/phpmyadmin:latest",
       "port": 80,
       "default_port": 18027,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-phpmyadmin/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. phpmyadmin",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-phpmyadmin/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Werkzeuge"
     },
     {
       "id": "piwigo",
       "name": "piwigo",
-      "description": "piwigo is a photo gallery software for the web that comes with powerful features to publish and manage your collection of pictures.",
+      "description": "Eine Fotogalerie mit Alben und Zugriffsrechten betreiben.",
       "image": "lscr.io/linuxserver/piwigo:latest",
       "port": 80,
       "default_port": 18028,
       "mount": "/gallery",
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-piwigo/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. piwigo",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-piwigo/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Medien"
     },
     {
       "id": "planka",
       "name": "planka",
-      "description": "planka is an elegant open source project tracking tool.",
+      "description": "Projekte und Aufgaben auf Kanban-Tafeln organisieren.",
       "image": "lscr.io/linuxserver/planka:latest",
       "port": 1337,
       "default_port": 18029,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-planka/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. planka",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-planka/",
       "settings": [
         {
           "env": "BASE_URL",
@@ -636,19 +657,20 @@
           "secret": false
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Werkzeuge"
     },
     {
       "id": "ppsspp",
       "name": "ppsspp",
-      "description": "[PPSSPP] is a free and open-source PSP emulator for Windows, macOS, Linux, iOS, Android, Nintendo Wii U, Nintendo Switch, BlackBerry 10, MeeGo, Pandora, Xbox Series and Symbian with a focus on speed and portability.",
+      "description": "PSP-Spiele mit einem Emulator ausführen.",
       "image": "lscr.io/linuxserver/ppsspp:latest",
       "port": 3000,
       "default_port": 18030,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-ppsspp/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. ppsspp",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-ppsspp/",
       "settings": [],
       "ports": [
         {
@@ -656,47 +678,50 @@
           "published": 18031,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Medien"
     },
     {
       "id": "projectsend",
       "name": "projectsend",
-      "description": "projectsend is a self-hosted application that lets you upload files and assign them to specific clients that you create yourself. Secure, private and easy. No more depending on external services or e-mail to send those files.",
+      "description": "Dateien für Benutzer hochladen und gezielt bereitstellen.",
       "image": "lscr.io/linuxserver/projectsend:latest",
       "port": 80,
       "default_port": 18032,
       "mount": "/data",
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-projectsend/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. projectsend",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-projectsend/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Dateien"
     },
     {
       "id": "pwndrop",
       "name": "pwndrop",
-      "description": "pwndrop is a self-deployable file hosting service for sending out red teaming payloads or securely sharing your private files over HTTP and WebDAV.",
+      "description": "Dateien über eigene Download-Links bereitstellen.",
       "image": "lscr.io/linuxserver/pwndrop:latest",
       "port": 8080,
       "default_port": 18033,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-pwndrop/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. pwndrop",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-pwndrop/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Dateien"
     },
     {
       "id": "speedtest-tracker",
       "name": "speedtest-tracker",
-      "description": "speedtest-tracker is a self-hosted internet performance tracking application that runs speedtest checks against Ookla's Speedtest service.",
+      "description": "Die Geschwindigkeit der Internetverbindung regelmäßig messen.",
       "image": "lscr.io/linuxserver/speedtest-tracker:latest",
       "port": 80,
       "default_port": 18034,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-speedtest-tracker/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. speedtest-tracker",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-speedtest-tracker/",
       "settings": [
         {
           "env": "APP_KEY",
@@ -729,47 +754,50 @@
           "secret": false
         }
       ],
-      "ports": []
+      "ports": [],
+      "category": "Netzwerk"
     },
     {
       "id": "synclounge",
       "name": "synclounge",
-      "description": "synclounge is a third party tool that allows you to watch Plex in sync with your friends/family, wherever you are.",
+      "description": "Plex-Inhalte gemeinsam mit anderen ansehen.",
       "image": "lscr.io/linuxserver/synclounge:latest",
       "port": 8088,
       "default_port": 18035,
       "mount": null,
       "config_mount": false,
       "documentation": "https://docs.linuxserver.io/images/docker-synclounge/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. synclounge",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-synclounge/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Medien"
     },
     {
       "id": "thelounge",
       "name": "thelounge",
-      "description": "thelounge (a fork of shoutIRC) is a web IRC client that you host on your own server.",
+      "description": "IRC-Chats über eine eigene Weboberfläche nutzen.",
       "image": "lscr.io/linuxserver/thelounge:latest",
       "port": 9000,
       "default_port": 18036,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-thelounge/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. thelounge",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-thelounge/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Netzwerk"
     },
     {
       "id": "unifi-netwo-3e1611",
       "name": "unifi-network-application",
-      "description": "The unifi-network-application software is a powerful, enterprise wireless software engine ideal for high-density client deployments requiring low latency and high uptime performance.",
+      "description": "UniFi-Netzwerkgeräte zentral konfigurieren und überwachen.",
       "image": "lscr.io/linuxserver/unifi-network-application:latest",
       "port": 8443,
       "default_port": 18037,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-unifi-network-application/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. unifi-network-application",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-unifi-network-application/",
       "settings": [
         {
           "env": "MONGO_USER",
@@ -824,33 +852,35 @@
           "published": 18040,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Netzwerk"
     },
     {
       "id": "vscodium-web",
       "name": "vscodium-web",
-      "description": "vscodium-web is a community-driven, freely-licensed binary distribution of the remote host web component of Microsoft's editor VS Code.",
+      "description": "Code und Projekte mit VSCodium im Browser bearbeiten.",
       "image": "lscr.io/linuxserver/vscodium-web:latest",
       "port": 8000,
       "default_port": 18041,
       "mount": null,
       "config_mount": true,
       "documentation": "https://docs.linuxserver.io/images/docker-vscodium-web/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. vscodium-web",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-vscodium-web/",
       "settings": [],
-      "ports": []
+      "ports": [],
+      "category": "Werkzeuge"
     },
     {
       "id": "your_spotify",
       "name": "your_spotify",
-      "description": "your_spotify is a self-hosted application that tracks what you listen and offers you a dashboard to explore statistics about it! It's composed of a web server which polls the Spotify API every now and then and a web application on which you can explore your statistics.",
+      "description": "Eigene Spotify-Hörgewohnheiten auswerten.",
       "image": "lscr.io/linuxserver/your_spotify:latest",
       "port": 80,
       "default_port": 18042,
       "mount": null,
       "config_mount": false,
       "documentation": "https://docs.linuxserver.io/images/docker-your_spotify/",
-      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. your_spotify",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-your_spotify/",
       "settings": [
         {
           "env": "APP_URL",
@@ -895,7 +925,8 @@
           "published": 18043,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "category": "Medien"
     }
   ]
 }

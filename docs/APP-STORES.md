@@ -1,64 +1,35 @@
-# Eigene AppStores und Hardware-Erweiterungen
+# Titan AppStore und Geräteauswahl
 
-Ab **0.4.9-alpha.1** ist LinuxServer.io der Standardstore mit 73 offline gebündelten Vorlagen. **AppStores** verwaltet mehrere Quellen, Aktivierung und manuelle Aktualisierung. Der Store-Filter zeigt eine oder alle aktiven Quellen. Deaktivieren verändert installierte Apps nicht.
+Ab **0.4.14-alpha.1** pflegt Titan seine eigenen Installationsvorlagen. Der Katalog mit 73 Apps (42 eingerichtete Vorlagen und 31 gesperrte Vorlagen in Vorbereitung) liegt im System und wird zusammen mit Titan aktualisiert. Die Oberfläche fragt keine externen AppStore-Kataloge ab; Quellen hinzufügen, Quellenfilter und separate Store-Aktualisierung entfallen. Container-Images werden weiterhin von ihren jeweiligen Herausgebern geladen. Deren Dokumentation, Zugangshinweise und Lizenzen gelten weiterhin.
 
-Ab **0.4.12-alpha.1** wird nur LinuxServer.io als Store vorgeschlagen. Der offizielle CasaOS-Store wird deaktiviert und ausgeblendet; seine bereits installierten Apps und Daten bleiben erhalten. Der weitere Ausbau von One-Click-Installationen und fremden Store-Adaptern ist zugunsten der eigenen [Docker-Verwaltung](DOCKER-WORKBENCH.md) zurückgestellt. Bestehende kompatible eigene Quellen bleiben verfügbar. Die folgenden Importdetails beschreiben die bisherige Kompatibilität, keine Zusage vollständiger Unterstützung aller Anbieter. CasaOS-GitHub-Repositories werden über kleine Compose-Dateien eingelesen; Logos und große Repository-Archive sind dafür unnötig. Alternativ werden GitHub-ZIP-Archive von `codeload.github.com` und Titan-JSON von `raw.githubusercontent.com` unterstützt. Ein Administrator bestätigt beim Hinzufügen sein Vertrauen in den Herausgeber.
+## Eine App installieren
 
-Downloads sind begrenzt: 8 MiB API-Daten, 1 MiB Titan-JSON, 96 MiB ZIP, 512 MiB deklarierter ZIP-Inhalt. Der gezielte Repository-Import begrenzt jede Vorlage auf 128 KiB und insgesamt 16 MiB. Keine Weiterleitungen, YAML-Aliase, beliebigen Hostpfade oder direkte Compose-Ausführung. Inkompatible Vorlagen werden mit Grund aufgelistet. Importierte Vorlagen behalten einen direkten Dokumentationslink; unbestätigte Anmeldedaten sind als solche erkennbar. Die bisherigen 42 Vorlagen behalten ihre geprüften Hinweise.
+1. Im Hauptmenü **App Store** öffnen und die App wählen. Suche, Kategorien und A–Z/Z–A helfen beim Finden.
+2. Hinweise zum ersten Login lesen. Je nach App legst du den Zugang beim Installieren fest oder richtest ihn beim ersten Öffnen ein. Nicht bestätigte Zugangsdaten werden nicht als garantiertes Standardpasswort ausgegeben.
+3. Vorgaben prüfen: Webport, weitere Ports, Datenbereich und Netzwerk. Bridge mit veröffentlichtem Webport ist der einfache Standard. Ein eigenes Netzwerk oder Host-Netzwerk ist gezielt auswählbar.
+4. Bei Bedarf tatsächlich erkannte Geräte auswählen. Ohne Auswahl bekommt die App keinen Gerätezugriff.
+5. Installieren. Unter **Docker** den Container anklicken, um App öffnen, Einstellungen, Stoppen, Neustarten und Logs direkt zu erreichen.
 
-Das einfache Titan-Format unterstützt einen Container je App. Ab **0.4.11-alpha.1** übersetzt der CasaOS-Adapter auch Verbünde mit bis zu acht Containern, statischen Kommandos, Healthchecks und Abhängigkeiten in verwaltete Titan-Vorlagen. Verbünde verwenden ihr eigenes isoliertes Standardnetz; Einzelcontainer können andere unterstützte Netze verwenden. Ports, Umgebungsvariablen, Speicherfreigabe und Bridge-/Host-/eigenes Docker-Netz werden vor der Installation eingestellt. Vorgaben stehen bereits im Formular. Geheimnisse werden erst dort eingegeben und separat mit privaten Dateirechten gespeichert. Zusätzliche Ports können einzeln geändert werden. Der Konfigurationsmount ist `/config`; `config_mount: false` deaktiviert ihn. Der Datenmount wird durch `mount` festgelegt, `null` deaktiviert ihn. NAS-Pfade kommen aus Titan, nicht aus dem fremden Store.
+Mehrere Dienste einer App laufen zusammen in ihrem isolierten Standardnetz. Zugangsdaten werden separat mit privaten Dateirechten gespeichert und nicht in der Containerübersicht ausgegeben. Die Vorlagen geben keine beliebigen Hostpfade, den Docker-Socket oder privilegierten Containerzugriff frei. Lokale App-Bildsymbole benötigen keine externen Logo-Abfragen.
 
-## Format
+## USB, Grafik und NPU
 
-Beispielstruktur; Image und Dokumentationsadresse durch die eigene getestete Anwendung ersetzen:
+Die Auswahl zeigt Hersteller, Modell und verfügbare Seriennummer sowie den tatsächlichen Linux-Gerätepfad. Nach erneutem Anstecken eines USB-Geräts seine Zuordnung überprüfen. Ein fehlendes oder neu zugeordnetes Gerät verhindert einen neuen App-Start, bis die Auswahl korrigiert wurde; Stoppen und Entfernen bleiben möglich.
 
-```json
-{
-  "schema": 1,
-  "name": "Mein Store",
-  "apps": [{
-    "id": "meine-app",
-    "name": "Meine App",
-    "description": "Beschreibung der Anwendung",
-    "image": "example/my-app:1.0",
-    "port": 8080,
-    "default_port": 8080,
-    "mount": "/data",
-    "memory": "1g",
-    "documentation": "https://example.org/docs",
-    "login_note": "Beim ersten Aufruf das eigene Administratorkonto anlegen.",
-    "ports": [{"target": 9000, "published": 9000, "protocol": "udp"}],
-    "settings": [{"env": "LANGUAGE", "label": "Sprache", "default": "de", "secret": false}]
-  }]
-}
-```
+- Intel-/AMD-Grafik erscheint, wenn ein Rendergerät mit aktivem Kernel-Treiber vorhanden ist. AMD-Compute kann zusätzlich `/dev/kfd` benötigen.
+- NVIDIA-GPUs werden mit ihrer konkreten Kennung angeboten, wenn Treiber und NVIDIA Container Runtime einsatzbereit sind.
+- NPUs erscheinen über tatsächlich vorhandene `/dev/accel/accel*`-Geräte. Mehrere Geräte sind gemeinsam wählbar, beispielsweise Intel-Grafik und NPU.
 
-`login_note` ist verpflichtend: Standardzugang, eigenes Konto oder Ort eines automatisch erzeugten Passworts beschreiben. Der Hinweis erscheint vor der Installation. Pro Store maximal 400 Apps, insgesamt maximal 20 Stores. Titan unterstützt keine privilegierten Container, Docker-Socket-Mounts, freie Hostgeräte, Startskripte oder ungeprüften Compose-Dateien aus diesem Format. Unbekannte Felder werden abgewiesen. Kataloge werden nicht automatisch aktualisiert. Store-Einträge bleiben auf der gemeinsamen Datenpartition über Systemupdates erhalten; das Konfigurations-Exportformat enthält sie derzeit nicht.
+Die App selbst benötigt passende Beschleunigungssoftware. Die Geräteauswahl installiert keine GPU-/NPU-Treiber und garantiert keine Unterstützung durch jedes Container-Image. In Proxmox muss die Hardware zuerst der Titan-VM zugewiesen werden. Physische Geräte stehen den automatisierten QEMU-Tests nicht zur Verfügung.
 
-## CasaOS / ZimaOS als Referenz
+## Geräte nachträglich ändern
 
-Die offizielle [ZimaOS-Dokumentation](https://www.zimaspace.com/docs/developer/docker-app-publishing) beschreibt Docker Compose mit zusätzlichen `x-casaos`-Metadaten und Installationshinweisen. Das Bedienprinzip – Quellen hinzufügen, App wählen, Vorgaben prüfen, installieren – dient als Referenz. Titan verwendet eigenen Code und ein bewusst begrenztes Schema; Kompatible CasaOS-/ZimaOS-Vorlagen werden übersetzt; nicht unterstützte Hostrechte oder dynamische Kommandos werden mit Begründung ausgelassen.
+**App-Einstellungen → Geräte ändern**: App zuerst stoppen, Geräte auswählen und speichern. Titan legt die verwalteten Container mit der neuen Zuordnung an; gespeicherte App-Daten bleiben erhalten. Anschließend die App starten. Schlägt die Neuanlage fehl, wird die vorherige Konfiguration wiederhergestellt; ein gemeldeter Wiederherstellungsfehler muss über Status und Logs geprüft werden.
 
-[CasaOS-AppManagement](https://github.com/IceWhaleTech/CasaOS-AppManagement/blob/main/LICENSE) und [CasaOS-AppStore](https://github.com/IceWhaleTech/CasaOS-AppStore/blob/main/LICENSE) führen Apache 2.0. Bei tatsächlicher Übernahme von Code oder Vorlagen sind unter anderem Lizenz-, Copyright- und gegebenenfalls NOTICE-Hinweise sowie Kennzeichnung von Änderungen zu erhalten. Die Titan-Nichtkommerziell-Lizenz ersetzt diese Fremdlizenzen nicht. Container, Logos und andere Assets haben eigene Bedingungen. Das öffentliche [ZimaOS-Repository](https://github.com/IceWhaleTech/ZimaOS) ist keine pauschale Lizenzfreigabe für alle ZimaOS-Komponenten. Für diese Erweiterung wurden keine fremden Implementierungen oder Logos übernommen.
+Bei manuell mit Titan erstellten Containern bietet das Aktionsmenü **Einstellungen & Geräte**. Für unterstützte Konfigurationen erstellt Titan eine lokale Kopie der beschreibbaren Dateischicht, verwendet dasselbe Datenvolume und startet den neuen Container. Der vorherige Container bleibt gestoppt als Sicherung erhalten. Erst nach erfolgreicher Prüfung kann er unter Weitere Aktionen entfernt werden. Das gemeinsame Datenvolume ist kein unabhängiges Backup. Fremde Container und individuell komplexere Konfigurationen werden nicht automatisch umgebaut.
 
-## VM und GPU
+## Vorhandene Apps und Rollback
 
-IMG, RAW und QCOW2 werden über den bestehenden geprüften Image-Import als eigenständige virtuelle Disk kopiert; die Quelle bleibt erhalten. VMs unterstützen Legacy-BIOS und UEFI mit OVMF. Die Firmware wird passend zum Gast ausgewählt; ein nachträglicher Wechsel kann einen zuvor installierten Gast unbootbar machen. P-/E-Kerne erscheinen nur, wenn Linux die Topologie meldet; Proxmox kann diese Information vor dem Gast verbergen.
+Bereits installierte Anwendungen aus älteren externen Quellen bleiben zur Verwaltung verfügbar. Neue externe Stores können nicht mehr über die Oberfläche hinzugefügt oder aktualisiert werden. Bestehende Quellendaten werden für diese Kompatibilität und ältere Systemstände aufbewahrt.
 
-Unter VM → Details → **USB-Geräte** können bis zu acht eindeutig erkannte Geräte ausgewählt werden. Änderungen erfordern eine ausgeschaltete VM. Speicher, Hubs und Netzwerkgeräte bleiben beim NAS. Doppelte Vendor-/Product-IDs werden abgewiesen; port-/seriennummernbasierte Zuordnung und Hotplug sind noch offen. Die Auswahl wird in libvirt gespeichert, beim Titan-Start der VM erneut geprüft und konkurrierende Zuordnungen werden abgewiesen. Externe Änderungen mit virsh oder Autostart umgehen diese zusätzliche Titan-Prüfung; libvirt prüft weiterhin die Geräteverfügbarkeit. In Proxmox muss das Gerät zuerst der Titan-VM zugewiesen werden. VM-Wiederherstellungen übernehmen keine USB-Zuordnungen.
-
-Unter **Einstellungen → Systemkomponenten** zeigt Titan PCI-GPUs, Gerätekennung, gebundenen Kernel-Treiber und VFIO-Reservierung. Ein aktiver Treiber beweist keine funktionierende Medienbeschleunigung. Eine separate Treiberinstallation ist noch nicht implementiert; insbesondere NVIDIA benötigt einen zur GPU und zum Kernel passenden, getesteten Treiber im signierten Systemupdate. Kein Live-`apt install` verändert dafür den aktuellen A/B-Systemstand.
-
-Die neuen Verwaltungswege sind Alpha. Tests mit realen USB-Geräten, GPU-Hardware und einem zusätzlichen Store-Container müssen vor Beta folgen.
-
-## Rollback-Kompatibilität
-
-Neue Quellen liegen in `app-store-sources.json`. Ein vorhandenes `app-stores.json` wird beim ersten Zugriff übernommen, aber nicht mit neuen Formaten überschrieben. Ältere Systemversionen ignorieren die neue Datei und können ihren Verwaltungsdienst weiter starten. Neu importierte Apps benötigen zur Verwaltung die neuere Titan-Version; deren Container und Daten werden durch einen OS-Rollback nicht entfernt.
-
-## USB/GPU und Speicher ab 0.4.11
-
-Das Installationsformular bietet erkannte USB-/serielle Geräte sowie GPU-Rendergeräte einzeln an. NVIDIA setzt einen bereits installierten Treiber und eine funktionsfähige NVIDIA-Container-Runtime voraus. Geräte werden nicht durch privilegierte Container ersetzt. Ein abgezogenes Gerät verhindert neue Starts; Stoppen und Entfernen bleiben möglich. Physische Hardware ist in der QEMU-Releaseprüfung nicht verfügbar.
-
-Importierte Mounts werden auf private Titan-App-Verzeichnisse abgebildet. Ein erkennbarer Nutzdaten-Mount (`/data`, `/media`, `/downloads`, `/files`, `/storage`) verwendet die gewählte Freigabe bzw. das eigene Datenverzeichnis; dieselbe Quellzuordnung bleibt im Verbund geteilt. Datenbanken und zusätzliche Konfigurations-Mounts erhalten getrennte private Unterordner.
-
-Neue Vorlagen werden bei bereits hinzugefügten Stores erst nach **AppStore aktualisieren** eingelesen. Ab 0.4.11 werden erweiterte Quellen in einer eigenen Registry gespeichert; die vorherige Registry bleibt für den System-Rollback erhalten. Nach einem Rollback zeigt die ältere Oberfläche ihren bisherigen Store-Stand. Neue App-Daten bleiben auf der Datenpartition erhalten.
+Ein Betriebssystem-Rollback setzt App-Daten oder neue Geräteeinstellungen nicht zurück. Insbesondere ältere Versionen können neue NPU-Zuordnungen nicht vollständig bearbeiten. Vor dem Wechsel Hardware-Konfigurationen prüfen und unabhängige Sicherungen behalten.

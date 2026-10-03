@@ -7,6 +7,7 @@ on:
       - '.github/workflows/debian-image.yml'
       - 'scripts/build-debian-ab-image.sh'
       - 'scripts/publish-debian-system.sh'
+      - 'titan/titan-app-store.json'
 permissions:
   contents: write
 concurrency:

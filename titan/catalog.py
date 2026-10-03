@@ -408,5 +408,5 @@ from pathlib import Path as _CatalogPath
 from .store_recipes import recipes as _store_recipes
 _bundled_document = json.loads((_CatalogPath(__file__).parent / 'titan-app-store.json').read_text())
 _, _bundled_apps = _store_recipes(_bundled_document, 'https://api.linuxserver.io/api/v1/images?include_config=true&include_deprecated=false')
-for _recipe in _bundled_apps.values(): _recipe.update(titan_recipe=True,store_name='Titan AppStore')
+for _recipe in _bundled_apps.values(): _recipe.update(titan_recipe=True,store_name='Titan AppStore',catalog_status='preparation')
 APPS.update(_bundled_apps)

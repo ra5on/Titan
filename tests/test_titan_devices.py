@@ -12,3 +12,10 @@ class TitanDevicesTests(unittest.TestCase):
         self.assertNotIn('privileged',definition['services']['app'])
         with self.assertRaises(Error):validate(['/dev/accel/accel0'],[])
         with self.assertRaises(Error):apply({'services':{'app':{}}},'app',[{**device,'path':'/etc/shadow'}])
+
+    def test_unreviewed_recipe_cannot_be_installed(self):
+        from titan.host import Host
+        from titan.catalog import APPS
+        identifier=next(k for k,v in APPS.items() if v.get('catalog_status')=='preparation')
+        with self.assertRaisesRegex(Error,'Vorlage ist noch in Vorbereitung'):
+            Host.op_app_install(object(),identifier,19000)

@@ -42,13 +42,13 @@ class StoreMixin:
     def initialize_app_stores(self):
         document = json.loads((Path(__file__).parent / 'titan-app-store.json').read_text())
         _, parsed = recipes(document, LINUXSERVER)
-        for app in parsed.values(): app.update(titan_recipe=True,store_name='Titan AppStore')
-        own=set(parsed)
+        for app in parsed.values(): app.update(titan_recipe=True,store_name='Titan AppStore',catalog_status='preparation')
+        own=set(parsed);owned_recipes=dict(parsed)
         APPS.update(parsed)
         for store in self.store_records():
             _, parsed = recipes(store['document'], store_url(store['url']))
             for key,item in parsed.items():
-                if key in own:item.update(titan_recipe=True,store_name='Titan AppStore')
+                if key in own:item.update(owned_recipes[key])
             APPS.update(parsed)
             if store.get('retained'):
                 _, archived = recipes({**store['document'], 'apps':store['retained']}, store['url'])

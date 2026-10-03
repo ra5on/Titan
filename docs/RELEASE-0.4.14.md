@@ -1,6 +1,6 @@
 # Titan 0.4.14-alpha.1
 
-Titan vereinfacht das Dashboard, den AppStore sowie Speicher- und Systemupdates. Der eigene AppStore enthält lokal gepflegte Installationsvorlagen für 73 Apps. Container-Images stammen weiterhin von ihren jeweiligen Herausgebern; externe AppStore-Kataloge und Dockhand werden nicht eingebunden.
+Titan vereinfacht das Dashboard, den AppStore sowie Speicher- und Systemupdates. Der eigene AppStore enthält lokal gepflegte Installationsvorlagen für 73 Apps (42 eingerichtete Vorlagen und 31 gesperrte Vorlagen in Vorbereitung). Container-Images stammen weiterhin von ihren jeweiligen Herausgebern; externe AppStore-Kataloge und Dockhand werden nicht eingebunden.
 
 - **Anpassbare Oberfläche:** Kachelinhalte fließen mit ihrer Breite, Systemressourcen zeigen kompakte Live-Werte und aufklappbare RAM-Details. Kein festes Inhaltsfenster mit abgeschnittenen Werten. Mobile Ansichten bleiben innerhalb des Bildschirms; komponenteninterne Tabellen/Tabs können weiterhin horizontal scrollen. Lokale App-Bildsymbole, Hover- und Öffnungseffekte respektieren reduzierte Bewegung.
 - **Container-Aktionen:** Klick auf den Namen öffnet ein direktes Aktionsmenü neben der Übersicht, auf dem Handy darüber. App öffnen, Einstellungen, Start/Stop/Neustart, Logs und weitere Aktionen sind zusammen erreichbar. Bei Titan-Apps wird der tatsächliche Webport statt eines beliebigen veröffentlichten TCP-Ports benutzt.
