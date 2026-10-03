@@ -74,7 +74,7 @@ Der Ausgangsstand ist eine private Kopie desselben Images mit einer älteren
 signierten Versionskennung und einer abweichenden Test-Konfigurationsdatei.
 Das prüft den vollständigen Partitionswechsel und die Persistenz, noch nicht
 die Kompatibilität zwischen zwei unterschiedlich weiterentwickelten Releases.
-Dieser zusätzliche Test folgt mit der nächsten veröffentlichten Systemversion.
+Mit dem Update **0.4.7-alpha.1** wurde zusätzlich der tatsächliche Wechsel vom veröffentlichten 0.4.6-Image auf 0.4.7 einschließlich Rollback, Datenerhalt und Fehlerwiederherstellung erfolgreich geprüft. Der zugehörige [Release-Bericht](https://github.com/ra5on/Titan/releases/download/v0.4.7-alpha.1/ab-test.json) dokumentiert diesen Test.
 
 Das ist noch keine Beta-Freigabe: Proxmox-Tests mit deiner Hardwarekonfiguration,
 langfristiger Betrieb, echte installierte VM-Gastsysteme und Wiederherstellung nach

@@ -1,6 +1,6 @@
 # Eigene AppStores und Hardware-Erweiterungen
 
-Entwicklungsstand nach v0.4.6-alpha.1. Diese Änderungen sind noch nicht im veröffentlichten IMG enthalten.
+Verfügbar mit dem signierten Systemupdate **v0.4.7-alpha.1**. Das veröffentlichte 0.4.6-Installationsimage enthält diese Änderungen noch nicht; nach der Installation über den Alpha-Kanal aktualisieren.
 
 Im App Store öffnet **AppStores** die Quellenverwaltung. Ein Administrator kann eine öffentliche JSON-Datei auf `raw.githubusercontent.com` hinzufügen und muss dem Herausgeber ausdrücklich vertrauen. Titan lädt maximal 1 MiB, erlaubt keine Weiterleitungen und speichert die geprüften Vorlagen lokal. Ein Store-Wechsel verändert keine installierte Anwendung. Entfernen ist erst nach Entfernung seiner Apps möglich; deren Daten bleiben bestehen.
 
