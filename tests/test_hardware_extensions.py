@@ -101,7 +101,7 @@ class StoreTests(unittest.TestCase):
         with patch('titan.app_stores.urllib.request.build_opener') as opener:
             opener.return_value.open.return_value = io.BytesIO(json.dumps(self.document).encode())
             host.op_app_store_add(self.url, trusted=True)
-        row = next(row for row in host.op_app_stores()['stores'] if row['url'] == self.url)
+        row = next(row for row in host.store_records() if row['url'] == self.url)
         _, parsed = recipes(self.document, self.url)
         identifier = next(iter(parsed))
         try:
@@ -113,7 +113,7 @@ class StoreTests(unittest.TestCase):
             host.records['apps'] = []
             host.op_app_store_remove(row['id'])
             self.assertNotIn(identifier, APPS)
-            self.assertEqual([row['name'] for row in host.op_app_stores()['stores']], ['LinuxServer.io'])
+            self.assertEqual([row['name'] for row in host.op_app_stores()['stores']], ['Titan AppStore'])
         finally:
             APPS.pop(identifier, None)
 

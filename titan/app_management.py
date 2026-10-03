@@ -475,6 +475,33 @@ class AppMixin(AppMetricsMixin, AppDevicesMixin, AppNetworkMixin):
         return {"app": record, "container": summary, "logs": logs, "warnings": warnings,
                 "config_path": str(self.directory / "apps" / app / "config"), "data_path": record["data"]}
 
+    def op_app_hardware(self, app, hardware):
+        record=self.managed_app(app)
+        self.app_storage_ready(app)
+        self._app_network_validate(record.get('network'),app,record)
+        inventory=app_devices_inventory();ids=validate_devices(hardware,inventory)
+        chosen=[item for item in inventory if item['id'] in ids]
+        rows=self._app_container_rows()
+        path=self.directory/'apps'/app/'compose.json';old=path.read_bytes();definition=json.loads(old)
+        for key in definition['services']:
+            container=self._app_container(app,record,rows,service_key=key)
+            if container and (container.get('State',{}).get('Running') or container.get('State',{}).get('Status') in ('running','paused','restarting')):raise Error('Die App vor dem Ändern der Geräte stoppen.',409)
+        from .host import pwd
+        owner=pwd.getpwnam('titan-files')
+        proposed=compose(app,str(path.parent),owner.pw_uid,owner.pw_gid,record['port'],record['data'],self._app_options(app),record.get('network'),chosen)
+        records=self.load('apps',[]);updated=[{**item,'hardware':chosen} if item['id']==app else item for item in records]
+        atomic_json(path,proposed);self.save('apps',updated)
+        args=['docker','compose','--project-name','titan-'+app,'-f',str(path)]
+        try:
+            _run([*args,'config','--quiet'])
+            _run([*args,'create','--force-recreate'],timeout=600)
+        except Error as exc:
+            atomic_json(path,json.loads(old));self.save('apps',records)
+            try:_run([*args,'create','--force-recreate'],timeout=600)
+            except Error:raise Error('Gerätewechsel und Wiederherstellung fehlgeschlagen. Die vorherige Konfiguration wurde gesichert; App-Status prüfen.',503) from None
+            raise Error('Gerätewechsel fehlgeschlagen; vorherige Konfiguration wiederhergestellt.',503) from None
+        return {'ok':True,'message':'Gerätezuordnung gespeichert. Die App bleibt gestoppt und kann jetzt gestartet werden.'}
+
     def op_app_install(self, app, port, share=None, options=None, network=None, hardware=None):
         if app not in APPS:
             raise Error("App-Vorlage nicht gefunden.")

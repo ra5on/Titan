@@ -21,7 +21,7 @@ const html = dashboard.resourceMetrics(status);
 assert(html.includes('CPU-Auslastung'));
 assert(html.includes('aria-valuenow="0.0"'));
 assert(html.includes('aria-valuenow="25.0"'));
-assert(html.includes('Kein CPU-Sensor'));
+assert(!html.includes('CPU-Temperatur'));
 assert(html.includes('Der Verlauf baut sich mit den Messungen auf.'));
 const unavailable = dashboard.resourceMetrics({...status,cpu_percent:null,memory_total:null,memory_used:null});
 assert(unavailable.includes('Messung läuft'));

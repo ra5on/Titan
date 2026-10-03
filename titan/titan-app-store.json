@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "name": "LinuxServer.io",
+  "name": "Titan AppStore",
   "apps": [
     {
       "id": "adguardhome-sync",

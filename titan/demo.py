@@ -183,8 +183,7 @@ class Demo:
             operation = "file"
             args["user"] = "titan-files"
         if operation == "app_stores":
-            from .store_sources import PRESETS, LINUXSERVER
-            return {"stores": [{"id":"linuxserver","name":"LinuxServer.io","url":LINUXSERVER,"enabled":True,"apps":len(APPS),"skipped":[]}], "presets":PRESETS}
+            return {'stores':[{'id':'titan','name':'Titan AppStore','enabled':True,'apps':len(APPS),'skipped':[]}],'presets':[]}
         if operation in ("app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle"):
             raise Error("Eigene Stores benötigen ein installiertes Titan-System. Die Demo lädt keine fremden Vorlagen.")
         if operation == "vm_usb":
@@ -282,6 +281,13 @@ class Demo:
                     "warnings": ["Demo: SMB-Zugang wird ausschließlich simuliert."]}
         if operation == "app_networks":
             return self.demo_app_networks()
+        if operation=='app_hardware':
+            app=next((a for a in self.apps if a['id']==args['app']),None)
+            if not app:raise Error('App fehlt.',404)
+            if app['state']=='running':raise Error('App zuerst stoppen.',409)
+            if args.get('hardware'):raise Error('Demo hat keine echten Geräte.')
+            app['hardware']=[];return {'ok':True}
+        if operation=='docker_container_hardware':raise Error('Demo hat keine manuell angelegten echten Container.')
         if operation == "docker_container_batch":
             for container in args["containers"]:
                 self.call("docker_container_action",container=container,action=args["action"])

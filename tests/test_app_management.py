@@ -104,6 +104,34 @@ class AppManagementTests(unittest.TestCase):
     def compose_commands(self):
         return [item[6:] for item in self.calls if item[:2] == ["docker", "compose"] and "-f" in item and item[6:] != ["config","--quiet"]]
 
+    def test_device_edit_requires_stopped_app_and_preserves_data(self):
+        self.install()
+        marker=Path(self.host.load("apps",[])[0]["data"])/"keep.txt"
+        marker.write_text("keep")
+        with self.assertRaises(Error):self.host.op_app_hardware("jellyfin",[])
+        self.assertFalse(any("--force-recreate" in call for call in self.calls))
+        self.host.op_app_action("jellyfin","stop");self.calls.clear()
+        self.host.op_app_hardware("jellyfin",[])
+        self.assertEqual(marker.read_text(),"keep")
+        self.assertEqual(self.containers["jellyfin"]["State"]["Status"],"created")
+        self.assertEqual(self.host.load("apps",[])[0]["hardware"],[])
+        self.assertNotIn(["start"],self.compose_commands())
+
+    def test_device_edit_restores_configuration_on_recreate_failure(self):
+        self.install();self.host.op_app_action("jellyfin","stop")
+        path=self.host.directory/"apps/jellyfin/compose.json";old=path.read_bytes()
+        real=self.command;failed=False
+        def command(args,**kwargs):
+            nonlocal failed
+            if "--force-recreate" in args and not failed:
+                failed=True;raise Error("failed")
+            return real(args,**kwargs)
+        self.runner.side_effect=command
+        with self.assertRaisesRegex(Error,"vorherige Konfiguration wiederhergestellt"):
+            self.host.op_app_hardware("jellyfin",[])
+        self.assertEqual(path.read_bytes(),old)
+        self.assertEqual(self.containers["jellyfin"]["State"]["Status"],"created")
+
     def enable_selinux(self):
         self.selinux.return_value = True
         patch("titan.app_management.os.getxattr", side_effect=lambda descriptor, attribute: (self.config_label + "\0").encode()).start()

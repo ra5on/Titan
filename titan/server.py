@@ -28,7 +28,7 @@ from .diagnostics import report as diagnostics_report
 from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal_owner
 
 WEB = Path(__file__).parent / "web"
-MUTATIONS = {"docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_remove",
+MUTATIONS = {"app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_remove",
              "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
              "backup_config_export", "backup_config_restore", "monitoring_check"}
@@ -335,7 +335,7 @@ class Handler(TerminalHTTPMixin, BaseHTTPRequestHandler):
                 return self.reply(self.app.agent.call("vm_usb", vm=query["vm"]))
             if path == "/api/catalog":
                 if self.app.demo:
-                    return self.reply({"apps": [{**{key:value for key,value in item.items() if key != "environment"}, "install_schema": [{key:value for key,value in field.items() if key != "env"} for field in item.get("install_schema", [])], "id": name, "version": "latest", "documentation": item.get("documentation") or f"https://docs.linuxserver.io/images/docker-{item.get('upstream_name', name)}/"} for name, item in APPS.items()], "source": "LinuxServer.io"})
+                    return self.reply({"apps": [{**{key:value for key,value in item.items() if key != "environment"}, "install_schema": [{key:value for key,value in field.items() if key != "env"} for field in item.get("install_schema", [])], "id": name, "version": "latest", "documentation": item.get("documentation") or f"https://docs.linuxserver.io/images/docker-{item.get('upstream_name', name)}/"} for name, item in APPS.items()], "source": "Titan AppStore"})
                 return self.reply(self.app.agent.call("catalog"))
             if path == "/api/app-details":
                 return self.reply(self.app.agent.call("app_details", app=query["app"], tail=integer(query.get("tail", 150), 1, 500)))
@@ -529,6 +529,10 @@ class Handler(TerminalHTTPMixin, BaseHTTPRequestHandler):
             arguments = body.get("arguments", {})
             if operation not in MUTATIONS or not isinstance(arguments, dict):
                 raise Error("Aktion nicht erlaubt.")
+            if operation == "app_store_add" and not str(arguments.get("url", "")).startswith("https://raw.githubusercontent.com/ra5on/Titan/"):
+                raise Error("Titan verwendet eigene App-Vorlagen. Externe AppStores werden nicht mehr eingebunden.")
+            if operation == "app_store_refresh":
+                raise Error("App-Vorlagen werden zusammen mit Titan aktualisiert.")
             if operation == "update_install":
                 if set(arguments) != {"expected_version"}:
                     raise Error("Erwartete Update-Version erforderlich.")

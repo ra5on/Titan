@@ -866,7 +866,7 @@ class RuntimeSmoke:
             seen.add(identifier)
             recipe = APPS[identifier]
             allowed = set(recipe) - {"environment","stack"}
-            allowed.update(("id", "version", "deprecated", "architectures", "documentation", "install_schema", "containers"))
+            allowed.update(("id", "version", "deprecated", "architectures", "documentation", "install_schema", "containers", "store_name"))
             login = app.get("first_login")
             schema = [{key: entry for key, entry in field.items() if key != "env"}
                       for field in recipe.get("install_schema", [])]
@@ -1098,6 +1098,8 @@ class RuntimeSmoke:
         first_http = self.client.app_http_ready()
         self.client.action("app_action", {"app": "heimdall", "action": "stop"})
         self.app_state("exited")
+        if self.report.get("platform")=="debian-rauc":
+            self.client.action("app_hardware", {"app":"heimdall","hardware":[]},timeout=600)
         self.client.action("app_action", {"app": "heimdall", "action": "start"})
         self.app_state("running")
         restarted_http = self.client.app_http_ready()
@@ -1239,7 +1241,7 @@ class RuntimeSmoke:
                 except Exception:pass
 
     def docker_native(self):
-        resource='titan-runtime-native-data';container=None
+        resource='titan-runtime-native-data';container=None;backup=None
         self.client.action('docker_resource',{'kind':'volume','action':'create','resource':resource})
         try:
             self.client.action('docker_container_create',{'config':{'name':'runtime-native','image':'lscr.io/linuxserver/heimdall:latest','ports':[{'published':18080,'target':80,'protocol':'tcp'}],'volume':resource,'target':'/config','memory_mb':512,'cpus':1}})
@@ -1254,17 +1256,24 @@ class RuntimeSmoke:
             self.client.action('docker_container_batch',{'containers':[container],'action':'stop'})
             stopped=self.client.request('/api/docker-metrics').get('containers',{}).get(container,{})
             if stopped.get('memory_bytes')!=0 or stopped.get('cpu_percent')!=0:raise SmokeFailure('Stopped native Docker container retains resource usage.')
+            rebuilt=self.client.action('docker_container_hardware',{'container':container,'devices':[]},timeout=600)
+            backup=container;container=rebuilt.get('container')
+            if rebuilt.get('backup_container')!=backup or not container or container==backup:raise SmokeFailure('Hardware edit did not retain stopped backup.')
+            self.client.app_http_ready()
+            self.client.action('docker_container_batch',{'containers':[container],'action':'stop'})
             self.client.action('docker_container_batch',{'containers':[container],'action':'start'});self.client.app_http_ready()
             self.client.action('docker_container_action',{'container':container,'action':'stop'})
             self.client.action('docker_container_action',{'container':container,'action':'remove'});container=None
             if not any(row.get('Name')==resource for row in self.client.request('/api/docker-engine').get('volumes',[])):raise SmokeFailure('Container removal deleted persistent volume.')
-            return {'create':True,'http':True,'logs':True,'batch_stop_start':True,'total_ram':True,'stop_ram_zero':True,'restart':True,'remove':True,'volume_preserved':True}
+            return {'create':True,'http':True,'logs':True,'batch_stop_start':True,'total_ram':True,'stop_ram_zero':True,'restart':True,'remove':True,'volume_preserved':True,'hardware_recreate_and_backup':True}
         finally:
             if container:
                 try:
                     self.client.action('docker_container_action',{'container':container,'action':'stop'})
                     self.client.action('docker_container_action',{'container':container,'action':'remove'})
                 except Exception:pass
+            if backup:
+                self.client.action('docker_container_action',{'container':backup,'action':'remove'})
             self.client.action('docker_resource',{'kind':'volume','action':'remove','resource':resource})
 
     def vm_state(self, identifier, state):

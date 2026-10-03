@@ -343,20 +343,9 @@ def _image_metadata(images):
 
 
 def catalog(refresh=False):
-    if refresh or time.time() - _cache["time"] > 21600:
-        try:
-            request = urllib.request.Request(
-                "https://api.linuxserver.io/api/v1/images?include_config=false&include_deprecated=false",
-                headers={"User-Agent": "Titan/0.1"})
-            with urllib.request.urlopen(request, timeout=12) as response:
-                data = json.loads(response.read(8 * 1024 * 1024))
-            images = data["data"]["repositories"]["linuxserver"]
-            _cache.update(time=time.time(), images=_image_metadata(images), error=None)
-        except Exception:
-            _cache.update(time=time.time(), error="LinuxServer-Katalog momentan nicht erreichbar. Lokale Vorlagen bleiben verfügbar.")
     apps = []
     for app_id, recipe in list(APPS.items()):
-        remote = _cache["images"].get(app_id, {})
+        remote = {}
         public_recipe = {key: value for key, value in recipe.items() if key not in ("environment", "stack")}
         public_recipe["containers"] = len(recipe.get("stack",{}).get("services",{})) or 1
         public_recipe["install_schema"] = [{key: value for key, value in field.items() if key != "env"}
@@ -365,7 +354,7 @@ def catalog(refresh=False):
                      "deprecated": remote.get("deprecated", False),
                      "architectures": remote.get("architectures", []),
                      "documentation": recipe.get("documentation") or f"https://docs.linuxserver.io/images/docker-{recipe.get('upstream_name', app_id)}/"})
-    return {"apps": apps, "source": "LinuxServer.io", "error": _cache["error"]}
+    return {"apps": apps, "source": "Titan AppStore", "error": None}
 
 
 def compose(app_id, directory, uid, gid, port, data_path, options=None, network=None, hardware=None):
@@ -414,9 +403,10 @@ def compose(app_id, directory, uid, gid, port, data_path, options=None, network=
     return apply(definition, app_id, hardware)
 
 
-# Ship an offline snapshot translated from the official LinuxServer API.
+# Titan owns this offline recipe library. Existing recipe IDs remain stable for installed apps.
 from pathlib import Path as _CatalogPath
 from .store_recipes import recipes as _store_recipes
-_bundled_document = json.loads((_CatalogPath(__file__).parent / 'linuxserver-store.json').read_text())
+_bundled_document = json.loads((_CatalogPath(__file__).parent / 'titan-app-store.json').read_text())
 _, _bundled_apps = _store_recipes(_bundled_document, 'https://api.linuxserver.io/api/v1/images?include_config=true&include_deprecated=false')
+for _recipe in _bundled_apps.values(): _recipe.update(titan_recipe=True,store_name='Titan AppStore')
 APPS.update(_bundled_apps)

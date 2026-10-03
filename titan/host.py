@@ -170,7 +170,7 @@ class Host(DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMix
                     status = "Noch kein ZFS-Pool vorhanden."
             except Error as exc:
                 status = str(exc)
-        return {"disks": self.disks(), "pools": pools, "datasets": datasets, "status": status, **self.volume_manager.inventory()}
+        return {"disks": self.disks(), "pools": pools, "datasets": datasets, "status": status, "zfs_available":bool(shutil.which("zpool")), **self.volume_manager.inventory()}
 
     @property
     def volume_manager(self):

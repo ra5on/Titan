@@ -13,11 +13,8 @@ context.capture={};run('dialog=(title,html,submit)=>{capture.title=title;capture
  assert.match(context.capture.html,/value="abcd:1234"\s+disabled/);
  const values=new FormData();values.append('usb','1234:abcd');await context.capture.submit(values);
  assert.equal(context.capture.action.name,'vm_usb_update');assert.deepEqual(Array.from(context.capture.action.args.devices),['1234:abcd']);
- context.reply={stores:[{id:'123',name:'<b>Store</b>',apps:2,url:'https://example.org'}]};
- await run("actions['app-stores']()");assert.match(context.capture.html,/&lt;b&gt;Store/);assert.match(context.capture.html,/name="trusted" required/);
- const store=new FormData();store.set('url','https://raw.githubusercontent.com/owner/repo/main/store.json');store.set('trusted','on');await context.capture.submit(store);
- assert.equal(context.capture.action.name,'app_store_add');assert.equal(context.capture.action.args.trusted,true);
+ assert.equal(run("typeof actions['app-stores']"),'undefined');
  const html=run("componentPanel({gpus:[{vendor:'<GPU>',pci:'01:00.0',device_id:'x',driver:null,bound:false,message:'Fehlt',recommendation:'Firmware'}]})");
  assert.match(html,/&lt;GPU&gt;/);assert.match(html,/href="#updates"/);assert.match(html,/separate Treiberinstallation ist noch nicht verfügbar/);
- console.log('USB selection, missing-device removal, store trust and submit arguments, GPU status and HTML escaping passed.');
+ console.log('USB selection, missing-device removal, external store controls removed, GPU status and HTML escaping passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

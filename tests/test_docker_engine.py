@@ -28,6 +28,42 @@ class EngineTests(unittest.TestCase):
             self.engine.engine_docker.reset_mock()
             with self.assertRaises(Error):self.engine.op_docker_container_create({**config,**patch})
             self.engine.engine_docker.assert_not_called()
+    def manual_stopped(self):
+        return {'Id':ID,'Name':'/titan-custom-web','Config':{'Image':'nginx:stable','Labels':{'io.titan.manual':'true'},'Env':['SECRET=private']},'State':{'Running':False,'Status':'exited'},'HostConfig':{'Memory':512*1048576,'NanoCpus':1000000000,'NetworkMode':'bridge','RestartPolicy':{'Name':'unless-stopped'},'PortBindings':{'80/tcp':[{'HostIp':'','HostPort':'8080'}]}},'Mounts':[]}
+
+    def test_device_edit_preserves_backup_and_recreates_from_local_snapshot(self):
+        row=self.manual_stopped();self.engine.engine_container=Mock(return_value=row)
+        self.engine.op_app_devices=Mock(return_value={'devices':[]})
+        image='sha256:'+'c'*64
+        def docker(args,**kwargs):
+            return image if args[0]=='commit' else 'b'*64
+        self.engine.engine_docker.side_effect=docker
+        result=self.engine.op_docker_container_hardware(ID,[])
+        calls=[v.args[0] for v in self.engine.engine_docker.call_args_list]
+        self.assertEqual(result['backup_container'],ID)
+        self.assertTrue(any(v[:2]==['commit','--change'] for v in calls))
+        self.assertIn(['rename',ID,'titan-previous-'+ID[:20]],calls)
+        create=next(v for v in calls if v[0]=='create');self.assertEqual(create[-1],image)
+        self.assertFalse(any(v[0]=='rm' for v in calls))
+        self.assertNotIn('private',json.dumps(result))
+
+    def test_device_edit_rejects_running_foreign_or_unknown_device_before_changes(self):
+        self.engine.op_app_devices=Mock(return_value={'devices':[]})
+        for patch,devices in [({'State':{'Running':True}},[]),({'Config':{'Labels':{}}},[]),({},['usb:fake'])]:
+            self.engine.engine_container=Mock(return_value={**self.manual_stopped(),**patch})
+            self.engine.engine_docker.reset_mock()
+            with self.assertRaises(Error):self.engine.op_docker_container_hardware(ID,devices)
+            self.engine.engine_docker.assert_not_called()
+
+    def test_device_edit_restores_original_name_if_create_fails(self):
+        self.engine.engine_container=Mock(return_value=self.manual_stopped())
+        self.engine.op_app_devices=Mock(return_value={'devices':[]})
+        self.engine.op_docker_container_create=Mock(side_effect=Error('create failed'))
+        def docker(args,**kwargs):return 'sha256:'+'c'*64 if args[0]=='commit' else ''
+        self.engine.engine_docker.side_effect=docker
+        with self.assertRaises(Error):self.engine.op_docker_container_hardware(ID,[])
+        self.assertEqual(self.engine.engine_docker.call_args.args[0],['rename',ID,'titan-custom-web'])
+
     def test_no_force_delete_or_volume_removal_with_container(self):
         self.engine.engine_container=Mock(return_value={'Id':ID,'Config':{},'State':{'Running':True}})
         with self.assertRaises(Error):self.engine.op_docker_container_action(ID,'remove')

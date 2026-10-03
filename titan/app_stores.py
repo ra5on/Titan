@@ -40,11 +40,15 @@ class StoreMixin:
         self.save('app-store-sources-v2', records)
 
     def initialize_app_stores(self):
-        document = json.loads((Path(__file__).parent / 'linuxserver-store.json').read_text())
+        document = json.loads((Path(__file__).parent / 'titan-app-store.json').read_text())
         _, parsed = recipes(document, LINUXSERVER)
+        for app in parsed.values(): app.update(titan_recipe=True,store_name='Titan AppStore')
+        own=set(parsed)
         APPS.update(parsed)
         for store in self.store_records():
             _, parsed = recipes(store['document'], store_url(store['url']))
+            for key,item in parsed.items():
+                if key in own:item.update(titan_recipe=True,store_name='Titan AppStore')
             APPS.update(parsed)
             if store.get('retained'):
                 _, archived = recipes({**store['document'], 'apps':store['retained']}, store['url'])
@@ -52,29 +56,22 @@ class StoreMixin:
 
     def op_catalog(self):
         result = catalog()
-        stores = self.store_records()
         installed = {row['id'] for row in self.load('apps', [])}
-        disabled = {row['url'] for row in stores if row.get('enabled', True) is False}
-        current = {row['url']: set(recipes(row['document'], row['url'])[1]) for row in stores}
-        result['apps'] = [app for app in result['apps'] if app['id'] in installed or not app.get('store_url') or app['store_url'] == LINUXSERVER and LINUXSERVER not in current or app['id'] in current.get(app['store_url'], set())]
-        result['apps'] = [app for app in result['apps'] if app['id'] in installed or app.get('store_url') not in disabled and not (LINUXSERVER in disabled and not app.get('store_url'))]
+        result['apps'] = [app for app in result['apps'] if not app.get('store_url') or app.get('titan_recipe') or app['id'] in installed or app.get('store_url','').startswith('https://raw.githubusercontent.com/ra5on/Titan/')]
+        for app in result['apps']:
+            app['store_name']='Titan AppStore' if not app.get('store_url') or app.get('titan_recipe') else 'Bereits installiert'
+        result['source']='Titan AppStore'
         return result
 
     def op_app_stores(self):
-        stores = self.store_records()
-        rows = [{'id': row['id'], 'name': row['name'], 'url': row['url'], 'enabled': row.get('enabled', True),
-                 'apps': len(row['document']['apps']) + (sum(not app.get('store_url') for app in APPS.values()) if row['url'] == LINUXSERVER else 0), 'skipped': row.get('skipped', [])} for row in stores if not row.get('retired')]
-        if not any(row['url'] == LINUXSERVER for row in rows):
-            rows.insert(0, {'id': 'linuxserver', 'name': 'LinuxServer.io', 'url': LINUXSERVER, 'enabled': True,
-                           'apps': sum(not app.get('store_url') or app.get('store_url') == LINUXSERVER for app in APPS.values()), 'skipped': []})
-        return {'stores': rows, 'presets': PRESETS}
+        return {'stores':[{'id':'titan','name':'Titan AppStore','enabled':True,'apps':len(self.op_catalog()['apps']),'skipped':[]}], 'presets':[]}
 
     def op_app_store_toggle(self, store, enabled):
         if type(enabled) is not bool:
             raise Error('Store-Auswahl ist ungültig.')
         stores = self.store_records()
         if store == 'linuxserver' and not any(row['url'] == LINUXSERVER for row in stores):
-            document = json.loads((Path(__file__).parent / 'linuxserver-store.json').read_text())
+            document = json.loads((Path(__file__).parent / 'titan-app-store.json').read_text())
             stores.append({'id':'linuxserver','name':'LinuxServer.io','url':LINUXSERVER,'document':document})
         found = next((row for row in stores if row['id'] == store), None)
         if found is None: raise Error('Store nicht gefunden.', 404)

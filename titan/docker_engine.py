@@ -34,10 +34,14 @@ class DockerEngineMixin:
         cfg=row.get('Config',{});state=row.get('State',{});net=row.get('NetworkSettings',{})
         # Never return environment variables or labels containing passwords.
         labels=cfg.get('Labels') or {}
-        return {'id':row['Id'],'name':row.get('Name','').lstrip('/'),'image':cfg.get('Image',''),
+        from .catalog import APPS
+        recipe=APPS.get(labels.get('io.titan.app'),{}) if labels.get('io.titan.managed')=='true' else {}
+        return {'id':row['Id'],'name':row.get('Name','').lstrip('/'),'image':labels.get('io.titan.original_image') or cfg.get('Image',''),
                 'state':state.get('Status','unknown'),'health':state.get('Health',{}).get('Status'),
                 'created':row.get('Created'),'restart':row.get('HostConfig',{}).get('RestartPolicy',{}).get('Name'),
                 'managed_app':labels.get('io.titan.app') if labels.get('io.titan.managed')=='true' else None,
+                'manual':labels.get('io.titan.manual')=='true','web_port':recipe.get('port'),'scheme':recipe.get('scheme','http'),
+                'hardware':[v.get('PathOnHost') for v in row.get('HostConfig',{}).get('Devices') or []]+['nvidia:'+v for r in row.get('HostConfig',{}).get('DeviceRequests') or [] if r.get('Driver')=='nvidia' for v in r.get('DeviceIDs') or []],
                 'project':labels.get('com.docker.compose.project'), 'service':labels.get('com.docker.compose.service'),
                 'networks':[{'name':key,'ipv4':value.get('IPAddress'),'ipv6':value.get('GlobalIPv6Address')} for key,value in net.get('Networks',{}).items()],
                 'ports':net.get('Ports') or {},'mounts':[{'type':v.get('Type'),'source':v.get('Source'),'target':v.get('Destination'),'writable':v.get('RW')} for v in row.get('Mounts',[])]}
@@ -106,7 +110,7 @@ class DockerEngineMixin:
         # No force removal, no host bind via local-driver options, no pruning.
         return {'output':self.engine_docker(['volume','create' if action=='create' else 'rm',resource])}
 
-    def op_docker_container_create(self, config):
+    def _engine_create_args(self, config):
         if not isinstance(config,dict) or set(config)-{'name','image','network','ports','environment','volume','target','restart','memory_mb','cpus','command','devices'}: raise Error('Ungültige Container-Einstellungen.')
         container_name='titan-custom-'+name(config.get('name'));image=config.get('image','')
         if not isinstance(image,str) or not re.fullmatch(IMAGE,image): raise Error('Ungültiger Image-Name.')
@@ -152,12 +156,65 @@ class DockerEngineMixin:
             if type(row.get('group')) is int:groups.add(row['group'])
         for group in sorted(groups):args+=['--group-add',str(group)]
         args+=[image,*command]
+        return args
+
+    def op_docker_container_create(self, config):
+        args=self._engine_create_args(config)
         # All validation precedes the first mutation. Failure never removes an
         # unrelated name or an existing volume; the stopped container is retryable.
         container=identifier(self.engine_docker(args,timeout=600).strip())
         try:self.engine_docker(['start',container],timeout=120)
         except Error: raise Error('Container angelegt, Start fehlgeschlagen. Logs ansehen und erneut starten.',503) from None
         return {'ok':True,'container':container}
+
+    def op_docker_container_hardware(self, container, devices):
+        row=self.engine_container(container)
+        if (row.get('Config',{}).get('Labels') or {}).get('io.titan.manual')!='true':
+            raise Error('Geräte einer Titan-App unter App-Einstellungen ändern. Fremde Container werden nicht umgebaut.')
+        if row.get('State',{}).get('Running'): raise Error('Container vor dem Ändern der Geräte stoppen.',409)
+        original=row.get('Name','').lstrip('/')
+        if not original.startswith('titan-custom-'): raise Error('Dieser Container wurde nicht mit Titan angelegt.')
+        mounts=row.get('Mounts',[])
+        if len(mounts)>1 or any(m.get('Type')!='volume' or not m.get('RW') for m in mounts):
+            raise Error('Nur Titan-Container mit höchstens einem lokalen Datenvolume können umgebaut werden.')
+        host=row.get('HostConfig',{})
+        if host.get('Memory',0)<64*1048576 or host.get('NanoCpus',0)<1000000000 or host.get('NanoCpus',0)%1000000000:raise Error('Individuell geänderte Ressourcenlimits können nicht automatisch übernommen werden.')
+        networks=row.get('NetworkSettings',{}).get('Networks',{})
+        network=host.get('NetworkMode','bridge')
+        if network not in ('host','none','bridge','default'):
+            if len(networks)!=1: raise Error('Container mit mehreren Netzen benötigen individuelle Konfiguration.')
+            network=next(iter(networks))
+        if network=='default':network='bridge'
+        bindings=[]
+        for target,ports in (host.get('PortBindings') or {}).items():
+            number,protocol=target.split('/')
+            for port in ports or []:
+                if port.get('HostIp') not in ('','0.0.0.0',None): raise Error('Individuelle Bindungsadresse kann nicht automatisch übernommen werden.')
+                bindings.append({'published':int(port['HostPort']),'target':int(number),'protocol':protocol})
+        config={'name':original[len('titan-custom-'):], 'image':row['Config']['Image'], 'network':network,
+                'ports':bindings,'devices':devices,'restart':host.get('RestartPolicy',{}).get('Name') or 'no',
+                'memory_mb':max(64,int(host.get('Memory',0))//1048576), 'cpus':max(1,int(host.get('NanoCpus',0))//1000000000)}
+        if mounts:config.update(volume=mounts[0]['Name'],target=mounts[0]['Destination'])
+        self._engine_create_args(config) # Complete validation before first mutation.
+        fresh=self.engine_container(container)
+        if fresh.get('State',{}).get('Running') or fresh.get('Name')!=row.get('Name'):
+            raise Error('Containerzustand hat sich geändert. Ansicht aktualisieren.',409)
+        # Preserve the writable layer, image defaults and environment locally.
+        # Never export credentials or replace a container owned by another name.
+        base=self.engine_summary(row)['image']
+        if not re.fullmatch(IMAGE,base):raise Error('Originalimage ist nicht gültig.')
+        image=self.engine_docker(['commit','--change','LABEL io.titan.original_image='+base,container],timeout=600).strip()
+        if not re.fullmatch(r'sha256:[a-f0-9]{64}',image):raise Error('Container-Sicherung konnte nicht geprüft werden.',503)
+        backup='titan-previous-'+container[:20]
+        self.engine_docker(['rename',container,backup])
+        config['image']=image
+        try:
+            result=self.op_docker_container_create(config)
+        except Error:
+            ids=self.engine_docker(['ps','-aq','--no-trunc','--filter','name=^/'+original+'$']).splitlines()
+            if not ids:self.engine_docker(['rename',container,original])
+            raise
+        return {**result,'backup_container':container,'message':'Geräte aktualisiert. Der vorherige gestoppte Container bleibt als Sicherung erhalten; das Datenvolume wird weiterverwendet.'}
 
     def op_docker_metrics(self):
         from .app_metrics import parse_stats, cgroup_memory

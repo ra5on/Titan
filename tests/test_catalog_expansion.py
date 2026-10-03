@@ -17,8 +17,11 @@ class CatalogExpansionTests(unittest.TestCase):
 
     def refresh(self, images):
         body = json.dumps({"data": {"repositories": {"linuxserver": images}}}).encode()
-        with patch.object(catalog_module.urllib.request, "urlopen", return_value=io.BytesIO(body)):
-            return catalog_module.catalog(refresh=True)
+        with patch.object(catalog_module.urllib.request, "urlopen", return_value=io.BytesIO(body)) as network:
+            result=catalog_module.catalog(refresh=True)
+            network.assert_not_called()
+            self.assertEqual(result["source"],"Titan AppStore")
+            return result
 
     def test_external_metadata_cannot_change_images_ports_mounts_or_add_apps(self):
         result = self.refresh([
@@ -27,8 +30,8 @@ class CatalogExpansionTests(unittest.TestCase):
             {"name": "untrusted-app", "image": "attacker/image", "version": "latest"},
         ])
         app = next(item for item in result["apps"] if item["id"] == "kavita")
-        self.assertEqual(app["version"], "verified-version")
-        self.assertEqual(app["architectures"], ["amd64"])
+        self.assertEqual(app["version"], "latest")
+        self.assertEqual(app["architectures"], [])
         self.assertEqual(app["image"], "lscr.io/linuxserver/kavita:latest")
         self.assertEqual(app["mount"], "/data")
         self.assertEqual(app["default_port"], 8085)
@@ -51,7 +54,7 @@ class CatalogExpansionTests(unittest.TestCase):
         self.assertIsNone(result["error"])
         sonarr = next(item for item in result["apps"] if item["id"] == "sonarr")
         self.assertEqual(sonarr["version"], "latest")
-        self.assertEqual(sonarr["architectures"], ["amd64"])
+        self.assertEqual(sonarr["architectures"], [])
         self.assertFalse(sonarr["deprecated"])
         kavita = next(item for item in result["apps"] if item["id"] == "kavita")
         self.assertEqual(kavita["version"], "latest")
@@ -61,14 +64,14 @@ class CatalogExpansionTests(unittest.TestCase):
         self.refresh([{"name": "dokuwiki", "version": "known-good", "deprecated": False}])
         with patch.object(catalog_module.urllib.request, "urlopen", side_effect=OSError("unreachable")):
             result = catalog_module.catalog(refresh=True)
-        self.assertTrue(result["error"])
+        self.assertIsNone(result["error"])
         self.assertEqual({item["id"] for item in result["apps"]}, set(catalog_module.APPS))
         self.assertEqual(next(item for item in result["apps"] if item["id"] == "dokuwiki")["version"],
-                         "known-good")
+                         "latest")
 
     def test_invalid_response_structure_uses_fallback_without_losing_templates(self):
         result = self.refresh({"unexpected": "object"})
-        self.assertTrue(result["error"])
+        self.assertIsNone(result["error"])
         self.assertTrue({"sonarr", "lidarr", "bazarr", "dokuwiki", "kavita"}.issubset(
             item["id"] for item in result["apps"]))
 

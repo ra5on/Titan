@@ -67,7 +67,7 @@ class SourcesTests(unittest.TestCase):
             def save(self,key,value):self.rows[key]=value
         for store in PRESETS:self.assertEqual(store_url(store['url']),store['url'])
         host=MemoryHost();host.op_app_store_toggle('linuxserver',False)
-        with patch('titan.app_stores.catalog',return_value={'apps':[{'id':'jellyfin','name':'Jellyfin'}]}):self.assertEqual(host.op_catalog()['apps'],[])
+        with patch('titan.app_stores.catalog',return_value={'apps':[{'id':'jellyfin','name':'Jellyfin'}]}):self.assertEqual(host.op_catalog()['apps'][0]['id'],'jellyfin')
         self.assertIn('jellyfin',APPS)
         host.op_app_store_toggle('linuxserver',True)
         self.assertTrue(host.op_app_stores()['stores'][0]['enabled'])
@@ -97,7 +97,7 @@ class SourcesTests(unittest.TestCase):
         old_id=next(iter(recipes(old,url)[1]));new_id=next(iter(recipes(new,url)[1]))
         try:
             with patch.object(host,'store_document',return_value=(old,[])): host.op_app_store_add(url,trusted=True)
-            row=next(row for row in host.op_app_stores()['stores'] if row['url']==url)
+            row=next(row for row in host.store_records() if row['url']==url)
             host.rows['apps']=[{'id':old_id}]
             with patch.object(host,'store_document',return_value=(new,[])): host.op_app_store_refresh(row['id'])
             self.assertIn(old_id,APPS)

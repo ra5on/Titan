@@ -154,7 +154,7 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(set(remote), {"changedetection"})
         with patch.dict(_cache, {"time": time.time(), "images": remote, "error": None}):
             public = next(recipe for recipe in catalog()["apps"] if recipe["id"] == "changedetection")
-        self.assertEqual(public["version"], "0.55.8")
+        self.assertEqual(public["version"], "latest")
         self.assertEqual(public["first_login"]["mode"], "setup")
         self.assertNotIn("password", public["first_login"])
         self.assertEqual(public["documentation"], "https://docs.linuxserver.io/images/docker-changedetection.io/")
