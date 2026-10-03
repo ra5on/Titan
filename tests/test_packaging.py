@@ -16,9 +16,10 @@ class ImagePackagingTests(unittest.TestCase):
             self.assertIn(package,source)
         self.assertIn('"bootc", "container", "lint"',source)
 
-    def test_metadata_matches_application(self):
+    def test_archived_ucore_metadata_remains_frozen(self):
         info=json.loads((ROOT/'legacy/ucore/image/image-info.json').read_text())
-        self.assertEqual(info['version'],__version__)
+        # Archived uCore artifacts do not track new Debian release versions.
+        self.assertEqual(info['version'],'0.4.6')
         self.assertEqual(info['release_stage'],__release_stage__)
         self.assertEqual(info['image_repository'],'ghcr.io/ra5on/titan')
         self.assertEqual(info['platform'],'ucore-hci')
