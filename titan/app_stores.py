@@ -27,13 +27,14 @@ def store_url(value):
 
 class StoreMixin:
     def store_records(self):
-        # Keep new source formats out of the pre-0.4.9 startup parser. Rollback
-        # retains the old Titan-JSON catalog file and continues to start normally.
-        records = self.load('app-store-sources', None)
+        # New stack fields must never reach a previous version's startup parser.
+        # Keep both old source registries intact for a system rollback.
+        records = self.load('app-store-sources-v2', None)
+        if records is None: records = self.load('app-store-sources', None)
         return copy.deepcopy(records if records is not None else self.load('app-stores', []))
 
     def save_store_records(self, records):
-        self.save('app-store-sources', records)
+        self.save('app-store-sources-v2', records)
 
     def initialize_app_stores(self):
         document = json.loads((Path(__file__).parent / 'linuxserver-store.json').read_text())

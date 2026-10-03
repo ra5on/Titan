@@ -31,6 +31,10 @@ jobs:
         run: |
           python3 -m unittest discover -s tests
           for script in image/debian/ab/*.sh scripts/*signing.sh scripts/build-debian*.sh scripts/smoke-image.sh; do bash -n "$script"; done
+      - name: JavaScript and UI regression tests
+        run: |
+          for task_js in titan/web/*.js; do node --check "$task_js"; done
+          for task_test in tests/*.cjs; do node "$task_test"; done
       - name: Prepare signing identity
         env:
           TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}

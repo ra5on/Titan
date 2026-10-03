@@ -67,6 +67,18 @@ class ExtendedDesktopTests(unittest.TestCase):
         self.assertEqual(values['titan-test']['disk_read_bytes'],1500000);self.assertNotIn('titan-bad',values)
         self.assertIsNone(parse_stats(json.dumps({'Name':'titan-test','CPUPerc':'0%'}))['titan-test']['disk_write_bytes'])
 
+    def test_new_store_registry_keeps_previous_system_parser_compatible(self):
+        from titan.app_stores import StoreMixin
+        import copy
+        class Host(StoreMixin):
+            values={'app-store-sources':[{'id':'old','document':{'schema':1,'name':'Old','apps':[]}}]}
+            def load(self,key,default):return self.values.get(key,default)
+            def save(self,key,value):self.values[key]=value
+        host=Host();original=copy.deepcopy(host.values['app-store-sources'])
+        current=host.store_records();current.append({'id':'stack','document':{'stack':{}}});host.save_store_records(current)
+        self.assertEqual(host.values['app-store-sources'],original)
+        self.assertEqual(len(host.store_records()),2)
+
     def test_tile_visibility_and_width_persist_per_account(self):
         class Store:
             data={}
