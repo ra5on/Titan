@@ -6,17 +6,17 @@ Titan wird als eigenes NAS-System auf **Debian 13** entwickelt, einschließlich 
 
 [**Titan 0.4.6-alpha.1 · IMG herunterladen**](https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz) · [Prüfsummen und Testergebnisse](https://github.com/ra5on/Titan/releases/tag/v0.4.6-alpha.1) · [Proxmox-Anleitung](docs/TITAN-IMAGE.md)
 
-**Aktuelles Systemupdate: [0.4.9-alpha.1](https://github.com/ra5on/Titan/releases/tag/v0.4.9-alpha.1).** Bestehende Installationen aktualisieren über den **Alpha-Kanal**; in älteren Oberflächen liegt die Auswahl unter **Einstellungen → Updates & Kanäle**, ab 0.4.8 unter **Updates & Rollback**. Kein erneuter Image-Import nötig. Neue Installationen starten mit dem oben verlinkten 0.4.6-IMG und aktualisieren anschließend.
+**Aktuelles Systemupdate: [0.4.10-alpha.1](https://github.com/ra5on/Titan/releases/tag/v0.4.10-alpha.1).** Bestehende Installationen aktualisieren über den **Alpha-Kanal**; in älteren Oberflächen liegt die Auswahl unter **Einstellungen → Updates & Kanäle**, ab 0.4.8 unter **Updates & Rollback**. Kein erneuter Image-Import nötig. Neue Installationen starten mit dem oben verlinkten 0.4.6-IMG und aktualisieren anschließend.
 
 Ein einzelnes komprimiertes IMG für eine neue x86-64-VM: UEFI/OVMF ohne Secure Boot, mindestens 4 GB RAM, 2 CPUs und 48 GiB Systemplatte. Nach dem Start `https://<NAS-IP>:5000` öffnen und den Administrator einrichten. Größere Systemplatten erweitern den Datenbereich.
 
 ## Oberfläche und Funktionen
 
 - HTTPS auf Port **5000**, erste Administration direkt im Browser.
-- Anpassbarer NAS-Desktop für Desktop und Mobilgeräte, mit flexiblen Formularen und großen Touch-Bedienelementen.
+- Anpassbarer NAS-Desktop für Desktop und Mobilgeräte: Menü-Icons verschieben, Apps in Ordnern gruppieren und die Anordnung pro Benutzer speichern.
 - LinuxServer.io als Standard-AppStore mit 73 gebündelten Vorlagen; weitere CasaOS- oder Titan-Stores hinzufügen, mehrere Stores aktivieren und filtern.
 - Docker mit Installationsoptionen, eigenen Bridge-Netzen, festen IPs und Anmeldehinweisen.
-- QEMU/KVM und libvirt mit BIOS/UEFI-Auswahl, ISO-/Image-Auswahl, CPU-Zuordnung und integrierter Browserkonsole.
+- QEMU/KVM und libvirt mit sichtbaren Schnellaktionen, ISO-/Image-Auswahl, CPU-Zuordnung und integrierter Browserkonsole; ausgeschaltete VMs nachträglich auf BIOS/UEFI, Startreihenfolge, NAT, vorhandene Bridges oder macvtap einstellen. Gelöschte VM-Namen sind wieder verwendbar, vorhandene Laufwerke bleiben erhalten.
 - SMB-Freigaben mit Lesen/Schreiben, Lesen oder keinem Zugriff pro Benutzer.
 - Datei- und Ordnerverwaltung, Textbearbeitung unabhängig von Dateiendungen, Dienste und Web-Terminal.
 - Gemessene CPU-/RAM-Werte und weitere Metriken, soweit die Hardware sie bereitstellt.
@@ -27,7 +27,7 @@ Unter **Einstellungen → Updates & Rollback** signierte Debian-Systemversionen 
 
 Boot, NAS-Laufzeit, Update, Neustart, Rollback, Rückfall nach einem fehlgeschlagenen Teststart und Erhalt von Benutzerkonten, Freigaberechten und Testdateien wurden in einer separaten QEMU-VM geprüft. Ein hängender Gast benötigt für den Rückfall einen Reset; persönliche Daten werden durch Rollback nicht zurückgesetzt. Die [Testgrenzen](docs/TITAN-IMAGE.md#prüfung-und-grenzen) bleiben für den Übergang zur Beta maßgeblich.
 
-[Neuerungen 0.4.9](docs/RELEASE-0.4.9.md) · [AppStores und Importgrenzen](docs/APP-STORES.md) · [Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
+[Neuerungen 0.4.10](docs/RELEASE-0.4.10.md) · [AppStores und Importgrenzen](docs/APP-STORES.md) · [Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
 
 ## Lizenz
 
