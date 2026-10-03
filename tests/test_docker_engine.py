@@ -50,6 +50,27 @@ class EngineTests(unittest.TestCase):
     def test_full_ids_required_and_unknown_actions_rejected(self):
         for value in ['abc','--help',ID+'x',None]:
             with self.assertRaises(Error):identifier(value)
+    def test_batch_validates_all_before_mutation_and_deduplicates_managed_stack(self):
+        other='b'*64
+        labels={'io.titan.managed':'true','io.titan.app':'heimdall','com.docker.compose.project':'titan-heimdall'}
+        self.engine.engine_container=Mock(side_effect=lambda value:{'Id':value,'Config':{'Labels':labels}})
+        self.engine.op_docker_container_action=Mock(return_value={'ok':True})
+        result=self.engine.op_docker_container_batch([ID,other],'restart')
+        self.assertTrue(result['ok']);self.engine.op_docker_container_action.assert_called_once_with(ID,'restart')
+        self.engine.op_docker_container_action.reset_mock()
+        self.engine.engine_container.side_effect=[{'Id':ID,'Config':{}},Error('missing')]
+        with self.assertRaises(Error):self.engine.op_docker_container_batch([ID,other],'stop')
+        self.engine.op_docker_container_action.assert_not_called()
+        for values,action in [([ID,ID],'start'),([ID],'remove'),([],'start'),([ID]*65,'stop')]:
+            with self.assertRaises(Error):self.engine.op_docker_container_batch(values,action)
+
+    def test_batch_reports_partial_failure_without_claiming_success(self):
+        other='b'*64
+        self.engine.engine_container=Mock(side_effect=lambda value:{'Id':value,'Config':{}})
+        self.engine.op_docker_container_action=Mock(side_effect=[{'ok':True},Error('cannot start')])
+        result=self.engine.op_docker_container_batch([ID,other],'start')
+        self.assertFalse(result['ok']);self.assertEqual(result['completed'],[ID]);self.assertEqual(result['failed'][0]['container'],other)
+
     def test_cgroup_total_includes_cache_and_missing_measurement_is_unavailable(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'proc/42').mkdir(parents=True);(root/'groups/system.slice/docker.scope').mkdir(parents=True)

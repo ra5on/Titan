@@ -1221,12 +1221,15 @@ class RuntimeSmoke:
             self.client.app_http_ready()
             metrics=self.client.request('/api/app-metrics').get('apps',{}).get(app,{})
             if any(not isinstance(metrics.get(key),(int,float)) for key in ('cpu_percent','memory_bytes','disk_read_bytes','disk_write_bytes')):raise SmokeFailure('Managed container stack statistics are unavailable.')
-            self.client.action('app_action',{'app':app,'action':'stop'})
-            self.client.action('app_action',{'app':app,'action':'start'})
+            stack_rows=[row for row in self.client.request('/api/docker-engine')['containers'] if row.get('managed_app')==app]
+            if len(stack_rows)!=2 or len({row.get('project') for row in stack_rows})!=1 or not stack_rows[0].get('project'):raise SmokeFailure('Compose stack grouping unavailable.')
+            self.client.action('docker_container_batch',{'containers':[row['id'] for row in stack_rows],'action':'stop'})
+            if any(row['state']=='running' for row in self.client.request('/api/docker-engine')['containers'] if row.get('managed_app')==app):raise SmokeFailure('Stack batch stop left a service running.')
+            self.client.action('docker_container_batch',{'containers':[row['id'] for row in stack_rows],'action':'start'})
             self.client.app_http_ready()
             self.client.action('app_action',{'app':app,'action':'remove'})
             if any(row['id']==app for row in self.client.request('/api/apps')['installed']):raise SmokeFailure('Removed stack remains installed.')
-            return {'containers':2,'import':True,'install':True,'http':True,'stop':True,'start':True,'remove':True,'live_resources':True}
+            return {'containers':2,'compose_grouping':True,'batch_stop_start':True,'import':True,'install':True,'http':True,'stop':True,'start':True,'remove':True,'live_resources':True}
         finally:
             if added:
                 try:
@@ -1248,14 +1251,14 @@ class RuntimeSmoke:
             if details.get('container',{}).get('id')!=container or 'logs' not in details:raise SmokeFailure('Native Docker details or logs unavailable.')
             metrics=self.client.request('/api/docker-metrics').get('containers',{}).get(container,{})
             if not isinstance(metrics.get('memory_bytes'),int) or metrics['memory_bytes']<=0:raise SmokeFailure('Total native Docker cgroup RAM unavailable.')
-            self.client.action('docker_container_action',{'container':container,'action':'stop'})
+            self.client.action('docker_container_batch',{'containers':[container],'action':'stop'})
             stopped=self.client.request('/api/docker-metrics').get('containers',{}).get(container,{})
             if stopped.get('memory_bytes')!=0 or stopped.get('cpu_percent')!=0:raise SmokeFailure('Stopped native Docker container retains resource usage.')
-            self.client.action('docker_container_action',{'container':container,'action':'start'});self.client.app_http_ready()
+            self.client.action('docker_container_batch',{'containers':[container],'action':'start'});self.client.app_http_ready()
             self.client.action('docker_container_action',{'container':container,'action':'stop'})
             self.client.action('docker_container_action',{'container':container,'action':'remove'});container=None
             if not any(row.get('Name')==resource for row in self.client.request('/api/docker-engine').get('volumes',[])):raise SmokeFailure('Container removal deleted persistent volume.')
-            return {'create':True,'http':True,'logs':True,'total_ram':True,'stop_ram_zero':True,'restart':True,'remove':True,'volume_preserved':True}
+            return {'create':True,'http':True,'logs':True,'batch_stop_start':True,'total_ram':True,'stop_ram_zero':True,'restart':True,'remove':True,'volume_preserved':True}
         finally:
             if container:
                 try:

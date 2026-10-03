@@ -11,3 +11,12 @@ const stopped=render({state:'shut off',cpus:2,memory_mb:4096,metrics:{cpu_percen
 assert.match(stopped,/CPU live[^]*?<strong>0 %/);assert.match(stopped,/RAM-Verbrauch auf dem NAS<\/small><strong>0<\/strong>/);assert(!stopped.includes('9999999'));assert(!stopped.includes('zugewiesen'));
 assert.match(render({state:'running',cpus:2,memory_mb:4096,metrics:{memory_resident_bytes:12345,memory_guest_used_bytes:1}}),/strong>12345/);
 console.log('Docker workbench parser and stopped VM resource regressions passed.');
+const containers=[{id:'a',name:'Alpha',image:'nginx',state:'running',project:'web',health:'healthy',networks:[]},{id:'b',name:'Beta',image:'redis',state:'exited',project:'web',networks:[]},{id:'c',name:'Gamma',image:'busybox',state:'running',health:'unhealthy',networks:[]}];
+assert.deepEqual(ui.filtered(containers,'web','all','za').map(c=>c.id),['b','a']);
+assert.deepEqual(ui.filtered(containers,'','stopped').map(c=>c.id),['b']);
+assert.deepEqual(ui.filtered(containers,'','unhealthy').map(c=>c.id),['c']);
+assert.equal(ui.stacks(containers)[0][1].length,2);
+assert.equal(ui.totals(containers,{a:{memory_bytes:100},b:{memory_bytes:999},c:{memory_bytes:50}}).memory,150);
+assert.equal(ui.totals(containers,{a:{memory_bytes:100}}).memory,null);
+assert.equal(ui.totals([containers[1]],{}).memory,0);
+console.log('Docker filters, Compose grouping and actual RAM totals passed.');

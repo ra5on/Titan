@@ -15,3 +15,9 @@ Vorlagen-Apps sind zusätzlich sichtbar. Ihre Aktionen werden an den bestehenden
 RAM wird einschließlich Dateicache aus Linux-Cgroups gemessen. Wenn diese Messung nicht verfügbar ist, erscheint „—“. Gestoppte Container zeigen 0 B. Ein Docker-RAM-Limit ist eine Obergrenze, kein Verbrauchswert.
 
 Die Oberfläche und der Backend-Code wurden selbst entwickelt. Dockhand diente zur Recherche von Funktionen: https://dockhand.pro/manual/ . Eine Einbettung ist zurückgestellt. Neue One-Click-/Fremdstore-Integrationen sind ebenfalls zurückgestellt; LinuxServer.io bleibt der vorhandene Standardkatalog.
+
+## Kompakte Verwaltungsansicht
+
+Auf dem Desktop zeigt die Container-Tabelle Namen, Image, Stack, Status, CPU/RAM, Adressen und direkte Aktionen. Mobil erscheint dieselbe Auswahl als kompakte Karten. Statusfilter und Namenssuche greifen gemeinsam; Suche und Cursor bleiben bei Hintergrundaktualisierungen erhalten. Die Live-Übersicht zeigt Containeranzahl, laufende/gestoppte Container, fehlerhafte Healthchecks und den gemessenen Gesamt-RAM. Fehlende aktive Messungen werden nicht als null Verbrauch ausgegeben.
+
+Bis zu 64 Container können für Start/Stop/Neustart ausgewählt werden. Titan prüft die gesamte Auswahl zuerst und meldet Teilfehler ausdrücklich. Mehrere ausgewählte Container einer Titan-App lösen die vorhandene App-Aktion nur einmal aus. Vorhandene Compose-Projekte werden anhand ihrer Docker-Metadaten gruppiert; Stacks können gemeinsam gestartet, gestoppt und neu gestartet werden. Hierbei wird keine externe Compose-Datei ausgeführt oder überschrieben.

@@ -38,6 +38,7 @@ class DockerEngineMixin:
                 'state':state.get('Status','unknown'),'health':state.get('Health',{}).get('Status'),
                 'created':row.get('Created'),'restart':row.get('HostConfig',{}).get('RestartPolicy',{}).get('Name'),
                 'managed_app':labels.get('io.titan.app') if labels.get('io.titan.managed')=='true' else None,
+                'project':labels.get('com.docker.compose.project'), 'service':labels.get('com.docker.compose.service'),
                 'networks':[{'name':key,'ipv4':value.get('IPAddress'),'ipv6':value.get('GlobalIPv6Address')} for key,value in net.get('Networks',{}).items()],
                 'ports':net.get('Ports') or {},'mounts':[{'type':v.get('Type'),'source':v.get('Source'),'target':v.get('Destination'),'writable':v.get('RW')} for v in row.get('Mounts',[])]}
 
@@ -73,6 +74,27 @@ class DockerEngineMixin:
         if not isinstance(image,str) or not re.fullmatch(IMAGE,image): raise Error('Ungültiger Image-Name.')
         self.engine_docker(['pull',image],timeout=600)
         return {'ok':True,'image':image}
+
+    def op_docker_container_batch(self, containers, action):
+        if action not in ('start','stop','restart') or not isinstance(containers,list) or not 1<=len(containers)<=64:
+            raise Error('Eine Start-/Stop-/Neustart-Aktion für maximal 64 Container auswählen.')
+        ids=[identifier(value) for value in containers]
+        if len(set(ids))!=len(ids): raise Error('Container doppelt ausgewählt.')
+        # Validate the complete selection before changing anything. Managed
+        # multi-container apps use their existing lifecycle once per app.
+        rows=[self.engine_container(value) for value in ids]
+        completed=[];failed=[];seen=set()
+        for row in rows:
+            summary=self.engine_summary(row);app=summary['managed_app']
+            key=('app',app) if app else ('container',row['Id'])
+            if key in seen: continue
+            seen.add(key)
+            try:
+                self.op_docker_container_action(row['Id'],action)
+                completed.append(row['Id'])
+            except Error as exc:
+                failed.append({'container':row['Id'],'error':str(exc)})
+        return {'ok':not failed,'completed':completed,'failed':failed}
 
     def op_docker_resource(self, kind, action, resource):
         if kind not in ('volume','image'): raise Error('Ungültige Docker-Ressource.')

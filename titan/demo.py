@@ -282,10 +282,14 @@ class Demo:
                     "warnings": ["Demo: SMB-Zugang wird ausschließlich simuliert."]}
         if operation == "app_networks":
             return self.demo_app_networks()
+        if operation == "docker_container_batch":
+            for container in args["containers"]:
+                self.call("docker_container_action",container=container,action=args["action"])
+            return {"ok":True,"completed":args["containers"],"failed":[]}
         if operation == "docker_engine":
             rows=[]
             for app in self.apps:
-                rows.append({"id":hashlib.sha256(app['id'].encode()).hexdigest(),"name":"titan-"+app['id'],"image":APPS.get(app['id'],{}).get('image','nginx:stable'),"state":app['state'],"health":None,"created":"2026-10-03","restart":"unless-stopped","managed_app":app['id'],"networks":[{"name":"bridge","ipv4":"172.17.0.2","ipv6":""}],"ports":{"80/tcp":[{"HostIp":"0.0.0.0","HostPort":str(app['port'])}]},"mounts":[]})
+                rows.append({"id":hashlib.sha256(app['id'].encode()).hexdigest(),"name":"titan-"+app['id'],"image":APPS.get(app['id'],{}).get('image','nginx:stable'),"state":app['state'],"health":None,"project":"titan-"+app["id"],"service":app["id"],"created":"2026-10-03","restart":"unless-stopped","managed_app":app['id'],"networks":[{"name":"bridge","ipv4":"172.17.0.2","ipv6":""}],"ports":{"80/tcp":[{"HostIp":"0.0.0.0","HostPort":str(app['port'])}]},"mounts":[]})
             return {"available":True,"containers":rows,"images":[{"ID":"sha256:"+"a"*64,"Repository":"nginx","Tag":"stable","Size":"78 MB","CreatedSince":"1 day"}],"volumes":[{"Name":"demo-data","Driver":"local"}],"networks":[{"Name":"bridge","Driver":"bridge","Scope":"local"},{"Name":"host","Driver":"host","Scope":"local"},{"Name":"none","Driver":"null","Scope":"local"}]}
         if operation == "docker_metrics":
             return {"available":True,"containers":{row['id']:{"cpu_percent":2.4 if row['state']=='running' else 0,"memory_bytes":128*1024**2 if row['state']=='running' else 0} for row in self.call('docker_engine')['containers']}}
