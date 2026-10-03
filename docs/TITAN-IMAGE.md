@@ -85,3 +85,5 @@ ersten Debian-A/B-Image nicht freigegeben.
 Den öffentlichen Schlüssel mit der separat vertrauten Datei
 `packaging/release-public.pem` im Repository vergleichen; ein Schlüssel aus
 derselben Downloadquelle allein ist kein unabhängiger Vertrauensnachweis.
+
+Auch **0.4.8-alpha.1** hat den tatsächlichen Update-/Rollback-Zyklus vom veröffentlichten 0.4.6-Image erfolgreich durchlaufen. Der [Release-Bericht](https://github.com/ra5on/Titan/releases/download/v0.4.8-alpha.1/ab-test.json) dokumentiert Datenerhalt, Erweiterung und Fehler-Rückfall. Die neue Oberfläche führt Kanalwahl und Rollback zusammen und zeigt Systemupdate-Phasen sowie RAM inklusive Cache.

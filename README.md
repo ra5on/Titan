@@ -6,7 +6,7 @@ Titan wird als eigenes NAS-System auf **Debian 13** entwickelt, einschließlich 
 
 [**Titan 0.4.6-alpha.1 · IMG herunterladen**](https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz) · [Prüfsummen und Testergebnisse](https://github.com/ra5on/Titan/releases/tag/v0.4.6-alpha.1) · [Proxmox-Anleitung](docs/TITAN-IMAGE.md)
 
-**Aktuelles Systemupdate: [0.4.7-alpha.1](https://github.com/ra5on/Titan/releases/tag/v0.4.7-alpha.1).** Bestehende 0.4.6-Installationen aktualisieren über **Einstellungen → Updates & Rollback → Alpha**. Kein erneuter Image-Import nötig. Neue Installationen starten mit dem oben verlinkten 0.4.6-IMG und aktualisieren anschließend.
+**Aktuelles Systemupdate: [0.4.8-alpha.1](https://github.com/ra5on/Titan/releases/tag/v0.4.8-alpha.1).** Bestehende Installationen aktualisieren über den **Alpha-Kanal**; in älteren Oberflächen liegt die Auswahl unter **Einstellungen → Updates & Kanäle**, ab 0.4.8 unter **Updates & Rollback**. Kein erneuter Image-Import nötig. Neue Installationen starten mit dem oben verlinkten 0.4.6-IMG und aktualisieren anschließend.
 
 Ein einzelnes komprimiertes IMG für eine neue x86-64-VM: UEFI/OVMF ohne Secure Boot, mindestens 4 GB RAM, 2 CPUs und 48 GiB Systemplatte. Nach dem Start `https://<NAS-IP>:5000` öffnen und den Administrator einrichten. Größere Systemplatten erweitern den Datenbereich.
 
