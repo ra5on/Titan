@@ -59,7 +59,7 @@ class Telemetry:
                      and 0 <= swap_free <= swap_total else None)
         cached = max(0, memory.get("Cached", 0) + memory.get("SReclaimable", 0) - memory.get("Shmem", 0))
         return {"memory_total": total, "memory_available": available,
-                "memory_used": total - available, "memory_cached": min(total, cached),
+                "memory_used": total - free if free is not None else None, "memory_demand": total - available, "memory_cached": min(total, cached),
                 "memory_free": free, "memory_occupied": total - free if free is not None else None,
                 "memory_buffers": min(total, memory.get("Buffers", 0)),
                 "swap_total": swap_total, "swap_used": swap_used}
@@ -126,7 +126,7 @@ class Telemetry:
             if self.cached is not None and now - self.previous_time < self.interval:
                 return {**self.cached, "status_history": [dict(item) for item in self.history]}
             value = {"cpu_percent": None, "cpus": None, "memory_total": None,
-                     "memory_used": None, "memory_available": None, "memory_cached": None,
+                     "memory_used": None, "memory_demand": None, "memory_available": None, "memory_cached": None,
                      "memory_free": None, "memory_occupied": None, "memory_buffers": None,
                      "swap_total": None, "swap_used": None, "cpu_temperature": None,
                      "temperatures": [], "temperature_available": False,
@@ -147,7 +147,7 @@ class Telemetry:
             if self.history_time is None or now - self.history_time >= self.history_interval:
                 self.history.append({"time": value["telemetry_sampled_at"], "cpu_percent": value["cpu_percent"],
                                      "memory_percent": round(100 * value["memory_used"] / value["memory_total"], 1)
-                                     if value["memory_total"] else None,
+                                     if value["memory_total"] and value["memory_used"] is not None else None,
                                      "memory_occupied_percent": round(100 * value["memory_occupied"] / value["memory_total"], 1)
                                      if value["memory_total"] and value["memory_occupied"] is not None else None,
                                      "cpu_temperature": value["cpu_temperature"]})

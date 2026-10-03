@@ -53,17 +53,18 @@ class KernelTelemetryTests(unittest.TestCase):
         with patch("titan.telemetry.time.monotonic", return_value=2):
             self.assertIsNone(self.monitor.sample()["cpu_percent"])
 
-    def test_ram_uses_available_memory_and_exposes_cache_and_swap_separately(self):
+    def test_ram_reports_total_occupied_and_separates_available_demand_cache_swap(self):
         sample = self.monitor.sample()
-        self.assertEqual(sample["memory_used"], 400 * 1024)
+        self.assertEqual(sample["memory_used"], 900 * 1024)
         self.assertEqual(sample["memory_occupied"], 900 * 1024)
+        self.assertEqual(sample["memory_demand"], 400 * 1024)
         self.assertEqual(sample["memory_free"], 100 * 1024)
         self.assertEqual(sample["memory_buffers"], 20 * 1024)
         self.assertEqual(sample["status_history"][0]["memory_occupied_percent"],90)
         self.assertEqual(sample["memory_available"], 600 * 1024)
         self.assertEqual(sample["memory_cached"], 230 * 1024)
         self.assertEqual(sample["swap_used"], 100 * 1024)
-        self.assertEqual(sample["status_history"][0]["memory_percent"], 40)
+        self.assertEqual(sample["status_history"][0]["memory_percent"], 90)
 
     def test_invalid_ram_does_not_drop_cpu_or_imply_no_ram_in_use(self):
         (self.proc / "meminfo").write_text("MemTotal: 1000 kB\nMemAvailable: 2000 kB\n")

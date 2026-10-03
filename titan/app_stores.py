@@ -31,7 +31,10 @@ class StoreMixin:
         # Keep both old source registries intact for a system rollback.
         records = self.load('app-store-sources-v2', None)
         if records is None: records = self.load('app-store-sources', None)
-        return copy.deepcopy(records if records is not None else self.load('app-stores', []))
+        result=copy.deepcopy(records if records is not None else self.load('app-stores', []))
+        for store in result:
+            if 'icewhaletech/casaos-appstore' in store.get('url','').lower(): store.update(enabled=False, retired=True)
+        return result
 
     def save_store_records(self, records):
         self.save('app-store-sources-v2', records)
@@ -60,7 +63,7 @@ class StoreMixin:
     def op_app_stores(self):
         stores = self.store_records()
         rows = [{'id': row['id'], 'name': row['name'], 'url': row['url'], 'enabled': row.get('enabled', True),
-                 'apps': len(row['document']['apps']) + (sum(not app.get('store_url') for app in APPS.values()) if row['url'] == LINUXSERVER else 0), 'skipped': row.get('skipped', [])} for row in stores]
+                 'apps': len(row['document']['apps']) + (sum(not app.get('store_url') for app in APPS.values()) if row['url'] == LINUXSERVER else 0), 'skipped': row.get('skipped', [])} for row in stores if not row.get('retired')]
         if not any(row['url'] == LINUXSERVER for row in rows):
             rows.insert(0, {'id': 'linuxserver', 'name': 'LinuxServer.io', 'url': LINUXSERVER, 'enabled': True,
                            'apps': sum(not app.get('store_url') or app.get('store_url') == LINUXSERVER for app in APPS.values()), 'skipped': []})
@@ -148,6 +151,7 @@ class StoreMixin:
         if trusted is not True:
             raise Error('Vertrauen in den Store ausdrücklich bestätigen.')
         url = store_url(url)
+        if 'icewhaletech/casaos-appstore' in url.lower(): raise Error('Der CasaOS-Store wird nicht mehr angeboten. LinuxServer.io bleibt der Standard.')
         stores = self.store_records()
         if any(row['url'] == url for row in stores):
             raise Error('Store ist bereits hinzugefügt. Vorlagen bleiben bis zum Entfernen unverändert.', 409)

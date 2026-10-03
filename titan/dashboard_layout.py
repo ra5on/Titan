@@ -28,7 +28,17 @@ def load_layout(store, username):
         if isinstance(value, dict) and key in value:
             try: result[key] = validate_subset(value[key])
             except Error: result[key] = []
+    if isinstance(value, dict) and 'sizes' in value:
+        try: result['sizes'] = validate_sizes(value['sizes'])
+        except Error: result['sizes'] = {}
     return result
+
+
+def validate_sizes(value):
+    if not isinstance(value, dict) or len(value)>len(TILES): raise Error('Ungültige Kachelgrößen.')
+    for key, size in value.items():
+        if key not in TILES or not isinstance(size, dict) or set(size)!={'columns','height'} or type(size['columns']) is not int or not 1<=size['columns']<=4 or type(size['height']) is not int or not 0<=size['height']<=1600: raise Error('Ungültige Kachelgröße.')
+    return value
 
 
 def validate_subset(value):
@@ -37,10 +47,11 @@ def validate_subset(value):
 
 
 def save_layout(store, username, value):
-    if not isinstance(value, dict) or "order" not in value or set(value) - {"order","hidden","wide"}:
+    if not isinstance(value, dict) or "order" not in value or set(value) - {"order","hidden","wide","sizes"}:
         raise Error("Nur die Reihenfolge der Dashboard-Kacheln angeben.")
     result = {"order": normalize_order(value["order"])}
     for key in ("hidden", "wide"):
         if key in value: result[key] = validate_subset(value[key])
+    if 'sizes' in value: result['sizes'] = validate_sizes(value['sizes'])
     store.set_config(layout_key(username), result)
     return result

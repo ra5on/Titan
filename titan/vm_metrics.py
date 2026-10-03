@@ -25,7 +25,7 @@ class VMMetricsMixin:
             self._vm_metric_lock = threading.Lock(); self._vm_metric_samples = {}
         ids = [record['id'] for record in records[:128]]
         try:
-            stats = parse_stats(self.command(['virsh', 'domstats', '--raw', '--cpu-total', '--balloon', '--block', '--interface', *ids], timeout=15))
+            stats = parse_stats(self.command(['virsh', 'domstats', '--raw', '--state', '--cpu-total', '--balloon', '--block', '--interface', *ids], timeout=15))
         except Error:
             stats = {}
         now = time.monotonic()
@@ -41,7 +41,12 @@ class VMMetricsMixin:
                     return sum(found) if found else None
                 values = {'cpu': raw.get('cpu.time'), 'read': total(r'block.\d+.rd.bytes'), 'write': total(r'block.\d+.wr.bytes'),
                           'rx': total(r'net.\d+.rx.bytes'), 'tx': total(r'net.\d+.tx.bytes')}
-                running = record['state'] == 'running'; prior = previous.get(record['id'])
+                # Domain state and metrics come from the same libvirt sample.
+                # A shutdown between the earlier domain listing and domstats must
+                # never publish a stale balloon/RSS value.
+                state = raw.get('state.state')
+                if state in range(1,8): record['state'] = {1:'running',2:'blocked',3:'paused',4:'in shutdown',5:'shut off',6:'crashed',7:'pmsuspended'}[state]
+                running = record['state'] == 'running'; active = record['state'] in ('running','paused','blocked','in shutdown','pmsuspended'); prior = previous.get(record['id'])
                 if running and prior and .2 <= now-prior['time'] <= 120:
                     elapsed = now-prior['time']
                     for key,field in [('cpu','cpu_percent'),('read','disk_read_bps'),('write','disk_write_bps'),('rx','network_rx_bps'),('tx','network_tx_bps')]:
@@ -52,7 +57,9 @@ class VMMetricsMixin:
                             if math.isfinite(result): sample[field]=round(result,2)
                 elif not running:
                     sample.update(cpu_percent=0,disk_read_bps=0,disk_write_bps=0,network_rx_bps=0,network_tx_bps=0)
-                if running:
+                if not active:
+                    sample.update(memory_resident_bytes=0, memory_guest_used_bytes=0)
+                if active:
                     rss=raw.get('balloon.rss'); available=raw.get('balloon.available'); unused=raw.get('balloon.unused')
                     if rss is not None: sample['memory_resident_bytes']=rss*1024
                     if available is not None and unused is not None and 0<=unused<=available: sample['memory_guest_used_bytes']=(available-unused)*1024

@@ -28,7 +28,7 @@ def parse_stats(output):
 class AppMetricsMixin:
     def op_app_metrics(self):
         from .app_management import _run
-        targets={};records=self.load('apps',[])
+        targets={};memory_totals={};records=self.load('apps',[])
         for record in records[:128]:
             try:
                 checked=self.managed_app(record['id'])
@@ -37,12 +37,15 @@ class AppMetricsMixin:
                 names=[record['id']] if not stack else [record['id'] if name==stack['primary'] else record['id']+'-'+name.lower() for name in stack['services']]
                 for name in names:
                     container=self._app_container(record['id'],checked,service_key=name)
-                    if container and container.get('State',{}).get('Running'):targets['titan-'+name]=record['id']
+                    if container and container.get('State',{}).get('Running'):
+                        targets['titan-'+name]=record['id'];memory_totals['titan-'+name]=cgroup_memory(container.get('State',{}).get('Pid'))
             except Error:continue
-        result={record['id']:{'cpu_percent':None,'memory_bytes':None,'disk_read_bytes':None,'disk_write_bytes':None} for record in records}
+        result={record['id']:{'cpu_percent':0,'memory_bytes':0,'disk_read_bytes':None,'disk_write_bytes':None} for record in records}
+        for app in targets.values():result[app].update(cpu_percent=None,memory_bytes=None)
         if targets:
             try:
                 samples=parse_stats(_run(['docker','stats','--no-stream','--format','{{json .}}',*targets],timeout=15))
+                for name,sample in samples.items():sample['memory_bytes']=memory_totals.get(name)
             except Error:return {'apps':result,'available':False}
             grouped={}
             for name,app in targets.items():grouped.setdefault(app,[]).append(samples.get(name))
@@ -51,3 +54,18 @@ class AppMetricsMixin:
                     values=[sample.get(field) if sample else None for sample in samples]
                     result[app][field]=sum(values) if all(value is not None for value in values) else None
         return {'apps':result,'available':True}
+
+
+def cgroup_memory(pid, proc='/proc', cgroups='/sys/fs/cgroup'):
+    """Actual cgroup v2 charge, including page cache (Docker CLI subtracts it)."""
+    from pathlib import Path
+    if type(pid) is not int or pid<=0:return None
+    try:
+        lines=(Path(proc)/str(pid)/'cgroup').read_text().splitlines()
+        path=next(line[3:] for line in lines if line.startswith('0::'))
+        if '..' in path.split('/') or not path.startswith('/'):return None
+        root=Path(cgroups).resolve();directory=(root/path.lstrip('/')).resolve()
+        if not directory.is_relative_to(root) or directory==root:return None
+        value=int((directory/'memory.current').read_text().strip())
+        return value if 0<=value<=2**63-1 else None
+    except (OSError,ValueError,StopIteration):return None

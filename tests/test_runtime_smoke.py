@@ -72,7 +72,7 @@ class FakeGuest:
                 fetch.assert_not_called()
             return value
         if path == "/api/status":
-            return {"memory_total": 1000, "memory_used": 400, "memory_available": 600,
+            return {"memory_total": 1000, "memory_used": 400, "memory_available": 600, "memory_free":600,
                     "cpu_percent": 20, "demo": False, "telemetry_errors": {}, "temperatures": []}
         if path == "/api/components":
             return {"components": {"docker": {"installed": True, "available": True, "daemon": True, "compose": True},

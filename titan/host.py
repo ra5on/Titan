@@ -38,7 +38,7 @@ from .telemetry import Telemetry
 from .locations import LocationsMixin
 
 
-def run(arguments, input=None, timeout=120, pass_fds=()):
+def run(arguments, input=None, timeout=120, pass_fds=(), include_stderr=False):
     if not shutil.which(arguments[0], path="/usr/sbin:/usr/bin:/sbin:/bin"):
         raise Error(f"{arguments[0]} ist nicht installiert.", 503)
     try:
@@ -50,10 +50,13 @@ def run(arguments, input=None, timeout=120, pass_fds=()):
         raise Error(f"{arguments[0]} konnte nicht ausgeführt werden: {exc}", 503) from None
     if result.returncode:
         raise Error((result.stderr.strip() or result.stdout.strip() or "Befehl fehlgeschlagen.")[-4000:])
-    return result.stdout.strip()
+    return (result.stdout + (result.stderr if include_stderr else "")).strip()
 
 
-class Host(VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+from .docker_engine import DockerEngineMixin
+
+
+class Host(DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -90,7 +93,7 @@ class Host(VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin
             raise Error("Titan-Konfiguration wird wiederhergestellt. Verwaltungsaktionen sind gesperrt.", 503)
         # Account revocation must remain responsive during large file/VM backups.
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove"}
-        read_ops = {"services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
+        read_ops = {"docker_engine", "docker_metrics", "docker_container_details","services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
                     "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "app_devices", "app_metrics", "shares_access"}
         selected_lock = self.account_lock if operation in account_ops else contextlib.nullcontext() if operation in read_ops else self.lock
         with selected_lock:
@@ -514,7 +517,11 @@ class Host(VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin
         target = int(graphics.get("port"))
         process = self.console_processes.get(vm)
         if process and process[0].poll() is None and len(process) == 3 and process[2] == target:
-            return {"port": process[1]}
+            try:
+                with socket.create_connection(("127.0.0.1", process[1]), timeout=0.2):
+                    return {"port": process[1]}
+            except OSError:
+                pass
         if process and process[0].poll() is None:
             process[0].terminate()
         self.console_processes.pop(vm, None)

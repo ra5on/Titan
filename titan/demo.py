@@ -223,7 +223,7 @@ class Demo:
             storage = ({key: sum(volume[key] for volume in mounted) for key in ("total", "used")}
                        if mounted else {"total": 8 * 1024**4, "used": 2.34 * 1024**4})
             return {"hostname": "titan", "uptime": 352845, "load": 0.32, "cpus": 8,
-                    "memory_total": 32 * 1024**3, "memory_used": 8.6 * 1024**3,
+                    "memory_total": 32 * 1024**3, "memory_used": 13 * 1024**3, "memory_demand": 8.6 * 1024**3,
                     "memory_occupied": 13 * 1024**3, "memory_free": 19 * 1024**3, "memory_buffers": 0.3 * 1024**3,
                     "memory_available": 23.4 * 1024**3, "memory_cached": 4.1 * 1024**3,
                     "swap_total": 0, "swap_used": 0, "cpu_percent": 22.0,
@@ -231,7 +231,7 @@ class Demo:
                     "telemetry_sampled_at": time.time(), "telemetry_errors": {},
                     "temperatures": [{"id": "demo:cpu", "label": "Demo · CPU", "kind": "cpu", "current": 42.0, "critical": 100.0}],
                     "status_history": [{"time": time.time()-(23-index)*5, "cpu_percent": 12+(index%7)*2,
-                                        "memory_percent": 26.875, "memory_occupied_percent": 40.625, "cpu_temperature": 42.0} for index in range(24)],
+                                        "memory_percent": 40.625, "memory_occupied_percent": 40.625, "cpu_temperature": 42.0} for index in range(24)],
                     "services": {**{name: self.services[unit]["active"] for name, unit in
                                     (("docker", "docker.service"), ("samba", "smb.service"), ("vms", "virtqemud.service"))}, "zfs": True},
                     "service_details": {name: {"installed": True, "active": active, "state": "active" if active else "inactive"}
@@ -282,6 +282,23 @@ class Demo:
                     "warnings": ["Demo: SMB-Zugang wird ausschließlich simuliert."]}
         if operation == "app_networks":
             return self.demo_app_networks()
+        if operation == "docker_engine":
+            rows=[]
+            for app in self.apps:
+                rows.append({"id":hashlib.sha256(app['id'].encode()).hexdigest(),"name":"titan-"+app['id'],"image":APPS.get(app['id'],{}).get('image','nginx:stable'),"state":app['state'],"health":None,"created":"2026-10-03","restart":"unless-stopped","managed_app":app['id'],"networks":[{"name":"bridge","ipv4":"172.17.0.2","ipv6":""}],"ports":{"80/tcp":[{"HostIp":"0.0.0.0","HostPort":str(app['port'])}]},"mounts":[]})
+            return {"available":True,"containers":rows,"images":[{"ID":"sha256:"+"a"*64,"Repository":"nginx","Tag":"stable","Size":"78 MB","CreatedSince":"1 day"}],"volumes":[{"Name":"demo-data","Driver":"local"}],"networks":[{"Name":"bridge","Driver":"bridge","Scope":"local"},{"Name":"host","Driver":"host","Scope":"local"},{"Name":"none","Driver":"null","Scope":"local"}]}
+        if operation == "docker_metrics":
+            return {"available":True,"containers":{row['id']:{"cpu_percent":2.4 if row['state']=='running' else 0,"memory_bytes":128*1024**2 if row['state']=='running' else 0} for row in self.call('docker_engine')['containers']}}
+        if operation == "docker_container_details":
+            row=next((row for row in self.call('docker_engine')['containers'] if row['id']==args['container']),None)
+            if row is None:raise Error('Container nicht gefunden.',404)
+            return {"container":row,"logs":"[Demo] Container läuft. Diese Daten sind simuliert."}
+        if operation in ('docker_container_create','docker_container_action','docker_image_pull','docker_resource'):
+            if operation=='docker_container_action':
+                row=next((row for row in self.call('docker_engine')['containers'] if row['id']==args['container']),None)
+                if row is None:raise Error('Container nicht gefunden.',404)
+                return self.call('app_action',app=row['managed_app'],action=args['action'])
+            return {"ok":True,"message":"Demo: Docker-Aktion simuliert; kein Hostzugriff."}
         if operation == "app_metrics":
             return {"available":True,"apps":{app["id"]:{"cpu_percent":2.4,"memory_bytes":128*1024**2,"disk_read_bytes":1024**2,"disk_write_bytes":2*1024**2} for app in self.apps}}
         if operation == "apps":
@@ -296,7 +313,7 @@ class Demo:
             return {"installed": installed, "available": available, "error": "" if available else "[Demo] Docker-Dienst ist gestoppt."}
         if operation == "vms":
             vms=copy.deepcopy(self.vms)
-            for vm in vms: vm["metrics"]={"cpu_percent":12.4 if vm["state"]=="running" else 0,"memory_resident_bytes":1200*1024**2 if vm["state"]=="running" else None,"disk_allocated_bytes":8*1024**3,"disk_read_bps":128*1024,"disk_write_bps":64*1024,"network_rx_bps":1024,"network_tx_bps":2048}
+            for vm in vms: vm["metrics"]={"cpu_percent":12.4 if vm["state"]=="running" else 0,"memory_resident_bytes":1200*1024**2 if vm["state"] in ("running","paused") else 0,"disk_allocated_bytes":8*1024**3,"disk_read_bps":128*1024,"disk_write_bps":64*1024,"network_rx_bps":1024,"network_tx_bps":2048}
             return {"vms":vms,"available":True}
         if operation == "snapshots": return copy.deepcopy(self.snapshots)
         if operation == "isos": return [item["name"] for item in self.isos]

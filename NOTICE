@@ -26,3 +26,9 @@ LinuxServer.io images API (snapshot 2026-10-03). Source documentation:
 https://docs.linuxserver.io/API/ . Container images keep their own licenses.
 The CasaOS store adapters are original Titan code; no CasaOS executable code
 is bundled. Imported metadata and recipes retain their publishers rights.
+
+SortableJS 1.15.6 is distributed locally under its MIT license.
+Official source: https://github.com/SortableJS/Sortable/tree/1.15.6
+Installed notice: /usr/lib/titan/titan/web/vendor/sortable/LICENSE
+No Dockhand code or assets are included. Titan's Docker workbench is original
+Titan code and communicates directly with the local Docker engine.

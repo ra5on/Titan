@@ -97,7 +97,7 @@ function fixture(){
  assert(dashboard.editing());assert.deepEqual(view.order(),draft);assert.equal(notices.at(-1).error,true);
  assert.equal(view.main.querySelector('[data-layout-save]').disabled,false);
  rejectSave=false;view.click('[data-layout-save]');await turns();
- assert(!dashboard.editing());assert.deepEqual(requests.at(-1),{path:'/api/dashboard-layout',body:{order:draft,hidden:[],wide:["tools","resources"]}});
+ assert(!dashboard.editing());assert.deepEqual(requests.at(-1),{path:'/api/dashboard-layout',body:{order:draft,hidden:[],wide:["tools","resources"],sizes:{}}});
  assert.deepEqual((await dashboard.load(layoutAPI,'first')).order,draft);
  assert.deepEqual((await dashboard.load(layoutAPI,'second')).order,['shares','storage','tools','resources','health','apps','vms']);
  view.click('[data-layout-edit]');view.click('[data-layout-reset]');assert.deepEqual(view.order(),dashboard.ids);

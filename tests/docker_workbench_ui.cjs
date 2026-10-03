@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('node:assert/strict');const ui=require('../titan/web/docker_workbench.js');
+assert.deepEqual(ui.parsePorts('8080:80\n8443:443/tcp\n5353:5353/udp'),[{published:8080,target:80,protocol:'tcp'},{published:8443,target:443,protocol:'tcp'},{published:5353,target:5353,protocol:'udp'}]);
+assert.throws(()=>ui.parsePorts('$(id)'));assert.throws(()=>ui.parseEnv('SECRET=a\nSECRET=b'));
+const env=ui.parseEnv('KEY=a=b\n__proto__=safe');assert.equal(env.KEY,'a=b');assert.equal(env.__proto__,'safe');assert.equal(Object.getPrototypeOf(env),Object.prototype);
+assert.match(ui.ports({'80/tcp':[{'HostIp':'0.0.0.0','HostPort':'8080'}]}),/8080 → 80/);
+assert.match(ui.metric({cpu_percent:0,memory_bytes:0},String),/RAM gesamt <strong>0/);
+assert.match(ui.metric({},String),/RAM gesamt <strong>—/);
+const live=require('../titan/web/vm_live.js');const render=vm=>live.render(vm,{bytes:v=>String(v),esc:String});
+const stopped=render({state:'shut off',cpus:2,memory_mb:4096,metrics:{cpu_percent:97,memory_resident_bytes:9999999,memory_guest_used_bytes:9999999}});
+assert.match(stopped,/CPU live[^]*?<strong>0 %/);assert.match(stopped,/RAM-Verbrauch auf dem NAS<\/small><strong>0<\/strong>/);assert(!stopped.includes('9999999'));assert(!stopped.includes('zugewiesen'));
+assert.match(render({state:'running',cpus:2,memory_mb:4096,metrics:{memory_resident_bytes:12345,memory_guest_used_bytes:1}}),/strong>12345/);
+console.log('Docker workbench parser and stopped VM resource regressions passed.');

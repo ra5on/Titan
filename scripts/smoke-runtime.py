@@ -839,17 +839,17 @@ class RuntimeSmoke:
         self.client.request("/api/status")
         time.sleep(5.1)
         status = self.client.request("/api/status")
-        total, used, available = (status.get(key) for key in ("memory_total", "memory_used", "memory_available"))
+        total, used, available, free = (status.get(key) for key in ("memory_total", "memory_used", "memory_available", "memory_free"))
         cpu = status.get("cpu_percent")
-        if (not all(type(value) is int for value in (total, used, available)) or total <= 0 or
-                min(used, available) < 0 or used + available != total):
+        if (not all(type(value) is int for value in (total, used, available, free)) or total <= 0 or
+                min(used, available, free) < 0 or max(used, available, free)>total or used + free != total):
             raise SmokeFailure("Real RAM metrics are unavailable or inconsistent.")
         if type(cpu) not in (int, float) or not math.isfinite(cpu) or not 0 <= cpu <= 100:
             raise SmokeFailure("Real CPU interval metrics are unavailable or inconsistent.")
         if status.get("demo") is not False or status.get("telemetry_errors", {}).get("cpu") or status.get("telemetry_errors", {}).get("memory"):
             raise SmokeFailure("Guest did not provide valid production CPU/RAM metrics.")
         return {"cpu_percent": cpu, "memory_total": total, "memory_used": used,
-                "memory_available": available, "temperature_sensors": len(status.get("temperatures", []))}
+                "memory_available": available, "memory_free":free, "temperature_sensors": len(status.get("temperatures", []))}
 
     def catalog(self):
         value = self.client.request("/api/catalog")
@@ -1235,6 +1235,35 @@ class RuntimeSmoke:
                     self.client.action('app_store_remove',{'store':store})
                 except Exception:pass
 
+    def docker_native(self):
+        resource='titan-runtime-native-data';container=None
+        self.client.action('docker_resource',{'kind':'volume','action':'create','resource':resource})
+        try:
+            self.client.action('docker_container_create',{'config':{'name':'runtime-native','image':'lscr.io/linuxserver/heimdall:latest','ports':[{'published':18080,'target':80,'protocol':'tcp'}],'volume':resource,'target':'/config','memory_mb':512,'cpus':1}})
+            inventory=self.client.request('/api/docker-engine')
+            row=next((row for row in inventory.get('containers',[]) if row['name']=='titan-custom-runtime-native'),None)
+            if inventory.get('available') is not True or not row or row['state']!='running':raise SmokeFailure('Native Docker container did not start.')
+            container=row['id'];self.client.app_http_ready()
+            details=self.client.request('/api/docker-container?container='+container)
+            if details.get('container',{}).get('id')!=container or 'logs' not in details:raise SmokeFailure('Native Docker details or logs unavailable.')
+            metrics=self.client.request('/api/docker-metrics').get('containers',{}).get(container,{})
+            if not isinstance(metrics.get('memory_bytes'),int) or metrics['memory_bytes']<=0:raise SmokeFailure('Total native Docker cgroup RAM unavailable.')
+            self.client.action('docker_container_action',{'container':container,'action':'stop'})
+            stopped=self.client.request('/api/docker-metrics').get('containers',{}).get(container,{})
+            if stopped.get('memory_bytes')!=0 or stopped.get('cpu_percent')!=0:raise SmokeFailure('Stopped native Docker container retains resource usage.')
+            self.client.action('docker_container_action',{'container':container,'action':'start'});self.client.app_http_ready()
+            self.client.action('docker_container_action',{'container':container,'action':'stop'})
+            self.client.action('docker_container_action',{'container':container,'action':'remove'});container=None
+            if not any(row.get('Name')==resource for row in self.client.request('/api/docker-engine').get('volumes',[])):raise SmokeFailure('Container removal deleted persistent volume.')
+            return {'create':True,'http':True,'logs':True,'total_ram':True,'stop_ram_zero':True,'restart':True,'remove':True,'volume_preserved':True}
+        finally:
+            if container:
+                try:
+                    self.client.action('docker_container_action',{'container':container,'action':'stop'})
+                    self.client.action('docker_container_action',{'container':container,'action':'remove'})
+                except Exception:pass
+            self.client.action('docker_resource',{'kind':'volume','action':'remove','resource':resource})
+
     def vm_state(self, identifier, state):
         inventory = self.client.request("/api/vms")
         vm = next((item for item in inventory.get("vms", []) if item.get("id") == identifier), None)
@@ -1362,7 +1391,9 @@ class RuntimeSmoke:
         if self.run_check("runtime_components", self.components):
             if self.run_check("docker_app_lifecycle", self.docker):
                 self.run_check("docker_custom_network_lifecycle", self.docker_network)
-                if debian_ab:self.run_check("docker_multi_container_lifecycle",self.docker_stack)
+                if debian_ab:
+                    self.run_check("docker_multi_container_lifecycle",self.docker_stack)
+                    self.run_check("docker_native_workbench",self.docker_native)
             else:
                 self.record("docker_custom_network_lifecycle", "skipped", "Default app lifecycle failed; custom network check cannot safely reuse that app.")
             if self.kvm:

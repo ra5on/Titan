@@ -12,12 +12,7 @@ import zipfile
 from .core import Error
 
 LINUXSERVER = 'https://api.linuxserver.io/api/v1/images?include_config=true&include_deprecated=false'
-PRESETS = [
-    {'id': 'linuxserver', 'name': 'LinuxServer.io', 'url': LINUXSERVER, 'format': 'linuxserver', 'default': True},
-    {'id': 'casaos', 'name': 'CasaOS · IceWhale', 'url': 'https://github.com/IceWhaleTech/CasaOS-AppStore', 'format': 'casaos'},
-    {'id': 'bigbear', 'name': 'BigBear CasaOS', 'url': 'https://codeload.github.com/bigbeartechworld/big-bear-casaos/zip/refs/heads/master', 'format': 'casaos'},
-    {'id': 'community-linuxserver', 'name': 'LinuxServer · Community CasaOS', 'url': 'https://codeload.github.com/WisdomSky/LinuxServer-AppStore/zip/refs/heads/main', 'format': 'casaos'},
-]
+PRESETS = [{'id': 'linuxserver', 'name': 'LinuxServer.io', 'url': LINUXSERVER, 'format': 'linuxserver', 'default': True}]
 
 def slug(value):
     name = re.sub('[^a-z0-9_-]', '-', str(value).lower()).strip('-')

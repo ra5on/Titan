@@ -66,7 +66,7 @@
   const uptime = measured(status.uptime) && status.uptime >= 0 ? `${Math.floor(status.uptime/86400)} Tage, ${Math.floor(status.uptime/3600)%24} Std.` : 'Nicht ermittelt';
   const memory = values.memory === null ? 'Nicht ermittelt' : `${esc(bytes(status.memory_occupied ?? status.memory_used))} von ${esc(bytes(status.memory_total))}`;
   const errors = status.telemetry_errors && typeof status.telemetry_errors === 'object' ? Object.values(status.telemetry_errors).filter(value => typeof value === 'string' && value) : [];
-  return `<div class="resource-metrics"><div class="resource-metric"><div class="metric-label"><span><span class="metric-key cpu-key" aria-hidden="true"></span>CPU-Auslastung</span><strong>${values.cpu === null ? 'Messung läuft' : number(values.cpu)+' %'}</strong></div>${meter(values.cpu,'CPU-Auslastung')}<p class="metric-note">Lastdurchschnitt (1 Min.): ${load} · ${esc(status.cpus || '—')} logische CPUs</p></div><div class="resource-metric"><div class="metric-label"><span><span class="metric-key memory-key" aria-hidden="true"></span>RAM belegt · inklusive Cache</span><strong>${values.memory === null ? '—' : number(values.memory)+' %'}</strong></div>${meter(values.memory,'Arbeitsspeicher belegt','teal')}<p class="metric-note">${memory}</p><dl class="memory-breakdown"><div><dt>Bedarf (geschätzt)</dt><dd>${esc(bytes(status.memory_used))}</dd></div><div><dt>Verfügbar für Anwendungen</dt><dd>${esc(bytes(status.memory_available))}</dd></div><div><dt>Vollständig frei</dt><dd>${esc(bytes(status.memory_free))}</dd></div><div><dt>Dateicache / rückgewinnbarer Cache</dt><dd>${esc(bytes(status.memory_cached))}</dd></div><div><dt>Kernel-Puffer</dt><dd>${esc(bytes(status.memory_buffers))}</dd></div></dl></div>${metricChart(status.status_history,{demo:Boolean(format.demo)})}<div class="sensor-summary"><span class="sensor-label">CPU-Temperatur</span><strong class="${values.temperature === null?'muted':''}">${temperature}</strong></div>${sensors.length ? `<div class="sensor-readings" aria-label="Erkannte Temperatursensoren">${sensors.slice(0,6).map(sensor => `<span title="${esc(sensor.label)}">${esc(sensor.label)} <strong>${number(sensor.current)} °C</strong></span>`).join('')}${sensors.length>6?`<span>+ ${sensors.length-6} weitere Sensoren</span>`:''}</div>` : '<p class="metric-note">Der Host meldet keine Temperatursensoren.</p>'}<div class="resource-summary"><div><small>Laufzeit</small><strong>${uptime}</strong></div><div><small>Letzte Messung</small><strong data-metrics-updated>${measured(status.telemetry_sampled_at)?escape(time(status.telemetry_sampled_at)):'Noch keine'}</strong></div></div>${errors.length?`<details class="telemetry-details"><summary>Messhinweise (${errors.length})</summary>${errors.map(message=>`<p class="hint">${esc(message)}</p>`).join('')}</details>`:''}</div>`;
+  return `<div class="resource-metrics"><div class="resource-metric"><div class="metric-label"><span><span class="metric-key cpu-key" aria-hidden="true"></span>CPU-Auslastung</span><strong>${values.cpu === null ? 'Messung läuft' : number(values.cpu)+' %'}</strong></div>${meter(values.cpu,'CPU-Auslastung')}<p class="metric-note">Lastdurchschnitt (1 Min.): ${load} · ${esc(status.cpus || '—')} logische CPUs</p></div><div class="resource-metric"><div class="metric-label"><span><span class="metric-key memory-key" aria-hidden="true"></span>RAM belegt · inklusive Cache</span><strong>${values.memory === null ? '—' : number(values.memory)+' %'}</strong></div>${meter(values.memory,'Arbeitsspeicher belegt','teal')}<p class="metric-note">${memory}</p><dl class="memory-breakdown"><div><dt>Bedarf (geschätzt)</dt><dd>${esc(bytes(status.memory_demand ?? (measured(status.memory_total)&&measured(status.memory_available)?status.memory_total-status.memory_available:null)))}</dd></div><div><dt>Verfügbar für Anwendungen</dt><dd>${esc(bytes(status.memory_available))}</dd></div><div><dt>Vollständig frei</dt><dd>${esc(bytes(status.memory_free))}</dd></div><div><dt>Dateicache / rückgewinnbarer Cache</dt><dd>${esc(bytes(status.memory_cached))}</dd></div><div><dt>Kernel-Puffer</dt><dd>${esc(bytes(status.memory_buffers))}</dd></div></dl></div>${metricChart(status.status_history,{demo:Boolean(format.demo)})}<div class="sensor-summary"><span class="sensor-label">CPU-Temperatur</span><strong class="${values.temperature === null?'muted':''}">${temperature}</strong></div>${sensors.length ? `<div class="sensor-readings" aria-label="Erkannte Temperatursensoren">${sensors.slice(0,6).map(sensor => `<span title="${esc(sensor.label)}">${esc(sensor.label)} <strong>${number(sensor.current)} °C</strong></span>`).join('')}${sensors.length>6?`<span>+ ${sensors.length-6} weitere Sensoren</span>`:''}</div>` : '<p class="metric-note">Der Host meldet keine Temperatursensoren.</p>'}<div class="resource-summary"><div><small>Laufzeit</small><strong>${uptime}</strong></div><div><small>Letzte Messung</small><strong data-metrics-updated>${measured(status.telemetry_sampled_at)?escape(time(status.telemetry_sampled_at)):'Noch keine'}</strong></div></div>${errors.length?`<details class="telemetry-details"><summary>Messhinweise (${errors.length})</summary>${errors.map(message=>`<p class="hint">${esc(message)}</p>`).join('')}</details>`:''}</div>`;
  }
  const normalize = order => [...new Set((Array.isArray(order) ? order : []).filter(id => ids.includes(id))), ...ids.filter(id => !(Array.isArray(order) ? order : []).includes(id))];
  function move(order, id, position) {
@@ -82,7 +82,7 @@
    const result = await api('/api/dashboard-layout');
    const order = normalize(result.order);
    saved.set(owner, order);
-   choices.set(owner,{hidden:Array.isArray(result.hidden)?result.hidden:[],wide:Array.isArray(result.wide)?result.wide:["tools","resources"]});
+   choices.set(owner,{hidden:Array.isArray(result.hidden)?result.hidden:[],wide:Array.isArray(result.wide)?result.wide:["tools","resources"],sizes:result.sizes||{}});
    return {order:order.slice(), available:true};
   } catch (error) {
    // A layout failure must never prevent access to the NAS status and tools.
@@ -98,7 +98,7 @@
   return '<div class="dashboard-toolbar" aria-label="Übersicht anpassen"><p id="dashboard-layout-hint" class="hint">Deine Übersicht · Kacheln nach deinen Wünschen anordnen.</p><div class="dashboard-layout-actions"><button type="button" class="button small" data-layout-edit>Übersicht anpassen <span aria-hidden="true">↕</span></button><button type="button" class="button small" data-layout-reset hidden>Standard</button><button type="button" class="button small" data-layout-cancel hidden>Abbrechen</button><button type="button" class="button small primary" data-layout-save hidden>Speichern</button></div><span class="sr-only" id="dashboard-layout-announcement" role="status" aria-live="polite" aria-atomic="true"></span></div>';
  }
  function controls(id, title) {
-  return `<div class="tile-controls" hidden><button type="button" class="tile-handle" data-layout-handle="${id}" aria-label="${title}: ziehen oder mit Pfeiltasten verschieben" aria-describedby="dashboard-layout-hint" title="Ziehen · Pfeil hoch / runter"><span aria-hidden="true">⠿</span></button><button type="button" class="tile-step" data-layout-move="-1" aria-label="${title}: nach vorne verschieben" title="Nach vorne">↑</button><button type="button" class="tile-step" data-layout-move="1" aria-label="${title}: nach hinten verschieben" title="Nach hinten">↓</button><button type="button" class="tile-step" data-layout-width aria-label="${title}: Breite ändern">↔</button><button type="button" class="tile-step" data-layout-hide aria-label="${title}: entfernen">×</button></div>`;
+  return `<div class="tile-controls" hidden><button type="button" class="tile-handle" data-layout-handle="${id}" aria-label="${title}: ziehen oder mit Pfeiltasten verschieben" aria-describedby="dashboard-layout-hint" title="Ziehen · Pfeil hoch / runter"><span aria-hidden="true">⠿</span></button><button type="button" class="tile-step" data-layout-move="-1" aria-label="${title}: nach vorne verschieben" title="Nach vorne">↑</button><button type="button" class="tile-step" data-layout-move="1" aria-label="${title}: nach hinten verschieben" title="Nach hinten">↓</button><button type="button" class="tile-step" data-layout-width aria-label="${title}: Breite ändern">↔</button><button type="button" class="tile-step" data-layout-hide aria-label="${title}: entfernen">×</button><button type="button" class="tile-resize" data-layout-resize="${id}" aria-label="${title}: Größe durch Ziehen ändern" title="Größe ändern">◢</button></div>`;
  }
  function dispose() {
   if (current) current.destroy();
@@ -114,8 +114,9 @@
   const hint = main.querySelector('#dashboard-layout-hint'), announcement = main.querySelector('#dashboard-layout-announcement');
   const doc = grid.ownerDocument;
   let options=JSON.parse(JSON.stringify(choices.get(owner)||{hidden:[],wide:["tools","resources"]})), originalOptions=JSON.parse(JSON.stringify(options));
-  const picker=doc.createElement("div");picker.className="tile-picker";picker.hidden=true;main.querySelector(".dashboard-toolbar")?.after(picker);
-  function applyChoices(){for(const tile of grid.querySelectorAll("[data-dashboard-tile]")){tile.hidden=options.hidden.includes(tile.dataset.dashboardTile);tile.classList.toggle("tile-wide",options.wide.includes(tile.dataset.dashboardTile));}picker.innerHTML=[...grid.querySelectorAll("[data-dashboard-tile]")].map(tile=>`<label><input type="checkbox" data-layout-choice="${tile.dataset.dashboardTile}" ${tile.hidden?"":"checked"}>${escape(tile.querySelector("h2")?.textContent||tile.dataset.dashboardTile)}</label>`).join("");}
+  const picker=doc.createElement("details");picker.className="tile-picker";picker.hidden=true;main.querySelector(".dashboard-toolbar")?.after(picker);
+  function applyChoices(){for(const tile of grid.querySelectorAll("[data-dashboard-tile]")){tile.hidden=options.hidden.includes(tile.dataset.dashboardTile);tile.classList.toggle("tile-wide",options.wide.includes(tile.dataset.dashboardTile));const size=options.sizes?.[tile.dataset.dashboardTile];tile.style.setProperty?.("--tile-columns",size?.columns||(options.wide.includes(tile.dataset.dashboardTile)?2:1));if(size?.height)tile.style.setProperty?.("--tile-height",size.height+"px");else tile.style.removeProperty?.("--tile-height");}picker.innerHTML='<summary>Kacheln hinzufügen oder ausblenden</summary><div class="tile-picker-options">'+[...grid.querySelectorAll("[data-dashboard-tile]")].map(tile=>`<label><input type="checkbox" data-layout-choice="${tile.dataset.dashboardTile}" ${tile.hidden?"":"checked"}>${escape(tile.querySelector("h2")?.textContent||tile.dataset.dashboardTile)}</label>`).join("")+"</div>";}
+  for(const tile of grid.querySelectorAll("[data-dashboard-tile]")){const grip=tile.querySelector("[data-layout-resize]");if(grip){tile.append(grip);grip.hidden=true;}}
   applyChoices();
   let original = readOrder(grid), editing = false, busy = false, drag = null, metricsBusy = false;
   const liveResources = main.querySelector('[data-live-resources]');
@@ -136,21 +137,22 @@
     if (updated) updated.textContent = 'Verbindung unterbrochen';
    } finally { metricsBusy = false; }
   }
-  let masonry=null;
-  if(doc.defaultView?.ResizeObserver){grid.classList.add("dashboard-masonry");masonry=new doc.defaultView.ResizeObserver(entries=>{for(const entry of entries){const tile=entry.target;if(tile.hidden)continue;const height=tile.getBoundingClientRect().height;tile.style.gridRowEnd="span "+Math.max(1,Math.ceil((height+16)/24));}});for(const tile of grid.querySelectorAll("[data-dashboard-tile]"))masonry.observe(tile);}
+  let sortable=null,resize=null;
+  const Sortable=doc.defaultView?.Sortable;
+  if(Sortable)sortable=new Sortable(grid,{draggable:'[data-dashboard-tile]:not([hidden])',handle:'[data-layout-handle]',disabled:true,animation:doc.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)").matches?0:220,easing:'cubic-bezier(.2,.8,.2,1)',forceFallback:true,fallbackOnBody:true,fallbackTolerance:5,ghostClass:'layout-placeholder',fallbackClass:'layout-floating',scroll:true,scrollSensitivity:70,scrollSpeed:12,onStart(){grid.classList.add('layout-dragging');},onEnd(){grid.classList.remove('layout-dragging');updateButtons();announce('Kachel verschoben. Zum Übernehmen speichern.');}});
   const metricsTimer = liveResources && doc.defaultView?.setInterval ? doc.defaultView.setInterval(refreshMetrics,10000) : null;
   function visibility() { if (!doc.hidden) void refreshMetrics(); }
   if (liveResources) doc.addEventListener('visibilitychange',visibility);
   const announce = text => { announcement.textContent = text; };
   const title = tile => tile.querySelector('h2')?.textContent || tile.dataset.dashboardTile;
   function state(value) {
-   editing = value;
+   editing = value;sortable?.option('disabled',!value);
    grid.classList.toggle('layout-editing', editing);
    picker.hidden=!editing;
    edit.hidden = editing;
    for (const item of [reset, cancel, save]) item.hidden = !editing;
-   grid.querySelectorAll('.tile-controls').forEach(item => item.hidden = !editing);
-   hint.textContent = editing ? 'Am Griff ziehen, ↑ / ↓ wählen oder den Griff mit Pfeiltasten bewegen. Danach speichern.' : 'Deine Übersicht · Kacheln nach deinen Wünschen anordnen.';
+   grid.querySelectorAll('.tile-controls').forEach(item => item.hidden = !editing);grid.querySelectorAll('[data-layout-resize]').forEach(item=>item.hidden=!editing);
+   hint.textContent = editing ? 'Am Griff ziehen, unten rechts die Größe ändern. Am Handy bleiben Kacheln einspaltig. Danach speichern.' : 'Deine Übersicht · Kacheln nach deinen Wünschen anordnen.';
   }
   function updateButtons() {
    const tiles = [...grid.querySelectorAll('[data-dashboard-tile]')];
@@ -185,13 +187,13 @@
     original = readOrder(grid); originalOptions=JSON.parse(JSON.stringify(options)); state(true); updateButtons();
     grid.querySelector('[data-layout-handle]')?.focus({preventScroll:true});
    } else if (event.target.closest('[data-layout-reset]')) {
-    finishDrag(); options={hidden:[],wide:["tools","resources"]};applyChoices();applyOrder(grid, ids); updateButtons(); announce('Standardreihenfolge. Zum Übernehmen speichern.');
+    finishDrag(); options={hidden:[],wide:["tools","resources"],sizes:{}};applyChoices();applyOrder(grid, ids); updateButtons(); announce('Standardreihenfolge. Zum Übernehmen speichern.');
    } else if (event.target.closest('[data-layout-cancel]')) {
     finishDrag();options=JSON.parse(JSON.stringify(originalOptions));applyChoices(); applyOrder(grid, original); state(false); announce('Änderungen verworfen.'); edit.focus({preventScroll:true});
    } else if (event.target.closest('[data-layout-save]')) {
     finishDrag(); void persist();
    } else if(editing && event.target.closest("[data-layout-hide],[data-layout-width]")){
-    const control=event.target.closest("[data-layout-hide],[data-layout-width]"),id=control.closest("[data-dashboard-tile]").dataset.dashboardTile;const key=control.hasAttribute("data-layout-hide")?"hidden":"wide";options[key]=options[key].includes(id)?options[key].filter(value=>value!==id):[...options[key],id];applyChoices();
+    const control=event.target.closest("[data-layout-hide],[data-layout-width]"),id=control.closest("[data-dashboard-tile]").dataset.dashboardTile;const key=control.hasAttribute("data-layout-hide")?"hidden":"wide";if(key==="wide"&&options.sizes)delete options.sizes[id];options[key]=options[key].includes(id)?options[key].filter(value=>value!==id):[...options[key],id];applyChoices();
    } else {
     const control = event.target.closest('[data-layout-move]');
     if (!editing || !control || control.disabled || !grid.contains(control)) return;
@@ -235,6 +237,9 @@
    event.preventDefault(); reorder(tile, positions[event.key], true);
   }
   function onPointerDown(event) {
+   const grip=event.target.closest('[data-layout-resize]');
+   if(editing&&!busy&&grip&&event.button===0){event.preventDefault();const tile=grip.closest('[data-dashboard-tile]');resize={tile,grip,id:event.pointerId,x:event.clientX,y:event.clientY,height:tile.getBoundingClientRect().height,width:tile.getBoundingClientRect().width,prior:JSON.parse(JSON.stringify(options.sizes||{}))};grip.setPointerCapture?.(event.pointerId);return;}
+   if(sortable)return;
    const handle = event.target.closest('[data-layout-handle]');
    if (!editing || busy || !handle || !grid.contains(handle) || event.button !== 0 || event.isPrimary === false) return;
    event.preventDefault();
@@ -243,6 +248,7 @@
    try { handle.setPointerCapture(event.pointerId); } catch (_) { /* Document listeners also cover pointer movement. */ }
   }
   function onPointerMove(event) {
+   if(resize&&event.pointerId===resize.id){event.preventDefault();const columns=Number(doc.defaultView?.getComputedStyle(grid).getPropertyValue('--dashboard-columns'))||1,unit=(grid.getBoundingClientRect().width+16)/columns;const width=Math.max(1,Math.min(columns,Math.round((resize.width+event.clientX-resize.x+16)/unit)));options.sizes||={};options.sizes[resize.tile.dataset.dashboardTile]={columns:width,height:Math.max(180,Math.min(1600,Math.round(resize.height+event.clientY-resize.y)))};applyChoices();return;}
    if (!drag || event.pointerId !== drag.pointerId) return;
    if (!drag.ghost && Math.hypot(event.clientX-drag.startX, event.clientY-drag.startY) < 8) return;
    event.preventDefault();
@@ -264,7 +270,7 @@
    if (view && event.clientY < 72) view.scrollBy(0, -12);
    else if (view && event.clientY > view.innerHeight - 72) view.scrollBy(0, 12);
   }
-  function onPointerEnd(event) { if (drag && event.pointerId === drag.pointerId) finishDrag(event.type === 'pointercancel'); }
+  function onPointerEnd(event) { if(resize&&event.pointerId===resize.id){if(event.type==='pointercancel')options.sizes=resize.prior;resize.grip.releasePointerCapture?.(event.pointerId);resize=null;applyChoices();announce('Kachelgröße geändert. Zum Übernehmen speichern.');} if (drag && event.pointerId === drag.pointerId) finishDrag(event.type === 'pointercancel'); }
   main.addEventListener('click', onClick);
   main.addEventListener('keydown', onKey);
   grid.addEventListener('pointerdown', onPointerDown);
@@ -272,7 +278,7 @@
   doc.addEventListener('pointerup', onPointerEnd);
   doc.addEventListener('pointercancel', onPointerEnd);
   current = {grid, editing:() => editing, destroy() {
-   masonry?.disconnect();picker.remove?.();
+   sortable?.destroy();resize=null;picker.remove?.();
    if (metricsTimer !== null) doc.defaultView.clearInterval(metricsTimer);
    if (liveResources) doc.removeEventListener('visibilitychange',visibility);
    finishDrag(); main.removeEventListener('click', onClick);main.removeEventListener("change",onChoice); main.removeEventListener('keydown', onKey);

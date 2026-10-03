@@ -227,8 +227,20 @@ class VMLifecycleTests(unittest.TestCase):
         self.assertEqual(result, {"port": 50001})
         child.terminate.assert_not_called()
         socket.assert_not_called()
-        connect.assert_not_called()
+        connect.assert_called_once_with(("127.0.0.1", 50001), timeout=0.2)
         popen.assert_not_called()
+
+    def test_console_replaces_alive_but_unreachable_bridge(self):
+        old, new = Mock(), Mock()
+        old.poll.return_value = None
+        self.host.console_processes[self.vm_id] = (old, 50001, 5901)
+        patches = self.mocked_console(child=new)
+        with patches[0], patches[1], patches[2], patches[3] as connect, patches[4]:
+            connect.side_effect = [OSError("refused"), MagicMock()]
+            self.assertEqual(self.host.op_console(self.vm_id), {"port": 51001})
+        old.terminate.assert_called_once()
+        self.assertEqual(connect.call_count, 2)
+        self.assertEqual(self.host.console_processes[self.vm_id], (new, 51001, 5901))
 
     def test_console_replaces_bridge_when_guest_vnc_port_changes_or_old_record_lacks_target(self):
         for record_size in (2, 3):

@@ -31,8 +31,8 @@ const data={available:true,vms:[vm(),vm({id:'running',name:'Active',state:'runni
 const library={items:[{name:'ubuntu.iso',size:9876,used_by:['Server']},{name:'free.iso',size:42,used_by:[]}]};
 const vmHtml=manager.renderVMs({data,library,session,options:{cpu_topology:{cpus:[{id:2,core_type:'efficiency',core_id:1,siblings:[2]},{id:0,core_type:'performance',core_id:0,siblings:[0,1]},{id:1,online:false,core_type:'unknown',siblings:[0,1]}]},storage:[{id:'system',label:'Systemlaufwerk',available:true,path:'/var/lib/titan/vms',free_bytes:42*1024**3}]},status:{memory_total:16*1024**3,cpus:3}});
 assert.match(vmHtml,/data-manager="vms"/);assert.match(vmHtml,/role="tablist"/);assert.match(vmHtml,/aria-controls="mv-vms-panel-host"/);assert.match(vmHtml,/data-manager-panel="machines"[^>]*>/);
-assert.deepEqual(manager.vmResourceSummary(data.vms),{cpus:8,memory:8*1024**3,disk:80*1024**3,running:1});
-assert.match(vmHtml,/Zugewiesene CPUs/);assert.match(vmHtml,/Virtuelle Größe; keine Belegungsmessung/);assert.match(vmHtml,/Live-Werte stehen direkt/);assert(!vmHtml.includes('data-percent'));assert(!vmHtml.includes('CPU 100%'));
+assert.deepEqual(manager.vmResourceSummary(data.vms),{cpus:8,memory:null,disk:80*1024**3,running:1});
+assert.match(vmHtml,/Zugewiesene CPUs/);assert.match(vmHtml,/Virtuelle Größe; keine Belegungsmessung/);assert.match(vmHtml,/Ausgeschaltete VMs verbrauchen 0 B/);assert(!vmHtml.includes('data-percent'));assert(!vmHtml.includes('CPU 100%'));
 for(const action of ['vm-create','refresh','vm-console','vm-edit','vm-media','vm-backup','vm-remove','vm-backups','vm-force-off','iso-remove'])assert(vmHtml.includes(`data-action="${action}"`),action);
 for(const command of ['start','shutdown','reboot','resume','autostart'])assert(vmHtml.includes(`data-command="${command}"`),command);
 assert.match(vmHtml,/data-action="iso-remove" data-name="ubuntu.iso" disabled/);assert.match(vmHtml,/data-action="iso-remove" data-name="free.iso" /);assert.match(vmHtml,/id="iso-upload"/);assert.match(vmHtml,/accept="\.iso"/);
