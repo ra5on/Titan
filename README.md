@@ -28,7 +28,7 @@ Unter **Einstellungen → Updates & Rollback** in drei Schritten **Jetzt prüfen
 
 Boot, NAS-Laufzeit, Update, Neustart, Rollback, Rückfall nach einem fehlgeschlagenen Teststart und Erhalt von Benutzerkonten, Freigaberechten und Testdateien wurden in einer separaten QEMU-VM geprüft. Ein hängender Gast benötigt für den Rückfall einen Reset; persönliche Daten werden durch Rollback nicht zurückgesetzt. Die [Testgrenzen](docs/TITAN-IMAGE.md#prüfung-und-grenzen) bleiben für den Übergang zur Beta maßgeblich.
 
-[Desktop-Neuerungen 0.4.15](docs/RELEASE-0.4.15.md) · [Neuerungen 0.4.14](docs/RELEASE-0.4.14.md) · [Docker-Verwaltung](docs/DOCKER-WORKBENCH.md) · [Titan AppStore und Geräte](docs/APP-STORES.md) · [Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
+[Systemsteuerung und Oberfläche 0.4.16](docs/RELEASE-0.4.16.md) · [Desktop-Neuerungen 0.4.15](docs/RELEASE-0.4.15.md) · [Neuerungen 0.4.14](docs/RELEASE-0.4.14.md) · [Docker-Verwaltung](docs/DOCKER-WORKBENCH.md) · [Titan AppStore und Geräte](docs/APP-STORES.md) · [Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
 
 ## Lizenz
 
