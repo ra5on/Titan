@@ -326,7 +326,7 @@ def _image_metadata(images):
     if not isinstance(images, list):
         raise ValueError("Invalid LinuxServer image list")
     metadata = {}
-    upstream_ids = {recipe.get("upstream_name", app_id): app_id for app_id, recipe in APPS.items()}
+    upstream_ids = {recipe.get("upstream_name", app_id): app_id for app_id, recipe in list(APPS.items())}
     for item in images:
         if not isinstance(item, dict) or not isinstance(item.get("name"), str) or item["name"] not in upstream_ids:
             continue
@@ -355,7 +355,7 @@ def catalog(refresh=False):
         except Exception:
             _cache.update(time=time.time(), error="LinuxServer-Katalog momentan nicht erreichbar. Lokale Vorlagen bleiben verfügbar.")
     apps = []
-    for app_id, recipe in APPS.items():
+    for app_id, recipe in list(APPS.items()):
         remote = _cache["images"].get(app_id, {})
         public_recipe = {key: value for key, value in recipe.items() if key != "environment"}
         public_recipe["install_schema"] = [{key: value for key, value in field.items() if key != "env"}
@@ -363,7 +363,7 @@ def catalog(refresh=False):
         apps.append({**public_recipe, "id": app_id, "version": remote.get("version", "latest"),
                      "deprecated": remote.get("deprecated", False),
                      "architectures": remote.get("architectures", []),
-                     "documentation": f"https://docs.linuxserver.io/images/docker-{recipe.get('upstream_name', app_id)}/"})
+                     "documentation": recipe.get("documentation") or f"https://docs.linuxserver.io/images/docker-{recipe.get('upstream_name', app_id)}/"})
     return {"apps": apps, "source": "LinuxServer.io", "error": _cache["error"]}
 
 

@@ -15,7 +15,7 @@ def availability(device="/dev/kvm", cpuinfo="/proc/cpuinfo", novnc="/usr/share/n
     if os.uname().machine not in ("x86_64", "amd64"):
         return {**result, "error": "Die aktuelle Titan-VM-Integration unterstützt amd64. Das NAS funktioniert auf dieser Architektur ohne VMs."}
     if missing:
-        return {**result, "error": "VM-Komponenten fehlen: " + ", ".join(missing) + ". Das Titan-uCore-HCI-Systemimage ist unvollständig. Ein vollständiges Titan-Systemimage mit QEMU, libvirt und Browserkonsole installieren."}
+        return {**result, "error": "VM-Komponenten fehlen: " + ", ".join(missing) + ". Das Titan-Systemimage ist unvollständig. Ein vollständiges Titan-Systemimage mit QEMU, libvirt und Browserkonsole installieren."}
     try:
         info = Path(device).lstat()
         if not stat.S_ISCHR(info.st_mode):

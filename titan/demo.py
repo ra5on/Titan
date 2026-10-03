@@ -172,6 +172,16 @@ class Demo:
         if admin_file:
             operation = "file"
             args["user"] = "titan-files"
+        if operation == "app_stores":
+            return {"stores": []}
+        if operation in ("app_store_add", "app_store_remove"):
+            raise Error("Eigene Stores benötigen ein installiertes Titan-System. Die Demo lädt keine fremden Vorlagen.")
+        if operation == "vm_usb":
+            return {"devices": [], "selected": [], "editable": True}
+        if operation == "vm_usb_update":
+            if args.get("devices"):
+                raise Error("In der Demo sind keine echten USB-Geräte verfügbar.")
+            return {"ok": True, "devices": []}
         if operation == "components":
             docker, vms = self.services["docker.service"]["active"], self.services["virtqemud.service"]["active"]
             return {"components": {"docker": {"installed": True, "available": docker, "daemon": docker, "compose": True, "missing": [],

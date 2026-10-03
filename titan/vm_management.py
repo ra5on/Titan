@@ -202,6 +202,8 @@ class VMMixin:
         record = self.managed_vm(value)
         if check_cpu:
             self.validate_vm_cpu_ids(record["cpus"], record["cpu_ids"])
+            from .vm_usb import assigned
+            self.validate_vm_usb(record["id"], assigned(ET.fromstring(record["xml"])))
         return record["id"]
 
     @staticmethod

@@ -19,6 +19,8 @@ from .catalog import APPS, compose
 from .core import Error, atomic_json, identifier, integer, password_hash
 from .management_host import ManagementMixin
 from .vm_management import VMMixin
+from .app_stores import StoreMixin
+from .vm_usb import USBMixin
 from .vm_storage import VMStorageMixin
 from .cpu_topology import CpuMixin
 from .components import ComponentsMixin
@@ -49,7 +51,7 @@ def run(arguments, input=None, timeout=120, pass_fds=()):
     return result.stdout.strip()
 
 
-class Host(ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -62,6 +64,7 @@ class Host(ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, 
         self.suspended_shares = set()
         self.console_processes = {}
         self.terminal_lock = threading.RLock()
+        self.initialize_app_stores()
         self.telemetry = Telemetry()
         self._volumes = Volumes(self, lambda *args, **kwargs: run(*args, **kwargs))
         self.initialize_services(lambda *args, **kwargs: run(*args, **kwargs))
@@ -85,7 +88,7 @@ class Host(ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, 
             raise Error("Titan-Konfiguration wird wiederhergestellt. Verwaltungsaktionen sind gesperrt.", 503)
         # Account revocation must remain responsive during large file/VM backups.
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove"}
-        read_ops = {"services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
+        read_ops = {"services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
                     "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "system_disk", "app_networks", "shares_access"}
         selected_lock = self.account_lock if operation in account_ops else contextlib.nullcontext() if operation in read_ops else self.lock
         with selected_lock:

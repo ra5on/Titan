@@ -1,0 +1,23 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nodes=new Map();const node=s=>{if(!nodes.has(s))nodes.set(s,{innerHTML:'',textContent:'',hidden:false,open:false,addEventListener(){},classList:{remove(){}},showModal(){},close(){}});return nodes.get(s);};
+const context=vm.createContext({document:{querySelector:node,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){}},location:{hash:'#apps',hostname:'nas'},URL,URLSearchParams,FormData,console,setTimeout:()=>0,setInterval:()=>0,clearInterval(){}});
+vm.runInContext(fs.readFileSync('titan/web/app.js','utf8').replace(/boot\(\)\.catch\(error=>toast\(error.message,true\)\);\s*$/,''),context);
+const run=s=>vm.runInContext(s,context);
+context.capture={};run('dialog=(title,html,submit)=>{capture.title=title;capture.html=html;capture.submit=submit;};action=(name,args)=>{capture.action={name,args};};');
+(async()=>{
+ context.reply={devices:[{id:'1234:abcd',name:'<script>test</script>',port:'1-1',selected:true,blocked:true,reason:'Nicht angeschlossen.'},{id:'abcd:1234',name:'Disk',port:'1-2',selected:false,blocked:true,reason:'NAS-Speicher'}]};run('api=async()=>reply;');
+ await run("actions['vm-usb']({dataset:{id:'vm-id'}})");
+ assert(!context.capture.html.includes('<script>'));assert.match(context.capture.html,/&lt;script&gt;/);
+ assert.match(context.capture.html,/value="1234:abcd" checked/);
+ assert.match(context.capture.html,/value="abcd:1234"\s+disabled/);
+ const values=new FormData();values.append('usb','1234:abcd');await context.capture.submit(values);
+ assert.equal(context.capture.action.name,'vm_usb_update');assert.deepEqual(Array.from(context.capture.action.args.devices),['1234:abcd']);
+ context.reply={stores:[{id:'123',name:'<b>Store</b>',apps:2,url:'https://example.org'}]};
+ await run("actions['app-stores']()");assert.match(context.capture.html,/&lt;b&gt;Store/);assert.match(context.capture.html,/name="trusted" required/);
+ const store=new FormData();store.set('url','https://raw.githubusercontent.com/owner/repo/main/store.json');store.set('trusted','on');await context.capture.submit(store);
+ assert.equal(context.capture.action.name,'app_store_add');assert.equal(context.capture.action.args.trusted,true);
+ const html=run("componentPanel({gpus:[{vendor:'<GPU>',pci:'01:00.0',device_id:'x',driver:null,bound:false,message:'Fehlt',recommendation:'Firmware'}]})");
+ assert.match(html,/&lt;GPU&gt;/);assert.match(html,/href="#updates"/);assert.match(html,/separate Treiberinstallation ist noch nicht verfügbar/);
+ console.log('USB selection, missing-device removal, store trust and submit arguments, GPU status and HTML escaping passed.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

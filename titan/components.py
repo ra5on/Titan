@@ -10,6 +10,7 @@ import subprocess
 import time
 from .core import Error
 from .virtualization import availability
+from .hardware import gpus
 
 HELPER = Path('/usr/share/titan/install-components.sh')
 SYSTEM_PATH = '/usr/sbin:/usr/bin:/sbin:/bin'
@@ -86,7 +87,7 @@ class ComponentsMixin:
             except Error as exc:
                 vm.update(available=False, error='libvirt ist nicht erreichbar: ' + str(exc))
         return {'components': {'docker': self.docker_component(), 'vms': vm},
-                'repair': self.load('component-repair', {})}
+                'repair': self.load('component-repair', {}), 'gpus': gpus()}
 
     def op_component_install(self, component='all'):
         if type(component) is not str or component not in ('all', 'docker', 'vms'):
