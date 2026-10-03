@@ -22,7 +22,7 @@ class Element{
  close(){this.open=false;}
  focus(){}
 }
-function fixture(saved){const doc=new Element();doc.body=new Element();doc.defaultView=new Element();const values=new Map(saved?[['titan-desktop-v1:alice',JSON.stringify(saved)]]:[]);const view=doc.defaultView;view.localStorage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};view.history={replaceState(){}};view.location={origin:'https://nas:5000'};view.matchMedia=()=>({matches:false});doc.createElement=()=>new Element();for(const id of ['#shell','.workspace','#main','#desktop-tasks','.topbar','#show-desktop'])doc.nodes[id]=new Element();return{doc,view,values,layer:()=>doc.nodes['.workspace'].children[0]};}
+function fixture(saved){const doc=new Element();doc.body=new Element();doc.defaultView=new Element();const values=new Map(saved?[['titan-desktop-v2:alice',JSON.stringify(saved)]]:[]);const view=doc.defaultView;view.localStorage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};view.history={replaceState(){}};view.location={origin:'https://nas:5000'};view.matchMedia=()=>({matches:false});doc.createElement=()=>new Element();for(const id of ['#shell','.workspace','#main','#desktop-tasks','.topbar','#show-desktop'])doc.nodes[id]=new Element();return{doc,view,values,layer:()=>doc.nodes['.workspace'].children[0]};}
 (async()=>{
  const f=fixture();let answer=false,confirmations=0;
  const options={doc:f.doc,user:{name:'alice',role:'admin'},tools:allowed.map(id=>[id,id,'tool']),icon:()=>'',esc:String,api:async()=>({installed:[]}),confirm:async()=>{confirmations++;return answer;},system(){},logout(){}};
@@ -30,14 +30,14 @@ function fixture(saved){const doc=new Element();doc.body=new Element();doc.defau
  const file=f.layer().children[0],iframe=file.nodes.iframe;
  desk.route('#files');assert.equal(file.nodes.iframe,iframe,'Switching apps must retain the document');assert.equal(file.dataset.mobileActive,'true');
  file.nodes['[data-frame-minimize]'].onclick();assert(file.hidden);desk.route('#files');assert(!file.hidden);assert.equal(file.nodes.iframe,iframe);
- file.nodes['[data-frame-pin]'].onclick({currentTarget:file.nodes['[data-frame-pin]']});assert.deepEqual(JSON.parse(f.values.get('titan-desktop-v1:alice')).pins,['files']);
+ file.nodes['[data-frame-pin]'].onclick({currentTarget:file.nodes['[data-frame-pin]']});assert.deepEqual(JSON.parse(f.values.get('titan-desktop-v2:alice')).pins,['files']);
  file.nodes['[data-frame-maximize]'].onclick();assert.equal(file.nodes['[data-frame-maximize]'].attrs['aria-pressed'],'true');
  desk.route('#not-allowed');assert.equal(f.layer().children.length,2);
  f.view.events.message({origin:'https://attacker',source:iframe.contentWindow,data:{type:'titan-open',hash:'#updates'}});assert.equal(f.layer().children.length,2);
  f.view.events.message({origin:'https://nas:5000',source:{},data:{type:'titan-open',hash:'#updates'}});assert.equal(f.layer().children.length,2);
  f.view.events.message({origin:'https://nas:5000',source:iframe.contentWindow,data:{type:'titan-open',hash:'#updates'}});assert.equal(f.layer().children.length,3);
  iframe.contentWindow.titanHasUnsavedWork=()=>true;await file.nodes['[data-frame-close]'].onclick();assert.equal(confirmations,1);assert.equal(f.layer().children.length,3);answer=true;await file.nodes['[data-frame-close]'].onclick();assert.equal(f.layer().children.length,2);
- desk.desktop();assert(f.layer().children.every(node=>node.hidden));const persisted=JSON.parse(f.values.get('titan-desktop-v1:alice'));assert(persisted.windows.every(row=>row.minimized));desk.destroy();assert.equal(Object.keys(f.view.events).length,0);assert.equal(f.doc.nodes['.workspace'].children.length,0);
+ desk.desktop();assert(f.layer().children.every(node=>node.hidden));const persisted=JSON.parse(f.values.get('titan-desktop-v2:alice'));assert(persisted.windows.every(row=>row.minimized));desk.destroy();assert.equal(Object.keys(f.view.events).length,0);assert.equal(f.doc.nodes['.workspace'].children.length,0);
  const restored=fixture({windows:[{id:'files',geometry:{width:720,height:420,x:80,y:90}},{id:'docker',geometry:{width:600,height:400,x:120,y:100},minimized:true}],pins:['files']});const restoredDesk=ui.mount({...options,doc:restored.doc});assert.equal(restored.layer().children.length,2);assert.equal(restored.layer().children[1].style.left,'120px');assert(restored.layer().children[1].hidden);restoredDesk.destroy();
  const denied=fixture();denied.view.localStorage={getItem(){throw Error('denied');},setItem(){throw Error('denied');}};const privateDesk=ui.mount({...options,doc:denied.doc});privateDesk.route('#files');assert.equal(denied.layer().children.length,1);privateDesk.destroy();
  console.log('Desktop workspace: simultaneous retained documents, minimize/maximize/pin, per-user restore, bounds, role allowlist, trusted frame messages, unsaved-close confirmation and cleanup passed.');

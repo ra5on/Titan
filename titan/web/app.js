@@ -4,6 +4,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp
 const bytes = value => { const n = Number(value); if (!n) return '0 B'; const units = ['B','KB','MB','GB','TB']; const i = Math.min(4, Math.floor(Math.log(n) / Math.log(1024))); return `${(n / 1024 ** i).toLocaleString('de-DE', {maximumFractionDigits: i > 2 ? 2 : 0})} ${units[i]}`; };
 const date = value => new Date(Number(value) * 1000).toLocaleString('de-DE', {dateStyle:'short',timeStyle:'short'});
 const icons = {
+ resources:'<path d="M3 12h4l3-7 4 14 3-7h4"/>',
  control:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12M6 6h.01M10 6h.01"/>',
  dashboard:'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
  docker:'<rect x="3" y="9" width="18" height="11" rx="2"/><path d="M7 9V5h4v4m2 0V5h4v4M3 14h18m-13 0v6m8-6v6"/>',
@@ -23,10 +24,10 @@ const icons = {
  settings:'<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.files}</svg>`;
-const nav = [['dashboard','Desktop'],['control','Verwaltung'],['apps','App Store'],['docker','Docker'],['storage','Speicher'],['files','Dateimanager'],['shares','Freigaben'],['vms','Virtuelle Maschinen'],['services','Dienste'],['terminal','Terminal'],['users','Benutzer'],['backups','Backups'],['monitoring','Meldungen'],['updates','Updates'],['logs','Protokoll'],['settings','Systemsteuerung']];
+const nav = [['dashboard','Desktop'],['resources','Ressourcenmonitor'],['apps','App Store'],['docker','Docker'],['storage','Speicher'],['files','Dateimanager'],['shares','Freigaben'],['vms','Virtuelle Maschinen'],['services','Dienste'],['terminal','Terminal'],['users','Benutzer'],['backups','Backups'],['monitoring','Meldungen'],['updates','Updates'],['logs','Protokoll'],['settings','Systemsteuerung']];
 let session, page = 'dashboard', generation = 0, currentShare = '', currentPath = '', catalogData = [], usersData = [], managedShares = [], vmsData = [], backupData = [], jobsData = [], fileOffset = 0, fileSearch = '', watched = new Set(), polling, activeUpload = null;
 let filesView = null, servicesData = null;
-let desktopWorkspace=null;
+let desktopWorkspace=null,desktopShortcuts=null,desktopWidgets=null;
 let renderedRoute='',controlRoute=null;
 const embeddedRoot=location.hash.slice(1).split('?')[0];
 const desktopEmbedded=Boolean(window.parent&&window.parent!==window&&typeof URLSearchParams!=='undefined'&&new URLSearchParams(location.search).get('desktop-app')==='1');
@@ -34,31 +35,6 @@ if(desktopEmbedded)document.documentElement.dataset.desktopEmbedded='true';
 const desktopDirty=new Set();
 document.addEventListener('input',event=>{if(event.target.closest('form,#dialog'))desktopDirty.add(event.target);});
 window.titanHasUnsavedWork=()=>[...desktopDirty].some(el=>el.isConnected)||Boolean(activeUpload)||Boolean(document.querySelector('.vm-console-frame'))||Boolean(document.querySelector('[data-terminal-action=close]:not([disabled])'));
-let dashboardClockTimer = null;
-function dashboardClockParts(now = new Date()) {
- return {time:now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}),day:now.toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'})};
-}
-function dashboardDateCard() {
- const clock = dashboardClockParts();
- return `<div class="date-card"><strong id="dashboard-time">${esc(clock.time)}</strong><span id="dashboard-date">${esc(clock.day)}</span></div>`;
-}
-function stopDashboardClock() {
- if (dashboardClockTimer !== null) clearInterval(dashboardClockTimer);
- dashboardClockTimer = null;
-}
-function updateDashboardClock() {
- if (page !== 'dashboard' || !session?.user || document.hidden) return false;
- const time = $('#dashboard-time'), day = $('#dashboard-date');
- if (!time || !day) return false;
- const clock = dashboardClockParts();
- if (time.textContent !== clock.time) time.textContent = clock.time;
- if (day.textContent !== clock.day) day.textContent = clock.day;
- return true;
-}
-function syncDashboardClock() {
- stopDashboardClock();
- if (updateDashboardClock()) dashboardClockTimer = setInterval(updateDashboardClock,1000);
-}
 
 async function api(path, body) {
  const response = await fetch(path, {method: body ? 'POST' : 'GET', headers: body ? {'Content-Type':'application/json','X-CSRF-Token':(path === '/api/setup' ? session?.setup_csrf : session?.user?.csrf) || ''} : {}, body:body ? JSON.stringify(body) : undefined});
@@ -151,12 +127,12 @@ async function action(operation, args = {}) {
  const result = await api('/api/actions', {operation, arguments:args}); watched.add(result.job); toast('Aktion gestartet. Der Status erscheint hier und unter Aktivität.'); pollJobs(); return result;
 }
 async function renderAuth(setup) {
- desktopWorkspace?.destroy();desktopWorkspace=null;
+ desktopWidgets?.destroy();desktopWidgets=null;desktopShortcuts?.destroy();desktopShortcuts=null;desktopWorkspace?.destroy();desktopWorkspace=null;
  if(desktopEmbedded)window.parent.postMessage({type:'titan-logout'},location.origin);
  fileDialogRequest++;
- window.TitanDesktop?.dispose(); window.TitanFileEditor?.dispose(); if($('#dialog').open)$('#dialog').close();
- stopDashboardClock(); window.TitanUpdates?.dispose(); window.TitanSystemDisk?.dispose();
- window.TitanDocker?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose();window.TitanAppLive?.dispose(); window.TitanSettingsCenter?.dispose(); window.TitanDashboard?.clear(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose(); window.TitanServices?.dispose(); filesView=null;
+ window.TitanFileEditor?.dispose(); if($('#dialog').open)$('#dialog').close();
+ window.TitanUpdates?.dispose(); window.TitanSystemDisk?.dispose();
+ window.TitanDocker?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose();window.TitanAppLive?.dispose(); window.TitanSettingsCenter?.dispose(); window.TitanResources?.dispose(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose(); window.TitanServices?.dispose(); filesView=null;
  $('#shell').hidden = true; $('#auth').hidden = false;
  $('#auth').innerHTML = `<div class="auth-card"><div class="brand"><img src="/logo.svg" alt=""><span>Titan<span class="brand-dot">.</span></span></div><div class="alpha-notice" role="note"><strong>Alpha · Frühe Entwicklung</strong><p>Titan steht ganz am Anfang. Nur mit Testdaten verwenden.</p></div><h1>${setup?'Dein NAS beginnt hier.':'Willkommen zu Hause.'}</h1><p class="subtitle">${setup?'Administrator direkt im Browser anlegen.':'Melde dich an, um deinen Server zu verwalten.'}</p><form>${field('Benutzername','name','text','','required pattern="[a-z][a-z0-9_-]{0,30}" autocomplete="username"')}${field('Passwort','password','password','','required minlength="12" maxlength="256" autocomplete="'+(setup?'new-password':'current-password')+'"')}${setup?field('Passwort bestätigen','password_confirmation','password','','required minlength="12" maxlength="256" autocomplete="new-password"'):''}<p class="auth-error" id="auth-error" role="alert"></p><button class="button primary" type="submit">${setup?'Administrator erstellen':'Anmelden'} →</button></form><p class="hint">${setup?'Richte Titan direkt nach der Installation in deinem lokalen Netz ein.':'Privat. Übersichtlich. Unter deiner Kontrolle.'}</p></div>`;
  $('#auth form').addEventListener('submit', async event => {
@@ -190,12 +166,15 @@ async function boot() {
  if (!polling) {polling = setInterval(pollJobs, 3000);setInterval(pollAlerts,30000);}
  await pollAlerts();
  if(desktopEmbedded){await navigate();const appId=new URLSearchParams(location.hash.split('?')[1]||'').get('app');if(page==='docker'&&appId&&/^[a-zA-Z0-9_-]{1,64}$/.test(appId))await actions['app-manage']({dataset:{id:appId}});return;}
- const initial=location.hash;history.replaceState(null,'','#dashboard');
- if(session.user.role==='admin')await navigate();
- else {$('#shell').dataset.page='dashboard';$('#main').innerHTML=window.TitanDesktop.launcher({esc,icon,user:session.user});await window.TitanMenu.mount($('#main').querySelector('[data-launcher]'),{tools:window.TitanDesktop.tools.filter(t=>t[0]==='files'),user:session.user,esc,icon,api,toast});}
- const tools=session.user.role==='admin'?nav.filter(([id])=>!['dashboard','control'].includes(id)).map(([id,name])=>[id,name,window.TitanDesktop.tools.find(t=>t[0]===id)?.[2]||'Systemverwaltung']):window.TitanDesktop.tools.filter(t=>t[0]==='files');
- $('#desktop-system').hidden=session.user.role!=='admin';
- desktopWorkspace=window.TitanWorkspace.mount({doc:document,user:session.user,tools,icon,esc,api,toast,confirm:askYesNo,system:()=>actions['system-menu'](),logout:()=>{session.user=null;renderAuth(false);}});
+ desktopWidgets?.destroy();desktopShortcuts?.destroy();desktopWorkspace?.destroy();
+ const initial=location.hash;history.replaceState(null,'','#dashboard');page='dashboard';
+ $('#shell').dataset.page='dashboard';$('#main').innerHTML='<div id="desktop-surface" class="desktop-surface" aria-label="Desktop"></div>';
+ const tools=session.user.role==='admin'?nav.filter(([id])=>id!=='dashboard').map(([id,name])=>[id,name,'Titan-Werkzeug']):[['files','Dateimanager','Dateien und Ordner']];
+ desktopWorkspace=window.TitanWorkspace.mount({doc:document,user:session.user,tools,icon,esc,api,toast,confirm:askYesNo,logout:()=>{session.user=null;renderAuth(false);}});
+ desktopShortcuts=await window.TitanShortcuts.mount($('#desktop-surface'),{tools,user:session.user,icon,esc,api,toast,open:hash=>desktopWorkspace.route(hash),menu:()=>desktopWorkspace.openMenu()});
+ desktopWorkspace.setShortcuts(desktopShortcuts);
+ desktopWidgets=window.TitanWidgets.mount({doc:document,user:session.user,api,esc,bytes,preferences:desktopShortcuts.widgets(),save:value=>desktopShortcuts.setWidgets(value),open:hash=>desktopWorkspace.route(hash),jobs:()=>actions.jobs()});
+ void pollAlerts();void pollJobs();
  if(initial&&initial!=='#dashboard')desktopWorkspace.route(initial);
 }
 async function navigate() {
@@ -210,8 +189,8 @@ async function navigate() {
 
  fileDialogRequest++;
  window.TitanLocations?.disposeWithin($('#main')); window.TitanUpdates?.dispose(); window.TitanSystemDisk?.dispose();
- stopDashboardClock();
- window.TitanDocker?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose();window.TitanAppLive?.dispose(); window.TitanSettingsCenter?.dispose(); window.TitanDashboard?.dispose(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose(); window.TitanServices?.dispose(); filesView=null;
+
+ window.TitanDocker?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose();window.TitanAppLive?.dispose(); window.TitanSettingsCenter?.dispose(); window.TitanResources?.dispose(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose(); window.TitanServices?.dispose(); filesView=null;
  const requested = location.hash.slice(1).split('?')[0] || (session.user.role === 'admin' ? 'dashboard' : 'files');
  page = controlRoute?.page || (nav.some(([name]) => name === requested) ? requested : 'dashboard');
  if (session.user.role !== 'admin') page = 'files';
@@ -220,7 +199,7 @@ async function navigate() {
  $('#page-crumb').textContent = nav.find(([key]) => key === page)[1];
  window.TitanDesktop?.dispose();
  $('#main').innerHTML = '<div class="loading">Server wird geladen …</div>';
- try {let html = await pages[page](); if (mine === generation) {renderedRoute=incoming;if(controlRoute)html=window.TitanControlPanel.render(controlRoute.section,html,{icon,esc});$('#main').innerHTML = page==='dashboard'?html:`<section class="nas-window" aria-label="${esc(nav.find(([key])=>key===page)[1])}">${(!desktopEmbedded&&window.TitanDesktop?.application({page,title:esc(nav.find(([key])=>key===page)[1]),icon,user:session.user}))||''}<div class="nas-window-content">${html}</div></section>`; window.TitanDesktop?.mount({root:document,user:session.user,page}); if(page==='dashboard')window.TitanMenu?.mount(document.querySelector('.desktop-shortcuts [data-launcher]')||document.querySelector('[data-launcher]'),{tools:session.user.role==='admin'?window.TitanDesktop.tools:window.TitanDesktop.tools.filter(t=>t[0]==='files'),apps:window.titanLauncherApps||[],user:session.user,esc,icon,api,toast}); bindPage(); renderInlineActivity(); syncDashboardClock();}} catch(error) { if(mine===generation) $('#main').innerHTML = heading('Verbindung prüfen',error.message) + button('Erneut versuchen','refresh','','primary'); }
+ try {let html = await pages[page](); if (mine === generation) {renderedRoute=incoming;if(controlRoute)html=window.TitanControlPanel.render(controlRoute.section,html,{icon,esc});$('#main').innerHTML = page==='dashboard'?html:`<section class="nas-window" aria-label="${esc(nav.find(([key])=>key===page)[1])}"><div class="nas-window-content">${html}</div></section>`; bindPage(); renderInlineActivity();}} catch(error) { if(mine===generation) $('#main').innerHTML = heading('Verbindung prüfen',error.message) + button('Erneut versuchen','refresh','','primary'); }
 }
 
 function vmCpuList(options, status) {
@@ -278,14 +257,10 @@ function vmHardwareDetails(vm) {
 
 function componentPanel(data) {
  const repair=data.repair||{}, busy=Boolean(repair.running);
- return `<section class="panel component-panel"><div class="panel-heading"><h2>Systemkomponenten</h2>${busy?pill('Wird eingerichtet','purple'):''}</div><p class="hint">Docker und VM-Komponenten sind im Titan-Systemimage enthalten. Hier kannst du deren Dienste prüfen und reparieren.</p><div class="two-columns">${Object.entries(data.components||{}).map(([name,item])=>`<article class="component-card"><h3>${name==='docker'?'Docker und Compose':'KVM, libvirt und Browserkonsole'}</h3>${pill(item.available?'Bereit':item.installed?'Prüfen':'Image unvollständig',item.available?'':'gray')}<p>${esc(item.error||(item.available?'Pakete und Dienste sind erreichbar.':'Komponente ist noch nicht bereit. Fehlende Programme benötigen ein neues Systemimage.'))}</p>${item.missing?.length?`<p class="hint">Fehlt: ${item.missing.map(esc).join(', ')}</p>`:''}${button('Dienste reparieren','component-install',`data-component="${esc(name)}" ${busy?'disabled':''}`,'small')}</article>`).join('')}</div><div class="form-actions">${button('Alle Dienste reparieren','component-install',`data-component="all" ${busy?'disabled':''}`,'primary')}${button('Status prüfen','refresh','','small')}</div>${busy?`<p role="status">${esc(repair.phase||'Systemdienste werden geprüft.')} Den Auftrag findest du oben rechts.</p>`:''}${repair.error?`<pre class="code">${esc(repair.error)}</pre>`:''}${(repair.warnings||[]).map(x=>`<p class="hint">${esc(x)}</p>`).join('')}<h3>Grafik und Beschleunigung</h3>${(data.gpus||[]).map(gpu=>`<article class="component-card"><h4>${esc(gpu.vendor)} · ${esc(gpu.model||gpu.pci)}</h4><p>${esc(gpu.device_id)} · Treiber: ${esc(gpu.driver||'Keiner')}</p><p>${esc(gpu.message)}</p><small>${esc(gpu.recommendation)}</small>${!gpu.bound?'<p><a class="button small" href="#updates">Treiber über Systemupdates prüfen</a></p>':''}</article>`).join('')||'<p class="hint">Keine PCI-Grafikkarte sichtbar. In Proxmox werden nur Geräte der Titan-VM erkannt.</p>'}<p class="hint">Eine separate Treiberinstallation ist noch nicht verfügbar. Treiber und Firmware werden zusammen mit dem System aktualisiert, damit ein Rollback konsistent bleibt.</p></section>`;
+ return `<section class="panel component-panel"><div class="panel-heading"><h2>Systemkomponenten</h2>${busy?pill('Wird eingerichtet','purple'):''}</div><p class="hint">Docker und VM-Komponenten sind im Titan-Systemimage enthalten. Hier kannst du deren Dienste prüfen und reparieren.</p><div class="two-columns">${Object.entries(data.components||{}).map(([name,item])=>`<article class="component-card"><h3>${name==='docker'?'Docker und Compose':'KVM, libvirt und Browserkonsole'}</h3>${pill(item.available?'Bereit':item.installed?'Prüfen':'Image unvollständig',item.available?'':'gray')}<p>${esc(item.error||(item.available?'Pakete und Dienste sind erreichbar.':'Komponente ist noch nicht bereit. Fehlende Programme benötigen ein neues Systemimage.'))}</p>${item.missing?.length?`<p class="hint">Fehlt: ${item.missing.map(esc).join(', ')}</p>`:''}${button('Dienste reparieren','component-install',`data-component="${esc(name)}" ${busy?'disabled':''}`,'small')}</article>`).join('')}</div><div class="form-actions">${button('Alle Dienste reparieren','component-install',`data-component="all" ${busy?'disabled':''}`,'primary')}${button('Status prüfen','refresh','','small')}</div>${busy?`<p role="status">${esc(repair.phase||'Systemdienste werden geprüft.')} Den Verlauf findest du im Status-Widget unter Aktivität.</p>`:''}${repair.error?`<pre class="code">${esc(repair.error)}</pre>`:''}${(repair.warnings||[]).map(x=>`<p class="hint">${esc(x)}</p>`).join('')}<h3>Grafik und Beschleunigung</h3>${(data.gpus||[]).map(gpu=>`<article class="component-card"><h4>${esc(gpu.vendor)} · ${esc(gpu.model||gpu.pci)}</h4><p>${esc(gpu.device_id)} · Treiber: ${esc(gpu.driver||'Keiner')}</p><p>${esc(gpu.message)}</p><small>${esc(gpu.recommendation)}</small>${!gpu.bound?'<p><a class="button small" href="#updates">Treiber über Systemupdates prüfen</a></p>':''}</article>`).join('')||'<p class="hint">Keine PCI-Grafikkarte sichtbar. In Proxmox werden nur Geräte der Titan-VM erkannt.</p>'}<p class="hint">Eine separate Treiberinstallation ist noch nicht verfügbar. Treiber und Firmware werden zusammen mit dem System aktualisiert, damit ein Rollback konsistent bleibt.</p></section>`;
 }
 
 const pages = {
- async control(){
-  const groups=[['Dateien und Speicher',[['files','Dateimanager','Dateien öffnen, organisieren und bearbeiten'],['storage','Speicher','Volumes, Dateisysteme und Laufwerke'],['shares','Freigaben','SMB-Zugriff und Berechtigungen'],['backups','Backups','Sicherungsziele, Zeitpläne und Wiederherstellung']]],['Anwendungen und Virtualisierung',[['apps','App Store','Apps suchen und installieren'],['docker','Docker','Installierte Container und Netzwerke verwalten'],['vms','Virtuelle Maschinen','CPU, Laufwerke und Browserkonsole'],['services','Dienste','Liste, Details, Protokolle und Steuerung'],['terminal','Terminal','Kommandos direkt auf dem Server']]],['NAS verwalten',[['users','Benutzer','Konten, Passwörter und Zugriffsrechte'],['monitoring','Meldungen','Status prüfen und Hinweise bearbeiten'],['settings','Einstellungen','Server, Komponenten und Update-Kanal'],['updates','Updates','Neue Versionen prüfen und vorbereiten'],['logs','Protokoll','Verwaltungsaktionen nachvollziehen']]]];
-  return heading('Verwaltung','Alle Werkzeuge nach Aufgaben geordnet.','','DEIN NAS')+'<div class="control-search search"><span>⌕</span><input id="control-search" type="search" placeholder="Werkzeug suchen …" aria-label="Verwaltung durchsuchen"></div>'+groups.map(([title,items])=>`<section class="control-section"><h2>${esc(title)}</h2><div class="control-grid">${items.map(([key,label,description])=>`<a class="control-card" href="#${key}" data-control-search="${esc((label+' '+description).toLocaleLowerCase('de-DE'))}"><span class="control-icon nav-icon">${icon(key)}</span><div><h3>${esc(label)}</h3><p>${esc(description)}</p></div><span class="control-arrow" aria-hidden="true">→</span></a>`).join('')}</div></section>`).join('')+'<p class="empty" id="control-empty" hidden>Kein passendes Werkzeug gefunden.</p>';
- },
  async services() {
   servicesData=await api('/api/services');
   return heading('Dienste','Systemdienste starten, verwalten und eigene Programme einrichten.','','SYSTEM')+window.TitanServices.render(servicesData,{esc,pill});
@@ -294,36 +269,8 @@ const pages = {
   const tools=[['open','Verbinden'],['close','Sitzung beenden'],['copy','Kopieren'],['paste','Einfügen'],['interrupt','Befehl abbrechen'],['clear','Bildschirm leeren']];
   return heading('Terminal','Direkt auf deinem Titan-NAS arbeiten.','','SYSTEM')+`<section class="panel terminal-panel"><div class="terminal-heading"><div><h2>Server-Konsole</h2><p id="terminal-state" role="status">Nicht verbunden</p></div><span class="pill purple">${session.demo?'Demo-Shell':'root · Administrator'}</span></div>${session.demo?'<p class="notice">Isolierte Demo: Nur Beispielbefehle wie help, pwd und echo werden simuliert.</p>':'<p class="hint">Die Shell hat Administratorrechte auf deinem NAS. Eine Sitzung endet beim Seitenwechsel oder Abmelden, nach 15 Minuten ohne Eingabe oder spätestens nach 8 Stunden.</p>'}<div class="terminal-toolbar">${tools.map(([key,label])=>`<button type="button" class="button ${key==='open'?'primary':''}" data-terminal-action="${key}" ${key!=='open'?'disabled':''}>${label}</button>`).join('')}</div><div id="terminal-screen" aria-label="Interaktive Server-Konsole"></div><p class="hint terminal-shortcuts">Strg+C: markierten Text kopieren, sonst Befehl abbrechen · Strg+Umschalt+C: kopieren · Strg+V: einfügen · Pfeiltasten und Tab: Befehle bearbeiten</p></section>`;
  },
- async dashboard() {
-  const dashboard = window.TitanDashboard;
-  const [status, apps, shares, vms, layout] = await Promise.all([api('/api/status'),api('/api/apps'),api('/api/shares'),api('/api/vms'),dashboard?.load(api,session.user.name) || Promise.resolve({order:['storage','resources','health','apps','shares','vms'],available:false})]);
-  window.titanLauncherApps=apps.installed||[];
-  const percent = (used,total) => total > 0 ? Math.max(0,Math.min(100,Math.round(used / total * 100))) : 0;
-  const storageAvailable=Number.isFinite(status.storage?.total)&&status.storage.total>0&&Number.isFinite(status.storage?.used);
-  const used = storageAvailable?percent(status.storage.used,status.storage.total):null;
-  const ram = percent(status.memory_used,status.memory_total);
-  const cpu = Number.isFinite(status.cpu_percent)?Math.max(0,Math.min(100,status.cpu_percent)):null;
-  const hour = new Date().getHours(); const greeting = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend';
-  const services = [['web','Titan-Oberfläche','dashboard'],['agent','Titan-Verwaltung','settings'],['https','HTTPS','settings'],['docker','Docker','docker'],['samba','SMB-Freigaben','shares'],['zfs','ZFS-Speicher','storage'],['vms','Virtualisierung','vms']];
-  const serviceDetails = status.service_details || Object.fromEntries(Object.entries(status.services).map(([name,active])=>[name,{installed:active,active,state:active?'active':'missing'}]));
-  const relevant = item=>item && (item.relevant ?? (item.installed || item.active || item.configured));
-  const visibleServices = services.filter(([key])=>relevant(serviceDetails[key]));
-  const configured = Object.values(serviceDetails).filter(relevant);
-  const healthy = configured.length>0&&configured.every(item=>item.active);
-  $('#footer-state').textContent = session.demo?'Demo · Beispieldaten':healthy?'Alle eingerichteten Dienste aktiv':'Dienste prüfen';
-  const tile = (id,title,body,action='',classes='') => `<section class="panel dashboard-tile ${classes}" data-dashboard-tile="${id}" aria-labelledby="tile-${id}-title"><div class="panel-heading"><h2 id="tile-${id}-title">${title}</h2><div class="tile-heading-actions">${action}${dashboard?.controls(id,title)||''}</div></div>${body}</section>`;
-  const tiles = {
-   tools:tile('tools','Hauptmenü',window.TitanDesktop?.launcher({esc,icon,user:session.user,apps})||''),
-   storage:tile('storage','Dein Speicher',`${storageAvailable?`<div class="storage-content"><div class="storage-ring"><svg viewBox="0 0 120 120" role="img" aria-label="${used} Prozent des Speichers belegt"><circle class="track" cx="60" cy="60" r="50"/><circle class="progress" cx="60" cy="60" r="50" stroke-dasharray="${used*3.142} 314.2"/></svg><div class="ring-label" aria-hidden="true"><strong>${used}<span>%</span></strong><small>belegt</small></div></div><div class="storage-detail"><strong>${bytes(status.storage.used)}</strong><small>von ${bytes(status.storage.total)} verwendet · ${status.storage.scope==='system'?'Systemlaufwerk':'Datenlaufwerke'}</small><div class="legend"><span>Belegt · ${bytes(status.storage.used)}</span><span>Verfügbar · ${bytes(Math.max(0,status.storage.total-status.storage.used))}</span></div></div></div>`:`<div class="notice warning">${esc(status.storage_error||'Datenlaufwerk nicht erreichbar. Keine Kapazitätsmessung verfügbar.')}</div>`}<a class="tile-footer text-link" href="#storage">Speicher verwalten →</a>`),
-   resources:tile('resources','Systemressourcen',`<div data-live-resources>${dashboard?.resourceMetrics?.(status,{bytes,esc,demo:session.demo})||'<p class="hint">Messwerte werden geladen …</p>'}</div>`),
-   health:tile('health','Systemstatus',`<div class="health-list">${visibleServices.map(([key,label,glyph]) => `<div class="health-row"><span class="health-icon nav-icon">${icon(glyph)}</span><span>${label}</span><span class="${serviceDetails[key].active?'healthy':'error-text'}">${serviceDetails[key].active?'Aktiv':!serviceDetails[key].installed?'Nicht installiert':({failed:'Fehlgeschlagen',degraded:'Fehler',unknown:'Unbekannt','not-found':'Dienst fehlt'})[serviceDetails[key].state]||'Inaktiv'}</span></div>`).join('') || empty('Noch kein Dienststatus verfügbar.')}</div><div class="health-caption">${session.demo?'Isolierte Vorschau mit Beispieldaten':'Vorhandene und genutzte Komponenten · '+esc(status.hostname)}</div>`,pill(healthy?'Bereit':'Prüfen',healthy?'':'red'),'health-panel'),
-   apps:tile('apps','Docker-Anwendungen',`${apps.available?'':`<div class="notice warning">${esc(apps.error||'Docker ist nicht bereit.')} ${button('Docker einrichten','component-install','data-component="docker"','small')}</div>`}${apps.installed.slice(0,5).map(app=>`<div class="desktop-app-status">${window.TitanArtwork.render(app.id,app.container?.image)}<button class="text-link" data-action="app-manage" data-id="${esc(app.id)}"><strong>${esc(app.name)}</strong><small>${esc(window.TitanNetworks?.summary(app)||app.status||'')}</small><span data-app-live="${esc(app.id)}">${window.TitanAppLive?.render(null,{bytes})||''}</span></button>${pill(app.phase==='failed'?'Fehler':app.state==='running'?'Läuft':'Gestoppt',app.phase==='failed'?'red':app.state==='running'?'':'gray')}</div>`).join('')||empty('Apps findest du im App Store.')}<a class="tile-footer text-link" href="#docker">Container verwalten →</a>`,pill(String(apps.installed.length),'gray')),
-   shares:tile('shares','Deine Freigaben',`${shares.length ? shares.slice(0,4).map(item => `<a href="#files" class="list-row"><span class="row-icon">▱</span><span class="row-main"><strong>${esc(item.name)}</strong><small>${esc(item.path)}</small></span><span class="row-end">${new Set([...item.readers,...item.writers]).size} Berechtigte ↗</span></a>`).join('') : empty('Erstelle deine erste SMB-Freigabe.')}<a class="tile-footer text-link" href="#shares">Freigaben verwalten →</a>`,pill(String(shares.length),'gray')),
-   vms:tile('vms','Virtuelle Maschinen',`${vms.available?'':`<div class="notice warning">${esc(vms.error||'VM-Komponenten sind nicht bereit.')} ${button('VM-Komponenten einrichten','component-install','data-component="vms"','small')}</div>`}${vms.vms.length ? vms.vms.slice(0,3).map(vm => `<div class="list-row"><span class="row-icon">▣</span><span class="row-main"><strong>${esc(vm.name)}</strong><div data-vm-live="${esc(vm.id)}" data-vm-state="${esc(vm.state)}">${window.TitanVMLive?.render(vm,{bytes,esc})||''}</div></span>${pill(vm.state==='running'?'Läuft':'Gestoppt',vm.state==='running'?'':'gray')}</div>`).join('') : empty('Dein Platz für virtuelle Maschinen.','▣')}<a class="tile-footer text-link" href="#vms">Virtuelle Maschinen verwalten →</a>`,pill(String(vms.vms.length),'gray')),
-  };
-  return `<section class="desktop-shortcuts" aria-label="Desktop-Verknüpfungen">${window.TitanDesktop?.launcher({esc,icon,user:session.user})||''}</section>`+heading(`${greeting}, ${session.user.name}.`,'',`<div class="dashboard-header-actions">${dashboardDateCard()}</div>`,'DEIN NAS · '+status.hostname)+
-   `<div class="nas-desktop dashboard-canvas">${dashboard?.toolbar()||''}${!layout.available&&dashboard?'<p class="hint layout-load-hint">Die gespeicherte Anordnung ist gerade nicht erreichbar.</p>':''}<div id="dashboard-grid" class="dashboard-grid">${layout.order.map(id=>tiles[id]||'').join('')}</div></div>`;
- },
+ async dashboard(){return '';},
+ async resources(){const status=await api('/api/status');return heading('Ressourcenmonitor','Aktuelle Auslastung und Messverlauf.',button('Aktualisieren','refresh'),'')+'<section class="panel resources-panel"><div data-live-resources>'+window.TitanResources.resourceMetrics(status,{bytes,esc,demo:session.demo})+'</div></section>';},
  async apps() {
   const [catalog, installed] = await Promise.all([api('/api/catalog'),api('/api/apps')]); catalog.apps.sort((a,b)=>(catalogState.sort==='za'?-1:1)*a.name.localeCompare(b.name,'de',{numeric:true})); catalogData = catalog.apps;
   const installedIds=new Set(installed.installed.map(item=>item.id)),categories=[...new Set(catalog.apps.map(item=>item.category))].sort((a,b)=>a.localeCompare(b,'de'));
@@ -470,15 +417,14 @@ function bindPage() {
  window.TitanSectionLayout?.mount($('#main'),page);
  window.TitanControlPanel?.mount($('#main'));
  if(page==='docker')window.TitanDocker?.mount($('#main').querySelector('[data-docker-workbench]'),{api,action,dialog,askYesNo,toast,bytes});
- if(['dashboard','docker'].includes(page))window.TitanAppLive?.mount($('#main'),{api,bytes});if(['dashboard','vms'].includes(page))window.TitanVMLive?.mount($('#main'),{api,bytes,esc,onStateChange:()=>{if(!$('#dialog').open)navigate();}});if(['docker','vms'].includes(page))window.TitanManagers?.mount($('#main'),{owner:session.user.name});
+ if(page==='docker')window.TitanAppLive?.mount($('#main'),{api,bytes});if(page==='vms')window.TitanVMLive?.mount($('#main'),{api,bytes,esc,onStateChange:()=>{if(!$('#dialog').open)navigate();}});if(['docker','vms'].includes(page))window.TitanManagers?.mount($('#main'),{owner:session.user.name});
  if(page==='settings')window.TitanSettingsCenter?.mount($('#main')); 
  if(page==='updates')window.TitanUpdates?.mount($('#main'),{api});
  if(page==='storage')window.TitanSystemDisk?.mount($('#main'),{api,dialog,toast,admin:session.user.role==='admin',refresh:()=>navigate()});
  window.TitanLocations?.mount($('#main'),{api,toast});
- $('#control-search')?.addEventListener('input',event=>{const words=event.target.value.toLocaleLowerCase('de-DE').trim().split(/\s+/).filter(Boolean);let count=0;document.querySelectorAll('[data-control-search]').forEach(item=>{item.hidden=!words.every(word=>item.dataset.controlSearch.includes(word));if(!item.hidden)count++;});document.querySelectorAll('.control-section').forEach(section=>section.hidden=![...section.querySelectorAll('[data-control-search]')].some(item=>!item.hidden));$('#control-empty').hidden=Boolean(count);});
  if(page==='terminal')window.TitanTerminal?.mount($('#main'),{api,toast,dialog,esc,csrf:session.user.csrf});
  if(page==='services')window.TitanServices?.mount($('#main'),{api,action,toast,dialog,esc,pill,field,selectField,formEnd,navigate,locationField,bytes},servicesData);
- if(page==='dashboard')window.TitanDashboard?.mount($('#main'),{api,owner:session.user.name,toast,metricsFormat:{bytes,esc,demo:session.demo}});
+ if(page==='resources')window.TitanResources.mount($('#main'),{api,metricsFormat:{bytes,esc,demo:session.demo}});
  if(page==='files'&&filesView){window.TitanFiles?.mount($('#main'),{...filesView,owner:session.user.name,api,toast,dialog,navigate,actions,esc,bytes,selectField,field,formEnd});window.TitanFileBrowser?.mount($('#main'),{...filesView,owner:session.user.name,api,admin:session.user.role==='admin',owner:session.user.name,actions,toast,bytes,date,fileUrl,esc,navigate,dialog,openLocation:(share,path)=>{currentShare=share;currentPath=path;fileOffset=0;fileSearch='';navigate();}});}
  $('#f-channel')?.addEventListener('change',event=>{const notice=$('#channel-notice');notice.textContent=channelNotice(event.target.value);notice.classList.toggle('warning',event.target.value!=='stable');});
  $('#file-search-form')?.addEventListener('submit',event=>{event.preventDefault();fileSearch=String(new FormData(event.target).get('search')||'');fileOffset=0;navigate();});
@@ -514,7 +460,6 @@ async function upload(file, iso, destination={share:currentShare,path:currentPat
 
 const actions = {
  'catalog-sort'(){catalogState.sort=catalogState.sort==='az'?'za':'az';navigate();},
- 'system-menu'(){dialog('System',`<div class="system-command-grid">${button('Neustarten','system-reboot')}${button('Ausschalten','system-shutdown','','danger')}<a class="button" href="#updates" data-action="close">Updates & Rollback</a><a class="button" href="#settings" data-action="close">Einstellungen</a></div>`);},
  async 'system-shutdown'(){if(!await askYesNo('NAS ausschalten? Speichere offene Arbeiten und fahre virtuelle Maschinen vorher herunter.'))return;await action('system_shutdown',{confirmation:true});},
  async 'component-install'(target){const component=target.dataset.component||'all';if(!['all','docker','vms'].includes(component))throw new Error('Ungültige Komponente.');target.disabled=true;try{const result=await api('/api/components/install',{component});watched.add(result.job);toast('Systemdienste werden repariert. Fortschritt unter Aktivität.');if(page==='settings'){const data=await api('/api/components');const panel=$('.component-panel');if(panel)panel.outerHTML=componentPanel(data);}}finally{target.disabled=false;}},
 
@@ -735,7 +680,7 @@ const actions = {
  'job-result'(target){const job=jobsData.find(item=>item.id===target.dataset.id);if(!job)throw new Error('Auftrag nicht mehr vorhanden.');dialog(actionNames[job.action]||job.action,jobDetails(job));}
 
 };
-async function pollAlerts(){if(!session?.user||session.user.role!=='admin')return;try{const data=await api('/api/monitoring');const count=(data.alerts||[]).filter(item=>item.active!==false&&!item.acknowledged).length;$('#alert-count').hidden=!count;$('#alerts-button').setAttribute('aria-label',count?`${count} offene Meldungen`:'Meldungen anzeigen');}catch(error){/* Monitoring errors remain available on its page. */}}
+async function pollAlerts(){if(!session?.user||session.user.role!=='admin')return;try{const data=await api('/api/monitoring');const count=(data.alerts||[]).filter(item=>item.active!==false&&!item.acknowledged).length;$('#alert-count').hidden=!count;desktopWidgets?.updateAlerts(data);$('#alerts-button').setAttribute('aria-label',count?`${count} offene Meldungen`:'Meldungen anzeigen');}catch(error){/* Monitoring errors remain available on its page. */}}
 async function showTrash(offset){
  const result=await api('/api/files',{share:currentShare,action:'trash_list',offset,limit:200});
  dialog('Papierkorb',result.entries.map(item=>`<div class="list-row"><span class="row-main"><strong>${esc(item.name.replace(/^\d+/, '').replace(/^-/,''))}</strong><small>${item.directory?'Ordner':bytes(item.size)}</small></span>${button('Wiederherstellen','trash-restore',`data-name="${esc(item.name)}" ${item.symlink?'disabled':''}`,'small')}</div>`).join('')+(result.entries.length?'':empty('Der Papierkorb ist leer.'))+`<div class="pagination"><span class="hint">${result.total?`${result.offset+1}–${result.offset+result.entries.length} von ${result.total}`:'0'} Einträge</span><div>${button('← Zurück','trash-page',`data-offset="${Math.max(0,offset-result.limit)}" ${offset?'':'disabled'}`,'small')}${button('Weiter →','trash-page',`data-offset="${offset+result.limit}" ${result.has_more?'':'disabled'}`,'small')}</div></div>`);
@@ -782,7 +727,7 @@ async function pollJobs(){
  try{
   const jobs=await api('/api/jobs');jobsData=jobs;renderInlineActivity();
   if($('#job-list'))updateJobList($('#job-list'),jobs);
-  const running=jobs.filter(item=>['queued','running'].includes(item.status));$('#job-count').hidden=!running.length;$('#job-count').textContent=String(running.length);
+  const running=jobs.filter(item=>['queued','running'].includes(item.status));desktopWidgets?.updateJobs(jobs);
   for(const job of jobs){
    if(!watched.has(job.id)||!['completed','failed'].includes(job.status))continue;
    watched.delete(job.id);
@@ -793,7 +738,8 @@ async function pollJobs(){
     toast(job.result.message||'Auftrag abgeschlossen.');
     if(job.action==='user_update'){await boot();continue;}
     if(page!=='terminal'&&(job.result.path||job.result.disk||job.action==='system_updates'||job.action==='component_install'))dialog(actionNames[job.action]||job.action,jobDetails(job));
-    if(page!=='terminal'&&!$('#settings-form')&&!$('#backup-settings-form')&&!window.TitanDashboard?.editing())await navigate();
+    if(desktopWorkspace){void desktopShortcuts?.refreshApps();continue;}
+    if(page!=='terminal'&&!$('#settings-form')&&!$('#backup-settings-form'))await navigate();
    }
   }
  }catch(error){/* Session errors are handled by api(). */}
@@ -823,11 +769,9 @@ $('#dialog').addEventListener('close',()=>{
 });
 $('#dialog').addEventListener('cancel',event=>{if(window.TitanFileEditor?.canCloseWithin($('#dialog-body'))===false)event.preventDefault();});
 document.querySelector('.skip-link')?.addEventListener('click',event=>{event.preventDefault();$('#main')?.focus();});
-$('#jobs-button').addEventListener('click',()=>actions.jobs().catch(error=>toast(error.message,true)));
-$('#profile').addEventListener('click',()=>actions['profile-menu']());
+
+
 $('#alerts-button')?.addEventListener('click',()=>{location.hash='monitoring';});
 if(desktopEmbedded){window.addEventListener('message',event=>{if(event.origin===location.origin&&event.source===window.parent&&event.data?.type==='titan-navigate'&&window.TitanControlPanel?.resolve(event.data.hash)){location.hash=event.data.hash;return;}if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='titan-manage-app'||page!=='docker'||! /^[a-zA-Z0-9_-]{1,64}$/.test(event.data.id||''))return;actions['app-manage']({dataset:{id:event.data.id}}).catch(error=>toast(error.message,true));});document.addEventListener('pointerdown',()=>window.parent.postMessage({type:'titan-focus'},location.origin));document.addEventListener('click',event=>{const link=event.target.closest('a[href^="#"]');if(!link)return;let next=link.getAttribute('href');if(embeddedRoot==='settings')next=window.TitanControlPanel.internal(next);if(next.slice(1).split('?')[0]===embeddedRoot){event.preventDefault();location.hash=next;return;}if(next.slice(1).split('?')[0]!==page){event.preventDefault();if(link.dataset.action==='close')$('#dialog').close();window.parent.postMessage({type:'titan-open',hash:next},location.origin);}},true);}
 window.addEventListener('hashchange',()=>{if(session?.user)navigate();});
-document.addEventListener('visibilitychange',syncDashboardClock);
-window.addEventListener('pageshow',syncDashboardClock);
 boot().catch(error=>toast(error.message,true));

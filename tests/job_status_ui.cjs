@@ -8,7 +8,7 @@ const context=vm.createContext({document,window,location:{hostname:'nas',hash:'#
 const source=fs.readFileSync('titan/web/app.js','utf8').replace(/boot\(\)\.catch\(error=>toast\(error.message,true\)\);\s*$/,'');
 vm.runInContext(source,context);
 const evaluate=expression=>vm.runInContext(expression,context);
-const requests=[],navigations=[],notices=[];
+const requests=[],navigations=[],notices=[];context.widgetJobs=[];evaluate('desktopWidgets={updateJobs(value){widgetJobs=value;}}');
 context.fetchJobs=async path=>{assert.equal(path,'/api/jobs');requests.push(path);return context.jobs;};
 context.onNavigate=()=>{navigations.push(evaluate('page'));};
 context.onToast=(message,error=false)=>{notices.push({message,error});};
@@ -23,7 +23,7 @@ function reset(jobs,watched=[]){context.jobs=jobs;context.ids=watched;evaluate('
  assert.deepEqual(requests,['/api/jobs']);assert.deepEqual(navigations,['docker']);
  assert.deepEqual(notices,[{message:'Container konnte nicht gestartet werden.',error:true}]);
  assert.equal(evaluate("watched.has('observed-app')"),false);
- assert.equal(evaluate('jobsData[0].status'),'failed');assert(node('#job-count').hidden);
+ assert.equal(evaluate('jobsData[0].status'),'failed');assert.equal(context.widgetJobs.filter(j=>['queued','running'].includes(j.status)).length,0);
  // A later poll containing the same terminal result must not notify/refresh twice.
  await evaluate('pollJobs()');assert.equal(requests.length,2);assert.deepEqual(navigations,['docker']);assert.equal(notices.length,1);
 
@@ -31,12 +31,12 @@ function reset(jobs,watched=[]){context.jobs=jobs;context.ids=watched;evaluate('
  for(const status of ['running','queued']){
   reset([job('active',status)],['active']);await evaluate('pollJobs()');
   assert.equal(navigations.length,0);assert.equal(notices.length,0);assert(evaluate("watched.has('active')"));
-  assert.equal(node('#job-count').textContent,'1');assert.equal(node('#job-count').hidden,false);
+  assert.equal(context.widgetJobs.filter(j=>['queued','running'].includes(j.status)).length,1);
  }
  reset([job('other-admin-failure','failed',{username:'another-admin'}),job('unobserved-completion','completed')]);
- await evaluate('pollJobs()');assert.equal(navigations.length,0);assert.equal(notices.length,0);assert.equal(evaluate('watched.size'),0);assert(node('#job-count').hidden);
+ await evaluate('pollJobs()');assert.equal(navigations.length,0);assert.equal(notices.length,0);assert.equal(evaluate('watched.size'),0);assert.equal(context.widgetJobs.filter(j=>['queued','running'].includes(j.status)).length,0);
  reset([job('our-running-job','running'),job('foreign-failure','failed',{username:'another-admin'}),job('foreign-completion','completed',{username:'another-admin'})],['our-running-job']);
- await evaluate('pollJobs()');assert.equal(navigations.length,0);assert.equal(notices.length,0);assert.equal(evaluate('watched.size'),1);assert(evaluate("watched.has('our-running-job')"));assert.equal(node('#job-count').textContent,'1');
+ await evaluate('pollJobs()');assert.equal(navigations.length,0);assert.equal(notices.length,0);assert.equal(evaluate('watched.size'),1);assert(evaluate("watched.has('our-running-job')"));assert.equal(context.widgetJobs.filter(j=>['queued','running'].includes(j.status)).length,1);
 
  // Missing error text still produces the existing useful failure notice once.
  reset([job('without-error','failed',{result:{}})],['without-error']);await evaluate('pollJobs()');

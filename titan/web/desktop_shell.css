@@ -24,28 +24,20 @@ body:has(#shell:not([hidden])){overflow:hidden}
 #shell[data-page=dashboard] main>.page-heading{flex:0 0 auto;margin-bottom:18px;align-items:center}
 #shell[data-page=dashboard] .page-heading h1{font-size:clamp(23px,2vw,29px)}
 #shell[data-page=dashboard] .eyebrow{display:none}
-.nas-desktop{flex:1;min-height:0;grid-template-columns:minmax(0,1fr) minmax(320px,380px);gap:clamp(20px,3vw,44px)}
 .desktop-workspace,.desktop-status{height:100%;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#adbed2 transparent;padding:2px 6px 6px 2px}
 .desktop-section-heading{font-size:13px;margin-bottom:10px}
-.desktop-apps{grid-template-columns:repeat(auto-fill,112px);justify-content:start;gap:10px 16px;margin:0}
-.desktop-app-link{width:112px;min-height:114px;padding:12px 4px 9px;gap:10px}
 .desktop-app-icon{width:56px;height:56px;border-radius:14px}
 .desktop-app-icon svg{width:28px;height:28px}
-.desktop-app-name{font-size:12px;line-height:1.4;font-weight:600}
 .desktop-app-detail{display:none}
-.desktop-status .dashboard-toolbar{position:sticky;top:-2px;z-index:2;margin:0 0 10px;padding:6px 0;justify-content:flex-end;gap:6px;flex-wrap:wrap;background:#e6edf5ed;border-radius:8px;backdrop-filter:blur(14px)}
-.desktop-status .dashboard-toolbar p{display:none}
-.desktop-status .dashboard-toolbar .button{font-size:11px;min-height:34px;padding:6px 10px}
-.desktop-status .dashboard-tile[data-dashboard-tile]{padding:18px}
 .desktop-status .apps-grid{display:block}
 .desktop-app-status{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .desktop-app-status:last-child{border-bottom:0}
 .desktop-app-status .app-icon{width:34px;height:34px;border-radius:9px;font-size:16px;flex-shrink:0}
 .desktop-app-status .text-link{flex:1;text-align:left;color:var(--text);min-width:0;overflow-wrap:anywhere}
 .desktop-app-status small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
-.desktop-status .tile-footer{margin-top:14px;font-size:12px}
-/* The normal size is bounded, even on ultrawide displays. Maximizing fills the
+.desktop-status .tile-footer{margin-top:14px;font-size:12px}/* The normal size is bounded, even on ultrawide displays. Maximizing fills the
    available desktop. The native resize grip is constrained by the same bounds. */
+
 #shell[data-page=vms],#shell[data-page=docker],#shell[data-page=files]{--window-width:1280px}
 #shell[data-page=apps]{--window-width:1360px}
 #shell[data-page=settings]{--window-width:1080px}
@@ -66,8 +58,8 @@ body:has(#shell:not([hidden])){overflow:hidden}
 .nas-window-content>.page-heading .subtitle{font-size:12px}
 .nas-window-content .panel{padding:18px}
 .nas-window-content .button{font-size:12px;min-height:36px}
-.nas-window-content .button.small{min-height:32px}
-/* Managers have fixed navigation and command bars, with one scrolling body. */
+.nas-window-content .button.small{min-height:32px}/* Managers have fixed navigation and command bars, with one scrolling body. */
+
 #shell .nas-window-content:has(.mv-manager),#shell .nas-window-content:has(.fb-browser){display:flex;flex-direction:column;padding:0;overflow:hidden;scrollbar-gutter:auto}
 .nas-window-content:has(.mv-manager)>.page-heading,.nas-window-content:has(.fb-browser)>.page-heading{display:none}
 #shell .mv-manager{grid-template-columns:176px minmax(0,1fr);flex:1;min-height:0;border:0;border-radius:0;box-shadow:none}
@@ -86,8 +78,8 @@ body:has(#shell:not([hidden])){overflow:hidden}
 .mv-stat strong{font-size:24px}
 .mv-section{padding:18px}
 .mv-machine-title>small,.mv-container-title>small,.mv-hint{color:#6d7f95}
-.mv-machine-resources dt,.mv-detail-list dt,.mv-container-network>span,.mv-stat small{color:#697c94;font-size:11px}
-/* Settings and cards grow by adding columns, never by enlarging icons. */
+.mv-machine-resources dt,.mv-detail-list dt,.mv-container-network>span,.mv-stat small{color:#697c94;font-size:11px}/* Settings and cards grow by adding columns, never by enlarging icons. */
+
 .sc-heading{margin-bottom:20px}
 .sc-heading h1{font-size:23px}
 .sc-heading p{margin-top:6px;font-size:12px}
@@ -101,8 +93,8 @@ body:has(#shell:not([hidden])){overflow:hidden}
 .apps-grid{grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr))}
 .catalog-card{min-width:0}
 .control-grid{grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))}
-.table-wrap{max-width:100%;overflow:auto}
-/* File explorer keeps its existing selection/editor behavior and local scrolling. */
+.table-wrap{max-width:100%;overflow:auto}/* File explorer keeps its existing selection/editor behavior and local scrolling. */
+
 #shell .workspace:has(.fb-browser)>main>.nas-window{flex:0 1 auto}
 #shell .fb-browser.panel{margin:0;border:0;border-radius:0;box-shadow:none;flex:1;min-height:0;max-height:none;padding:0}
 .fb-table thead th{background:#f3f6fb;color:#586e89}
@@ -158,9 +150,6 @@ body:has(#shell:not([hidden])){overflow:hidden}
 @media(max-width:1000px){
  :root{--shell-gap:14px}
  #shell .nas-window{resize:none;width:100%;height:100%;min-width:0;min-height:0}
- .nas-desktop{grid-template-columns:minmax(0,1fr) 320px;gap:18px}
- .desktop-apps{grid-template-columns:repeat(auto-fill,100px);gap:8px}
- .desktop-app-link{width:100px}
  .desktop-brand>span,.topbar .version{display:none}
  .window-control[data-window-size]{display:none}
  #shell .topbar{gap:8px}
@@ -184,14 +173,9 @@ body:has(#shell:not([hidden])){overflow:hidden}
  .date-card{min-width:98px;padding:8px 10px}
  .date-card strong{font-size:21px}
  .date-card span{font-size:9px}
- .nas-desktop{display:block;min-height:auto;flex:none}
  .desktop-workspace,.desktop-status{height:auto;overflow:visible;padding:0}
- .desktop-apps{grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px;margin-bottom:20px}
- .desktop-app-link{width:auto;min-height:104px;padding:10px 2px;gap:8px}
  .desktop-app-icon{width:48px;height:48px;border-radius:12px}
  .desktop-app-icon svg{width:25px;height:25px}
- .desktop-app-name{font-size:11px}
- .desktop-status .dashboard-toolbar{position:static;justify-content:flex-start;background:transparent}
  #shell .nas-window{border-radius:9px}
  #shell .nas-window-bar{min-height:44px;padding:6px 10px;gap:8px}
  .nas-window-title{font-size:12px;gap:7px}
@@ -229,7 +213,6 @@ body:has(#shell:not([hidden])){overflow:hidden}
  #shell .fb-content{height:260px;min-height:0;flex:1}
  #shell .nas-window{min-height:0}
  #shell[data-page=dashboard] main{overflow:auto}
- .nas-desktop{flex:none;min-height:450px}
  .desktop-workspace,.desktop-status{height:auto;overflow:visible}
 }
 @media(prefers-reduced-motion:no-preference){
@@ -281,9 +264,9 @@ html:has(#shell:not([hidden])){overflow:hidden;scrollbar-gutter:auto}
 @media(max-width:760px){
  .fb-content{display:block}
  .fb-inspector:not(:has(.fb-inspector-placeholder)){overflow:visible}
-}
+}/* Flexible console window and comfortable touch targets. */
 
-/* Flexible console window and comfortable touch targets. */
+
 dialog.console-dialog{width:min(1200px,96vw);max-width:96vw;height:min(850px,92dvh);max-height:92dvh;overflow:hidden;padding:16px}
 .console-dialog #dialog-body{height:100%;display:flex;flex-direction:column;min-height:0}
 .console-dialog .dialog-title{position:static;flex-shrink:0;margin:0 0 12px;padding:0}
@@ -313,8 +296,5 @@ dialog.console-dialog{width:min(1200px,96vw);max-width:96vw;height:min(850px,92d
 
 @media(max-width:760px){#shell .shell-button,#shell .mv-manager .button.small,#shell .window-control{min-height:44px}#shell .nas-window-content{padding:14px}#shell .mv-section-title p,#shell .hint,#shell .app-card p{font-size:13px;line-height:1.6}}
 
-@media(max-width:760px){#shell .fb-toolbar button,#shell .fb-toolbar .button,#shell .fb-sidebar button,#shell .fb-search-form button{min-height:44px}#shell .fb-toolbar{flex-wrap:wrap}}
-.menu-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.menu-toolbar>div{display:flex;gap:8px;flex-wrap:wrap}.menu-item{min-width:0}.menu-item>.desktop-app-link{width:100%;border:0;background:transparent;font:inherit;text-align:center;cursor:pointer}.menu-folder-preview{display:grid;grid-template-columns:1fr 1fr;gap:5px;width:66px;height:66px;margin:auto;padding:8px;background:var(--border);border-radius:18px}.menu-folder-preview svg{width:22px;height:22px}.menu-item-controls{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}.menu-item-controls button,.menu-item-controls select{min-height:36px;max-width:100%;border:1px solid var(--border);border-radius:8px;background:var(--panel,#fff);color:inherit}.menu-item-controls [data-menu-drag]{touch-action:none;cursor:grab;min-width:36px}.menu-item>.button{margin:5px}.mv-more-button{border:1px solid var(--border);background:var(--panel,#fff);border-radius:9px;padding:10px 14px;font-weight:600;cursor:pointer;min-height:44px}.mv-primary-actions{flex-wrap:wrap}.mv-network-facts{overflow-wrap:anywhere}
-@media(max-width:760px){.menu-item-controls button,.menu-item-controls select{min-height:44px}.menu-grid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.mv-primary-actions{width:100%}}
-.menu-item{border-radius:14px;transition:opacity .15s,transform .15s,background .15s}.menu-dragging{opacity:.5;transform:scale(.97)}.menu-drop-target{background:#aecfff55;outline:2px solid #5497dd}.menu-toolbar input{font-size:16px;min-width:0}.menu-grid+.hint{overflow-wrap:anywhere}
-@media(prefers-reduced-motion:reduce){.menu-item{transition:none}}
+@media(max-width:760px){#shell .fb-toolbar button,#shell .fb-toolbar .button,#shell .fb-sidebar button,#shell .fb-search-form button{min-height:44px}#shell .fb-toolbar{flex-wrap:wrap}}.mv-more-button{border:1px solid var(--border);background:var(--panel,#fff);border-radius:9px;padding:10px 14px;font-weight:600;cursor:pointer;min-height:44px}.mv-primary-actions{flex-wrap:wrap}.mv-network-facts{overflow-wrap:anywhere}
+@media(max-width:760px){.menu-grid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.mv-primary-actions{width:100%}}.menu-drop-target{background:#aecfff55;outline:2px solid #5497dd}.menu-grid+.hint{overflow-wrap:anywhere}

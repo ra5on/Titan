@@ -6,7 +6,9 @@ Titan wird als eigenes NAS-System auf **Debian 13** entwickelt, einschließlich 
 
 [**Titan 0.4.6-alpha.1 · IMG herunterladen**](https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz) · [Prüfsummen und Testergebnisse](https://github.com/ra5on/Titan/releases/tag/v0.4.6-alpha.1) · [Proxmox-Anleitung](docs/TITAN-IMAGE.md)
 
-**Aktuelles Systemupdate: [0.4.15-alpha.1](https://github.com/ra5on/Titan/releases/tag/v0.4.15-alpha.1).** Bestehende Installationen aktualisieren über den **Alpha-Kanal**; in älteren Oberflächen liegt die Auswahl unter **Einstellungen → Updates & Kanäle**, ab 0.4.8 unter **Updates & Rollback**. Kein erneuter Image-Import nötig. Diese Version bringt einen separaten Desktop mit durchsuchbarem Hauptmenü, oberer Taskleiste und mehreren gleichzeitig geöffneten Anwendungen. Fenster lassen sich verschieben, vergrößern, minimieren und anheften; Anordnung, geöffnete Anwendungen und Hintergrund werden pro Benutzer in diesem Browser gespeichert. Auf dem Handy füllt die aktive Anwendung die verfügbare Breite, mit App-Wechsler in der oberen Leiste. Neue Installationen starten mit dem oben verlinkten 0.4.6-IMG und aktualisieren anschließend.
+**Aktuelles Systemupdate: [0.4.16-alpha.1](https://github.com/ra5on/Titan/releases/tag/v0.4.16-alpha.1).** Bestehende Installationen aktualisieren über den **Alpha-Kanal → Updates & Rollback**. Kein erneuter Image-Import nötig. Diese Version vereinheitlicht Systemsteuerung, Speicher und App-Verwaltung. Neue Installationen starten mit dem oben verlinkten 0.4.6-IMG und aktualisieren anschließend.
+
+**Neuer Quellstand 0.4.17:** Desktop mit frei wählbaren Verknüpfungen und Ordnern, separaten App-Tabs, konfigurierbarem Statuswidget und Benutzermenü. Das Systemupdate erscheint nach erfolgreichem signiertem Build im Alpha-Kanal. [Neuerungen und Bedienung](docs/RELEASE-0.4.17.md).
 
 Ein einzelnes komprimiertes IMG für eine neue x86-64-VM: UEFI/OVMF ohne Secure Boot, mindestens 4 GB RAM, 2 CPUs und 48 GiB Systemplatte. Nach dem Start `https://<NAS-IP>:5000` öffnen und den Administrator einrichten. Größere Systemplatten erweitern den Datenbereich.
 
@@ -28,7 +30,7 @@ Unter **Einstellungen → Updates & Rollback** in drei Schritten **Jetzt prüfen
 
 Boot, NAS-Laufzeit, Update, Neustart, Rollback, Rückfall nach einem fehlgeschlagenen Teststart und Erhalt von Benutzerkonten, Freigaberechten und Testdateien wurden in einer separaten QEMU-VM geprüft. Ein hängender Gast benötigt für den Rückfall einen Reset; persönliche Daten werden durch Rollback nicht zurückgesetzt. Die [Testgrenzen](docs/TITAN-IMAGE.md#prüfung-und-grenzen) bleiben für den Übergang zur Beta maßgeblich.
 
-[Systemsteuerung und Oberfläche 0.4.16](docs/RELEASE-0.4.16.md) · [Desktop-Neuerungen 0.4.15](docs/RELEASE-0.4.15.md) · [Neuerungen 0.4.14](docs/RELEASE-0.4.14.md) · [Docker-Verwaltung](docs/DOCKER-WORKBENCH.md) · [Titan AppStore und Geräte](docs/APP-STORES.md) · [Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
+[Desktop ohne Kachelübersicht 0.4.17](docs/RELEASE-0.4.17.md) · [Systemsteuerung und Oberfläche 0.4.16](docs/RELEASE-0.4.16.md) · [Desktop-Neuerungen 0.4.15](docs/RELEASE-0.4.15.md) · [Neuerungen 0.4.14](docs/RELEASE-0.4.14.md) · [Docker-Verwaltung](docs/DOCKER-WORKBENCH.md) · [Titan AppStore und Geräte](docs/APP-STORES.md) · [Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
 
 ## Lizenz
 

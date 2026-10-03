@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      TITAN_SYSTEM_VERSION: 0.4.16-alpha.1
+      TITAN_SYSTEM_VERSION: 0.4.17-alpha.1
       # Desktop window manager and mobile application switching.
       TITAN_UPDATE_ONLY: "true"
     steps:

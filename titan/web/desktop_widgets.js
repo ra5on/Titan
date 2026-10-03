@@ -1,0 +1,28 @@
+'use strict';
+(function(root,factory){const ui=factory();if(typeof module==='object'&&module.exports)module.exports=ui;if(root)root.TitanWidgets=ui;})(typeof window==='undefined'?null:window,function(){
+ const names={cpu:'CPU',ram:'Arbeitsspeicher',health:'Systemstatus',notifications:'Benachrichtigungen',activity:'Aktivität'};
+ function normalize(value={}){return {visible:value.visible!==false,collapsed:value.collapsed===true,items:[...new Set(Array.isArray(value.items)?value.items:['cpu','ram','health'])].filter(k=>Object.hasOwn(names,k))};}
+ function metrics(status={}){const total=status.memory_total,used=status.memory_occupied??status.memory_used;return {cpu:typeof status.cpu_percent==='number'&&status.cpu_percent>=0&&status.cpu_percent<=100?status.cpu_percent:null,ram:Number.isFinite(total)&&total>0&&Number.isFinite(used)&&used>=0&&used<=total?used/total*100:null};}
+ function health(status){if(!status)return 'Wird geladen';const services=Object.values(status.service_details||{}).filter(s=>s.relevant===true||s.relevant===undefined&&s.installed);if(services.some(s=>!s.active))return 'Dienste prüfen';if(Object.keys(status.telemetry_errors||{}).length)return 'Messhinweise vorhanden';return 'Verbunden';}
+ function mount({doc,user,api,esc,bytes,preferences,save,open,jobs}){
+  const toggle=doc.querySelector('#widgets-toggle');if(user.role!=='admin'){toggle.hidden=true;return {destroy(){}};}toggle.hidden=false;
+  const win=doc.defaultView,box=doc.createElement('aside'),config=doc.createElement('dialog');box.className='desktop-widget';box.setAttribute('aria-label','Statuswidget');config.className='widget-settings';doc.body.append(box);doc.body.append(config);
+  let prefs=normalize(preferences),alive=true,busy=false,status=null,error=false,alerts=null,activity=[];
+  function render(){if(!alive)return;const focused=box.contains(doc.activeElement)?[...box.querySelectorAll('button')].indexOf(doc.activeElement):-1;box.hidden=!prefs.visible;toggle.setAttribute('aria-pressed',String(prefs.visible));const values=metrics(status||{});
+   box.innerHTML=`<header><button data-widget-collapse aria-expanded="${!prefs.collapsed}">${prefs.collapsed?'▴':'▾'} Status</button><button data-widget-settings aria-label="Widgets auswählen" title="Widgets auswählen">⚙</button></header><div class="widget-content" ${prefs.collapsed?'hidden':''}>${prefs.items.map(key=>{
+    if(key==='cpu'||key==='ram'){const value=values[key];return `<button class="widget-metric" data-widget-open="resources"><span>${names[key]}</span><strong>${error?'—':value===null?'—':value.toLocaleString('de-DE',{maximumFractionDigits:1})+' %'}</strong><progress max="100" value="${!error&&value!==null?value:0}" aria-label="${names[key]}"></progress>${key==='ram'&&status&&!error?`<small>${esc(bytes(status.memory_occupied??status.memory_used))} / ${esc(bytes(status.memory_total))}</small>`:''}</button>`;}
+    if(key==='health')return `<button data-widget-open="monitoring"><span>Systemstatus</span><strong>${error?'Verbindung unterbrochen':health(status)}</strong></button>`;
+    if(key==='notifications'){const list=Array.isArray(alerts)?alerts:alerts?.alerts||[];return `<button data-widget-open="monitoring"><span>Benachrichtigungen</span><strong>${alerts===null?'Wird geladen':list.filter(a=>a.active!==false&&!a.acknowledged).length+' Meldungen'}</strong></button>`;}
+    return `<button data-widget-jobs><span>Aktivität</span><strong>${activity.filter(j=>['running','queued'].includes(j.status)).length} laufend</strong></button>`;
+   }).join('')||'<p>Über ⚙ Widgets auswählen.</p>'}${error?'<p role="status">Messwerte derzeit nicht verfügbar.</p>':''}</div>`;
+   if(focused>=0)box.querySelectorAll('button')[focused]?.focus();
+  }
+  async function refresh(){if(!alive||busy||doc.hidden||!prefs.visible||prefs.collapsed)return;busy=true;try{const data=await api('/api/status');if(alive){status=data;error=false;render();}}catch{if(alive){error=true;render();}}finally{busy=false;}}
+  function changed(){save({...prefs,items:[...prefs.items]});render();void refresh();}
+  function click(e){const b=e.target.closest('button');if(!b)return;if(b.hasAttribute('data-widget-collapse')){prefs.collapsed=!prefs.collapsed;changed();}if(b.dataset.widgetOpen)open('#'+b.dataset.widgetOpen);if(b.hasAttribute('data-widget-jobs'))jobs();if(b.hasAttribute('data-widget-settings')){config.innerHTML=`<form><h2>Widgets auswählen</h2>${Object.entries(names).map(([key,name])=>`<label><input type="checkbox" name="widget" value="${key}" ${prefs.items.includes(key)?'checked':''}>${name}</label>`).join('')}<div><button class="button" type="button" data-widget-cancel>Abbrechen</button><button class="button primary" type="submit">Speichern</button></div></form>`;config.showModal();}if(b.hasAttribute('data-widget-cancel'))config.close();}
+  const toggleClick=()=>{prefs.visible=!prefs.visible;changed();};const submit=e=>{e.preventDefault();prefs.items=[...config.querySelectorAll('input:checked')].map(n=>n.value);config.close();changed();};
+  box.addEventListener('click',click);config.addEventListener('click',click);config.addEventListener('submit',submit);toggle.addEventListener('click',toggleClick);doc.addEventListener('visibilitychange',refresh);const timer=win.setInterval(refresh,10000);render();void refresh();
+  return {updateJobs(value){activity=value;render();},updateAlerts(value){alerts=value;render();},destroy(){alive=false;win.clearInterval(timer);toggle.removeEventListener('click',toggleClick);doc.removeEventListener('visibilitychange',refresh);box.remove();config.remove();}};
+ }
+ return {normalize,metrics,health,mount};
+});

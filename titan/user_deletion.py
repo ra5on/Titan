@@ -42,6 +42,7 @@ class UserDeletionMixin:
                 validate_removal(self.store, actor, name)
                 db.execute("DELETE FROM sessions WHERE username=?", (name,))
                 db.execute("DELETE FROM users WHERE name=?", (name,))
-                db.execute("DELETE FROM config WHERE key=?", ("dashboard-layout:" + name,))
+                for prefix in ("dashboard-layout:", "launcher-layout:"):
+                    db.execute("DELETE FROM config WHERE key=?", (prefix + name,))
             return {"ok": True, "name": name, "sessions_revoked": True,
                     "data_retained": True}

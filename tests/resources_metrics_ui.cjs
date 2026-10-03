@@ -1,7 +1,7 @@
 'use strict';
 // Verify real metric semantics, missing samples, escaping and polling lifecycle.
 const assert = require('node:assert/strict');
-const dashboard = require('../titan/web/dashboard.js');
+const dashboard = require('../titan/web/resources.js');
 const turns = () => new Promise(resolve => setImmediate(resolve));
 
 const status = {cpu_percent:0,load:12,cpus:4,memory_total:1000,memory_used:250,uptime:3601,
@@ -65,14 +65,8 @@ function fixture(){
  let interval,cleared=false;
  const doc=new Element('document');doc.hidden=false;doc.createElement=tag=>new Element(tag);
  doc.defaultView={setInterval(callback,ms){assert.equal(ms,10000);interval=callback;return 42;},clearInterval(id){assert.equal(id,42);cleared=true;}};
- const grid=new Element('grid');grid.ownerDocument=doc;
- const main=new Element('main'),live=new Element('live'),updated=new Element('updated');
- live.nodes={'[data-metrics-updated]':updated};live.lists={'[data-percent]':[]};
- main.nodes={'#dashboard-grid':grid,'[data-live-resources]':live,'#dashboard-layout-hint':new Element('hint'),'#dashboard-layout-announcement':new Element('announcement')};
- for(const attr of ['data-layout-edit','data-layout-reset','data-layout-cancel','data-layout-save'])main.nodes[`[${attr}]`]=new Element(attr);
- const tiles=dashboard.ids.map(id=>{const tile=new Element(id,{dashboardTile:id});tile.nodes={'h2':new Element('title'),'[data-layout-move="-1"]':new Element('back'),'[data-layout-move="1"]':new Element('forward'),'[data-layout-handle]':new Element('handle')};return tile;});
- grid.lists={'[data-dashboard-tile]':tiles,'.tile-controls':[]};grid.nodes={'[data-layout-handle]':tiles[0].nodes['[data-layout-handle]']};
- for(const attr of ['data-layout-edit','data-layout-cancel'])main.nodes[`[${attr}]`].closest=selector=>selector===`[${attr}]`?main.nodes[selector]:null;
+ const main=new Element('main'),live=new Element('live'),updated=new Element('updated');main.ownerDocument=doc;
+ live.nodes={'[data-metrics-updated]':updated};live.lists={'[data-percent]':[]};main.nodes={'[data-live-resources]':live};
  return {doc,main,live,updated,poll:()=>interval(),cleared:()=>cleared};
 }
 (async()=>{
@@ -82,7 +76,6 @@ function fixture(){
  await view.poll();assert.equal(requests,1);assert(view.live.innerHTML.includes('CPU-Auslastung'));
  view.doc.hidden=true;await view.poll();assert.equal(requests,1,'hidden tab does not poll');
  view.doc.hidden=false;view.doc.dispatch('visibilitychange');await turns();assert.equal(requests,2);
- view.main.dispatch('click',view.main.nodes['[data-layout-edit]']);await view.poll();assert.equal(requests,2,'tile arrangement remains stable while editing');
  dashboard.dispose();assert(view.cleared());assert(!view.doc.events.has('visibilitychange'));
  const stale=fixture();
  dashboard.mount(stale.main,{api:()=>new Promise(done=>resolve=done),owner:'admin',toast(){}});
@@ -90,5 +83,5 @@ function fixture(){
  assert.equal(stale.live.innerHTML,'','late response cannot render a page that has been left');
  const failed=fixture();dashboard.mount(failed.main,{api:async()=>{throw Error('offline');},owner:'admin',toast(){}});
  await failed.poll();assert.equal(failed.updated.textContent,'Verbindung unterbrochen');dashboard.dispose();
- console.log('Dashboard metrics: CPU/load distinction, zero/null semantics, RAM validity, chart gaps, escaping, foreground polling, edit pause and disposal passed.');
+ console.log('Dashboard metrics: CPU/load distinction, zero/null semantics, RAM validity, chart gaps, escaping, foreground polling,  disposal passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -27,7 +27,9 @@ class UserDeletionTests(unittest.TestCase):
 
     def test_removal_revokes_every_session_and_removes_web_identity(self):
         tokens = [self.store.login("reader", "reader-original-password")[0] for _ in range(2)]
+        self.store.set_config("launcher-layout:reader", {"version":2,"items":["tool:files"]})
         result = self.users.remove("admin", "reader", "reader")
+        self.assertIsNone(self.store.config("launcher-layout:reader", None))
         self.assertTrue(result["data_retained"])
         self.agent.call.assert_called_once_with("account_remove", name="reader")
         self.assertEqual([item["name"] for item in self.store.users()], ["admin"])

@@ -101,50 +101,14 @@ footer{background:transparent;border-color:#b5c7dc50;color:#7890a9;font-size:10p
 .empty-icon{color:#a5b4c6}
 .loading{color:#7990aa}
 .loading:before{border-color:#dce6f1;border-top-color:#2477dd}
-
-/* The desktop presents destinations, while widgets show actual measurements. */
-.nas-desktop{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);gap:28px;align-items:start;min-width:0}
-.desktop-workspace,.desktop-launcher,.desktop-status{min-width:0}
+.desktop-workspace,.desktop-status{min-width:0}
 .desktop-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#54718f;margin:0 0 18px;font-size:12px;font-weight:600}
-.desktop-apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:14px 8px;align-items:start;margin-bottom:28px}
-.desktop-app-link{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:11px;padding:18px 8px 14px;min-width:0;text-align:center;border:1px solid transparent;border-radius:13px;color:#355271;min-height:138px;transition:background .18s,border-color .18s,transform .18s}
-.desktop-app-link:hover{background:#ffffff7d;border-color:#ffffffa6;transform:translateY(-2px);box-shadow:0 5px 16px #66809e09}
-.desktop-app-link:focus-visible{background:#ffffff8a;outline-offset:1px}
 .desktop-app-icon{display:grid;place-items:center;width:60px;height:60px;flex-shrink:0;border-radius:15px;background:linear-gradient(150deg,#769fed,#4073d4);color:#fff;box-shadow:0 4px 9px #4671a01c,inset 0 1px 1px #ffffff57}
 .desktop-app-icon svg{width:29px;height:29px;stroke-width:1.6}
-.desktop-app-name{font-size:12px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}
-.desktop-app-detail{display:block;color:#788ca3;font-size:10px;line-height:1.5;font-weight:400;margin-top:-6px}
-.desktop-app-link[data-app=files] .desktop-app-icon{background:linear-gradient(150deg,#f0c264,#df9e32)}
-.desktop-app-link[data-app=apps] .desktop-app-icon{background:linear-gradient(150deg,#819fe9,#5676d2)}
-.desktop-app-link[data-app=vms] .desktop-app-icon{background:linear-gradient(150deg,#ae8bd9,#8259ba)}
-.desktop-app-link[data-app=storage] .desktop-app-icon{background:linear-gradient(150deg,#85a1bc,#577a9b)}
-.desktop-app-link[data-app=shares] .desktop-app-icon{background:linear-gradient(150deg,#6fc5b6,#369c8a)}
-.desktop-app-link[data-app=settings] .desktop-app-icon,.desktop-app-link[data-app=control] .desktop-app-icon{background:linear-gradient(150deg,#8c9fb7,#617d9b)}
-.desktop-app-link[data-app=users] .desktop-app-icon{background:linear-gradient(150deg,#eeb697,#d88762)}
-.desktop-app-link[data-app=backups] .desktop-app-icon{background:linear-gradient(150deg,#78bd9d,#479772)}
-.desktop-app-link[data-app=updates] .desktop-app-icon{background:linear-gradient(150deg,#77bedb,#4999bd)}
-.desktop-app-link[data-app=monitoring] .desktop-app-icon{background:linear-gradient(150deg,#dfc476,#c49d40)}
-.desktop-app-link[data-app=services] .desktop-app-icon{background:linear-gradient(150deg,#80b5be,#528a94)}
-.desktop-app-link[data-app=terminal] .desktop-app-icon{background:linear-gradient(150deg,#6a8099,#465c75)}
-.desktop-app-link[data-app=jobs] .desktop-app-icon,.desktop-app-link[data-app=logs] .desktop-app-icon{background:linear-gradient(150deg,#94aabd,#6e899f)}
-.desktop-status .dashboard-grid,.desktop-status-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:15px}
-.desktop-status .dashboard-tile,.desktop-status .dashboard-tile[data-dashboard-tile]{grid-column:1;padding:19px;background:#ffffffdf;border-color:#ffffffd9;border-radius:12px;box-shadow:var(--desktop-shadow);backdrop-filter:blur(18px)}
-.desktop-status .dashboard-tile .panel-heading{padding-bottom:13px;margin-bottom:13px;border-color:#e4eaf3}
-.desktop-status .dashboard-tile .storage-content{flex-direction:row;flex-wrap:nowrap;justify-content:flex-start;gap:18px;text-align:left;padding:5px 0}
-.desktop-status .dashboard-tile .storage-ring{width:104px;height:104px}
-.desktop-status .dashboard-tile .storage-detail strong{font-size:18px}
-.desktop-status .dashboard-tile .storage-detail>small,.desktop-status .legend{font-size:10px}
-.desktop-status .dashboard-tile .health-list{display:block}
-.desktop-status .dashboard-tile .health-row{padding:8px 0!important;font-size:11px}
-.desktop-status .dashboard-tile .tile-footer{padding-top:13px;font-size:10px}
-.desktop-status .dashboard-tile .apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-.desktop-status .dashboard-toolbar{margin:0 0 14px;padding:0;border:0}
-.desktop-status .dashboard-toolbar .hint{display:none}
-.desktop-status .dashboard-layout-actions{justify-content:flex-end;width:100%;gap:5px}
-.desktop-status .dashboard-layout-actions .button{font-size:10px;min-height:30px;padding:5px 8px}
-.desktop-installed-apps .apps-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:13px}
+.desktop-app-detail{display:block;color:#788ca3;font-size:10px;line-height:1.5;font-weight:400;margin-top:-6px}.desktop-status-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:15px}.desktop-status .legend{font-size:10px}
+.desktop-installed-apps .apps-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:13px}/* Every application opens in the same calm window, without decorative controls. */
 
-/* Every application opens in the same calm window, without decorative controls. */
+
 .nas-window{border:1px solid #ffffffd9;border-radius:13px;background:#f9fbfd;box-shadow:0 14px 40px #2f47691a,0 1px 6px #2f476908;overflow:hidden;display:flex;flex-direction:column;min-width:0}
 .nas-window-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 20px;min-height:55px;flex-shrink:0;background:#fff;border-bottom:1px solid #e1e7ef}
 .nas-window-title{display:flex;align-items:center;gap:10px;margin:0;font-size:13px;font-weight:650;line-height:1.5;color:#425a76;min-width:0}
@@ -160,9 +124,9 @@ footer{background:transparent;border-color:#b5c7dc50;color:#7890a9;font-size:10p
 .nas-window-content>.panel+.panel{margin-top:18px}
 .workspace:has(.fb-browser)>main>.nas-window{flex:1;min-height:0}
 .nas-window:has(.fb-browser)>.nas-window-content{display:flex;flex-direction:column;min-height:0;padding:17px}
-.nas-window:has(.fb-browser) .page-heading{flex-shrink:0;margin-bottom:12px}
+.nas-window:has(.fb-browser) .page-heading{flex-shrink:0;margin-bottom:12px}/* Tables, forms, dialogs and secondary panels inherit the same light surfaces. */
 
-/* Tables, forms, dialogs and secondary panels inherit the same light surfaces. */
+
 .table-wrap{border-color:#e2e8f0;border-radius:8px}
 table{font-size:12px;color:#40536c}
 th{background:#f4f7fb;color:#7e8da0;border-color:#e3e9f1;font-size:10px;letter-spacing:.4px;padding:11px 12px}
@@ -204,12 +168,6 @@ dialog::backdrop{background:#2744634d;backdrop-filter:blur(5px)}
 .auth-card .brand{color:#354e6a}
 .auth-card .alpha-notice{background:#fff8ed}
 .nav-backdrop{background:#34547560;backdrop-filter:blur(4px)}
-
-/* Live charts are always generated from measured samples, with distinct series. */
-.dashboard-tile{background:#fff;border-color:#e2e8f0}
-.dashboard-tile .panel-heading{border-color:#e7edf4}
-.dashboard-toolbar{border-color:#dce5f0}
-.dashboard-toolbar .hint{color:#7c90a7}
 .layout-load-hint{color:#987538}
 .storage-ring .track{stroke:#eaf0f7}
 .storage-ring .progress{stroke:#4b8ee1}
@@ -249,12 +207,11 @@ circle.chart-cpu{fill:#4b8ee1}circle.chart-memory{fill:#59b39f}
 .health-row>span.hint,.health-caption{color:#7489a1}
 .health-caption{border-color:#e5ecf5}
 .tile-handle,.tile-step{background:#eff5fd;border-color:#d6e5f8;color:#6896cf}
-.layout-editing .dashboard-tile{border-color:#99bcec;box-shadow:0 0 0 1px #8eb7ec16}
 .tile-dragging{border-color:#74a5e5!important}
-.tile-drag-ghost{background:#fff;border-color:#96bbe9;color:#527da9;box-shadow:0 8px 26px #34516e25}
+.tile-drag-ghost{background:#fff;border-color:#96bbe9;color:#527da9;box-shadow:0 8px 26px #34516e25}/* App store and settings are distinct, predictable application surfaces. */
 
-/* App store and settings are distinct, predictable application surfaces. */
-.app-card,.dashboard-tile .app-card{background:#fff;border-color:#e2e8f0;border-radius:10px;padding:18px;min-height:180px}
+
+.app-card{background:#fff;border-color:#e2e8f0;border-radius:10px;padding:18px;min-height:180px}
 .app-card:hover{background:#fbfdff;border-color:#a9c5e9;transform:translateY(-2px)}
 .app-card h3{color:#475e7a;font-size:13px}
 .app-card p,.app-card .app-bottom{color:#7186a0;font-size:11px}
@@ -283,9 +240,9 @@ circle.chart-cpu{fill:#4b8ee1}circle.chart-memory{fill:#59b39f}
 .location-folder,.folder-picker-folder{background:#f3f7fc;color:#6885a6}
 .location-folder:hover,.folder-picker-folder:hover{background:#eaf2fc;border-color:#c3d8f1}
 .location-folder span:last-child{color:#7a8ba0}
-.folder-picker-breadcrumbs .button{background:#f3f7fc}
+.folder-picker-breadcrumbs .button{background:#f3f7fc}/* Virtualization, networking and system services retain functional controls. */
 
-/* Virtualization, networking and system services retain functional controls. */
+
 .vm-card{background:#fff}
 .vm-hardware .stat-card{background:#f5f8fc}
 .vm-hardware .stat-card strong{color:#557597;font-size:16px}
@@ -332,36 +289,21 @@ circle.chart-cpu{fill:#4b8ee1}circle.chart-memory{fill:#59b39f}
  #shell[data-nav-collapsed=true] .avatar{width:32px;height:32px;font-size:11px}
 }
 @media(min-width:1500px){
- .nas-desktop{grid-template-columns:minmax(0,1fr) minmax(400px,490px);gap:40px}
- .desktop-apps{grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:18px 12px}
- .desktop-app-link{min-height:150px;padding-top:20px}
  .desktop-app-icon{width:64px;height:64px;border-radius:16px}
  .nas-window-content{padding:28px}
 }
 @media(max-width:1100px) and (min-width:761px){
  #shell{--sidebar-width:200px}
- .nas-desktop{grid-template-columns:minmax(0,1fr) minmax(305px,350px);gap:20px}
- .desktop-apps{grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px 4px}
- .desktop-app-link{padding:15px 4px 12px;min-height:126px}
  .desktop-app-icon{width:53px;height:53px;border-radius:14px}
- .desktop-app-name{font-size:11px}
  .desktop-app-detail{font-size:9px}
- .desktop-status .dashboard-tile{padding:16px}
  main{padding-left:18px;padding-right:18px}
  .topbar,footer{padding-left:18px;padding-right:18px}
  .alpha-notice{margin-left:18px;margin-right:18px}
  .nas-window-content{padding:20px}
- .desktop-status .dashboard-tile .storage-content{gap:12px}
- .desktop-status .dashboard-tile .storage-ring{width:89px;height:89px}
- .desktop-status .dashboard-tile .storage-detail strong{font-size:17px}
 }
 @media(max-width:900px) and (min-width:761px){
- #shell[data-nav-collapsed=false] .nas-desktop{grid-template-columns:1fr}
- #shell[data-nav-collapsed=false] .desktop-status .dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
- #shell[data-nav-collapsed=false] .desktop-status .dashboard-tile[data-dashboard-tile=resources]{grid-column:1/-1}
  .nas-window-bar{padding-left:16px;padding-right:16px}
  .topbar-right{gap:6px}
- .desktop-status .dashboard-tile .storage-content{flex-wrap:wrap;justify-content:center;text-align:center}
 }
 @media(max-width:760px){
  body{background-attachment:scroll}
@@ -385,22 +327,10 @@ circle.chart-cpu{fill:#4b8ee1}circle.chart-memory{fill:#59b39f}
  .subtitle{font-size:11px}
  .page-heading .date-card{background:#ffffff70;border-color:#ffffffb0;padding:8px 11px;border-radius:8px;color:#7892ad;font-size:10px}
  .date-card strong{font-size:17px;color:#5b7b9c}
- .nas-desktop{grid-template-columns:minmax(0,1fr);gap:24px}
- .desktop-apps{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px 5px;margin-bottom:22px}
- .desktop-app-link{min-height:121px;padding:12px 4px 10px;gap:9px}
  .desktop-app-icon{width:53px;height:53px;border-radius:14px}
  .desktop-app-icon svg{width:26px;height:26px}
- .desktop-app-name{font-size:11px}
  .desktop-app-detail{font-size:9px;line-height:1.5;margin-top:-5px}
- .desktop-section-heading{font-size:11px;margin-bottom:13px}
- .desktop-status .dashboard-grid,.desktop-status-grid{gap:12px}
- .desktop-status .dashboard-tile,.desktop-status .dashboard-tile[data-dashboard-tile]{padding:18px;border-radius:10px}
- .desktop-status .dashboard-tile .storage-content{flex-wrap:nowrap;gap:18px}
- .desktop-status .dashboard-tile .storage-ring{width:108px;height:108px}
- .desktop-status .dashboard-tile .storage-detail strong{font-size:18px}
- .desktop-status .dashboard-tile .health-row{font-size:11px}
- .desktop-status .dashboard-tile .apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
- .desktop-status .dashboard-toolbar .button{font-size:10px;min-height:34px}
+ .desktop-section-heading{font-size:11px;margin-bottom:13px}.desktop-status-grid{gap:12px}
  .desktop-installed-apps .apps-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
  .nas-window{border-radius:11px}
  .nas-window-bar{padding:0 13px;min-height:46px;gap:8px}
@@ -427,7 +357,7 @@ circle.chart-cpu{fill:#4b8ee1}circle.chart-memory{fill:#59b39f}
  .stat-card strong{font-size:20px}
  .table-wrap{margin:0;max-width:100%}
  .table-wrap table{min-width:540px}
- .app-card,.dashboard-tile .app-card{padding:14px;min-height:171px}
+ .app-card{padding:14px;min-height:171px}
  .app-card h3{font-size:12px}
  .app-card p,.app-card .app-bottom{font-size:10px}
  .app-icon{width:39px;height:39px;border-radius:10px}
@@ -453,19 +383,13 @@ circle.chart-cpu{fill:#4b8ee1}circle.chart-memory{fill:#59b39f}
  footer{padding:14px 12px;font-size:9px;gap:6px}
 }
 @media(max-width:360px){
- .desktop-apps{gap:8px 2px}
  .desktop-app-icon{width:48px;height:48px;border-radius:13px}
- .desktop-app-name{font-size:10px}
  .desktop-app-detail{font-size:8px}
- .desktop-status .dashboard-tile .storage-content{gap:12px}
- .desktop-status .dashboard-tile .storage-ring{width:94px;height:94px}
- .desktop-status .dashboard-tile .storage-detail strong{font-size:16px}
  .topbar .jobs-label{display:none}
 }
 @media(prefers-reduced-motion:no-preference){
  .nas-window{animation:desktop-window-appear .2s ease-out}
  @keyframes desktop-window-appear{from{opacity:.55;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 }
-@media(prefers-reduced-motion:reduce){
- .desktop-app-link:hover,.app-card:hover{transform:none}
+@media(prefers-reduced-motion:reduce){.app-card:hover{transform:none}
 }

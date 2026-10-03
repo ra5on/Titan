@@ -3,7 +3,7 @@ import re
 from .core import Error
 
 def validate(value):
-    if not isinstance(value,dict) or 'items' not in value or set(value)-{'items','hidden'} or not isinstance(value['items'],list) or len(value['items'])>128: raise Error('Ungültige Hauptmenü-Anordnung.')
+    if not isinstance(value,dict) or 'items' not in value or set(value)-{'items','hidden','version','positions','widgets'} or not isinstance(value['items'],list) or len(value['items'])>128: raise Error('Ungültige Hauptmenü-Anordnung.')
     seen=set(); folders=set(); count=0
     def item(key):
         nonlocal count
@@ -20,6 +20,17 @@ def validate(value):
     if "hidden" in value:
         hidden=value["hidden"]
         if not isinstance(hidden,list) or len(hidden)>128 or any(not isinstance(key,str) or not re.fullmatch(r"(tool|app):[a-zA-Z0-9_-]{1,64}",key) for key in hidden) or len(set(hidden))!=len(hidden): raise Error("Ungültige ausgeblendete Menü-Apps.")
+    if 'version' in value and (type(value['version']) is not int or value['version'] != 2): raise Error('Ungültige Desktop-Version.')
+    roots={row if isinstance(row,str) else row['id'] for row in value['items']}
+    positions=value.get('positions',{})
+    if not isinstance(positions,dict) or len(positions)>128: raise Error('Ungültige Desktop-Positionen.')
+    for key,pos in positions.items():
+        if key not in roots or not isinstance(pos,dict) or set(pos)!={'x','y'} or any(type(pos[k]) is not int or not 0<=pos[k]<limit for k,limit in [('x',32),('y',128)]): raise Error('Ungültige Desktop-Position.')
+    widgets=value.get('widgets',{})
+    if not isinstance(widgets,dict) or set(widgets)-{'visible','collapsed','items'}: raise Error('Ungültige Widgets.')
+    if any(type(widgets[k]) is not bool for k in ('visible','collapsed') if k in widgets): raise Error('Ungültiger Widget-Status.')
+    choices=widgets.get('items',[])
+    if not isinstance(choices,list) or len(choices)>6 or any(not isinstance(k,str) or k not in {'cpu','ram','health','notifications','activity'} for k in choices) or len(set(choices))!=len(choices): raise Error('Ungültige Widget-Auswahl.')
     return value
 
 def load(store,user):
