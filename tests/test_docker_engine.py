@@ -79,6 +79,14 @@ class EngineTests(unittest.TestCase):
     def test_summary_never_exposes_environment_secrets(self):
         summary=self.engine.engine_summary({'Id':ID,'Config':{'Image':'nginx','Env':['SECRET=private'],'Labels':{'PRIVATE':'hidden'}},'State':{'Status':'exited'}})
         self.assertNotIn('private',json.dumps(summary));self.assertNotIn('hidden',json.dumps(summary))
+    def test_dynamic_web_port_is_validated_without_exposing_environment(self):
+        row={'Id':ID,'Config':{'Labels':{'io.titan.managed':'true','io.titan.app':'qbittorrent'},'Env':['WEBUI_PORT=9090','SECRET=private']},'HostConfig':{'NetworkMode':'host'}}
+        summary=self.engine.engine_summary(row)
+        self.assertEqual(summary['web_port'],9090);self.assertEqual(summary['network_mode'],'host')
+        self.assertNotIn('private',json.dumps(summary))
+        row['Config']['Env']=['WEBUI_PORT=999999','SECRET=private']
+        self.assertIsNone(self.engine.engine_summary(row)['web_port'])
+
     def test_local_volume_driver_cannot_smuggle_host_paths(self):
         self.engine.engine_docker.return_value=json.dumps([{'Driver':'local','Options':{'device':'/etc','o':'bind'}}])
         with self.assertRaises(Error):self.engine.op_docker_container_create({'name':'web','image':'nginx','volume':'host-path'})

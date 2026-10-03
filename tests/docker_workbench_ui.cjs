@@ -20,3 +20,11 @@ assert.equal(ui.totals(containers,{a:{memory_bytes:100},b:{memory_bytes:999},c:{
 assert.equal(ui.totals(containers,{a:{memory_bytes:100}}).memory,null);
 assert.equal(ui.totals([containers[1]],{}).memory,0);
 console.log('Docker filters, Compose grouping and actual RAM totals passed.');
+
+const web={state:'running',managed_app:'syncthing',web_port:8384,ports:{'22000/tcp':[{HostPort:'22000',HostIp:'0.0.0.0'}],'8384/tcp':[{HostPort:'18084',HostIp:'0.0.0.0'}]}};
+assert.equal(ui.webLink(web,'nas.local'),'http://nas.local:18084');
+assert.equal(ui.webLink({...web,network_mode:'host',ports:{}},'nas.local'),'http://nas.local:8384');
+assert.equal(ui.webLink({...web,network_mode:'host',ports:{},web_port:9090},'::1'),'http://[::1]:9090');
+assert.equal(ui.webLink({...web,state:'exited'},'nas.local'),'');
+assert.equal(ui.webLink({...web,ports:{'8384/tcp':[{HostPort:'8384',HostIp:'127.0.0.1'}]}},'nas.local'),'');
+assert.equal(ui.webLink({...web,web_port:null},'nas.local'),'');

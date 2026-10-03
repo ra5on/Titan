@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 120
     env:
       TITAN_SYSTEM_VERSION: 0.4.14-alpha.1
+      # Web endpoints include Host networking and verified dynamic app ports.
       TITAN_UPDATE_ONLY: "true"
     steps:
       - uses: actions/checkout@v4

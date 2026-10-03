@@ -36,11 +36,15 @@ class DockerEngineMixin:
         labels=cfg.get('Labels') or {}
         from .catalog import APPS
         recipe=APPS.get(labels.get('io.titan.app'),{}) if labels.get('io.titan.managed')=='true' else {}
+        web_port=recipe.get('port')
+        if recipe.get('dynamic_web_port'):
+            values=[value.split('=',1)[1] for value in cfg.get('Env') or [] if isinstance(value,str) and value.startswith('WEBUI_PORT=')]
+            web_port=int(values[0]) if len(values)==1 and re.fullmatch(r'[0-9]{1,5}',values[0]) and 1<=int(values[0])<=65535 else None
         return {'id':row['Id'],'name':row.get('Name','').lstrip('/'),'image':labels.get('io.titan.original_image') or cfg.get('Image',''),
                 'state':state.get('Status','unknown'),'health':state.get('Health',{}).get('Status'),
                 'created':row.get('Created'),'restart':row.get('HostConfig',{}).get('RestartPolicy',{}).get('Name'),
                 'managed_app':labels.get('io.titan.app') if labels.get('io.titan.managed')=='true' else None,
-                'manual':labels.get('io.titan.manual')=='true','web_port':recipe.get('port'),'scheme':recipe.get('scheme','http'),
+                'manual':labels.get('io.titan.manual')=='true','web_port':web_port,'network_mode':row.get('HostConfig',{}).get('NetworkMode'),'scheme':recipe.get('scheme','http'),
                 'hardware':[v.get('PathOnHost') for v in row.get('HostConfig',{}).get('Devices') or []]+['nvidia:'+v for r in row.get('HostConfig',{}).get('DeviceRequests') or [] if r.get('Driver')=='nvidia' for v in r.get('DeviceIDs') or []],
                 'project':labels.get('com.docker.compose.project'), 'service':labels.get('com.docker.compose.service'),
                 'networks':[{'name':key,'ipv4':value.get('IPAddress'),'ipv6':value.get('GlobalIPv6Address')} for key,value in net.get('Networks',{}).items()],
