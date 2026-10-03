@@ -28,6 +28,8 @@ class FakeGuest:
         self.state = None
         self.vm = None
         self.vms = {}
+        self.vm_settings = {}
+        self.vm_instances = 0
         self.kvm = kvm
         self.password = None
         self.actions = []
@@ -122,8 +124,10 @@ class FakeGuest:
             return {"entries": [], "total": 0}
         if path == "/api/isos":
             return {"complete": True}
+        if path == "/api/vm-options":
+            return {"network_options":{"bridges":["virbr0"]}}
         if path == "/api/vms":
-            return {"available": True, "vms": [{"id": identifier, "state": state, "firmware": "uefi" if identifier == "fixture-vm" else "bios"} for identifier, state in self.vms.items()]}
+            return {"available": True, "vms": [{"id": identifier, "state": state, **self.vm_settings.get(identifier,{"firmware":"bios"})} for identifier, state in self.vms.items()]}
         if path.startswith("/api/vm-image-info?"):
             return {"path": "/var/lib/libvirt/images/titan/smoke-vm.qcow2", "format": "qcow2", "size": 197632,
                     "virtual_size": 8 * 1024**3, "min_disk_gb": 8, "source_retained": True, "revision": "a" * 64}
@@ -138,10 +142,14 @@ class FakeGuest:
             self.state = {"stop": "exited", "start": "running", "remove": None}[arguments["action"]]
         elif operation == "vm_create":
             self.vm = "shut off"
-            identifier = "fixture-clone" if arguments["name"] == "smoke-image-clone" else "fixture-vm"
+            self.vm_instances += 1
+            identifier = "fixture-clone" if arguments["name"] == "smoke-image-clone" else "fixture-vm" if self.vm_instances == 1 else "fixture-vm-new"
+            self.vm_settings[identifier] = {"firmware":arguments.get("firmware","bios")}
             self.vms[identifier] = self.vm
-            return {"id": identifier, "ok": True, "disk_path": "/var/lib/libvirt/images/titan/" + arguments["name"] + ".qcow2",
+            return {"id": identifier, "ok": True, "disk_path": "/var/lib/libvirt/images/titan/" + arguments["name"] + ("--"+"f"*32 if self.vm_instances>2 else "") + ".qcow2",
                     "source_retained": bool(arguments.get("disk_image"))}
+        elif operation == "vm_update":
+            self.vm_settings[arguments["vm"]].update({key:arguments[key] for key in ("firmware","network") if key in arguments})
         elif operation == "vm_action":
             self.vm = {"start": "running", "poweroff": "shut off"}[arguments["action"]]
             self.vms[arguments["vm"]] = self.vm
@@ -558,11 +566,12 @@ class RuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(vm["status"], "passed")
         self.assertFalse(vm["values"]["guest_os_boot"])
         self.assertIn("vm_remove", [operation for operation, _ in client.actions])
-        self.assertEqual(client.probes[-2:], [("console_assets", "running"), ("console_rfb", "running")])
+        self.assertIn(("console_assets", "running"),client.probes)
+        self.assertEqual(client.probes[-1],("console_rfb","running"))
         self.assertTrue(vm["values"]["console"]["authenticated_websocket"])
         self.assertTrue(vm["values"]["direct_image_clone"]["source_metadata_unchanged"])
         creates = [arguments for operation, arguments in client.actions if operation == "vm_create"]
-        self.assertEqual(len(creates), 2)
+        self.assertEqual(len(creates), 3)
         self.assertEqual(creates[0]["firmware"], "uefi")
         self.assertTrue(vm["values"]["uefi_start"])
         self.assertEqual(creates[1]["disk_image"], "/var/lib/libvirt/images/titan/smoke-vm.qcow2")

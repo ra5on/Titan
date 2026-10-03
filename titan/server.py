@@ -23,6 +23,7 @@ from .rpc import AgentClient
 from .users import Users
 from .user_deletion import validate_removal
 from .dashboard_layout import load_layout, save_layout
+from . import launcher_layout
 from .diagnostics import report as diagnostics_report
 from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal_owner
 
@@ -283,6 +284,8 @@ class Handler(TerminalHTTPMixin, BaseHTTPRequestHandler):
                                "demo": self.app.demo, "version": __version__, "stage": __release_stage__})
         if path.startswith("/api/"):
             user = self.require_user()
+            if path == "/api/launcher-layout":
+                return self.reply(launcher_layout.load(self.app.store, user["name"]))
             if path == "/api/dashboard-layout":
                 return self.reply(load_layout(self.app.store, user["name"]))
             if path == "/api/shares":
@@ -423,6 +426,8 @@ class Handler(TerminalHTTPMixin, BaseHTTPRequestHandler):
             self.app.store.audit(body["name"], "login")
             return self.reply({"ok": True, "csrf": csrf}, extra={"Set-Cookie": cookie})
         user = self.require_user(mutation=True)
+        if path == "/api/launcher-layout":
+            return self.reply(launcher_layout.save(self.app.store, user["name"], body))
         if path == "/api/dashboard-layout":
             return self.reply(save_layout(self.app.store, user["name"], body))
         if path == "/api/logout":

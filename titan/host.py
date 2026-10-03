@@ -19,6 +19,7 @@ from .catalog import APPS, compose
 from .core import Error, atomic_json, identifier, integer, password_hash
 from .management_host import ManagementMixin
 from .vm_management import VMMixin
+from .vm_networks import VMNetworkMixin
 from .app_stores import StoreMixin
 from .vm_usb import USBMixin
 from .vm_storage import VMStorageMixin
@@ -51,7 +52,7 @@ def run(arguments, input=None, timeout=120, pass_fds=()):
     return result.stdout.strip()
 
 
-class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -102,7 +103,7 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
                 return method(**args)
 
     def op_vm_options(self):
-        return {**self.vm_storage_options(), "cpu_topology": self.cpu_topology(), "isos": self.op_isos(), "firmwares": ["bios", "uefi"] if any(Path(p).is_file() for p in ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_CODE.fd")) else ["bios"]}
+        return {**self.vm_storage_options(), "cpu_topology": self.cpu_topology(), "isos": self.op_isos(), "network_options": self.vm_network_choices(), "firmwares": ["bios", "uefi"] if any(Path(p).is_file() for p in ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_CODE.fd")) else ["bios"]}
 
     def op_status(self):
         metrics = self.telemetry.sample()
@@ -359,7 +360,7 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
                                 "memory_mb": self.vm_memory_mb(root), "cpus": int(root.findtext("vcpu")),
                                 "autostart": bool(re.search(r"^Autostart:\s+enable\s*$", info, re.MULTILINE)),
                                 **self.vm_media_info(root), **self.vm_disk_details(record),
-                                "cpu_ids": self.vm_cpu_ids(root)})
+                                "cpu_ids": self.vm_cpu_ids(root), "network": self.vm_network_info(root)})
             except (Error, ValueError, ET.ParseError) as exc:
                 warnings.append(f"VM {vm_id} konnte nicht geprüft werden: {exc}")
         return {**capability, "vms": records, "warnings": warnings}
@@ -379,14 +380,14 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
         except Error as exc:
             raise Error(f"VM-Netzwerk 'default' ist nicht bereit. libvirt-Netzwerk auf dem NAS prüfen: {exc}", 503)
 
-    def op_vm_create(self, name, cpus, memory_mb, disk_gb, iso=None, storage="system", disk_image=None, cpu_ids=None, firmware="bios"):
+    def op_vm_create(self, name, cpus, memory_mb, disk_gb, iso=None, storage="system", disk_image=None, cpu_ids=None, firmware="bios", network=None):
         self.validate_vm_firmware(firmware)
-        if firmware == "uefi" and os.path.lexists(self.vm_nvram_path(name)):
-            raise Error("UEFI-Speicher dieses Namens existiert bereits. Einen neuen VM-Namen wählen.", 409)
         status = self.op_vms()
         if not status["available"]:
             raise Error(status.get("error", "KVM/libvirt ist nicht verfügbar."), 503)
         name = identifier(name)
+        if status.get("warnings"):
+            raise Error("Bestehende VM-Definitionen zuerst prüfen: " + "; ".join(status["warnings"]), 409)
         cpus, memory_mb = self.vm_resources(cpus, memory_mb)
         pins = self.validate_vm_cpu_ids(cpus, cpu_ids)
         disk_gb = integer(disk_gb, 8, 10000)
@@ -397,15 +398,21 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
         location = self.vm_storage_record(storage)
         disk = Path(location["path"]) / (name + ".qcow2")
         metadata = self.directory / ("vm-" + name + ".xml")
-        if (os.path.lexists(disk) or os.path.lexists(metadata) or
+        if (os.path.lexists(metadata) or
                 name in {item["name"] for item in status["vms"]} or
                 any(item["name"] == name for item in self.load("vms", []))):
             raise Error("VM-Name oder Laufwerk existiert bereits.", 409)
-        self.vm_network_ready()
+        # Retained disks and UEFI variables belong to the deleted VM. A fresh
+        # instance gets its own internal filenames; existing files are untouched.
+        if os.path.lexists(disk) or os.path.lexists(self.vm_nvram_path(name)):
+            self.validate_vm_disk_path(name, disk, exists=False)
+            disk = disk.with_name(name + '--' + uuid.uuid4().hex + '.qcow2')
+        if network is None:
+            self.vm_network_ready()
         qemu = pwd.getpwnam(host_platform().qemu_user)
         created_inode = None
         with self.vm_storage_fd(storage, create=True) as (target, location):
-            filename = name + ".qcow2"
+            filename = disk.name
             target_path = "/proc/self/fd/" + str(target) + "/" + filename
             try:
                 if disk_image:
@@ -449,6 +456,11 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
                 os.chmod(disk, 0o660, follow_symlinks=False)
                 os.chown(disk, qemu.pw_uid, qemu.pw_gid, follow_symlinks=False)
                 xml = self.vm_definition(name, cpus, memory_mb, disk, iso, cpu_ids=pins, firmware=firmware)
+                if network is not None:
+                    root = ET.fromstring(xml)
+                    self.apply_vm_network(root, network)
+                    self.vm_selected_network_ready(root)
+                    xml = ET.tostring(root, encoding="unicode")
                 vm_id = self.register_vm_definition(name, xml, virtual_size=disk_gb * 1024**3)
             except Exception:
                 try:
@@ -476,7 +488,7 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
         vm = self.vm_id(vm, check_cpu=action == "start")
         if action == "start":
             self.prepare_vm_storage_access()
-            self.vm_network_ready()
+            self.vm_selected_network_ready(ET.fromstring(self.managed_vm(vm)["xml"]))
         choices = {"start": ["start"], "shutdown": ["shutdown"], "reboot": ["reboot"],
                    "autostart": ["autostart"], "disable-autostart": ["autostart", "--disable"],
                    "resume": ["resume"], "poweroff": ["destroy"]}

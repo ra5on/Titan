@@ -307,6 +307,7 @@ class BackupTests(unittest.TestCase):
         disk = self.host.vm_root / 'test.qcow2'
         disk.write_bytes(b'standalone disk')
         self.host.vm_nvram_path = lambda name: self.root / (name + '_VARS.fd')
+        self.host.vm_instance_nvram_path = lambda name, disk: self.host.vm_nvram_path(name)
         original = self.host.vm_nvram_path('test')
         original.write_bytes(b'guest persistent boot variables')
         xml = '<domain><name>titan-test</name><os firmware="efi"><nvram>' + str(original) + '</nvram></os></domain>'

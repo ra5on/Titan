@@ -17,6 +17,12 @@ class VMMixin:
     def vm_nvram_path(name):
         return Path("/var/lib/libvirt/qemu/nvram") / ("titan-" + identifier(name) + "_VARS.fd")
 
+    def vm_instance_nvram_path(self, name, disk):
+        name = identifier(name)
+        self.vm_disk_storage(name, disk)
+        stem = Path(disk).stem
+        return self.vm_nvram_path(name).with_name("titan-" + stem + "_VARS.fd")
+
     @staticmethod
     def validate_vm_firmware(firmware):
         if firmware not in ("bios", "uefi"):
@@ -74,7 +80,7 @@ class VMMixin:
             firmware_node = ET.SubElement(os_node, "firmware")
             ET.SubElement(firmware_node, "feature", enabled="no", name="secure-boot")
             ET.SubElement(firmware_node, "feature", enabled="no", name="enrolled-keys")
-            ET.SubElement(os_node, "nvram").text = str(self.vm_nvram_path(name))
+            ET.SubElement(os_node, "nvram").text = str(self.vm_instance_nvram_path(name, disk))
         if iso:
             ET.SubElement(os_node, "boot", dev="cdrom")
         ET.SubElement(os_node, "boot", dev="hd")
@@ -296,7 +302,7 @@ class VMMixin:
         self.redefine_vm(record, root)
         return {"ok": True, "iso": iso, "boot": "cdrom" if source is not None else "hd"}
 
-    def op_vm_update(self, vm, cpus, memory_mb, cpu_ids=None):
+    def op_vm_update(self, vm, cpus, memory_mb, cpu_ids=None, firmware=None, network=None, boot=None):
         record = self.managed_vm(vm)
         if record["state"] != "shut off":
             raise Error("Die VM muss zum Bearbeiten ausgeschaltet sein.", 409)
@@ -314,6 +320,28 @@ class VMMixin:
         if current is not None:
             current.set("unit", "KiB")
             current.text = str(memory_mb * 1024)
+        if firmware is not None and firmware != record['firmware']:
+            self.validate_vm_firmware(firmware)
+            os_node = root.find('os')
+            for tag in ('loader','nvram','firmware','varstore'):
+                for child in os_node.findall(tag): os_node.remove(child)
+            os_node.attrib.pop('firmware',None)
+            if firmware == 'uefi':
+                os_node.set('firmware','efi')
+                features = ET.SubElement(os_node,'firmware')
+                ET.SubElement(features,'feature',enabled='no',name='secure-boot')
+                ET.SubElement(features,'feature',enabled='no',name='enrolled-keys')
+                nvram = self.vm_instance_nvram_path(record['name'],record['disk'])
+                if os.path.lexists(nvram) and (nvram.is_symlink() or not nvram.is_file()): raise Error('Unsicherer UEFI-Speicherpfad.',409)
+                ET.SubElement(os_node,'nvram').text = str(nvram)
+        if network is not None: self.apply_vm_network(root, network)
+        if boot is not None:
+            if boot not in ('hd','cdrom','network'): raise Error('Ungültige Bootreihenfolge.')
+            if any(node.find('boot') is not None for node in root.find('devices')): raise Error('Individuelle Geräte-Bootreihenfolge ist vorhanden.',409)
+            os_node = root.find('os')
+            for child in os_node.findall('boot'): os_node.remove(child)
+            ET.SubElement(os_node,'boot',dev=boot)
+            if boot != 'hd': ET.SubElement(os_node,'boot',dev='hd')
         self.redefine_vm(record, root)
         return {"ok": True, "cpus": cpus, "memory_mb": memory_mb, "cpu_ids": pins}
 

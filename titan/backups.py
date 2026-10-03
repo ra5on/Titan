@@ -714,7 +714,7 @@ class Backups:
                 (vm / "domain.xml").write_text(xml)
                 node = ET.fromstring(xml).find('./os/nvram')
                 if node is not None:
-                    nvram = self.host.vm_nvram_path(name)
+                    nvram = self.host.vm_instance_nvram_path(name, disk)
                     if node.text != str(nvram): raise Error('UEFI-Speicherpfad ist nicht verwaltet.')
                     if os.path.lexists(nvram):
                         fd = os.open(nvram, os.O_RDONLY | os.O_NOFOLLOW)

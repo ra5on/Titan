@@ -7,6 +7,7 @@ import math
 import itertools
 import subprocess
 import os
+import re
 from pathlib import Path, PurePosixPath
 import stat
 import struct
@@ -109,11 +110,12 @@ class VMStorageMixin:
     def vm_disk_storage(self, name, disk):
         name = identifier(name)
         path = Path(disk)
-        if path == self.vm_root / (name + ".qcow2"):
+        if path.name != name + ".qcow2" and not re.fullmatch(re.escape(name) + r"--[a-f0-9]{32}\.qcow2", path.name):
+            raise Error("VM-Laufwerksname passt nicht zur Maschine.", 409)
+        if path.parent == self.vm_root:
             return "system"
         for record in self.volume_manager.records():
-            expected = self.volume_manager.root / record["name"] / "vms" / (name + ".qcow2")
-            if path == expected:
+            if path.parent == self.volume_manager.root / record["name"] / "vms":
                 return "volume:" + record["name"]
         raise Error("VM-Laufwerk liegt außerhalb eines verwalteten Speichers.", 409)
 

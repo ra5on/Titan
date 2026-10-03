@@ -207,7 +207,7 @@ class Demo:
             return {"storage": storage, "disk_images": [{"id": "share:dokumente:Images/linux-cloud.qcow2",
                     "name": "linux-cloud.qcow2", "path": "/var/srv/titan/tank/dokumente/Images/linux-cloud.qcow2",
                     "format": "qcow2", "size": 500 * 1024**2, "virtual_size": 8 * 1024**3, "storage": "share:dokumente"}],
-                    "firmwares": ["bios", "uefi"], "cpu_topology": demo_topology(), "isos": self.call("isos"), "warnings": []}
+                    "network_options": {"networks": [{"name":"default","mode":"nat"},{"name":"isolated","mode":"isolated"}],"bridges":["br0"],"interfaces":["enp1s0"],"warnings":[]}, "firmwares": ["bios", "uefi"], "cpu_topology": demo_topology(), "isos": self.call("isos"), "warnings": []}
         if operation == "status":
             mounted = [volume for volume in self.volume_records if volume["mounted"]]
             storage = ({key: sum(volume[key] for volume in mounted) for key in ("total", "used")}
@@ -553,7 +553,7 @@ class Demo:
             if any(item["name"] == name for item in self.vms): raise Error("VM existiert bereits.", 409)
             self.vms.append({"id": str(uuid.uuid4()), "name": name, "state": "shut off", "cpus": cpus,
                              "memory_mb": integer(args["memory_mb"], 512, 31744), "autostart": False,
-                             "iso": iso, "boot": "cdrom" if iso else "hd", "cpu_ids": pins, "firmware": args.get("firmware", "bios"),
+                             "iso": iso, "boot": "cdrom" if iso else "hd", "cpu_ids": pins, "firmware": args.get("firmware", "bios"), "network": args.get("network", {"mode":"network","source":"default","model":"virtio","mac":"","connected":True}),
                              "storage": choice["id"], "disk_path": choice["path"] + "/" + name + ".qcow2",
                              "disk_gb": disk_gb, "virtual_size": disk_gb * 1024**3})
         elif operation == "vm_media":
@@ -574,6 +574,9 @@ class Demo:
                 pins = self.demo_cpu_ids(cpus, args.get("cpu_ids", item.get("cpu_ids")))
                 item["cpus"], item["cpu_ids"] = cpus, pins
                 item["memory_mb"] = integer(args["memory_mb"], 512, 31744)
+                if args.get("firmware") is not None: item["firmware"] = args["firmware"]
+                if args.get("network") is not None: item["network"] = args["network"]
+                if args.get("boot") is not None: item["boot"] = args["boot"]
             elif operation == "vm_remove": self.vms.remove(item)
             else:
                 target = args.get("target") or self.backup_settings["target"]

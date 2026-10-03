@@ -39,7 +39,7 @@ class SmokeFailure(Exception):
 def action_label(operation, arguments):
     """Publish only known smoke verbs, never identifiers or arbitrary values."""
     operations = {"app_install", "app_action", "app_network_create", "app_network_remove",
-                  "vm_create", "vm_action", "vm_remove", "iso_remove", "share_create", "share_remove", "system_disk_grow"}
+                  "vm_create", "vm_update", "vm_action", "vm_remove", "iso_remove", "share_create", "share_remove", "system_disk_grow"}
     if not isinstance(operation, str) or operation not in operations:
         return "runtime_action"
     allowed = {"app_action": {"start", "stop", "remove"}, "vm_action": {"start", "poweroff"}}
@@ -1233,6 +1233,27 @@ class RuntimeSmoke:
         console = {**self.client.console_assets(), **self.client.console_rfb(identifier)}
         self.client.action("vm_action", {"vm": identifier, "action": "poweroff"})
         self.vm_state(identifier, "shut off")
+        options = self.client.request('/api/vm-options')
+        bridges = options.get('network_options', {}).get('bridges', [])
+        if 'virbr0' not in bridges:
+            raise SmokeFailure('Disposable VM default bridge is unavailable for the network test.')
+        self.client.action('vm_update', {'vm':identifier,'cpus':1,'memory_mb':512,'firmware':'bios',
+            'boot':'hd','network':{'mode':'bridge','source':'virbr0','model':'e1000','mac':'52:54:00:ab:cd:01','connected':False}})
+        changed = self.vm_state(identifier,'shut off')
+        if changed.get('firmware')!='bios' or changed.get('network',{}).get('mode')!='bridge' or changed['network'].get('connected') is not False:
+            raise SmokeFailure('Offline BIOS and bridge changes were not persisted.')
+        self.client.action('vm_action', {'vm':identifier,'action':'start'})
+        self.vm_state(identifier,'running')
+        self.client.console_rfb(identifier)
+        self.client.action('vm_action', {'vm':identifier,'action':'poweroff'})
+        self.vm_state(identifier,'shut off')
+        self.client.action('vm_update', {'vm':identifier,'cpus':1,'memory_mb':512,'firmware':'uefi',
+            'network':{'mode':'network','source':'default','model':'virtio','mac':'52:54:00:ab:cd:01','connected':True}})
+        self.client.action('vm_action', {'vm':identifier,'action':'start'})
+        if self.vm_state(identifier,'running').get('firmware')!='uefi': raise SmokeFailure('UEFI roundtrip did not boot.')
+        self.client.console_rfb(identifier)
+        self.client.action('vm_action', {'vm':identifier,'action':'poweroff'})
+        self.vm_state(identifier,'shut off')
         source = created.get("disk_path")
         if not isinstance(source, str) or not source.startswith("/") or len(source) > 4096:
             raise SmokeFailure("VM creation did not return a managed image path for the clone test.")
@@ -1262,11 +1283,24 @@ class RuntimeSmoke:
         removed = self.client.action("vm_remove", {"vm": identifier})
         if removed.get("disk_retained") is not True:
             raise SmokeFailure("VM removal did not preserve the expected test disk.")
+        fresh = self.client.action('vm_create', {'name':'smoke-vm','cpus':1,'memory_mb':512,'disk_gb':8,'iso':iso,'firmware':'uefi'})
+        fresh_id = fresh.get('id')
+        if not fresh_id or fresh_id == identifier or fresh.get('disk_path') == source:
+            raise SmokeFailure('Deleted VM name did not produce a distinct new instance.')
+        retained = self.client.request(source_route)
+        if any(retained.get(key) != after.get(key) for key in ('path','format','size','virtual_size','revision')):
+            raise SmokeFailure('Reusing a deleted VM name modified its retained disk.')
+        self.client.action('vm_action',{'vm':fresh_id,'action':'start'})
+        self.vm_state(fresh_id,'running')
+        self.client.console_rfb(fresh_id)
+        self.client.action('vm_action',{'vm':fresh_id,'action':'poweroff'})
+        self.vm_state(fresh_id,'shut off')
+        self.client.action('vm_remove',{'vm':fresh_id})
         self.client.action("iso_remove", {"name": iso})
         if any(item.get("id") == identifier for item in self.client.request("/api/vms").get("vms", [])):
             raise SmokeFailure("Removed VM remains in the managed inventory.")
         return {"define": True, "start": True, "poweroff": True, "undefine": True,
-                "console": console, "guest_os_boot": False, "uefi_start": True,
+                "console": console, "guest_os_boot": False, "uefi_start": True, "firmware_roundtrip": True, "bridge_configuration": True, "deleted_name_reuse": True,
                 "direct_image_clone": {"inspect": True, "create": True, "start": True,
                     "poweroff": True, "undefine": True, "source_metadata_unchanged": True}}
 

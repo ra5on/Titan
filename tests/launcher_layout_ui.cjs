@@ -1,0 +1,10 @@
+'use strict';
+const assert=require('node:assert/strict'),menu=require('../titan/web/launcher_layout.js');
+const keys=['tool:files','tool:vms','app:jellyfin'];
+assert.deepEqual(menu.normalize(['tool:vms','tool:vms','javascript:x'],keys),['tool:vms','tool:files','app:jellyfin']);
+let rows=menu.move(keys,'app:jellyfin','tool:files',true);assert.equal(rows[0].items.length,2);const folder=rows[0].id;
+rows=menu.move(rows,'tool:vms',folder,true);assert.equal(rows[0].items.length,3);assert.equal(rows.length,1);
+rows=menu.move(rows,'app:jellyfin','',true);assert.equal(rows[1],'app:jellyfin');
+rows=menu.move(rows,'tool:vms','tool:files');assert.deepEqual(rows[0].items,['tool:vms','tool:files']);
+assert.deepEqual(menu.normalize(rows,keys),rows);
+console.log('Launcher: deduplication, grouping, folder extraction, internal reordering and persistence shape passed.');

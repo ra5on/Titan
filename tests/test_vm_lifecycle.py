@@ -102,6 +102,7 @@ class VMLifecycleTests(unittest.TestCase):
     def test_network_failure_is_reported_before_vm_start(self):
         with patch.object(self.host, "op_vms", return_value={"available": True}), \
                 patch.object(self.host, "vm_id", return_value=self.vm_id), \
+                patch.object(self.host, "managed_vm", return_value={"xml": self.xml}), \
                 patch("titan.host.run", side_effect=Error("default network missing")) as command:
             with self.assertRaises(Error) as result:
                 self.host.op_vm_action(self.vm_id, "start")
@@ -116,6 +117,7 @@ class VMLifecycleTests(unittest.TestCase):
         events = []
         with patch.object(self.host, "op_vms", return_value={"available": True}), \
                 patch.object(self.host, "vm_id", return_value=self.vm_id), \
+                patch.object(self.host, "managed_vm", return_value={"xml": self.xml}), \
                 patch.object(self.host, "vm_network_ready", side_effect=lambda: events.append("network")), \
                 patch("titan.host.run", side_effect=lambda args, **kwargs: events.append(args)):
             self.host.op_vm_action(self.vm_id, "start")
