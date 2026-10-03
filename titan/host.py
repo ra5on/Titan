@@ -509,7 +509,9 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
             port = sock.getsockname()[1]
         child = subprocess.Popen(["websockify", f"127.0.0.1:{port}", "127.0.0.1:" + graphics.get("port")],
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(40):
+        # Python/websockify may start slowly under nested virtualization.
+        # Keep startup bounded, but allow the proxy time to become ready.
+        for _ in range(300):
             if child.poll() is not None:
                 raise Error("VNC-Proxy konnte nicht starten.")
             try:

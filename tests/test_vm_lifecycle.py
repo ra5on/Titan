@@ -267,6 +267,16 @@ class VMLifecycleTests(unittest.TestCase):
         connect.assert_not_called()
         self.assertNotIn(self.vm_id, self.host.console_processes)
 
+    def test_console_waits_for_slow_proxy_under_nested_virtualization(self):
+        child = Mock()
+        patches = self.mocked_console(child=child)
+        with patches[0], patches[1], patches[2], patches[3] as connect, patches[4], patch("titan.host.time.sleep"):
+            connect.side_effect = [OSError("starting")] * 60 + [MagicMock()]
+            self.assertEqual(self.host.op_console(self.vm_id), {"port": 51001})
+        self.assertEqual(connect.call_count, 61)
+        child.terminate.assert_not_called()
+        self.assertEqual(self.host.console_processes[self.vm_id], (child, 51001, 5901))
+
     def test_console_connection_timeout_terminates_proxy_and_does_not_cache_it(self):
         child = Mock()
         patches = self.mocked_console(child=child)
@@ -274,7 +284,7 @@ class VMLifecycleTests(unittest.TestCase):
             connect.side_effect = OSError("proxy not listening")
             with self.assertRaisesRegex(Error, "nicht erreichbar"):
                 self.host.op_console(self.vm_id)
-        self.assertEqual(connect.call_count, 40)
+        self.assertEqual(connect.call_count, 300)
         child.terminate.assert_called_once()
         self.assertNotIn(self.vm_id, self.host.console_processes)
 

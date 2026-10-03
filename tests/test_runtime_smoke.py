@@ -1283,6 +1283,20 @@ class RuntimeTransportTests(unittest.TestCase):
         with self.assertRaisesRegex(smoke.SmokeFailure, "authenticated"):
             client.console_rfb("fixture-vm")
 
+    def test_console_reports_bounded_known_proxy_failure_without_leaking_response(self):
+        for error, expected in (("VNC-Proxy ist nicht erreichbar.", "proxy startup timed out"),
+                                ("private-response-body", "HTTP 400")):
+            body = json.dumps({"error": error}).encode()
+            transport = MemoryTransport(("HTTP/1.1 400 Bad Request\r\nContent-Length: " + str(len(body)) + "\r\n\r\n").encode() + body)
+            client = smoke.GuestClient()
+            client.cookie = "titan_session=private-fixture"
+            client.context = Mock()
+            client.context.wrap_socket.return_value = transport
+            with patch.object(smoke.socket, "create_connection"):
+                with self.assertRaisesRegex(smoke.SmokeFailure, expected) as caught:
+                    client.console_rfb("fixture-vm")
+            self.assertNotIn("private", str(caught.exception))
+
     def test_fragmented_binary_stream_and_ping_do_not_break_rfb(self):
         data = rfb_fixture()
         incoming = server_frame(b"ping", opcode=9) + server_frame(data[:8], final=False) + server_frame(data[8:], opcode=0)

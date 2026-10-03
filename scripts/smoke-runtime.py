@@ -748,7 +748,33 @@ class GuestClient:
                             "upgrade" not in [item.strip() for item in headers.get("connection", "").lower().split(",")] or
                             headers.get("sec-websocket-accept") != expected_accept or
                             headers.get("sec-websocket-protocol") != "binary"):
-                        raise SmokeFailure("Authenticated VM console WebSocket upgrade failed.")
+                        # Report only fixed diagnostic categories, never response bodies,
+                        # cookies or headers from the authenticated connection.
+                        detail = "invalid WebSocket handshake"
+                        status = lines[0].split(" ")[1:2]
+                        if status and status[0].isdigit() and len(status[0]) == 3:
+                            detail = "HTTP " + status[0]
+                        known_errors = {
+                            "VNC-Proxy konnte nicht starten.": "proxy process exited",
+                            "VNC-Proxy ist nicht erreichbar.": "proxy startup timed out",
+                            "VM muss laufen und eine VNC-Konsole besitzen.": "guest VNC endpoint unavailable",
+                            "Die VM-Konsole muss an 127.0.0.1 gebunden sein.": "guest VNC binding rejected",
+                        }
+                        try:
+                            size = int(headers.get("content-length", "0"))
+                            if 0 < size <= 4096 and status != ["101"]:
+                                payload = bytearray(pending)
+                                while len(payload) < size:
+                                    chunk = connection.recv(min(4096, size - len(payload)))
+                                    if not chunk:
+                                        break
+                                    payload.extend(chunk)
+                                error = json.loads(bytes(payload[:size])).get("error")
+                                if isinstance(error, str) and error in known_errors:
+                                    detail += ": " + known_errors[error]
+                        except (ValueError, TypeError, AttributeError, OSError):
+                            pass
+                        raise SmokeFailure("Authenticated VM console WebSocket upgrade failed (" + detail + ").")
                     result = VNCWebSocket(connection, deadline, pending).handshake()
                     return {"authenticated_websocket": True, **result}
         except (OSError, http.client.HTTPException):
