@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      TITAN_SYSTEM_VERSION: 0.4.8-alpha.1
+      TITAN_SYSTEM_VERSION: 0.4.9-alpha.1
       TITAN_UPDATE_ONLY: "true"
     steps:
       - uses: actions/checkout@v4
       - name: Prepare disposable image builder
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient rauc grub2-common
+          sudo apt-get install -y --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient rauc grub2-common python3-yaml
           sudo apt-get remove -y passt
           sudo chmod a+r /boot/vmlinuz-*
           if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi

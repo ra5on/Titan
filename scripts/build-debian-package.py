@@ -16,7 +16,7 @@ DEPENDENCIES = ('python3 (>= 3.13)', 'systemd', 'systemd-sysv', 'caddy', 'openss
     'acl', 'util-linux', 'smartmontools', 'tar', 'curl', 'ca-certificates', 'kmod',
     'iproute2', 'e2fsprogs', 'xfsprogs', 'cloud-guest-utils', 'gdisk', 'samba',
     'samba-common-bin', 'docker.io', 'docker-cli', 'docker-compose (>= 2)', 'qemu-system-x86',
-    'qemu-utils', 'libvirt-daemon-system', 'libvirt-daemon-driver-qemu',
+    'qemu-utils', 'ovmf', 'python3-yaml', 'libvirt-daemon-system', 'libvirt-daemon-driver-qemu',
     'libvirt-daemon', 'libvirt-daemon-lock', 'libvirt-daemon-log', 'libvirt-daemon-config-network', 'libvirt-clients', 'novnc', 'websockify', 'firewalld', 'apparmor')
 
 

@@ -1,0 +1,901 @@
+{
+  "schema": 1,
+  "name": "LinuxServer.io",
+  "apps": [
+    {
+      "id": "adguardhome-sync",
+      "name": "adguardhome-sync",
+      "description": "adguardhome-sync is a tool to synchronize AdGuardHome config to replica instances.",
+      "image": "lscr.io/linuxserver/adguardhome-sync:latest",
+      "port": 8080,
+      "default_port": 18000,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-adguardhome-sync/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. adguardhome-sync",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "apprise-api",
+      "name": "apprise-api",
+      "description": "apprise-api Takes advantage of [Apprise](https://github.com/caronc/apprise) through your network with a user-friendly API. * Send notifications to more than 100 services. * An incredibly lightweight gateway to Apprise. * A production ready micro-service at your disposal. * A Simple Website to verify and test your configuration with. Apprise API was designed to easily fit into existing (and new) eco-systems that are looking for a simple notification solution.",
+      "image": "lscr.io/linuxserver/apprise-api:latest",
+      "port": 8000,
+      "default_port": 18001,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-apprise-api/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. apprise-api",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "babybuddy",
+      "name": "babybuddy",
+      "description": "babybuddy is a buddy for babies! Helps caregivers track sleep, feedings, diaper changes, tummy time and more to learn about and predict baby's needs without (as much) guess work.",
+      "image": "lscr.io/linuxserver/babybuddy:latest",
+      "port": 8000,
+      "default_port": 18002,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-babybuddy/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. babybuddy",
+      "settings": [
+        {
+          "env": "CSRF_TRUSTED_ORIGINS",
+          "label": "CSRF_TRUSTED_ORIGINS",
+          "default": "http://127.0.0.1:8000,https://babybuddy.domain.com",
+          "secret": false
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "bitcoin-knots",
+      "name": "bitcoin-knots",
+      "description": "[Bitcoin Knots] can be used as a desktop client for regular payments or as a full node server utility for merchants and other payment services.",
+      "image": "lscr.io/linuxserver/bitcoin-knots:latest",
+      "port": 3000,
+      "default_port": 18003,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-bitcoin-knots/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. bitcoin-knots",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18004,
+          "protocol": "tcp"
+        },
+        {
+          "target": 8333,
+          "published": 18005,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "bookstack",
+      "name": "bookstack",
+      "description": "bookstack is a free and open source Wiki designed for creating beautiful documentation. Featuring a simple, but powerful WYSIWYG editor it allows for teams to create detailed and useful documentation with ease. Powered by SQL and including a Markdown editor for those who prefer it, BookStack is geared towards making documentation more of a pleasure than a chore. For more information on BookStack visit their website and check it out: https://www.bookstackapp.com",
+      "image": "lscr.io/linuxserver/bookstack:latest",
+      "port": 80,
+      "default_port": 18006,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-bookstack/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. bookstack",
+      "settings": [
+        {
+          "env": "APP_URL",
+          "label": "APP_URL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "APP_KEY",
+          "label": "APP_KEY",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_HOST",
+          "label": "DB_HOST",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_PORT",
+          "label": "DB_PORT",
+          "default": "3306",
+          "secret": false
+        },
+        {
+          "env": "DB_USERNAME",
+          "label": "DB_USERNAME",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_PASSWORD",
+          "label": "DB_PASSWORD",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "DB_DATABASE",
+          "label": "DB_DATABASE",
+          "default": "",
+          "secret": false
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "budge",
+      "name": "budge",
+      "description": "budge is an open source 'budgeting with envelopes' personal finance app.",
+      "image": "lscr.io/linuxserver/budge:latest",
+      "port": 80,
+      "default_port": 18007,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-budge/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. budge",
+      "settings": [],
+      "ports": [
+        {
+          "target": 443,
+          "published": 18008,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "diskover",
+      "name": "diskover",
+      "description": "diskover is an open source file system indexer that uses Elasticsearch to index and manage data across heterogeneous storage systems.",
+      "image": "lscr.io/linuxserver/diskover:latest",
+      "port": 80,
+      "default_port": 18009,
+      "mount": "/data",
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-diskover/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. diskover",
+      "settings": [
+        {
+          "env": "ES_HOST",
+          "label": "ES_HOST",
+          "default": "elasticsearch",
+          "secret": false
+        },
+        {
+          "env": "ES_PORT",
+          "label": "ES_PORT",
+          "default": "9200",
+          "secret": false
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "flexget",
+      "name": "flexget",
+      "description": "flexget is a multipurpose automation tool for all of your media.",
+      "image": "lscr.io/linuxserver/flexget:latest",
+      "port": 5050,
+      "default_port": 18010,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-flexget/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. flexget",
+      "settings": [
+        {
+          "env": "FG_LOG_LEVEL",
+          "label": "FG_LOG_LEVEL",
+          "default": "info",
+          "secret": false
+        },
+        {
+          "env": "FG_LOG_FILE",
+          "label": "FG_LOG_FILE",
+          "default": "/config/flexget.log",
+          "secret": false
+        },
+        {
+          "env": "FG_CONFIG_FILE",
+          "label": "FG_CONFIG_FILE",
+          "default": "/config/.flexget/config.yml",
+          "secret": false
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "habridge",
+      "name": "habridge",
+      "description": "habridge emulates Philips Hue API to other home automation gateways such as an Amazon Echo/Dot Gen 1 (gen 2 has issues discovering ha-bridge) or other systems that support Philips Hue. The Bridge handles basic commands such as On, Off and brightness commands of the hue protocol. This bridge can control most devices that have a distinct API.",
+      "image": "lscr.io/linuxserver/habridge:latest",
+      "port": 8080,
+      "default_port": 18011,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-habridge/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. habridge",
+      "settings": [
+        {
+          "env": "SEC_KEY",
+          "label": "SEC_KEY",
+          "default": "",
+          "secret": false
+        }
+      ],
+      "ports": [
+        {
+          "target": 50000,
+          "published": 18012,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "healthchecks",
+      "name": "healthchecks",
+      "description": "healthchecks is a watchdog for your cron jobs. It's a web server that listens for pings from your cron jobs, plus a web interface.",
+      "image": "lscr.io/linuxserver/healthchecks:latest",
+      "port": 8000,
+      "default_port": 18013,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-healthchecks/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. healthchecks",
+      "settings": [
+        {
+          "env": "SECRET_KEY",
+          "label": "SECRET_KEY",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "SITE_ROOT",
+          "label": "SITE_ROOT",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SITE_NAME",
+          "label": "SITE_NAME",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SUPERUSER_EMAIL",
+          "label": "SUPERUSER_EMAIL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SUPERUSER_PASSWORD",
+          "label": "SUPERUSER_PASSWORD",
+          "default": "",
+          "secret": true
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "hedgedoc",
+      "name": "hedgedoc",
+      "description": "[HedgeDoc] gives you access to all your files wherever you are. HedgeDoc is a real-time, multi-platform collaborative markdown note editor. This means that you can write notes with other people on your desktop, tablet or even on the phone. You can sign-in via multiple auth providers like Facebook, Twitter, GitHub and many more on the homepage.",
+      "image": "lscr.io/linuxserver/hedgedoc:latest",
+      "port": 3000,
+      "default_port": 18014,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-hedgedoc/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. hedgedoc",
+      "settings": [
+        {
+          "env": "DB_HOST",
+          "label": "DB_HOST",
+          "default": "<hostname or ip>",
+          "secret": false
+        },
+        {
+          "env": "DB_PORT",
+          "label": "DB_PORT",
+          "default": "3306",
+          "secret": false
+        },
+        {
+          "env": "DB_USER",
+          "label": "DB_USER",
+          "default": "hedgedoc",
+          "secret": false
+        },
+        {
+          "env": "DB_PASS",
+          "label": "DB_PASS",
+          "default": "<secret password>",
+          "secret": false
+        },
+        {
+          "env": "DB_NAME",
+          "label": "DB_NAME",
+          "default": "hedgedoc",
+          "secret": false
+        },
+        {
+          "env": "CMD_DOMAIN",
+          "label": "CMD_DOMAIN",
+          "default": "localhost",
+          "secret": false
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "htpcmanager",
+      "name": "htpcmanager",
+      "description": "htpcmanager is a front end for many htpc related applications.",
+      "image": "lscr.io/linuxserver/htpcmanager:latest",
+      "port": 8085,
+      "default_port": 18015,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-htpcmanager/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. htpcmanager",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "kdenlive",
+      "name": "kdenlive",
+      "description": "[Kdenlive] is a powerful free and open source cross-platform video editing program made by the KDE community. Feature rich and production ready.",
+      "image": "lscr.io/linuxserver/kdenlive:latest",
+      "port": 3000,
+      "default_port": 18016,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-kdenlive/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. kdenlive",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18017,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "kimai",
+      "name": "kimai",
+      "description": "kimai is a professional grade time-tracking application, free and open-source. It handles use-cases of freelancers as well as companies with dozens or hundreds of users. Kimai was build to track your project times and ships with many advanced features, including but not limited to: JSON API, invoicing, data exports, multi-timer and punch-in punch-out mode, tagging, multi-user - multi-timezones - multi-language ([over 30 translations existing](https://hosted.weblate.org/projects/kimai/)!), authen",
+      "image": "lscr.io/linuxserver/kimai:latest",
+      "port": 80,
+      "default_port": 18018,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-kimai/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. kimai",
+      "settings": [
+        {
+          "env": "APP_SECRET",
+          "label": "APP_SECRET",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "DATABASE_URL",
+          "label": "DATABASE_URL",
+          "default": "mysql://your_db_user:your_db_pass@your_db_host:3306/your_db_name?charset=your_db_charset&serverVersion=your_db_version",
+          "secret": false
+        },
+        {
+          "env": "TRUSTED_HOSTS",
+          "label": "TRUSTED_HOSTS",
+          "default": "kimai.example.com",
+          "secret": false
+        }
+      ],
+      "ports": [
+        {
+          "target": 443,
+          "published": 18019,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "limnoria",
+      "name": "limnoria",
+      "description": "limnoria A robust, full-featured, and user/programmer-friendly Python IRC bot, with many existing plugins. Successor of the well-known Supybot.",
+      "image": "lscr.io/linuxserver/limnoria:latest",
+      "port": 8080,
+      "default_port": 18020,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-limnoria/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. limnoria",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "lm-studio",
+      "name": "lm-studio",
+      "description": "[LM Studio] can run local AI models like gpt-oss, Llama, Gemma, Qwen, and DeepSeek privately on your computer.",
+      "image": "lscr.io/linuxserver/lm-studio:latest",
+      "port": 3000,
+      "default_port": 18021,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-lm-studio/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. lm-studio",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18022,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "lychee",
+      "name": "lychee",
+      "description": "lychee is a free photo-management tool, which runs on your server or web-space. Installing is a matter of seconds. Upload, manage and share photos like from a native application. Lychee comes with everything you need and all your photos are stored securely.",
+      "image": "lscr.io/linuxserver/lychee:latest",
+      "port": 80,
+      "default_port": 18023,
+      "mount": "/pictures",
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-lychee/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. lychee",
+      "settings": [
+        {
+          "env": "DB_CONNECTION",
+          "label": "DB_CONNECTION",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_HOST",
+          "label": "DB_HOST",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_PORT",
+          "label": "DB_PORT",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_USERNAME",
+          "label": "DB_USERNAME",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_PASSWORD",
+          "label": "DB_PASSWORD",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "DB_DATABASE",
+          "label": "DB_DATABASE",
+          "default": "",
+          "secret": false
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "manyfold",
+      "name": "manyfold",
+      "description": "manyfold is an open source, self-hosted web application for managing a collection of 3D models, particularly focused on 3D printing.",
+      "image": "lscr.io/linuxserver/manyfold:latest",
+      "port": 3214,
+      "default_port": 18024,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-manyfold/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. manyfold",
+      "settings": [
+        {
+          "env": "DATABASE_URL",
+          "label": "DATABASE_URL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "REDIS_URL",
+          "label": "REDIS_URL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SECRET_KEY_BASE",
+          "label": "SECRET_KEY_BASE",
+          "default": "",
+          "secret": true
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "orcaslicer",
+      "name": "orcaslicer",
+      "description": "[Orca Slicer] is an open source slicer for FDM printers. OrcaSlicer is fork of Bambu Studio, it was previously known as BambuStudio-SoftFever, Bambu Studio is forked from PrusaSlicer by Prusa Research, which is from Slic3r by Alessandro Ranellucci and the RepRap community",
+      "image": "lscr.io/linuxserver/orcaslicer:latest",
+      "port": 3000,
+      "default_port": 18025,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-orcaslicer/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. orcaslicer",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18026,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "phpmyadmin",
+      "name": "phpmyadmin",
+      "description": "phpmyadmin is a free software tool written in PHP, intended to handle the administration of MySQL over the Web. phpMyAdmin supports a wide range of operations on MySQL and MariaDB.",
+      "image": "lscr.io/linuxserver/phpmyadmin:latest",
+      "port": 80,
+      "default_port": 18027,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-phpmyadmin/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. phpmyadmin",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "piwigo",
+      "name": "piwigo",
+      "description": "piwigo is a photo gallery software for the web that comes with powerful features to publish and manage your collection of pictures.",
+      "image": "lscr.io/linuxserver/piwigo:latest",
+      "port": 80,
+      "default_port": 18028,
+      "mount": "/gallery",
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-piwigo/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. piwigo",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "planka",
+      "name": "planka",
+      "description": "planka is an elegant open source project tracking tool.",
+      "image": "lscr.io/linuxserver/planka:latest",
+      "port": 1337,
+      "default_port": 18029,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-planka/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. planka",
+      "settings": [
+        {
+          "env": "BASE_URL",
+          "label": "BASE_URL",
+          "default": "https://planka.example.com",
+          "secret": false
+        },
+        {
+          "env": "DATABASE_URL",
+          "label": "DATABASE_URL",
+          "default": "postgresql://user:password@planka-db:5432/planka",
+          "secret": false
+        },
+        {
+          "env": "DEFAULT_ADMIN_EMAIL",
+          "label": "DEFAULT_ADMIN_EMAIL",
+          "default": "demo@demo.demo",
+          "secret": false
+        },
+        {
+          "env": "DEFAULT_ADMIN_USERNAME",
+          "label": "DEFAULT_ADMIN_USERNAME",
+          "default": "demo",
+          "secret": false
+        },
+        {
+          "env": "DEFAULT_ADMIN_PASSWORD",
+          "label": "DEFAULT_ADMIN_PASSWORD",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "DEFAULT_ADMIN_NAME",
+          "label": "DEFAULT_ADMIN_NAME",
+          "default": "Demo User",
+          "secret": false
+        },
+        {
+          "env": "SECRET_KEY",
+          "label": "SECRET_KEY",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "TRUST_PROXY",
+          "label": "TRUST_PROXY",
+          "default": "false",
+          "secret": false
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "ppsspp",
+      "name": "ppsspp",
+      "description": "[PPSSPP] is a free and open-source PSP emulator for Windows, macOS, Linux, iOS, Android, Nintendo Wii U, Nintendo Switch, BlackBerry 10, MeeGo, Pandora, Xbox Series and Symbian with a focus on speed and portability.",
+      "image": "lscr.io/linuxserver/ppsspp:latest",
+      "port": 3000,
+      "default_port": 18030,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-ppsspp/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. ppsspp",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18031,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "projectsend",
+      "name": "projectsend",
+      "description": "projectsend is a self-hosted application that lets you upload files and assign them to specific clients that you create yourself. Secure, private and easy. No more depending on external services or e-mail to send those files.",
+      "image": "lscr.io/linuxserver/projectsend:latest",
+      "port": 80,
+      "default_port": 18032,
+      "mount": "/data",
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-projectsend/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. projectsend",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "pwndrop",
+      "name": "pwndrop",
+      "description": "pwndrop is a self-deployable file hosting service for sending out red teaming payloads or securely sharing your private files over HTTP and WebDAV.",
+      "image": "lscr.io/linuxserver/pwndrop:latest",
+      "port": 8080,
+      "default_port": 18033,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-pwndrop/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. pwndrop",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "speedtest-tracker",
+      "name": "speedtest-tracker",
+      "description": "speedtest-tracker is a self-hosted internet performance tracking application that runs speedtest checks against Ookla's Speedtest service.",
+      "image": "lscr.io/linuxserver/speedtest-tracker:latest",
+      "port": 80,
+      "default_port": 18034,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-speedtest-tracker/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. speedtest-tracker",
+      "settings": [
+        {
+          "env": "APP_KEY",
+          "label": "APP_KEY",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "APP_URL",
+          "label": "APP_URL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_CONNECTION",
+          "label": "DB_CONNECTION",
+          "default": "sqlite",
+          "secret": false
+        },
+        {
+          "env": "SPEEDTEST_SCHEDULE",
+          "label": "SPEEDTEST_SCHEDULE",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SPEEDTEST_SERVERS",
+          "label": "SPEEDTEST_SERVERS",
+          "default": "",
+          "secret": false
+        }
+      ],
+      "ports": []
+    },
+    {
+      "id": "synclounge",
+      "name": "synclounge",
+      "description": "synclounge is a third party tool that allows you to watch Plex in sync with your friends/family, wherever you are.",
+      "image": "lscr.io/linuxserver/synclounge:latest",
+      "port": 8088,
+      "default_port": 18035,
+      "mount": null,
+      "config_mount": false,
+      "documentation": "https://docs.linuxserver.io/images/docker-synclounge/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. synclounge",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "thelounge",
+      "name": "thelounge",
+      "description": "thelounge (a fork of shoutIRC) is a web IRC client that you host on your own server.",
+      "image": "lscr.io/linuxserver/thelounge:latest",
+      "port": 9000,
+      "default_port": 18036,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-thelounge/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. thelounge",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "unifi-netwo-3e1611",
+      "name": "unifi-network-application",
+      "description": "The unifi-network-application software is a powerful, enterprise wireless software engine ideal for high-density client deployments requiring low latency and high uptime performance.",
+      "image": "lscr.io/linuxserver/unifi-network-application:latest",
+      "port": 8443,
+      "default_port": 18037,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-unifi-network-application/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. unifi-network-application",
+      "settings": [
+        {
+          "env": "MONGO_USER",
+          "label": "MONGO_USER",
+          "default": "unifi",
+          "secret": false
+        },
+        {
+          "env": "MONGO_PASS",
+          "label": "MONGO_PASS",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "MONGO_HOST",
+          "label": "MONGO_HOST",
+          "default": "unifi-db",
+          "secret": false
+        },
+        {
+          "env": "MONGO_PORT",
+          "label": "MONGO_PORT",
+          "default": "27017",
+          "secret": false
+        },
+        {
+          "env": "MONGO_DBNAME",
+          "label": "MONGO_DBNAME",
+          "default": "unifi",
+          "secret": false
+        },
+        {
+          "env": "MONGO_AUTHSOURCE",
+          "label": "MONGO_AUTHSOURCE",
+          "default": "admin",
+          "secret": false
+        }
+      ],
+      "ports": [
+        {
+          "target": 3478,
+          "published": 18038,
+          "protocol": "udp"
+        },
+        {
+          "target": 10001,
+          "published": 18039,
+          "protocol": "udp"
+        },
+        {
+          "target": 8080,
+          "published": 18040,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "vscodium-web",
+      "name": "vscodium-web",
+      "description": "vscodium-web is a community-driven, freely-licensed binary distribution of the remote host web component of Microsoft's editor VS Code.",
+      "image": "lscr.io/linuxserver/vscodium-web:latest",
+      "port": 8000,
+      "default_port": 18041,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-vscodium-web/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. vscodium-web",
+      "settings": [],
+      "ports": []
+    },
+    {
+      "id": "your_spotify",
+      "name": "your_spotify",
+      "description": "your_spotify is a self-hosted application that tracks what you listen and offers you a dashboard to explore statistics about it! It's composed of a web server which polls the Spotify API every now and then and a web application on which you can explore your statistics.",
+      "image": "lscr.io/linuxserver/your_spotify:latest",
+      "port": 80,
+      "default_port": 18042,
+      "mount": null,
+      "config_mount": false,
+      "documentation": "https://docs.linuxserver.io/images/docker-your_spotify/",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan geprüften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. your_spotify",
+      "settings": [
+        {
+          "env": "APP_URL",
+          "label": "APP_URL",
+          "default": "http://localhost",
+          "secret": false
+        },
+        {
+          "env": "SPOTIFY_PUBLIC",
+          "label": "SPOTIFY_PUBLIC",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SPOTIFY_SECRET",
+          "label": "SPOTIFY_SECRET",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "SPOTIFY_API_DELAY_MS",
+          "label": "SPOTIFY_API_DELAY_MS",
+          "default": "2000",
+          "secret": false
+        },
+        {
+          "env": "CORS",
+          "label": "CORS",
+          "default": "http://localhost:80,https://localhost:443",
+          "secret": false
+        },
+        {
+          "env": "MONGO_ENDPOINT",
+          "label": "MONGO_ENDPOINT",
+          "default": "mongodb://mongo:27017/your_spotify",
+          "secret": false
+        }
+      ],
+      "ports": [
+        {
+          "target": 443,
+          "published": 18043,
+          "protocol": "tcp"
+        }
+      ]
+    }
+  ]
+}

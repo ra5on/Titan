@@ -20,3 +20,9 @@ Installed MIT notices:
 /usr/lib/titan/titan/web/vendor/terminal/addon-fit-LICENSE
 
 Titan derives from the original RaNAS project by ra5on. Debian migration source: ff828eae7d4c50662e225dbf8f7ba0d9e5e47c59. Existing third-party notices remain applicable.
+
+App metadata in titan/linuxserver-store.json is translated from the official
+LinuxServer.io images API (snapshot 2026-10-03). Source documentation:
+https://docs.linuxserver.io/API/ . Container images keep their own licenses.
+The CasaOS store adapters are original Titan code; no CasaOS executable code
+is bundled. Imported metadata and recipes retain their publishers rights.

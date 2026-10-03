@@ -302,6 +302,24 @@ class BackupTests(unittest.TestCase):
         with self.assertRaises(Error):
             self.backups.create_vm("test", "<domain/>", disk)
 
+    def test_uefi_vars_backup_roundtrip_and_symlink_rejection(self):
+        from types import SimpleNamespace
+        disk = self.host.vm_root / 'test.qcow2'
+        disk.write_bytes(b'standalone disk')
+        self.host.vm_nvram_path = lambda name: self.root / (name + '_VARS.fd')
+        original = self.host.vm_nvram_path('test')
+        original.write_bytes(b'guest persistent boot variables')
+        xml = '<domain><name>titan-test</name><os firmware="efi"><nvram>' + str(original) + '</nvram></os></domain>'
+        backup = self.backups.create_vm('test', xml, disk)
+        with patch('titan.backups.pwd.getpwnam', return_value=SimpleNamespace(pw_uid=os.getuid(), pw_gid=os.getgid())):
+            self.assertTrue(self.backups.restore_vm_nvram(backup['id'], 'restored'))
+        self.assertEqual(self.host.vm_nvram_path('restored').read_bytes(), original.read_bytes())
+        with patch('titan.backups.pwd.getpwnam', return_value=SimpleNamespace(pw_uid=os.getuid(), pw_gid=os.getgid())), self.assertRaises((Error, FileExistsError)):
+            self.backups.restore_vm_nvram(backup['id'], 'restored')
+        original.unlink()
+        original.symlink_to(self.host.vm_nvram_path('restored'))
+        with self.assertRaises((Error, OSError)): self.backups.create_vm('test', xml, disk)
+
     def test_config_restore_changes_settings_and_rolls_back_on_failure(self):
         self.store.save_settings({"hostname": "old"})
         backup = self.backups.create()

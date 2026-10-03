@@ -102,7 +102,7 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
                 return method(**args)
 
     def op_vm_options(self):
-        return {**self.vm_storage_options(), "cpu_topology": self.cpu_topology(), "isos": self.op_isos()}
+        return {**self.vm_storage_options(), "cpu_topology": self.cpu_topology(), "isos": self.op_isos(), "firmwares": ["bios", "uefi"] if any(Path(p).is_file() for p in ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_CODE.fd")) else ["bios"]}
 
     def op_status(self):
         metrics = self.telemetry.sample()
@@ -379,7 +379,10 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
         except Error as exc:
             raise Error(f"VM-Netzwerk 'default' ist nicht bereit. libvirt-Netzwerk auf dem NAS prüfen: {exc}", 503)
 
-    def op_vm_create(self, name, cpus, memory_mb, disk_gb, iso=None, storage="system", disk_image=None, cpu_ids=None):
+    def op_vm_create(self, name, cpus, memory_mb, disk_gb, iso=None, storage="system", disk_image=None, cpu_ids=None, firmware="bios"):
+        self.validate_vm_firmware(firmware)
+        if firmware == "uefi" and os.path.lexists(self.vm_nvram_path(name)):
+            raise Error("UEFI-Speicher dieses Namens existiert bereits. Einen neuen VM-Namen wählen.", 409)
         status = self.op_vms()
         if not status["available"]:
             raise Error(status.get("error", "KVM/libvirt ist nicht verfügbar."), 503)
@@ -445,7 +448,7 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
                     created_inode = (allocated.st_dev, allocated.st_ino)
                 os.chmod(disk, 0o660, follow_symlinks=False)
                 os.chown(disk, qemu.pw_uid, qemu.pw_gid, follow_symlinks=False)
-                xml = self.vm_definition(name, cpus, memory_mb, disk, iso, cpu_ids=pins)
+                xml = self.vm_definition(name, cpus, memory_mb, disk, iso, cpu_ids=pins, firmware=firmware)
                 vm_id = self.register_vm_definition(name, xml, virtual_size=disk_gb * 1024**3)
             except Exception:
                 try:

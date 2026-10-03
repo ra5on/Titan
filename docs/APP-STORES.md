@@ -1,8 +1,10 @@
 # Eigene AppStores und Hardware-Erweiterungen
 
-Verfügbar mit dem signierten Systemupdate **v0.4.7-alpha.1**. Das veröffentlichte 0.4.6-Installationsimage enthält diese Änderungen noch nicht; nach der Installation über den Alpha-Kanal aktualisieren.
+Ab **0.4.9-alpha.1** ist LinuxServer.io der Standardstore mit 73 offline gebündelten Vorlagen. **AppStores** verwaltet mehrere Quellen, Aktivierung und manuelle Aktualisierung. Der Store-Filter zeigt eine oder alle aktiven Quellen. Deaktivieren verändert installierte Apps nicht.
 
-Im App Store öffnet **AppStores** die Quellenverwaltung. Ein Administrator kann eine öffentliche JSON-Datei auf `raw.githubusercontent.com` hinzufügen und muss dem Herausgeber ausdrücklich vertrauen. Titan lädt maximal 1 MiB, erlaubt keine Weiterleitungen und speichert die geprüften Vorlagen lokal. Ein Store-Wechsel verändert keine installierte Anwendung. Entfernen ist erst nach Entfernung seiner Apps möglich; deren Daten bleiben bestehen.
+Bekannte Quellen sind LinuxServer.io (offizielle API), CasaOS/IceWhale, BigBear und der LinuxServer-Community-Store. CasaOS-GitHub-Repositories werden über kleine Compose-Dateien eingelesen; Logos und große Repository-Archive sind dafür unnötig. Alternativ werden GitHub-ZIP-Archive von `codeload.github.com` und Titan-JSON von `raw.githubusercontent.com` unterstützt. Ein Administrator bestätigt beim Hinzufügen sein Vertrauen in den Herausgeber.
+
+Downloads sind begrenzt: 8 MiB API-Daten, 1 MiB Titan-JSON, 96 MiB ZIP, 512 MiB deklarierter ZIP-Inhalt. Der gezielte Repository-Import begrenzt jede Vorlage auf 128 KiB und insgesamt 16 MiB. Keine Weiterleitungen, YAML-Aliase, beliebigen Hostpfade oder direkte Compose-Ausführung. Inkompatible Vorlagen werden mit Grund aufgelistet. Importierte Vorlagen behalten einen direkten Dokumentationslink; unbestätigte Anmeldedaten sind als solche erkennbar. Die bisherigen 42 Vorlagen behalten ihre geprüften Hinweise.
 
 Das erste Format unterstützt einen Container je App. Ports, Umgebungsvariablen, Speicherfreigabe und Bridge-/Host-/eigenes Docker-Netz werden vor der Installation eingestellt. Vorgaben stehen bereits im Formular. Geheimnisse werden erst dort eingegeben und separat mit privaten Dateirechten gespeichert. Zusätzliche Ports können einzeln geändert werden. Der Konfigurationsmount ist `/config`; `config_mount: false` deaktiviert ihn. Der Datenmount wird durch `mount` festgelegt, `null` deaktiviert ihn. NAS-Pfade kommen aus Titan, nicht aus dem fremden Store.
 
@@ -31,7 +33,7 @@ Beispielstruktur; Image und Dokumentationsadresse durch die eigene getestete Anw
 }
 ```
 
-`login_note` ist verpflichtend: Standardzugang, eigenes Konto oder Ort eines automatisch erzeugten Passworts beschreiben. Der Hinweis erscheint vor der Installation. Pro Store maximal 100 Apps, insgesamt maximal 20 Stores. Titan unterstützt keine privilegierten Container, Docker-Socket-Mounts, freie Hostgeräte, Startskripte oder mehrteiligen Compose-Stacks aus diesem Format. Unbekannte Felder werden abgewiesen. Kataloge werden nicht automatisch aktualisiert. Store-Einträge bleiben auf der gemeinsamen Datenpartition über Systemupdates erhalten; das Konfigurations-Exportformat enthält sie derzeit nicht.
+`login_note` ist verpflichtend: Standardzugang, eigenes Konto oder Ort eines automatisch erzeugten Passworts beschreiben. Der Hinweis erscheint vor der Installation. Pro Store maximal 400 Apps, insgesamt maximal 20 Stores. Titan unterstützt keine privilegierten Container, Docker-Socket-Mounts, freie Hostgeräte, Startskripte oder mehrteiligen Compose-Stacks aus diesem Format. Unbekannte Felder werden abgewiesen. Kataloge werden nicht automatisch aktualisiert. Store-Einträge bleiben auf der gemeinsamen Datenpartition über Systemupdates erhalten; das Konfigurations-Exportformat enthält sie derzeit nicht.
 
 ## CasaOS / ZimaOS als Referenz
 

@@ -19,6 +19,8 @@ import tarfile
 import tempfile
 import threading
 import time
+import xml.etree.ElementTree as ET
+import pwd
 
 from .core import Error, identifier, integer, atomic_json, configuration_lock
 
@@ -463,7 +465,7 @@ class Backups:
                     (manifest["type"] == "shares" and not ((parts[0] == "shares" and len(parts) >= 2 and parts[1] in manifest["shares"]) or
                      (parts[0] == "config" and manifest.get("include_config") and
                       (parts == ("config",) or parts in (("config", "config.json"), ("config", "titan.sqlite3")))))) or
-                    (manifest["type"] == "vm" and parts not in (("vm",), ("vm", "domain.xml"), ("vm", "disk.qcow2")))):
+                    (manifest["type"] == "vm" and parts not in (("vm",), ("vm", "domain.xml"), ("vm", "disk.qcow2"), ("vm", "nvram.fd")))):
                 raise Error("Archiv enthält unerwartete Pfade, Links oder Spezialdateien.")
             seen[member.name] = "file" if member.isfile() else "directory"
             required_directories.update(ancestors)
@@ -710,6 +712,16 @@ class Backups:
                 vm = temporary / "vm"
                 vm.mkdir(mode=0o700)
                 (vm / "domain.xml").write_text(xml)
+                node = ET.fromstring(xml).find('./os/nvram')
+                if node is not None:
+                    nvram = self.host.vm_nvram_path(name)
+                    if node.text != str(nvram): raise Error('UEFI-Speicherpfad ist nicht verwaltet.')
+                    if os.path.lexists(nvram):
+                        fd = os.open(nvram, os.O_RDONLY | os.O_NOFOLLOW)
+                        with os.fdopen(fd, 'rb') as stream:
+                            info = os.fstat(stream.fileno())
+                            if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 16*1024**2: raise Error('UEFI-Speicher ist ungültig.')
+                            (vm / 'nvram.fd').write_bytes(stream.read(16*1024**2+1))
                 self._add_tree(archive, vm, "vm", totals)
                 self.host.validate_vm_disk_path(name, disk)
                 with directory_fd(disk.parent) as fd:
@@ -740,6 +752,24 @@ class Backups:
             if not xml.isfile() or xml.size > MAX_CONFIG:
                 raise Error("Ungültige VM-Definition im Backup.")
             return {**manifest, "xml": archive.extractfile(xml).read().decode("utf-8")}
+
+    def restore_vm_nvram(self, backup, name):
+        self.verified_vm(backup)
+        with self._archive(backup) as (_, archive):
+            try: member = archive.getmember('vm/nvram.fd')
+            except KeyError: return
+            if not member.isfile() or not 0 < member.size <= 16*1024**2: raise Error('Ungültiger UEFI-Speicher im Backup.')
+            destination = self.host.vm_nvram_path(name)
+            from .platforms import current
+            owner = pwd.getpwnam(current().qemu_user)
+            destination.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+            fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                shutil.copyfileobj(archive.extractfile(member), stream)
+                os.fchown(stream.fileno(), owner.pw_uid, owner.pw_gid)
+                stream.flush()
+                os.fsync(stream.fileno())
+            return True
 
     def restore_vm_files(self, backup, name):
         """Return a new image; caller creates a sanitized, new libvirt definition."""

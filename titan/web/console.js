@@ -1,7 +1,8 @@
 import RFB from '/novnc/core/rfb.js';
 const vm = new URLSearchParams(location.search).get('vm');
 const screen = document.querySelector('#screen');
-screen.style.height = 'calc(100vh - 82px)';
+if(new URLSearchParams(location.search).get('embedded')==='1')document.querySelector('.topbar a').remove();
+window.addEventListener('pagehide',()=>rfb.disconnect());
 const status = document.querySelector('#console-status');
 const rfb = new RFB(screen, `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/vnc?vm=${encodeURIComponent(vm)}`);
 rfb.scaleViewport = true;

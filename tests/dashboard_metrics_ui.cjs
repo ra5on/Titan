@@ -16,7 +16,7 @@ assert.equal(dashboard.metricValues(status).memory,25);
 assert.equal(dashboard.metricValues({...status,memory_occupied:900}).memory,90);
 assert.equal(dashboard.historySamples([{time:10,memory_percent:25,memory_occupied_percent:90}])[0].memory_percent,90);
 const occupied=dashboard.resourceMetrics({...status,memory_occupied:900,memory_free:100,memory_available:750});
-assert(occupied.includes('inklusive Cache'));assert(occupied.includes('Bedarf (geschätzt)'));assert(occupied.includes('Proxmox'));
+assert(occupied.includes('inklusive Cache'));assert(occupied.includes('Bedarf (geschätzt)'));assert(!occupied.includes('Proxmox'));
 const html = dashboard.resourceMetrics(status);
 assert(html.includes('CPU-Auslastung'));
 assert(html.includes('aria-valuenow="0.0"'));

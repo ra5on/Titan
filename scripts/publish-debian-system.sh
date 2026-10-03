@@ -10,7 +10,7 @@ python3 scripts/system-release-metadata.py manifest --version "$TITAN_SYSTEM_VER
     --rootfs "$task_dir/bundle/rootfs.ext4" --evidence "$task_dir/release-evidence.json"
 cp packaging/release-public.pem "$task_dir/release-public.pem"
 cp packaging/rauc-root.pem "$task_dir/rauc-root.pem"
-cp docs/RELEASE-0.4.8.md "$task_dir/INSTALLATION.md"
+cp docs/RELEASE-0.4.9.md "$task_dir/INSTALLATION.md"
 cp image/debian/base.json "$task_dir/debian-base.json"
 task_image_assets=()
 task_image_checks=()
@@ -34,7 +34,7 @@ if gh release view "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/nu
     exit 1
 fi
 gh release create "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
-    --title "Titan $TITAN_SYSTEM_VERSION · Debian A/B" --notes-file docs/RELEASE-0.4.8.md \
+    --title "Titan $TITAN_SYSTEM_VERSION · Debian A/B" --notes-file docs/RELEASE-0.4.9.md \
     "${task_image_assets[@]}" "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
     "$task_dir/manifest.json" "$task_dir/manifest.json.sig" "$task_dir/SHA256SUMS" "$task_dir/SHA256SUMS.sig" \
     "$task_dir/release-public.pem" "$task_dir/rauc-root.pem" "$task_dir/runtime-test.json" "$task_dir/ab-test.json" \

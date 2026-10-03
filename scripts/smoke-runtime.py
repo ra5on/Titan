@@ -831,7 +831,7 @@ class RuntimeSmoke:
         if (not isinstance(value, dict) or set(value) - {"apps", "source", "error"}
                 or not isinstance(apps, list) or len(apps) != len(APPS)):
             raise SmokeFailure("App catalog or first-login guidance is incomplete.")
-        modes = {mode: 0 for mode in ("default", "generated", "install", "none", "setup")}
+        modes = {mode: 0 for mode in ("default", "generated", "install", "none", "setup", "documentation")}
         seen = set()
         for app in apps:
             identifier = app.get("id") if isinstance(app, dict) else None
@@ -1186,6 +1186,7 @@ class RuntimeSmoke:
         vm = next((item for item in inventory.get("vms", []) if item.get("id") == identifier), None)
         if inventory.get("available") is not True or vm is None or vm.get("state") != state:
             raise SmokeFailure("VM did not reach its expected lifecycle state.")
+        return vm
 
     def vm(self):
         medium = bytes(8192)
@@ -1195,13 +1196,14 @@ class RuntimeSmoke:
         if uploaded.get("complete") is not True:
             raise SmokeFailure("VM test media upload did not complete.")
         created = self.client.action("vm_create", {"name": "smoke-vm", "cpus": 1, "memory_mb": 512,
-                                                      "disk_gb": 8, "iso": iso, "storage": "system"})
+                                                      "disk_gb": 8, "iso": iso, "storage": "system", "firmware": "uefi"})
         identifier = created.get("id")
         if not isinstance(identifier, str) or not identifier:
             raise SmokeFailure("VM creation did not return a domain identifier.")
         self.vm_state(identifier, "shut off")
         self.client.action("vm_action", {"vm": identifier, "action": "start"})
-        self.vm_state(identifier, "running")
+        if self.vm_state(identifier, "running").get("firmware") != "uefi":
+            raise SmokeFailure("VM did not start with UEFI firmware.")
         console = {**self.client.console_assets(), **self.client.console_rfb(identifier)}
         self.client.action("vm_action", {"vm": identifier, "action": "poweroff"})
         self.vm_state(identifier, "shut off")
@@ -1238,7 +1240,7 @@ class RuntimeSmoke:
         if any(item.get("id") == identifier for item in self.client.request("/api/vms").get("vms", [])):
             raise SmokeFailure("Removed VM remains in the managed inventory.")
         return {"define": True, "start": True, "poweroff": True, "undefine": True,
-                "console": console, "guest_os_boot": False,
+                "console": console, "guest_os_boot": False, "uefi_start": True,
                 "direct_image_clone": {"inspect": True, "create": True, "start": True,
                     "poweroff": True, "undefine": True, "source_metadata_unchanged": True}}
 

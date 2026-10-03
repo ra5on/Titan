@@ -42,14 +42,14 @@ class CatalogTests(unittest.TestCase):
             compose("untrusted-image", "/srv/app", 1000, 1000, 12345, "/srv/data")
 
     def test_every_app_explains_its_initial_login(self):
-        self.assertEqual(len(APPS), 42)
+        self.assertGreaterEqual(len(APPS), 73)
         for name, recipe in APPS.items():
             with self.subTest(app=name):
                 login = recipe["first_login"]
-                self.assertIn(login["mode"], {"setup", "default", "install", "generated", "none"})
+                self.assertIn(login["mode"], {"setup", "default", "install", "generated", "none", "documentation"})
                 self.assertGreater(len(login["instructions"]), 30)
                 self.assertTrue(login["documentation"].startswith("https://docs.linuxserver.io/images/docker-"))
-                self.assertRegex(login["verified"], r"^\d{4}-\d{2}-\d{2}$")
+                if not recipe.get("store_url"): self.assertRegex(login["verified"], r"^\d{4}-\d{2}-\d{2}$")
                 self.assertLessEqual(set(login), {"mode", "instructions", "documentation", "verified", "username", "password"})
                 if login["mode"] != "default":
                     self.assertNotIn("password", login)

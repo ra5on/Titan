@@ -173,8 +173,9 @@ class Demo:
             operation = "file"
             args["user"] = "titan-files"
         if operation == "app_stores":
-            return {"stores": []}
-        if operation in ("app_store_add", "app_store_remove"):
+            from .store_sources import PRESETS, LINUXSERVER
+            return {"stores": [{"id":"linuxserver","name":"LinuxServer.io","url":LINUXSERVER,"enabled":True,"apps":len(APPS),"skipped":[]}], "presets":PRESETS}
+        if operation in ("app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle"):
             raise Error("Eigene Stores benötigen ein installiertes Titan-System. Die Demo lädt keine fremden Vorlagen.")
         if operation == "vm_usb":
             return {"devices": [], "selected": [], "editable": True}
@@ -206,7 +207,7 @@ class Demo:
             return {"storage": storage, "disk_images": [{"id": "share:dokumente:Images/linux-cloud.qcow2",
                     "name": "linux-cloud.qcow2", "path": "/var/srv/titan/tank/dokumente/Images/linux-cloud.qcow2",
                     "format": "qcow2", "size": 500 * 1024**2, "virtual_size": 8 * 1024**3, "storage": "share:dokumente"}],
-                    "cpu_topology": demo_topology(), "isos": self.call("isos"), "warnings": []}
+                    "firmwares": ["bios", "uefi"], "cpu_topology": demo_topology(), "isos": self.call("isos"), "warnings": []}
         if operation == "status":
             mounted = [volume for volume in self.volume_records if volume["mounted"]]
             storage = ({key: sum(volume[key] for volume in mounted) for key in ("total", "used")}
@@ -552,7 +553,7 @@ class Demo:
             if any(item["name"] == name for item in self.vms): raise Error("VM existiert bereits.", 409)
             self.vms.append({"id": str(uuid.uuid4()), "name": name, "state": "shut off", "cpus": cpus,
                              "memory_mb": integer(args["memory_mb"], 512, 31744), "autostart": False,
-                             "iso": iso, "boot": "cdrom" if iso else "hd", "cpu_ids": pins,
+                             "iso": iso, "boot": "cdrom" if iso else "hd", "cpu_ids": pins, "firmware": args.get("firmware", "bios"),
                              "storage": choice["id"], "disk_path": choice["path"] + "/" + name + ".qcow2",
                              "disk_gb": disk_gb, "virtual_size": disk_gb * 1024**3})
         elif operation == "vm_media":

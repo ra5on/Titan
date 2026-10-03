@@ -123,7 +123,7 @@ class FakeGuest:
         if path == "/api/isos":
             return {"complete": True}
         if path == "/api/vms":
-            return {"available": True, "vms": [{"id": identifier, "state": state} for identifier, state in self.vms.items()]}
+            return {"available": True, "vms": [{"id": identifier, "state": state, "firmware": "uefi" if identifier == "fixture-vm" else "bios"} for identifier, state in self.vms.items()]}
         if path.startswith("/api/vm-image-info?"):
             return {"path": "/var/lib/libvirt/images/titan/smoke-vm.qcow2", "format": "qcow2", "size": 197632,
                     "virtual_size": 8 * 1024**3, "min_disk_gb": 8, "source_retained": True, "revision": "a" * 64}
@@ -232,8 +232,8 @@ class RuntimeSmokeTests(unittest.TestCase):
         report = self.run_fixture(client)
         self.assertTrue(report["ok"])
         check = next(item for item in report["checks"] if item["name"] == "app_catalog_first_login")
-        self.assertEqual(check["values"]["app_count"], 42)
-        self.assertEqual(sum(check["values"]["first_login_mode_counts"].values()), 42)
+        self.assertEqual(check["values"]["app_count"], len(app_catalog.APPS))
+        self.assertEqual(sum(check["values"]["first_login_mode_counts"].values()), len(app_catalog.APPS))
         self.assertEqual(set(check["values"]), {"app_count", "first_login_mode_counts", "ok"})
         client.request.assert_any_call("/api/catalog")
         self.assertNotIn("admin123", json.dumps(report))
@@ -563,6 +563,8 @@ class RuntimeSmokeTests(unittest.TestCase):
         self.assertTrue(vm["values"]["direct_image_clone"]["source_metadata_unchanged"])
         creates = [arguments for operation, arguments in client.actions if operation == "vm_create"]
         self.assertEqual(len(creates), 2)
+        self.assertEqual(creates[0]["firmware"], "uefi")
+        self.assertTrue(vm["values"]["uefi_start"])
         self.assertEqual(creates[1]["disk_image"], "/var/lib/libvirt/images/titan/smoke-vm.qcow2")
         self.assertEqual(client.vms, {})
 

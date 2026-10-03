@@ -282,3 +282,35 @@ html:has(#shell:not([hidden])){overflow:hidden;scrollbar-gutter:auto}
  .fb-content{display:block}
  .fb-inspector:not(:has(.fb-inspector-placeholder)){overflow:visible}
 }
+
+/* Flexible console window and comfortable touch targets. */
+dialog.console-dialog{width:min(1200px,96vw);max-width:96vw;height:min(850px,92dvh);max-height:92dvh;overflow:hidden;padding:16px}
+.console-dialog #dialog-body{height:100%;display:flex;flex-direction:column;min-height:0}
+.console-dialog .dialog-title{position:static;flex-shrink:0;margin:0 0 12px;padding:0}
+.vm-console-frame{width:100%;flex:1;min-height:0;border:0;background:#111827;border-radius:8px}
+.store-row{display:flex;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--border)}
+.store-row>div:first-child{min-width:0;flex:1}.store-row small{display:block;overflow-wrap:anywhere;margin-top:5px}.store-actions{display:flex;gap:8px;flex-wrap:wrap;align-content:flex-start}.store-row details p{font-size:12px}
+@media(max-width:760px){
+ html,body{max-width:100%;overflow-x:clip}
+ .nas-window,.nas-window-body,.mv-content,.panel,.card,.page-heading>div{min-width:0;max-width:100%}
+ .page-heading{flex-wrap:wrap;gap:12px}.page-heading h1{overflow-wrap:anywhere}.page-heading .subtitle:empty{display:none}
+ .form-grid,.catalog-filters,.vm-source-options{grid-template-columns:minmax(0,1fr)}
+ .field input,.field select,.field textarea{width:100%;min-width:0;font-size:16px}
+ .button,.shell-button,.close-button,.mv-manager .button.small,.mv-tabs>button{min-height:44px}
+ .form-actions{flex-wrap:wrap;gap:8px}.form-actions .button{flex:1}
+ .list-row{flex-wrap:wrap}.list-row .row-main{min-width:0;flex-basis:100%}.row-main small,code,.hint,.notice{overflow-wrap:anywhere}
+ dialog{width:calc(100vw - 20px);max-width:calc(100vw - 20px);max-height:calc(100dvh - 20px);margin:auto;padding:18px 14px}
+ dialog.console-dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0;padding:10px}
+ .console-dialog .dialog-title h2{font-size:16px}
+ .store-row{flex-direction:column}.store-actions>.button{flex:1}
+ .catalog-card p,.app-card .app-bottom,.hint,.mv-section-title p{font-size:12px}
+ .catalog-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+ .mv-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.mv-tabs>button{width:100%;font-size:12px}
+ .mv-toolbar-actions{width:100%;justify-content:stretch}.mv-toolbar-actions>.button{flex:1}
+ .cpu-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cpu-option{min-width:0}
+ .terminal-toolbar,.section-heading{flex-wrap:wrap}
+}
+
+@media(max-width:760px){#shell .shell-button,#shell .mv-manager .button.small,#shell .window-control{min-height:44px}#shell .nas-window-content{padding:14px}#shell .mv-section-title p,#shell .hint,#shell .app-card p{font-size:13px;line-height:1.6}}
+
+@media(max-width:760px){#shell .fb-toolbar button,#shell .fb-toolbar .button,#shell .fb-sidebar button,#shell .fb-search-form button{min-height:44px}#shell .fb-toolbar{flex-wrap:wrap}}

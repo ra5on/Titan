@@ -398,3 +398,11 @@ def compose(app_id, directory, uid, gid, port, data_path, options=None, network=
         "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}},
         "labels": {"io.titan.managed": "true", "io.titan.app": app_id},
     }}}, app_id, network)
+
+
+# Ship an offline snapshot translated from the official LinuxServer API.
+from pathlib import Path as _CatalogPath
+from .store_recipes import recipes as _store_recipes
+_bundled_document = json.loads((_CatalogPath(__file__).parent / 'linuxserver-store.json').read_text())
+_, _bundled_apps = _store_recipes(_bundled_document, 'https://api.linuxserver.io/api/v1/images?include_config=true&include_deprecated=false')
+APPS.update(_bundled_apps)

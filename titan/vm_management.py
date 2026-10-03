@@ -13,6 +13,17 @@ from .core import Error, identifier, integer
 
 
 class VMMixin:
+    @staticmethod
+    def vm_nvram_path(name):
+        return Path("/var/lib/libvirt/qemu/nvram") / ("titan-" + identifier(name) + "_VARS.fd")
+
+    @staticmethod
+    def validate_vm_firmware(firmware):
+        if firmware not in ("bios", "uefi"):
+            raise Error("Bootmodus muss BIOS oder UEFI sein.")
+        if firmware == "uefi" and not any(Path(path).is_file() for path in ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_CODE.fd")):
+            raise Error("UEFI-Firmware fehlt. Ein Titan-Systemupdate mit OVMF installieren.", 503)
+
     def vm_resources(self, cpus, memory_mb):
         cpus = integer(cpus, 1, os.cpu_count() or 1)
         total = self.op_status()["memory_total"]
@@ -42,10 +53,11 @@ class VMMixin:
         path = Path(source.get("file", "")) if source is not None else None
         iso = path.name if path is not None and path.parent == self.vm_root / "iso" else None
         boots = root.findall("./os/boot")
-        return {"iso": iso, "boot": boots[0].get("dev", "hd") if boots else "hd"}
+        return {"iso": iso, "boot": boots[0].get("dev", "hd") if boots else "hd", "firmware": "uefi" if root.find("./os/loader") is not None or root.find("os").get("firmware") == "efi" else "bios"}
 
-    def vm_definition(self, name, cpus, memory_mb, disk, iso=None, cpu_ids=None):
+    def vm_definition(self, name, cpus, memory_mb, disk, iso=None, cpu_ids=None, firmware="bios"): 
         name = identifier(name)
+        self.validate_vm_firmware(firmware)
         cpus, memory_mb = self.vm_resources(cpus, memory_mb)
         expected = Path(disk)
         self.validate_vm_disk_path(name, expected, exists=False)
@@ -56,6 +68,13 @@ class VMMixin:
         self.apply_vm_cpu_policy(root, cpus, cpu_ids)
         os_node = ET.SubElement(root, "os")
         ET.SubElement(os_node, "type", arch=os.uname().machine).text = "hvm"
+        if firmware == "uefi":
+            os_node.set("firmware", "efi")
+            os_node.find("type").set("machine", "q35")
+            firmware_node = ET.SubElement(os_node, "firmware")
+            ET.SubElement(firmware_node, "feature", enabled="no", name="secure-boot")
+            ET.SubElement(firmware_node, "feature", enabled="no", name="enrolled-keys")
+            ET.SubElement(os_node, "nvram").text = str(self.vm_nvram_path(name))
         if iso:
             ET.SubElement(os_node, "boot", dev="cdrom")
         ET.SubElement(os_node, "boot", dev="hd")
@@ -106,7 +125,7 @@ class VMMixin:
             records.append(entry)
             self.save("vms", records)
         except Exception:
-            self.command(["virsh", "undefine", "titan-" + name])
+            self.command(["virsh", "undefine", "titan-" + name] + (["--keep-nvram"] if ET.fromstring(xml).find("./os/nvram") is not None else []))
             path.unlink(missing_ok=True)
             raise
         return vm_id
@@ -302,7 +321,7 @@ class VMMixin:
         record = self.managed_vm(vm)
         if record["state"] != "shut off":
             raise Error("Die VM muss vor dem Entfernen ausgeschaltet sein.", 409)
-        self.command(["virsh", "undefine", record["id"]])
+        self.command(["virsh", "undefine", record["id"]] + (["--keep-nvram"] if record["firmware"] == "uefi" else []))
         metadata = self.directory / ("vm-" + record["name"] + ".xml")
         try:
             self.save("vms", [item for item in self.load("vms", []) if item["id"] != record["id"]])
@@ -357,10 +376,15 @@ class VMMixin:
                 any(item["name"] == name for item in existing["vms"]) or
                 any(item["name"] == name for item in self.load("vms", []))):
             raise Error("VM-Name oder Laufwerk existiert bereits; Wiederherstellung benötigt einen neuen Namen.", 409)
+        firmware = self.vm_media_info(original)["firmware"]
+        self.validate_vm_firmware(firmware)
+        if firmware == "uefi" and os.path.lexists(self.vm_nvram_path(name)):
+            raise Error("UEFI-Speicher dieses Namens existiert bereits.", 409)
         copied = Path(manager.restore_vm_files(backup, name))
         if copied != disk:
             raise Error("Wiederherstellung lieferte einen unerwarteten Laufwerkspfad.", 500)
         created_inode = None
+        restored_nvram = False
         try:
             fd = os.open(disk, os.O_RDONLY | os.O_NOFOLLOW)
             try:
@@ -375,9 +399,14 @@ class VMMixin:
                 os.close(fd)
             # Only resource values are imported. UUID, devices, host paths and
             # network details from an archive never become a live definition.
-            xml = self.vm_definition(name, cpus, memory_mb, disk)
+            firmware = self.vm_media_info(original)["firmware"]
+            xml = self.vm_definition(name, cpus, memory_mb, disk, firmware=firmware)
+            if firmware == "uefi":
+                restored_nvram = manager.restore_vm_nvram(backup, name)
             vm_id = self.register_vm_definition(name, xml)
         except Exception:
+            if restored_nvram:
+                self.vm_nvram_path(name).unlink(missing_ok=True)
             if created_inode is not None:
                 try:
                     info = os.stat(disk, follow_symlinks=False)
