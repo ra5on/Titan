@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/debian-image.yml'
       - 'scripts/build-debian-ab-image.sh'
+      - 'scripts/publish-debian-system.sh'
 permissions:
   contents: write
 concurrency:
