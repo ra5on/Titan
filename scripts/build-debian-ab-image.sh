@@ -28,10 +28,12 @@ virt-customize -a "$task_base" --memsize 4096 --copy-in "$task_work:/tmp" \
 task_root=$(guestfish --ro -a "$task_base" -i inspect-get-roots)
 [[ "$task_root" == /dev/sda3 ]] || { echo "Unexpected expanded root: $task_root" >&2; exit 1; }
 guestfish --ro -a "$task_base" -i download /tmp/titan-BOOTX64.EFI "$task_dir/BOOTX64.EFI"
-guestfish --ro -a "$task_base" -i download "$task_root" "$task_dir/rootfs.ext4"
+# Export with no mounted filesystems, then check and size the regular file.
+guestfish --ro -a "$task_base" run : download "$task_root" "$task_dir/rootfs.ext4"
+bash scripts/prepare-debian-rootfs.sh "$task_dir/rootfs.ext4"
 rm "$task_base"
 # A 16 GiB slot must hold the complete root filesystem with room for alignment.
-[[ $(stat -c %s "$task_dir/rootfs.ext4") -le 17179869184 ]] || exit 1
+[[ $(stat -c %s "$task_dir/rootfs.ext4") -eq 17179869184 ]] || exit 1
 task_image="$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.img"
 truncate -s 48G "$task_image"
 # 256 MiB ESP, 256 MiB boot, two 16 GiB roots, all remaining space for data.
