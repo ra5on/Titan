@@ -82,7 +82,7 @@
    const result = await api('/api/dashboard-layout');
    const order = normalize(result.order);
    saved.set(owner, order);
-   choices.set(owner,{hidden:Array.isArray(result.hidden)?result.hidden:[],wide:Array.isArray(result.wide)?result.wide:["tools","resources"],sizes:result.sizes||{}});
+   choices.set(owner,{hidden:Array.isArray(result.hidden)?result.hidden:['health','apps','shares','vms'],wide:Array.isArray(result.wide)?result.wide:["tools","resources"],sizes:result.sizes||{}});
    return {order:order.slice(), available:true};
   } catch (error) {
    // A layout failure must never prevent access to the NAS status and tools.
@@ -115,7 +115,7 @@
   const doc = grid.ownerDocument;
   let options=JSON.parse(JSON.stringify(choices.get(owner)||{hidden:[],wide:["tools","resources"]})), originalOptions=JSON.parse(JSON.stringify(options));
   const picker=doc.createElement("details");picker.className="tile-picker";picker.hidden=true;main.querySelector(".dashboard-toolbar")?.after(picker);
-  function applyChoices(){for(const tile of grid.querySelectorAll("[data-dashboard-tile]")){tile.hidden=options.hidden.includes(tile.dataset.dashboardTile);tile.classList.toggle("tile-wide",options.wide.includes(tile.dataset.dashboardTile));const size=options.sizes?.[tile.dataset.dashboardTile];tile.style.setProperty?.("--tile-columns",size?.columns||(options.wide.includes(tile.dataset.dashboardTile)?2:1));if(size?.height)tile.style.setProperty?.("--tile-height",size.height+"px");else tile.style.removeProperty?.("--tile-height");}picker.innerHTML='<summary>Kacheln hinzufügen oder ausblenden</summary><div class="tile-picker-options">'+[...grid.querySelectorAll("[data-dashboard-tile]")].map(tile=>`<label><input type="checkbox" data-layout-choice="${tile.dataset.dashboardTile}" ${tile.hidden?"":"checked"}>${escape(tile.querySelector("h2")?.textContent||tile.dataset.dashboardTile)}</label>`).join("")+"</div>";}
+  function applyChoices(){for(const tile of grid.querySelectorAll("[data-dashboard-tile]")){tile.hidden=tile.dataset.dashboardTile==='tools'||options.hidden.includes(tile.dataset.dashboardTile);tile.classList.toggle("tile-wide",options.wide.includes(tile.dataset.dashboardTile));const size=options.sizes?.[tile.dataset.dashboardTile];tile.style.setProperty?.("--tile-columns",size?.columns||(options.wide.includes(tile.dataset.dashboardTile)?2:1));if(size?.height)tile.style.setProperty?.("--tile-height",size.height+"px");else tile.style.removeProperty?.("--tile-height");}picker.innerHTML='<summary>Kacheln hinzufügen oder ausblenden</summary><div class="tile-picker-options">'+[...grid.querySelectorAll("[data-dashboard-tile]")].filter(tile=>tile.dataset.dashboardTile!=='tools').map(tile=>`<label><input type="checkbox" data-layout-choice="${tile.dataset.dashboardTile}" ${tile.hidden?"":"checked"}>${escape(tile.querySelector("h2")?.textContent||tile.dataset.dashboardTile)}</label>`).join("")+"</div>";}
   for(const tile of grid.querySelectorAll("[data-dashboard-tile]")){const grip=tile.querySelector("[data-layout-resize]");if(grip){tile.append(grip);grip.hidden=true;}}
   applyChoices();
   let original = readOrder(grid), editing = false, busy = false, drag = null, metricsBusy = false;

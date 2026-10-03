@@ -23,9 +23,15 @@ const icons = {
  settings:'<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.files}</svg>`;
-const nav = [['dashboard','Hauptmenü'],['control','Verwaltung'],['apps','App Store'],['docker','Docker'],['storage','Speicher'],['files','Dateimanager'],['shares','Freigaben'],['vms','Virtuelle Maschinen'],['services','Dienste'],['terminal','Terminal'],['users','Benutzer'],['backups','Backups'],['monitoring','Meldungen'],['updates','Updates'],['logs','Protokoll'],['settings','Einstellungen']];
+const nav = [['dashboard','Desktop'],['control','Verwaltung'],['apps','App Store'],['docker','Docker'],['storage','Speicher'],['files','Dateimanager'],['shares','Freigaben'],['vms','Virtuelle Maschinen'],['services','Dienste'],['terminal','Terminal'],['users','Benutzer'],['backups','Backups'],['monitoring','Meldungen'],['updates','Updates'],['logs','Protokoll'],['settings','Einstellungen']];
 let session, page = 'dashboard', generation = 0, currentShare = '', currentPath = '', catalogData = [], usersData = [], managedShares = [], vmsData = [], backupData = [], jobsData = [], fileOffset = 0, fileSearch = '', watched = new Set(), polling, activeUpload = null;
 let filesView = null, servicesData = null;
+let desktopWorkspace=null;
+const desktopEmbedded=Boolean(window.parent&&window.parent!==window&&typeof URLSearchParams!=='undefined'&&new URLSearchParams(location.search).get('desktop-app')==='1');
+if(desktopEmbedded)document.documentElement.dataset.desktopEmbedded='true';
+const desktopDirty=new Set();
+document.addEventListener('input',event=>{if(event.target.closest('form,#dialog'))desktopDirty.add(event.target);});
+window.titanHasUnsavedWork=()=>[...desktopDirty].some(el=>el.isConnected)||Boolean(activeUpload)||Boolean(document.querySelector('.vm-console-frame'))||Boolean(document.querySelector('[data-terminal-action=close]:not([disabled])'));
 let dashboardClockTimer = null;
 function dashboardClockParts(now = new Date()) {
  return {time:now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}),day:now.toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'})};
@@ -143,6 +149,8 @@ async function action(operation, args = {}) {
  const result = await api('/api/actions', {operation, arguments:args}); watched.add(result.job); toast('Aktion gestartet. Der Status erscheint hier und unter Aktivität.'); pollJobs(); return result;
 }
 async function renderAuth(setup) {
+ desktopWorkspace?.destroy();desktopWorkspace=null;
+ if(desktopEmbedded)window.parent.postMessage({type:'titan-logout'},location.origin);
  fileDialogRequest++;
  window.TitanDesktop?.dispose(); window.TitanFileEditor?.dispose(); if($('#dialog').open)$('#dialog').close();
  stopDashboardClock(); window.TitanUpdates?.dispose(); window.TitanSystemDisk?.dispose();
@@ -179,9 +187,19 @@ async function boot() {
  $('#alerts-button').hidden = session.user.role!=='admin';
  if (!polling) {polling = setInterval(pollJobs, 3000);setInterval(pollAlerts,30000);}
  await pollAlerts();
- await navigate();
+ if(desktopEmbedded){await navigate();const appId=new URLSearchParams(location.hash.split('?')[1]||'').get('app');if(page==='docker'&&appId&&/^[a-zA-Z0-9_-]{1,64}$/.test(appId))await actions['app-manage']({dataset:{id:appId}});return;}
+ const initial=location.hash;history.replaceState(null,'','#dashboard');
+ if(session.user.role==='admin')await navigate();
+ else {$('#shell').dataset.page='dashboard';$('#main').innerHTML=window.TitanDesktop.launcher({esc,icon,user:session.user});await window.TitanMenu.mount($('#main').querySelector('[data-launcher]'),{tools:window.TitanDesktop.tools.filter(t=>t[0]==='files'),user:session.user,esc,icon,api,toast});}
+ const tools=session.user.role==='admin'?nav.filter(([id])=>id!=='dashboard').map(([id,name])=>[id,name,window.TitanDesktop.tools.find(t=>t[0]===id)?.[2]||'Systemverwaltung']):window.TitanDesktop.tools.filter(t=>t[0]==='files');
+ $('#desktop-system').hidden=session.user.role!=='admin';
+ desktopWorkspace=window.TitanWorkspace.mount({doc:document,user:session.user,tools,icon,esc,api,toast,confirm:askYesNo,system:()=>actions['system-menu'](),logout:()=>{session.user=null;renderAuth(false);}});
+ if(initial&&initial!=='#dashboard')desktopWorkspace.route(initial);
 }
 async function navigate() {
+ if(desktopWorkspace){desktopWorkspace.route(location.hash);return;}
+ if(desktopEmbedded){const requested=location.hash.slice(1).split('?')[0];if(page!=='dashboard'&&requested&&requested!==page){window.parent.postMessage({type:'titan-open',hash:location.hash},location.origin);history.replaceState(null,'','#'+page);return;}}
+
  fileDialogRequest++;
  window.TitanLocations?.disposeWithin($('#main')); window.TitanUpdates?.dispose(); window.TitanSystemDisk?.dispose();
  stopDashboardClock();
@@ -195,7 +213,7 @@ async function navigate() {
  $('#page-crumb').textContent = nav.find(([key]) => key === page)[1];
  window.TitanDesktop?.dispose();
  $('#main').innerHTML = '<div class="loading">Server wird geladen …</div>';
- try {const html = await pages[page](); if (mine === generation) {$('#main').innerHTML = page==='dashboard'?html:`<section class="nas-window" aria-label="${esc(nav.find(([key])=>key===page)[1])}">${window.TitanDesktop?.application({page,title:esc(nav.find(([key])=>key===page)[1]),icon,user:session.user})||''}<div class="nas-window-content">${html}</div></section>`; window.TitanDesktop?.mount({root:document,user:session.user,page}); if(page==='dashboard')window.TitanMenu?.mount(document.querySelector('[data-launcher]'),{tools:session.user.role==='admin'?window.TitanDesktop.tools:window.TitanDesktop.tools.filter(t=>t[0]==='files'),apps:window.titanLauncherApps||[],user:session.user,esc,icon,api,toast}); bindPage(); renderInlineActivity(); syncDashboardClock();}} catch(error) { if(mine===generation) $('#main').innerHTML = heading('Verbindung prüfen',error.message) + button('Erneut versuchen','refresh','','primary'); }
+ try {const html = await pages[page](); if (mine === generation) {$('#main').innerHTML = page==='dashboard'?html:`<section class="nas-window" aria-label="${esc(nav.find(([key])=>key===page)[1])}">${(!desktopEmbedded&&window.TitanDesktop?.application({page,title:esc(nav.find(([key])=>key===page)[1]),icon,user:session.user}))||''}<div class="nas-window-content">${html}</div></section>`; window.TitanDesktop?.mount({root:document,user:session.user,page}); if(page==='dashboard')window.TitanMenu?.mount(document.querySelector('.desktop-shortcuts [data-launcher]')||document.querySelector('[data-launcher]'),{tools:session.user.role==='admin'?window.TitanDesktop.tools:window.TitanDesktop.tools.filter(t=>t[0]==='files'),apps:window.titanLauncherApps||[],user:session.user,esc,icon,api,toast}); bindPage(); renderInlineActivity(); syncDashboardClock();}} catch(error) { if(mine===generation) $('#main').innerHTML = heading('Verbindung prüfen',error.message) + button('Erneut versuchen','refresh','','primary'); }
 }
 
 function vmCpuList(options, status) {
@@ -296,7 +314,7 @@ const pages = {
    shares:tile('shares','Deine Freigaben',`${shares.length ? shares.slice(0,4).map(item => `<a href="#files" class="list-row"><span class="row-icon">▱</span><span class="row-main"><strong>${esc(item.name)}</strong><small>${esc(item.path)}</small></span><span class="row-end">${new Set([...item.readers,...item.writers]).size} Berechtigte ↗</span></a>`).join('') : empty('Erstelle deine erste SMB-Freigabe.')}<a class="tile-footer text-link" href="#shares">Freigaben verwalten →</a>`,pill(String(shares.length),'gray')),
    vms:tile('vms','Virtuelle Maschinen',`${vms.available?'':`<div class="notice warning">${esc(vms.error||'VM-Komponenten sind nicht bereit.')} ${button('VM-Komponenten einrichten','component-install','data-component="vms"','small')}</div>`}${vms.vms.length ? vms.vms.slice(0,3).map(vm => `<div class="list-row"><span class="row-icon">▣</span><span class="row-main"><strong>${esc(vm.name)}</strong><div data-vm-live="${esc(vm.id)}" data-vm-state="${esc(vm.state)}">${window.TitanVMLive?.render(vm,{bytes,esc})||''}</div></span>${pill(vm.state==='running'?'Läuft':'Gestoppt',vm.state==='running'?'':'gray')}</div>`).join('') : empty('Dein Platz für virtuelle Maschinen.','▣')}<a class="tile-footer text-link" href="#vms">Virtuelle Maschinen verwalten →</a>`,pill(String(vms.vms.length),'gray')),
   };
-  return heading(`${greeting}, ${session.user.name}.`,'',`<div class="dashboard-header-actions">${dashboardDateCard()}${button('System','system-menu')}</div>`,'DEIN NAS · '+status.hostname)+
+  return `<section class="desktop-shortcuts" aria-label="Desktop-Verknüpfungen">${window.TitanDesktop?.launcher({esc,icon,user:session.user})||''}</section>`+heading(`${greeting}, ${session.user.name}.`,'',`<div class="dashboard-header-actions">${dashboardDateCard()}</div>`,'DEIN NAS · '+status.hostname)+
    `<div class="nas-desktop dashboard-canvas">${dashboard?.toolbar()||''}${!layout.available&&dashboard?'<p class="hint layout-load-hint">Die gespeicherte Anordnung ist gerade nicht erreichbar.</p>':''}<div id="dashboard-grid" class="dashboard-grid">${layout.order.map(id=>tiles[id]||'').join('')}</div></div>`;
  },
  async apps() {
@@ -799,6 +817,7 @@ document.querySelector('.skip-link')?.addEventListener('click',event=>{event.pre
 $('#jobs-button').addEventListener('click',()=>actions.jobs().catch(error=>toast(error.message,true)));
 $('#profile').addEventListener('click',()=>actions['profile-menu']());
 $('#alerts-button')?.addEventListener('click',()=>{location.hash='monitoring';});
+if(desktopEmbedded){window.addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='titan-manage-app'||page!=='docker'||! /^[a-zA-Z0-9_-]{1,64}$/.test(event.data.id||''))return;actions['app-manage']({dataset:{id:event.data.id}}).catch(error=>toast(error.message,true));});document.addEventListener('pointerdown',()=>window.parent.postMessage({type:'titan-focus'},location.origin));document.addEventListener('click',event=>{const link=event.target.closest('a[href^="#"]');if(!link)return;const next=link.getAttribute('href');if(next.slice(1).split('?')[0]!==page){event.preventDefault();if(link.dataset.action==='close')$('#dialog').close();window.parent.postMessage({type:'titan-open',hash:next},location.origin);}},true);}
 window.addEventListener('hashchange',()=>{if(session?.user)navigate();});
 document.addEventListener('visibilitychange',syncDashboardClock);
 window.addEventListener('pageshow',syncDashboardClock);

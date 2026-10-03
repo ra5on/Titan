@@ -61,7 +61,7 @@ function fixture(){
  assert.deepEqual(dashboard.move(dashboard.ids,'storage',100),['tools','resources','health','apps','shares','vms','storage']);
  assert.deepEqual(dashboard.move(dashboard.ids,'unknown',0),dashboard.ids);
  const fetched=[];
- const layoutAPI=async path=>{fetched.push(path);return {order:['shares','storage']};};
+ const layoutAPI=async path=>{fetched.push(path);return {order:['shares','storage'],hidden:[]};};
  assert.deepEqual((await dashboard.load(layoutAPI,'first')).order,['shares','storage','tools','resources','health','apps','vms']);
  await dashboard.load(layoutAPI,'first');assert.equal(fetched.length,1);
  await dashboard.load(layoutAPI,'second');assert.equal(fetched.length,2);

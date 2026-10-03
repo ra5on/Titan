@@ -13,7 +13,7 @@ Ein einzelnes komprimiertes IMG für eine neue x86-64-VM: UEFI/OVMF ohne Secure 
 ## Oberfläche und Funktionen
 
 - HTTPS auf Port **5000**, erste Administration direkt im Browser.
-- Anpassbarer NAS-Desktop für Desktop und Mobilgeräte: Kacheln per Drag-and-Drop verschieben, am Griff in Breite/Höhe ändern, auswählen oder ausblenden; Menü-Icons und App-Ordner pro Benutzer speichern. Systemmenü für Neustart und Ausschalten; Bestätigungen mit Ja/Nein.
+- NAS-Desktop mit separatem durchsuchbarem Hauptmenü, oberer Taskleiste und mehreren gleichzeitig geöffneten Anwendungen. Fenster verschieben, vergrößern, minimieren, maximieren und anheften; Fensteranordnung und Hintergrund pro Benutzer in diesem Browser speichern. Auf dem Handy eine Anwendung in voller Breite mit App-Wechsler. Anpassbare Widgets: Kacheln per Drag-and-Drop verschieben, am Griff in Breite/Höhe ändern, auswählen oder ausblenden; Menü-Icons und App-Ordner pro Benutzer speichern. Systemmenü für Neustart und Ausschalten; Bestätigungen mit Ja/Nein.
 - Eigener Titan AppStore mit 42 eingerichteten Installationsvorlagen und 31 gesperrten Vorschauen in Vorbereitung. Deutsche Kategorien und Beschreibungen, Hinweise zum ersten Login, Port-, Datenbereich- und Netzwerkauswahl. Keine externe Katalogabfrage; bereits installierte ältere Store-Apps bleiben verwaltbar. Container-Images stammen weiterhin von ihren jeweiligen Herausgebern.
 - Eigene Docker-Verwaltung für alle lokalen Container, Images, Netzwerke und Volumes: erstellen, starten, stoppen, Logs und Details ansehen. Ports, Netzwerk, Volume, Umgebungsvariablen, RAM-/CPU-Limits und erkannte USB-/GPU-/NPU-Geräte vor dem Start einstellen; A–Z/Z–A-Sortierung, Suche und Statusfilter, Live-Übersicht und Mehrfachaktionen. Vorhandene Compose-Projekte werden als steuerbare Stacks gruppiert. Klick auf einen Container öffnet ein direktes Aktionsmenü. Für unterstützte gestoppte Titan-Container lassen sich Geräte ändern; manuelle Container erhalten dabei eine gestoppte Sicherung und behalten ihr Datenvolume.
 - QEMU/KVM und libvirt mit sichtbaren Schnellaktionen, ISO-/Image-Auswahl, CPU-Zuordnung und integrierter Browserkonsole; ausgeschaltete VMs nachträglich auf BIOS/UEFI, Startreihenfolge, NAT, vorhandene Bridges oder macvtap einstellen. Gelöschte VM-Namen sind wieder verwendbar, vorhandene Laufwerke bleiben erhalten.
@@ -28,7 +28,7 @@ Unter **Einstellungen → Updates & Rollback** in drei Schritten **Jetzt prüfen
 
 Boot, NAS-Laufzeit, Update, Neustart, Rollback, Rückfall nach einem fehlgeschlagenen Teststart und Erhalt von Benutzerkonten, Freigaberechten und Testdateien wurden in einer separaten QEMU-VM geprüft. Ein hängender Gast benötigt für den Rückfall einen Reset; persönliche Daten werden durch Rollback nicht zurückgesetzt. Die [Testgrenzen](docs/TITAN-IMAGE.md#prüfung-und-grenzen) bleiben für den Übergang zur Beta maßgeblich.
 
-[Neuerungen 0.4.14](docs/RELEASE-0.4.14.md) · [Docker-Verwaltung](docs/DOCKER-WORKBENCH.md) · [Titan AppStore und Geräte](docs/APP-STORES.md) · [Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
+[Desktop-Neuerungen 0.4.15](docs/RELEASE-0.4.15.md) · [Neuerungen 0.4.14](docs/RELEASE-0.4.14.md) · [Docker-Verwaltung](docs/DOCKER-WORKBENCH.md) · [Titan AppStore und Geräte](docs/APP-STORES.md) · [Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
 
 ## Lizenz
 
