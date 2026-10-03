@@ -2,7 +2,11 @@
 
 Titan wird als eigenes NAS-System auf **Debian 13** entwickelt, einschließlich Dateimanager, App Store, Docker-Netzen, virtuellen Maschinen, Freigaben, Diensten und Web-Terminal.
 
-**Alpha: Der Debian-Unterbau wird gerade auf vollständige Systemupdates mit Rollback umgebaut. Ein Titan-Installationsimage wird erst nach erfolgreichen Boot- und Update-Tests veröffentlicht. Noch nicht für produktive Daten verwenden.**
+**Alpha: Das Debian-A/B-Testimage ist verfügbar. Noch nicht für produktive Daten verwenden.**
+
+[**Titan 0.4.6-alpha.1 · IMG herunterladen**](https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz) · [Prüfsummen und Testergebnisse](https://github.com/ra5on/Titan/releases/tag/v0.4.6-alpha.1) · [Proxmox-Anleitung](docs/TITAN-IMAGE.md)
+
+Ein einzelnes komprimiertes IMG für eine neue x86-64-VM: UEFI/OVMF ohne Secure Boot, mindestens 4 GB RAM, 2 CPUs und 48 GiB Systemplatte. Nach dem Start `https://<NAS-IP>:5000` öffnen und den Administrator einrichten. Größere Systemplatten erweitern den Datenbereich.
 
 ## Oberfläche und Funktionen
 
@@ -16,9 +20,11 @@ Titan wird als eigenes NAS-System auf **Debian 13** entwickelt, einschließlich 
 
 ## Vollständige Systemupdates
 
-Ziel ist **Einstellungen → Updates & Rollback**: signierte Debian-Systemversionen auf einer zweiten Systempartition vorbereiten, Neustart bestätigen und verfügbare Rückkehrstände über ein Dropdown auswählen. Diese Funktion ist im Aufbau und wird erst nach echten Update-, Neustart- und Rückfalltests als verfügbar ausgewiesen.
+Unter **Einstellungen → Updates & Rollback** signierte Debian-Systemversionen auf der zweiten Systempartition vorbereiten, den Neustart per Schaltfläche bestätigen und verfügbare Rückkehrstände über ein Dropdown auswählen. Zunächst den Kanal **Alpha** verwenden. Nach einem bestätigten Update steht der vorherige Systemstand zum Rollback bereit.
 
-[Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/DEBIAN-PREVIEW.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
+Boot, NAS-Laufzeit, Update, Neustart, Rollback, Rückfall nach einem fehlgeschlagenen Teststart und Erhalt von Benutzerkonten, Freigaberechten und Testdateien wurden in einer separaten QEMU-VM geprüft. Ein hängender Gast benötigt für den Rückfall einen Reset; persönliche Daten werden durch Rollback nicht zurückgesetzt. Die [Testgrenzen](docs/TITAN-IMAGE.md#prüfung-und-grenzen) bleiben für den Übergang zur Beta maßgeblich.
+
+[Debian-Stand](docs/DEBIAN-MIGRATION.md) · [Testimage/Proxmox](docs/TITAN-IMAGE.md) · [Lizenz](LICENSE) · [Entwicklung](docs/DEVELOPMENT.md)
 
 ## Lizenz
 

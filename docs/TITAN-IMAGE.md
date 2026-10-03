@@ -1,7 +1,6 @@
 # Titan · Debian 13 · A/B-Alpha
 
-Diese Anleitung beschreibt den Freigabekandidaten. Ein Download ist erst mit
-einem signierten GitHub-Release nach bestandenen Tests verfügbar.
+[Titan 0.4.6-alpha.1 herunterladen](https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.4.6-alpha.1)
 
 Titan ist eine frühe Alpha. Verwende eine separate Test-VM und unabhängige
 Sicherungen. Das Image ist für eine Neuinstallation bestimmt; es konvertiert
@@ -36,6 +35,11 @@ Pakete. Titan prüft das signierte Release und das RAUC-Updatepaket, schreibt de
 inaktiven Systembereich und bietet danach einen Neustart an. Die Bestätigung
 funktioniert per Schaltfläche; `NEUSTART` muss nicht abgetippt werden.
 Automatische Suche bzw. Vorbereitung löst keinen automatischen Neustart aus.
+
+Der gemeinsame EFI-/GRUB-Startbereich wird durch diese Alpha-Systemupdates noch
+nicht erneuert. Änderungen daran oder am Partitionslayout benötigen derzeit ein
+neues Installationsimage. Normale kompatible Titan-/Debian-Versionen werden über
+den Update-Kanal eingespielt.
 
 Das Rollback-Dropdown zeigt verfügbare bestätigte lokale Systemstände. Direkt
 nach der Installation gibt es noch keinen vorherigen Stand. Nach einem
