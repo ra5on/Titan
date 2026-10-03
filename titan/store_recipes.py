@@ -19,7 +19,7 @@ def recipes(document, source):
     result = {}
     prefix = 's' + hashlib.sha256(source.encode()).hexdigest()[:10] + '-'
     for item in document['apps']:
-        allowed = {'id', 'name', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings'}
+        allowed = {'id', 'name', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network'}
         required = {'id', 'name', 'description', 'image', 'port', 'documentation', 'login_note'}
         if not isinstance(item, dict) or set(item) - allowed or required - set(item):
             raise Error('App enthält fehlende oder nicht unterstützte Felder.')
@@ -78,6 +78,32 @@ def recipes(document, source):
             fields.append({'key': f'setting_{index}', 'label': text(entry['label'], 80), 'env': entry['env'],
                            'type': 'password' if entry['secret'] else 'text', 'default': default,
                            'min_length': 1 if entry['secret'] else 0, 'max_length': 1000, 'required': True})
+        stack_extra = {}
+        if 'stack' in item:
+            from .compose_templates import validate_stack
+            stack_extra = {'stack': validate_stack(item['stack'])}
+            if item.get('default_network','default') not in ('default','host') or item.get('default_network')=='host' and len(item['stack']['services'])>1: raise Error('Ungültiges Standardnetz.')
+            stack_extra['default_network']=item.get('default_network','default')
+            # These fields are adapter-generated; validate all keys and limits.
+            stack_fields=item.get('stack_fields',[])
+            if not isinstance(stack_fields,list) or len(stack_fields)>64: raise Error('Zu viele Container-Einstellungen.')
+            keys=set()
+            for field in stack_fields:
+                if not isinstance(field,dict) or set(field)-{'key','label','type','default','required','min','max','min_length','max_length'} or not re.fullmatch(r'stack_[a-zA-Z0-9_-]{1,100}',field.get('key','')) or field['key'] in keys or field.get('type') not in ('text','password','number'): raise Error('Ungültige Container-Einstellung.')
+                keys.add(field['key']); text(field.get('label'),100)
+                if type(field.get('required')) is not bool: raise Error('Ungültige Pflichtangabe.')
+                if field['type']=='number':
+                    if field.get('min')!=1024 or field.get('max')!=65535: raise Error('Ungültiger Portbereich.')
+                    integer(field.get('default'),1024,65535)
+                elif not isinstance(field.get('default'),str) or len(field['default'])>1000 or field.get('max_length')!=1000 or field.get('min_length') not in (0,1) or field['type']=='password' and field['default']: raise Error('Ungültige Container-Textvorgabe.')
+            ports=item.get('stack_ports',[])
+            if not isinstance(ports,list) or len(ports)>32 or any(not isinstance(p,dict) or set(p)!={'option','target','protocol','service'} or p['option'] not in keys or p['protocol'] not in ('tcp','udp') or p['service'] not in item['stack']['services'] for p in ports): raise Error('Ungültige Container-Verbindungsports.')
+            for service in item['stack']['services'].values():
+                for value in service.get('environment',{}).values():
+                    if value.startswith('@option:') and value[8:] not in keys: raise Error('Container-Einstellung fehlt.')
+            for mapping in ports:
+                if not any(p['target']==mapping['target'] and p['protocol']==mapping['protocol'] for p in item['stack']['services'][mapping['service']].get('ports',[])): raise Error('Container-Port fehlt.')
+            fields.extend(stack_fields);extra.extend(ports)
         result[identifier] = {'name': text(item['name'], 80), 'description': text(item['description'], 500),
             'image': image, 'port': port, 'scheme': scheme, 'default_port': integer(item.get('default_port', max(port, 8080)), 1024, 65535),
             'mount': mount, 'memory': memory, 'environment': environment, 'config_mount': item.get('config_mount', True),
@@ -85,7 +111,7 @@ def recipes(document, source):
             'first_login': {'mode': 'documentation' if source.startswith(('https://api.linuxserver.io/', 'https://github.com/', 'https://codeload.github.com/')) else 'setup', 'instructions': text(item['login_note'], 2000), 'documentation': documentation},
             **({'upstream_name': image.split('/')[-1].split(':')[0]} if image.startswith('lscr.io/linuxserver/') else {}),
             'note': text(item['login_note'], 2000), 'store_name': name, 'store_url': source,
-            'install_schema': fields, 'extra_ports': extra}
+            'install_schema': fields, 'extra_ports': extra, **stack_extra}
     return name, result
 
 

@@ -102,7 +102,7 @@ class AppManagementTests(unittest.TestCase):
         self.calls.clear()
 
     def compose_commands(self):
-        return [item[6:] for item in self.calls if item[:2] == ["docker", "compose"] and "-f" in item]
+        return [item[6:] for item in self.calls if item[:2] == ["docker", "compose"] and "-f" in item and item[6:] != ["config","--quiet"]]
 
     def enable_selinux(self):
         self.selinux.return_value = True

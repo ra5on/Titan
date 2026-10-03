@@ -55,14 +55,14 @@ function fixture(){
  return {doc,main,grid,tiles,order,click,key};
 }
 (async()=>{
- assert.deepEqual(dashboard.normalize(['vms','vms','unknown','storage']),['vms','storage','resources','health','apps','shares']);
+ assert.deepEqual(dashboard.normalize(['vms','vms','unknown','storage']),['vms','storage','tools','resources','health','apps','shares']);
  assert.deepEqual(dashboard.normalize(null),dashboard.ids);
- assert.deepEqual(dashboard.move(dashboard.ids,'vms',0),['vms','storage','resources','health','apps','shares']);
- assert.deepEqual(dashboard.move(dashboard.ids,'storage',100),['resources','health','apps','shares','vms','storage']);
+ assert.deepEqual(dashboard.move(dashboard.ids,'vms',0),['vms','tools','storage','resources','health','apps','shares']);
+ assert.deepEqual(dashboard.move(dashboard.ids,'storage',100),['tools','resources','health','apps','shares','vms','storage']);
  assert.deepEqual(dashboard.move(dashboard.ids,'unknown',0),dashboard.ids);
  const fetched=[];
  const layoutAPI=async path=>{fetched.push(path);return {order:['shares','storage']};};
- assert.deepEqual((await dashboard.load(layoutAPI,'first')).order,['shares','storage','resources','health','apps','vms']);
+ assert.deepEqual((await dashboard.load(layoutAPI,'first')).order,['shares','storage','tools','resources','health','apps','vms']);
  await dashboard.load(layoutAPI,'first');assert.equal(fetched.length,1);
  await dashboard.load(layoutAPI,'second');assert.equal(fetched.length,2);
  const fallback=await dashboard.load(async()=>{throw Error('temporary error');},'offline');
@@ -73,9 +73,9 @@ function fixture(){
  }});
  view.click('[data-layout-edit]');assert(dashboard.editing());
  assert.equal(view.tiles.storage.querySelector('.tile-controls').hidden,false);
- assert.equal(view.doc.activeElement,view.tiles.storage.querySelector('[data-layout-handle]'));
+ assert.equal(view.doc.activeElement,view.tiles.tools.querySelector('[data-layout-handle]'));
  assert(view.key('vms','Home'));assert.equal(view.order()[0],'vms');
- assert(view.key('storage','ArrowDown'));assert.equal(view.order()[2],'storage');
+ assert(view.key('storage','ArrowDown'));assert.equal(view.order()[3],'storage');
  assert(view.key('vms','End'));assert.equal(view.order().at(-1),'vms');
  assert(!view.key('vms','a'));
  view.main.dispatch('click',{target:view.tiles.vms.querySelector('[data-layout-move="-1"]')});
@@ -85,21 +85,21 @@ function fixture(){
  const pointer={target:handle,pointerId:7,button:0,isPrimary:true,clientX:100,clientY:100,preventDefault(){}};
  view.grid.dispatch('pointerdown',pointer);view.doc.hit=view.tiles.storage;
  view.doc.dispatch('pointermove',{...pointer,clientY:120});
- assert.equal(view.order()[1],'vms');assert.equal(view.doc.body.children.length,1);
+ assert.equal(view.order()[2],'vms');assert.equal(view.doc.body.children.length,1);
  view.doc.dispatch('pointercancel',pointer);
  assert.equal(view.order().at(-2),'vms');assert.equal(view.doc.body.children.length,0);
  view.grid.dispatch('pointerdown',pointer);view.doc.hit=view.tiles.storage;
  view.doc.dispatch('pointermove',{...pointer,clientY:120});view.doc.dispatch('pointerup',pointer);
- assert.equal(view.order()[1],'vms');assert.equal(view.doc.body.children.length,0);
+ assert.equal(view.order()[2],'vms');assert.equal(view.doc.body.children.length,0);
  assert.equal(view.tiles.vms.innerHTML,'kept-card-content');
  assert.equal(view.grid.children.find(tile=>tile.dataset.dashboardTile==='vms'),view.tiles.vms);
  const draft=view.order();view.click('[data-layout-save]');await turns();
  assert(dashboard.editing());assert.deepEqual(view.order(),draft);assert.equal(notices.at(-1).error,true);
  assert.equal(view.main.querySelector('[data-layout-save]').disabled,false);
  rejectSave=false;view.click('[data-layout-save]');await turns();
- assert(!dashboard.editing());assert.deepEqual(requests.at(-1),{path:'/api/dashboard-layout',body:{order:draft}});
+ assert(!dashboard.editing());assert.deepEqual(requests.at(-1),{path:'/api/dashboard-layout',body:{order:draft,hidden:[],wide:["tools","resources"]}});
  assert.deepEqual((await dashboard.load(layoutAPI,'first')).order,draft);
- assert.deepEqual((await dashboard.load(layoutAPI,'second')).order,['shares','storage','resources','health','apps','vms']);
+ assert.deepEqual((await dashboard.load(layoutAPI,'second')).order,['shares','storage','tools','resources','health','apps','vms']);
  view.click('[data-layout-edit]');view.click('[data-layout-reset]');assert.deepEqual(view.order(),dashboard.ids);
  view.click('[data-layout-cancel]');assert.deepEqual(view.order(),draft);assert(!dashboard.editing());
  // Navigating away releases pointer listeners and a stale response does not touch the next page.

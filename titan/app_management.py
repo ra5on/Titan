@@ -20,7 +20,13 @@ def _run(*args, **kwargs):
     return run(*args, **kwargs)
 
 
-class AppMixin(AppNetworkMixin):
+from .app_devices import AppDevicesMixin, validate as validate_devices, devices as app_devices_inventory
+
+
+from .app_metrics import AppMetricsMixin
+
+
+class AppMixin(AppMetricsMixin, AppDevicesMixin, AppNetworkMixin):
     def _app_options(self, app):
         """Secrets stay in a separate owner-only file, never in public records."""
         path = self.directory / "apps" / app / "options.json"
@@ -55,6 +61,22 @@ class AppMixin(AppNetworkMixin):
                     source = binding.get("source") if isinstance(binding, dict) else binding.split(":", 1)[0]
                     if source:
                         sources.append(source)
+        config = self.directory / "apps" / app / "compose.json"
+        if not data and config.exists() and not config.is_symlink():
+            definition=json.loads(config.read_text())
+            for service in definition.get("services",{}).values():
+                for binding in service.get("volumes",[]):
+                    source=binding.get("source") if isinstance(binding,dict) else binding.split(":",1)[0]
+                    if source and Path(source).is_relative_to(self.directory):
+                        relative=Path(source).relative_to(self.directory)
+                        descriptor=os.open(self.directory,os.O_DIRECTORY|os.O_NOFOLLOW)
+                        try:
+                            for component in relative.parts:
+                                child=os.open(component,os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=descriptor)
+                                os.close(descriptor);descriptor=child
+                        except OSError:
+                            raise Error("App-Konfigurationsverzeichnis fehlt oder enthält einen symbolischen Link.",503) from None
+                        finally: os.close(descriptor)
         for source in sources:
             if self.volume_manager.required_path(source) is not None or Path(source).is_relative_to(self.share_root):
                 try:
@@ -105,7 +127,7 @@ class AppMixin(AppNetworkMixin):
             network = selection(record.get("network"))
             expected = compose(app, str(directory), owner.pw_uid, owner.pw_gid,
                                integer(record["port"], 1 if network["mode"] == "host" else 1024, 65535),
-                               str(record["data"]), self._app_options(app), network)
+                               str(record["data"]), self._app_options(app), network, record.get("hardware"))
             # Read recipes from older releases, but prevent Docker from silently
             # creating missing bind directories on an unavailable NAS volume.
             normalized = []
@@ -134,10 +156,11 @@ class AppMixin(AppNetworkMixin):
         except ValueError:
             raise Error("Docker liefert einen ungültigen Containerstatus.", 503)
 
-    def _app_container(self, app, record, rows=None, options=None):
+    def _app_container(self, app, record, rows=None, options=None, service_key=None):
+        service_key = service_key or app
         if rows is None:
             rows = self._app_container_rows()
-        row = next((item for item in rows if item.get("Names") == "titan-" + app), None)
+        row = next((item for item in rows if item.get("Names") == "titan-" + service_key), None)
         if row is None:
             return None
         identifier = row.get("ID", "")
@@ -149,7 +172,7 @@ class AppMixin(AppNetworkMixin):
             labels = container.get("Config", {}).get("Labels") or {}
             expected_labels = {"io.titan.managed": "true", "io.titan.app": app,
                                "com.docker.compose.project": "titan-" + app,
-                               "com.docker.compose.service": app}
+                               "com.docker.compose.service": service_key}
             if any(labels.get(key) != value for key, value in expected_labels.items()):
                 raise Error("Ein fremder Container belegt den App-Namen. Titan verändert ihn nicht.", 409)
             bindings = {binding["Destination"]: binding["Source"] for binding in container.get("Mounts", [])
@@ -159,22 +182,26 @@ class AppMixin(AppNetworkMixin):
             options = self._app_options(app) if options is None else options
             network = selection(record.get("network"))
             definition = compose(app, str(self.directory / "apps" / app), owner.pw_uid, owner.pw_gid,
-                                 record["port"], record["data"], options, network)["services"][app]
+                                 record["port"], record["data"], options, network, record.get("hardware"))["services"][service_key]
             expected_bindings = {binding["target"]: binding["source"] for binding in definition["volumes"]}
             host = container.get("HostConfig", {})
             expected_ports = {f"{item['target']}/{item['protocol']}": {str(item["host"])}
-                              for item in published_ports(app, record["port"], options, host_mode=network["mode"] == "host")} if network["mode"] != "host" else {}
+                              for item in published_ports(app, record["port"], options, host_mode=network["mode"] == "host") if "service" not in item or (app if item["service"] == APPS[app]["stack"]["primary"] else app+"-"+item["service"].lower()) == service_key} if network["mode"] != "host" else {}
             actual_ports = {}
             for target, publications in (host.get("PortBindings") or {}).items():
                 if any(binding.get("HostIp", "") not in ("", "0.0.0.0", "::") for binding in publications or []):
                     raise Error("Container veröffentlicht Ports außerhalb der verwalteten Vorlage.", 409)
                 actual_ports[target] = {str(binding["HostPort"]) for binding in publications or []}
-            if (container.get("Name") != "/titan-" + app or container.get("Id") != identifier or
-                    container.get("Config", {}).get("Image") != APPS[app]["image"] or
+            if (container.get("Name") != "/titan-" + service_key or container.get("Id") != identifier or
+                    container.get("Config", {}).get("Image") != definition["image"] or
                     bindings != expected_bindings or actual_ports != expected_ports or
                     len(container.get("Mounts", [])) != len(expected_bindings) or
-                    host.get("Privileged") or host.get("Devices") or host.get("CapAdd")):
+                    host.get("Privileged") or host.get("CapAdd") or
+                    (host.get("Devices") or []) != [{"PathOnHost":v.split(":")[0],"PathInContainer":v.split(":")[1],"CgroupPermissions":v.split(":")[2]} for v in definition.get("devices", [])]):
                 raise Error("Container und verwaltete App-Konfiguration stimmen nicht überein.", 409)
+            expected_requests=definition.get("deploy",{}).get("resources",{}).get("reservations",{}).get("devices",[])
+            requests=host.get("DeviceRequests") or []
+            if len(requests)!=len(expected_requests) or any(request.get("Driver")!=expected.get("driver") or request.get("DeviceIDs")!=expected.get("device_ids") or request.get("Capabilities")!=[expected.get("capabilities")] or request.get("Count",0)!=0 or request.get("Options") not in ({},None) for request,expected in zip(requests,expected_requests)): raise Error("GPU-Zuordnung stimmt nicht mit der ausgewählten Hardware überein.",409)
             mode = host.get("NetworkMode")
             if network["mode"] == "host":
                 if mode != "host":
@@ -266,20 +293,25 @@ class AppMixin(AppNetworkMixin):
         record = self.managed_app(app)
         container = self._app_container(app, record)
         if arguments and arguments[0] in ("up", "restart", "create"):
+            self.app_devices_ready(record)
             network, _ = self._app_network_validate(record.get("network"), app, record)
             if network["mode"] == "host" and not (container and container.get("State", {}).get("Status") in ("running", "restarting")):
                 self._host_ports_available(published_ports(app, record["port"], self._app_options(app), host_mode=True))
         path = self.directory / "apps" / app / "compose.json"
         definition = json.loads(path.read_text())
+        rows = self._app_container_rows()
+        for service_key in definition["services"]:
+            if service_key != app: self._app_container(app,record,rows,service_key=service_key)
         bindings = definition["services"][app]["volumes"]
         if any(isinstance(binding, str) for binding in bindings):
             from .host import pwd
             owner = pwd.getpwnam("titan-files")
-            atomic_json(path, compose(app, str(path.parent), owner.pw_uid, owner.pw_gid, record["port"], record["data"], self._app_options(app), record.get("network")))
+            atomic_json(path, compose(app, str(path.parent), owner.pw_uid, owner.pw_gid, record["port"], record["data"], self._app_options(app), record.get("network"), record.get("hardware")))
         def invoke(*options):
             return _run(["docker", "compose", "--project-name", "titan-" + app, "-f", str(path), *options], timeout=timeout)
         try:
             command = arguments[0] if arguments else None
+            if command in ("up", "restart", "create"): invoke("config", "--quiet")
             if command in ("up", "restart", "create"):
                 # Compose's Mount API drops SELinux Z when create_host_path is
                 # false. Keep missing-volume protection and label the verified
@@ -443,10 +475,13 @@ class AppMixin(AppNetworkMixin):
         return {"app": record, "container": summary, "logs": logs, "warnings": warnings,
                 "config_path": str(self.directory / "apps" / app / "config"), "data_path": record["data"]}
 
-    def op_app_install(self, app, port, share=None, options=None, network=None):
+    def op_app_install(self, app, port, share=None, options=None, network=None, hardware=None):
         if app not in APPS:
             raise Error("App-Vorlage nicht gefunden.")
-        network = selection(network)
+        available_devices=app_devices_inventory()
+        hardware_ids=validate_devices(hardware,available_devices)
+        hardware=[item for item in available_devices if item["id"] in hardware_ids]
+        network = selection(network if network is not None else {"mode": APPS[app].get("default_network","default")})
         port = integer(port, 1 if network["mode"] == "host" else 1024, 65535)
         options = validate_options(app, options)
         records = self.load("apps", [])
@@ -477,15 +512,22 @@ class AppMixin(AppNetworkMixin):
             os.close(descriptor)
             self.app_storage_ready(app, str(data))
         record = {"id": app, "name": APPS[app]["name"], "port": port, "scheme": APPS[app].get("scheme", "http"),
-                  "data": str(data), "installed": time.time(), "phase": "installing", "last_error": "", "network": network}
+                  "data": str(data), "installed": time.time(), "phase": "installing", "last_error": "", "network": network, **({"hardware":hardware} if hardware else {})}
         if network_id:
             record["network_id"] = network_id
         self._app_container(app, record, rows, options)
+        proposed = compose(app,str(path),owner.pw_uid,owner.pw_gid,port,str(data),options,network,record.get("hardware"))
+        for service_key in proposed["services"]:
+            if service_key != app: self._app_container(app,record,rows,options,service_key)
         self._app_directory(path / "config", self.directory, owner)
         if not share:
             self._app_directory(data, self.share_root, owner)
+        for service in proposed["services"].values():
+            for binding in service["volumes"]:
+                source = Path(binding["source"])
+                if source.is_relative_to(path / "config") and source != path / "config": self._app_directory(source,self.directory,owner)
         atomic_json(path / "options.json", options)
-        atomic_json(path / "compose.json", compose(app, str(path), owner.pw_uid, owner.pw_gid, port, str(data), options, network))
+        atomic_json(path / "compose.json", compose(app, str(path), owner.pw_uid, owner.pw_gid, port, str(data), options, network, record.get("hardware")))
         records.append(record)
         self.save("apps", records)
         try:

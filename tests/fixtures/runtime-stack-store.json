@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "name": "Titan runtime fixture",
+  "apps": [
+    {
+      "id": "runtime-stack",
+      "name": "Titan runtime stack",
+      "description": "Two disposable containers for the signed release runtime test.",
+      "image": "lscr.io/linuxserver/heimdall:latest",
+      "port": 80,
+      "default_port": 18080,
+      "scheme": "http",
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://github.com/ra5on/Titan",
+      "login_note": "Diese importierte Vorlage hat noch keinen von Titan gepr\u00fcften Standardzugang. Anmeldung und Ersteinrichtung stehen in der direkt verlinkten Anleitung des Herausgebers. Titan runtime stack",
+      "default_network": "default",
+      "stack": {
+        "primary": "web",
+        "services": {
+          "web": {
+            "image": "lscr.io/linuxserver/heimdall:latest",
+            "environment": {
+              "PUID": "@uid",
+              "PGID": "@gid",
+              "TZ": "@option:stack_env_0"
+            },
+            "mounts": [
+              {
+                "slot": "mount-1",
+                "target": "/config",
+                "readonly": false
+              },
+              {
+                "slot": "data",
+                "target": "/data",
+                "readonly": false
+              }
+            ],
+            "ports": [
+              {
+                "published": 18080,
+                "target": 80,
+                "protocol": "tcp"
+              }
+            ],
+            "depends_on": [
+              "sidecar"
+            ]
+          },
+          "sidecar": {
+            "image": "lscr.io/linuxserver/heimdall:latest",
+            "environment": {
+              "PUID": "@uid",
+              "PGID": "@gid",
+              "TZ": "@option:stack_env_0"
+            },
+            "mounts": [
+              {
+                "slot": "mount-3",
+                "target": "/config",
+                "readonly": false
+              },
+              {
+                "slot": "data",
+                "target": "/data",
+                "readonly": false
+              }
+            ],
+            "ports": [],
+            "depends_on": []
+          }
+        }
+      },
+      "stack_fields": [
+        {
+          "key": "stack_env_0",
+          "label": "TZ \u00b7 web",
+          "type": "text",
+          "default": "Europe/Berlin",
+          "required": true,
+          "min_length": 0,
+          "max_length": 1000
+        }
+      ],
+      "stack_ports": []
+    }
+  ]
+}

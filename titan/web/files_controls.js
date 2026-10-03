@@ -7,6 +7,7 @@
 })(typeof window === 'undefined' ? null : window, function () {
  const limit = 200;
  let current = null;
+ let clipboard=null,clipboardOwner=null;
  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
  const eligible = entry => Boolean(entry && typeof entry.name === 'string' && entry.name && !entry.name.includes('/') && !entry.name.includes('\0') && !['.','..'].includes(entry.name) && !entry.symlink && entry.readable !== false);
  function normalizeFolder(value) {
@@ -40,10 +41,11 @@
    item.status = 'running'; progress(results, index);
    try {
     const body = {share:snapshot.share, path:item.path, action:snapshot.action};
-    if (snapshot.action !== 'trash') {
+    if (!['trash','delete'].includes(snapshot.action)) {
      body.destination_share = snapshot.destinationShare;
      body.destination = destinationPath(snapshot.destinationFolder, item.name);
     }
+    if(snapshot.action==='delete')body.confirmation_path=snapshot.share==='@system'?'/'+item.path:snapshot.share+'/'+item.path;
     await api('/api/files', body);
     item.status = 'completed';
    } catch (error) {
@@ -64,6 +66,7 @@
   const doc = main.ownerDocument;
   const esc = ctx.esc || escape;
   const notice = (message, error = false) => ctx.toast?.(message, error);
+  if(clipboardOwner!==ctx.owner){clipboard=null;clipboardOwner=ctx.owner;}
   const origin = {share:String(ctx.share || ''), path:String(ctx.path || '')};
   const targets = (Array.isArray(ctx.targets) ? ctx.targets : []).map(item => ({name:String(item.name), label:String(item.label || item.name)}));
   const entries = (Array.isArray(ctx.entries) ? ctx.entries : []).map(entry => ({...entry}));
@@ -88,6 +91,8 @@
   const selectedEntries = () => [...allowed].filter(([index]) => selected.has(index)).map(([index, {entry}]) => ({...entry, index, path:[origin.path, entry.name].filter(Boolean).join('/')}));
   function update() {
    if (!mounted) return;
+   for(const index of [...selected])if(allowed.get(index)?.box.closest?.("[hidden]"))selected.delete(index);
+   for(const button of main.querySelectorAll("[data-file-clipboard]"))button.disabled=button.dataset.fileClipboard==="paste"?!clipboard||!ctx.writable:!selected.size;
    const count = selected.size;
    const mutable = count > 0 && ctx.writable && selectedEntries().every(entry => entry.mutable === true);
    for (const node of main.querySelectorAll('[data-file-selection-count]')) node.textContent = `${count} ausgewählt`;
@@ -123,12 +128,14 @@
    const checkbox = event.target.closest?.('[data-file-select]') || event.target.closest?.('[data-file-select-all]');
    const label = event.target.closest?.('label');
    if (checkbox || label?.querySelector('[data-file-select]') || label?.querySelector('[data-file-select-all]')) { event.stopPropagation?.(); return; }
+   const clipButton=event.target.closest?.("[data-file-clipboard]");if(clipButton&&!clipButton.disabled){event.preventDefault();event.stopPropagation?.();clip(clipButton.dataset.fileClipboard);return;}
    const button = event.target.closest?.('[data-file-batch]');
    if (!button || !main.contains(button) || button.disabled || busy || !mounted) return;
    event.preventDefault(); event.stopPropagation?.();
    if (button.dataset.fileBatch === 'clear') clear();
    else openBatch(button.dataset.fileBatch);
   }
+  function clip(command){if(command==="paste"){if(clipboard&&ctx.writable)openBatch(clipboard.action,clipboard);return;}const items=selectedEntries();if(!items.length)return;if(command==="cut"&&(!ctx.writable||items.some(item=>item.mutable!==true))){notice("Auswahl ist schreibgeschützt.",true);return;}clipboard={...origin,action:command==="cut"?"move":"copy",entries:items};notice(items.length+(command==="cut"?" Einträge ausgeschnitten.":" Einträge kopiert."));update();}
   function invoke(name, entry) {
    try {
     Promise.resolve(ctx.actions?.[name]?.({dataset:{path:entry.path, share:origin.share}})).catch(error => notice(error.message, true));
@@ -139,6 +146,7 @@
    if ((event.ctrlKey || event.metaKey) && !event.altKey && String(event.key).toLowerCase() === 'a') {
     event.preventDefault(); selected.clear(); for (const index of allowed.keys()) selected.add(index); update(); return;
    }
+   if((event.ctrlKey||event.metaKey)&&!event.altKey&&['c','x','v'].includes(event.key.toLowerCase())&&!doc.defaultView?.getSelection?.()?.toString()){event.preventDefault();clip({c:'copy',x:'cut',v:'paste'}[event.key.toLowerCase()]);return;}
    if (event.ctrlKey || event.metaKey || event.altKey) return;
    const items = selectedEntries();
    if (event.key === 'Escape' && items.length) { event.preventDefault(); clear(); return; }
@@ -147,26 +155,26 @@
    event.preventDefault();
    if (!ctx.writable || items.some(entry => entry.mutable !== true)) { notice('Die Auswahl enthält schreibgeschützte Einträge.', true); return; }
    if (origin.share === '@system') {
-    if (items.length === 1) invoke('file-delete', items[0]);
-    else notice('Systemeinträge bitte einzeln löschen und den jeweiligen Pfad bestätigen.', true);
+    if(items.length===1)invoke('file-delete',items[0]);else openBatch('delete');
    } else openBatch('trash');
   }
-  function openBatch(action) {
-   if (!['copy','move','trash'].includes(action) || busy || !mounted) return;
-   const items = selectedEntries();
+  function openBatch(action, sourceClipboard=null) {
+   if (!['copy','move','trash','delete'].includes(action) || busy || !mounted) return;
+   const items = sourceClipboard?.entries || selectedEntries();
+   const source = sourceClipboard || origin;
    if (!items.length) return;
    if (action !== 'copy' && (!ctx.writable || items.some(entry => entry.mutable !== true))) { notice('Die Auswahl enthält schreibgeschützte Einträge.', true); return; }
    if (action === 'trash' && origin.share === '@system') { notice('Systemeinträge bitte einzeln löschen und den jeweiligen Pfad bestätigen.', true); return; }
-   if (action !== 'trash' && !targets.length) { notice('Es gibt keine beschreibbare Zielfreigabe.', true); return; }
+   if (!['trash','delete'].includes(action) && !targets.length) { notice('Es gibt keine beschreibbare Zielfreigabe.', true); return; }
    operation?.cleanup();
-   const title = {copy:'Auswahl kopieren', move:'Auswahl verschieben', trash:'Auswahl in den Papierkorb'}[action];
+   const title = {copy:'Auswahl kopieren', move:'Auswahl verschieben', trash:'Auswahl in den Papierkorb',delete:'Auswahl dauerhaft löschen'}[action];
    const selectField = ctx.selectField || ((label, name, options, value) => `<label class="field">${esc(label)}<select name="${name}">${options.map(([key, text]) => `<option value="${esc(key)}" ${key === value ? 'selected' : ''}>${esc(text)}</option>`).join('')}</select></label>`);
    const field = ctx.field || ((label, name, type, value, attributes, hint) => `<label class="field">${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${attributes}><small>${esc(hint)}</small></label>`);
    const formEnd = ctx.formEnd || (label => `<div class="form-actions"><button type="button" class="button" data-action="close">Abbrechen</button><button type="submit" class="button primary">${esc(label)}</button></div></form>`);
    const folderPicker = doc.defaultView?.TitanFolderPicker || (typeof window !== 'undefined' ? window.TitanFolderPicker : null);
    const initialDestination = targets.some(item => item.name === origin.share) ? origin.path : '';
-   const destination = action === 'trash' ? '<p>Die Auswahl wird in .titan-trash auf dieser Freigabe verschoben.</p>' : `${selectField('Zielfreigabe','destination_share',targets.map(item => [item.name,item.label]),targets.some(item => item.name === origin.share) ? origin.share : targets[0].name)}${folderPicker ? folderPicker.render({initialPath:initialDestination,pathField:'destination',shareField:'destination_share'}) : field('Vorhandener Zielordner','destination','text',origin.path,'maxlength="4096"','Relativ zur Zielfreigabe, z. B. Archiv. Leer bedeutet Hauptordner. Die Namen bleiben erhalten; vorhandene Ziele werden nicht überschrieben.')}`;
-   ctx.dialog(title, `<div data-file-batch-content><p class="subtitle">${items.length} Einträge aus ${esc(origin.share)} / ${esc(origin.path || 'Hauptordner')}</p><form data-file-batch-form>${destination}<p class="hint">Einträge werden nacheinander verarbeitet. Abbrechen stoppt nach dem laufenden Eintrag.</p><p class="error-text" role="alert" data-file-batch-error></p>${formEnd(action === 'trash' ? 'In den Papierkorb' : action === 'copy' ? 'Kopieren' : 'Verschieben')}<section data-file-batch-progress hidden><p role="status" aria-live="polite" data-file-batch-status></p><ol class="file-batch-results" data-file-batch-results></ol><div class="form-actions"><button type="button" class="button" data-file-batch-stop>Nach diesem Eintrag abbrechen</button></div></section></div>`);
+   const destination = action==='delete'?'<p>Die ausgewählten Dateien und Ordner werden dauerhaft gelöscht. Möchtest du fortfahren?</p>':action === 'trash' ? '<p>Die Auswahl wird in .titan-trash auf dieser Freigabe verschoben.</p>' : `${selectField('Zielfreigabe','destination_share',targets.map(item => [item.name,item.label]),targets.some(item => item.name === origin.share) ? origin.share : targets[0].name)}${folderPicker ? folderPicker.render({initialPath:initialDestination,pathField:'destination',shareField:'destination_share'}) : field('Vorhandener Zielordner','destination','text',origin.path,'maxlength="4096"','Relativ zur Zielfreigabe, z. B. Archiv. Leer bedeutet Hauptordner. Die Namen bleiben erhalten; vorhandene Ziele werden nicht überschrieben.')}`;
+   ctx.dialog(title, `<div data-file-batch-content><p class="subtitle">${items.length} Einträge aus ${esc(source.share)} / ${esc(source.path || 'Hauptordner')}</p><form data-file-batch-form>${destination}<p class="hint">Einträge werden nacheinander verarbeitet. Abbrechen stoppt nach dem laufenden Eintrag.</p><p class="error-text" role="alert" data-file-batch-error></p>${formEnd(['trash','delete'].includes(action) ? 'Ja, löschen' : action === 'copy' ? 'Kopieren' : 'Verschieben')}<section data-file-batch-progress hidden><p role="status" aria-live="polite" data-file-batch-status></p><ol class="file-batch-results" data-file-batch-results></ol><div class="form-actions"><button type="button" class="button" data-file-batch-stop>Nach diesem Eintrag abbrechen</button></div></section></div>`);
    const modal = doc.querySelector('#dialog');
    const area = modal?.querySelector('[data-file-batch-content]');
    const form = area?.querySelector('[data-file-batch-form]');
@@ -175,7 +183,7 @@
    const listeners = [], modalController = new AbortController();
    const op = {running:false, stop:false, cleanup(){folderPicker?.disposeWithin?.(area);modalController.abort();listeners.splice(0).forEach(remove => remove());}};
    operation = op;
-   if (action !== 'trash') folderPicker?.mount?.(area, {api:ctx.api,toast:ctx.toast,initialPath:initialDestination,pathField:'destination',shareField:'destination_share'});
+   if (!['trash','delete'].includes(action)) folderPicker?.mount?.(area, {api:ctx.api,toast:ctx.toast,initialPath:initialDestination,pathField:'destination',shareField:'destination_share'});
    const own = () => area.isConnected !== false && modal.querySelector('[data-file-batch-content]') === area;
    function bind(node, type, listener, options = {}) {
     node.addEventListener(type, listener, {...options, signal:modalController.signal});
@@ -200,17 +208,18 @@
     try {
      const data = new doc.defaultView.FormData(form);
      const destinationShare = String(data.get('destination_share') || '');
-     if (action !== 'trash' && !targets.some(item => item.name === destinationShare)) throw new Error('Wähle eine beschreibbare Zielfreigabe.');
-     snapshot = Object.freeze({...origin, action, entries:items.map(item => Object.freeze({...item})), destinationShare, destinationFolder:action === 'trash' ? '' : normalizeFolder(data.get('destination'))});
+     if (!['trash','delete'].includes(action) && !targets.some(item => item.name === destinationShare)) throw new Error('Wähle eine beschreibbare Zielfreigabe.');
+     snapshot = Object.freeze({share:source.share,path:source.path, action, entries:items.map(item => Object.freeze({...item})), destinationShare, destinationFolder:['trash','delete'].includes(action) ? '' : normalizeFolder(data.get('destination'))});
     } catch (error) { errorNode.textContent = error.message; return; }
     op.running = true; op.stop = false; busy = true; update(); form.hidden = true; progress.hidden = false; errorNode.textContent = '';
     try {
      // Verify the entered folder before the first mutation, including an empty root path.
-     if (action !== 'trash') { status.textContent = 'Zielordner wird geprüft …'; await ctx.api(`/api/files?${new URLSearchParams({share:snapshot.destinationShare, path:snapshot.destinationFolder, limit:'1'})}`); }
+     if (!['trash','delete'].includes(action)) { status.textContent = 'Zielordner wird geprüft …'; await ctx.api(`/api/files?${new URLSearchParams({share:snapshot.destinationShare, path:snapshot.destinationFolder, limit:'1'})}`); }
      const results = await serialBatch(ctx.api, snapshot, render, () => op.stop);
      const completed = results.filter(item => item.status === 'completed').length;
      const failed = results.filter(item => item.status === 'failed').length;
      const skipped = results.filter(item => item.status === 'skipped').length;
+     if(sourceClipboard&&action==="move"&&completed===items.length)clipboard=null;
      const summary = `${completed} abgeschlossen · ${failed} fehlgeschlagen · ${skipped} nicht begonnen.`;
      if (own()) {
       status.textContent = summary;

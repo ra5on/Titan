@@ -1,0 +1,53 @@
+"""Observed Docker resource statistics, queried only for verified managed containers."""
+import json
+import math
+import re
+from .core import Error
+
+
+def amount(value):
+    match=re.fullmatch(r'([0-9]+(?:\.[0-9]+)?)\s*(B|kB|MB|GB|TB|KiB|MiB|GiB|TiB)',str(value))
+    if not match:return None
+    units={'B':1,'kB':1000,'MB':1000**2,'GB':1000**3,'TB':1000**4,'KiB':1024,'MiB':1024**2,'GiB':1024**3,'TiB':1024**4}
+    return int(float(match[1])*units[match[2]])
+
+
+def parse_stats(output):
+    result={}
+    for line in output.splitlines()[:256]:
+        try:
+            row=json.loads(line);name=row['Name'];cpu=float(row['CPUPerc'].rstrip('%'))
+            if not isinstance(name,str) or not math.isfinite(cpu) or cpu<0:continue
+            memory=amount(row.get('MemUsage','').split('/')[0].strip())
+            disk=[amount(part.strip()) for part in row.get('BlockIO','').split('/')]
+            result[name]={'cpu_percent':round(cpu,1),'memory_bytes':memory,'disk_read_bytes':disk[0] if len(disk)==2 else None,'disk_write_bytes':disk[1] if len(disk)==2 else None}
+        except (ValueError,KeyError,TypeError,AttributeError):continue
+    return result
+
+
+class AppMetricsMixin:
+    def op_app_metrics(self):
+        from .app_management import _run
+        targets={};records=self.load('apps',[])
+        for record in records[:128]:
+            try:
+                checked=self.managed_app(record['id'])
+                from .catalog import APPS
+                recipe=APPS[record['id']];stack=recipe.get('stack')
+                names=[record['id']] if not stack else [record['id'] if name==stack['primary'] else record['id']+'-'+name.lower() for name in stack['services']]
+                for name in names:
+                    container=self._app_container(record['id'],checked,service_key=name)
+                    if container and container.get('State',{}).get('Running'):targets['titan-'+name]=record['id']
+            except Error:continue
+        result={record['id']:{'cpu_percent':None,'memory_bytes':None,'disk_read_bytes':None,'disk_write_bytes':None} for record in records}
+        if targets:
+            try:
+                samples=parse_stats(_run(['docker','stats','--no-stream','--format','{{json .}}',*targets],timeout=15))
+            except Error:return {'apps':result,'available':False}
+            grouped={}
+            for name,app in targets.items():grouped.setdefault(app,[]).append(samples.get(name))
+            for app,samples in grouped.items():
+                for field in result[app]:
+                    values=[sample.get(field) if sample else None for sample in samples]
+                    result[app][field]=sum(values) if all(value is not None for value in values) else None
+        return {'apps':result,'available':True}

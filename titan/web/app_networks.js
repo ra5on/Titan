@@ -33,7 +33,7 @@
    const subnets=network?.subnets?.map(item=>item.subnet+(item.gateway?' · Gateway '+item.gateway:'')).join(', ');
    description.textContent=host?`Die App verwendet direkt das NAS-Netz. Sie besitzt keine eigene Container-IP; Portweiterleitungen entfallen. Webport: ${port.value}. Benötigte Ports müssen auf dem NAS frei sein.`:network?`Netz: ${network.name}. ${subnets||'Kein IPv4-Subnetz bekannt.'}${network.internal?' Internes Netz: Internetzugriff ist eingeschränkt.':''}`:select.value==='bridge'?'Docker vergibt die Container-IP automatisch im eingebauten Bridge-Netz. Apps werden über den veröffentlichten NAS-Port geöffnet.':'Titan erstellt das übliche eigene App-Netz. Docker vergibt die Container-IP automatisch; du öffnest die App über den NAS-Port.';
   }
-  const onChange=()=>reflect();select.addEventListener('change',onChange);port.addEventListener('input',onChange);reflect();
+  const onChange=()=>reflect();select.addEventListener('change',onChange);port.addEventListener('input',onChange);select.value=app.default_network||'default';reflect();
   const onCreate=async()=>{
    if(creating)return;
    const name=query('[data-network-name]').value.trim(),subnet=query('[data-network-subnet]').value.trim(),gateway=query('[data-network-gateway]').value.trim();

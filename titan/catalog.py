@@ -310,12 +310,12 @@ def published_ports(app_id, port, options=None, host_mode=False):
     app = APPS[app_id]
     if host_mode and not app.get("dynamic_web_port") and port != app["port"]:
         raise Error(f"Im Host-Netzwerk verwendet diese App direkt Port {app['port']}; Portumleitung ist nur in Bridge-Netzwerken möglich.")
-    result = [{"host": port, "target": port if app.get("dynamic_web_port") else app["port"], "protocol": "tcp"}]
+    result = [{"host": port, "target": port if app.get("dynamic_web_port") else app["port"], "protocol": "tcp", **({"service":app["stack"]["primary"]} if app.get("stack") else {})}]
     for extra in app.get("extra_ports", []):
         peer = options[extra["option"]] if "option" in extra else extra["port"]
         if peer == port:
             raise Error("Webport und Verbindungsport müssen verschieden sein.", 409)
-        result.append({"host": peer, "target": extra.get("target", peer), "protocol": extra["protocol"]})
+        result.append({"host": peer, "target": extra.get("target", peer), "protocol": extra["protocol"], **({"service":extra["service"]} if "service" in extra else {})})
     if host_mode and any(item["host"] != item["target"] for item in result):
         raise Error("Im Host-Netzwerk müssen alle Verbindungsports den internen App-Ports entsprechen.")
     return result
@@ -357,7 +357,8 @@ def catalog(refresh=False):
     apps = []
     for app_id, recipe in list(APPS.items()):
         remote = _cache["images"].get(app_id, {})
-        public_recipe = {key: value for key, value in recipe.items() if key != "environment"}
+        public_recipe = {key: value for key, value in recipe.items() if key not in ("environment", "stack")}
+        public_recipe["containers"] = len(recipe.get("stack",{}).get("services",{})) or 1
         public_recipe["install_schema"] = [{key: value for key, value in field.items() if key != "env"}
                                            for field in recipe.get("install_schema", [])]
         apps.append({**public_recipe, "id": app_id, "version": remote.get("version", "latest"),
@@ -367,11 +368,22 @@ def catalog(refresh=False):
     return {"apps": apps, "source": "LinuxServer.io", "error": _cache["error"]}
 
 
-def compose(app_id, directory, uid, gid, port, data_path, options=None, network=None):
+def compose(app_id, directory, uid, gid, port, data_path, options=None, network=None, hardware=None):
     if app_id not in APPS:
         raise Error("App-Vorlage ist nicht verfügbar.")
     app = APPS[app_id]
     options = validate_options(app_id, options)
+    if app.get("stack"):
+        from .app_networks import selection
+        if len(app["stack"]["services"]) > 1 and selection(network)["mode"] != "default": raise Error("Containerverbünde benötigen ihr eigenes isoliertes Standardnetz.")
+        from .compose_templates import build
+        from .app_devices import apply
+        definition=build(app_id,app,directory,uid,gid,port,data_path,options)
+        if len(app["stack"]["services"]) == 1 and selection(network)["mode"] != "default":
+            from .app_networks import apply_selection
+            definition["services"][app_id].pop("networks",None)
+            definition=apply_selection(definition,app_id,network)
+        return apply(definition,app_id,hardware)
     volumes = ([{"type": "bind", "source": f"{directory}/config", "target": "/config",
                  "bind": {"create_host_path": False, "selinux": "Z"}}] if app.get("config_mount", True) else [])
     if app["mount"]:
@@ -390,7 +402,7 @@ def compose(app_id, directory, uid, gid, port, data_path, options=None, network=
             environment[field["env"]] = str(options[field["key"]]).replace("$", "$$")
     if app.get("dynamic_web_port"):
         environment["WEBUI_PORT"] = str(port)
-    return apply_selection({"services": {app_id: {
+    definition = apply_selection({"services": {app_id: {
         "image": app["image"], "container_name": "titan-" + app_id,
         "environment": environment,
         "volumes": volumes, "ports": ports, "restart": "unless-stopped",
@@ -398,6 +410,8 @@ def compose(app_id, directory, uid, gid, port, data_path, options=None, network=
         "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}},
         "labels": {"io.titan.managed": "true", "io.titan.app": app_id},
     }}}, app_id, network)
+    from .app_devices import apply
+    return apply(definition, app_id, hardware)
 
 
 # Ship an offline snapshot translated from the official LinuxServer API.

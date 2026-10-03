@@ -865,8 +865,8 @@ class RuntimeSmoke:
                 raise SmokeFailure("App catalog contains an unexpected or duplicate template.")
             seen.add(identifier)
             recipe = APPS[identifier]
-            allowed = set(recipe) - {"environment"}
-            allowed.update(("id", "version", "deprecated", "architectures", "documentation", "install_schema"))
+            allowed = set(recipe) - {"environment","stack"}
+            allowed.update(("id", "version", "deprecated", "architectures", "documentation", "install_schema", "containers"))
             login = app.get("first_login")
             schema = [{key: entry for key, entry in field.items() if key != "env"}
                       for field in recipe.get("install_schema", [])]
@@ -1207,6 +1207,34 @@ class RuntimeSmoke:
                 except Exception:
                     pass
 
+    def docker_stack(self):
+        url='https://raw.githubusercontent.com/ra5on/Titan/main/tests/fixtures/runtime-stack-store.json'
+        import hashlib
+        store=hashlib.sha256(url.encode()).hexdigest()[:10]
+        app='s'+store+'-runtime-stack'
+        added=False
+        try:
+            self.client.action('app_store_add',{'url':url,'trusted':True});added=True
+            template=next((row for row in self.client.request('/api/catalog')['apps'] if row['id']==app),None)
+            if not template or template.get('containers')!=2:raise SmokeFailure('Multi-container source was not translated.')
+            self.client.action('app_install',{'app':app,'port':18080})
+            self.client.app_http_ready()
+            metrics=self.client.request('/api/app-metrics').get('apps',{}).get(app,{})
+            if any(not isinstance(metrics.get(key),(int,float)) for key in ('cpu_percent','memory_bytes','disk_read_bytes','disk_write_bytes')):raise SmokeFailure('Managed container stack statistics are unavailable.')
+            self.client.action('app_action',{'app':app,'action':'stop'})
+            self.client.action('app_action',{'app':app,'action':'start'})
+            self.client.app_http_ready()
+            self.client.action('app_action',{'app':app,'action':'remove'})
+            if any(row['id']==app for row in self.client.request('/api/apps')['installed']):raise SmokeFailure('Removed stack remains installed.')
+            return {'containers':2,'import':True,'install':True,'http':True,'stop':True,'start':True,'remove':True,'live_resources':True}
+        finally:
+            if added:
+                try:
+                    installed=self.client.request('/api/apps')['installed']
+                    if any(row['id']==app for row in installed):self.client.action('app_action',{'app':app,'action':'remove'})
+                    self.client.action('app_store_remove',{'store':store})
+                except Exception:pass
+
     def vm_state(self, identifier, state):
         inventory = self.client.request("/api/vms")
         vm = next((item for item in inventory.get("vms", []) if item.get("id") == identifier), None)
@@ -1231,6 +1259,10 @@ class RuntimeSmoke:
         if self.vm_state(identifier, "running").get("firmware") != "uefi":
             raise SmokeFailure("VM did not start with UEFI firmware.")
         console = {**self.client.console_assets(), **self.client.console_rfb(identifier)}
+        if self.report.get('platform')=='debian-rauc':
+            self.vm_state(identifier,'running');time.sleep(1)
+            metrics=self.vm_state(identifier,'running').get('metrics',{})
+            if not isinstance(metrics.get('cpu_percent'),(int,float)) or not 0<=metrics['cpu_percent']<=100 or not isinstance(metrics.get('disk_allocated_bytes'),int):raise SmokeFailure('Live VM measurements are unavailable.')
         self.client.action("vm_action", {"vm": identifier, "action": "poweroff"})
         self.vm_state(identifier, "shut off")
         options = self.client.request('/api/vm-options')
@@ -1275,6 +1307,10 @@ class RuntimeSmoke:
         self.vm_state(clone_id, "running")
         self.client.action("vm_action", {"vm": clone_id, "action": "poweroff"})
         self.vm_state(clone_id, "shut off")
+        if self.report.get('platform')=='debian-rauc':
+            self.client.action('vm_disk_grow',{'vm':clone_id,'disk_gb':9})
+            grown=self.vm_state(clone_id,'shut off')
+            if grown.get('virtual_size')!=9*1024**3:raise SmokeFailure('Offline VM disk growth was not verified.')
         after = self.client.request(source_route)
         if any(after.get(key) != original.get(key) for key in ("path", "format", "size", "virtual_size", "revision")):
             raise SmokeFailure("The VM image source metadata changed during direct-path cloning or clone startup.")
@@ -1326,6 +1362,7 @@ class RuntimeSmoke:
         if self.run_check("runtime_components", self.components):
             if self.run_check("docker_app_lifecycle", self.docker):
                 self.run_check("docker_custom_network_lifecycle", self.docker_network)
+                if debian_ab:self.run_check("docker_multi_container_lifecycle",self.docker_stack)
             else:
                 self.record("docker_custom_network_lifecycle", "skipped", "Default app lifecycle failed; custom network check cannot safely reuse that app.")
             if self.kvm:

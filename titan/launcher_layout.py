@@ -3,7 +3,7 @@ import re
 from .core import Error
 
 def validate(value):
-    if not isinstance(value,dict) or set(value)!={'items'} or not isinstance(value['items'],list) or len(value['items'])>128: raise Error('Ungültige Hauptmenü-Anordnung.')
+    if not isinstance(value,dict) or 'items' not in value or set(value)-{'items','hidden'} or not isinstance(value['items'],list) or len(value['items'])>128: raise Error('Ungültige Hauptmenü-Anordnung.')
     seen=set(); folders=set(); count=0
     def item(key):
         nonlocal count
@@ -17,6 +17,9 @@ def validate(value):
         if not isinstance(row['name'],str) or not 1<=len(row['name'].strip())<=40 or any(ord(c)<32 for c in row['name']): raise Error('Ordnernamen mit 1 bis 40 Zeichen angeben.')
         if not isinstance(row['items'],list) or len(row['items'])>128: raise Error('Ungültiger Ordnerinhalt.')
         for key in row['items']: item(key)
+    if "hidden" in value:
+        hidden=value["hidden"]
+        if not isinstance(hidden,list) or len(hidden)>128 or any(not isinstance(key,str) or not re.fullmatch(r"(tool|app):[a-zA-Z0-9_-]{1,64}",key) for key in hidden) or len(set(hidden))!=len(hidden): raise Error("Ungültige ausgeblendete Menü-Apps.")
     return value
 
 def load(store,user):

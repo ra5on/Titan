@@ -29,8 +29,8 @@ from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal
 
 WEB = Path(__file__).parent / "web"
 MUTATIONS = {"service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_remove",
-             "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
-             "system_updates", "update_install", "update_rollback", "system_reboot", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
+             "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
+             "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
              "backup_config_export", "backup_config_restore", "monitoring_check"}
 FILE_ACTIONS = {"mkdir", "upload", "rename", "trash", "trash_list", "restore", "copy", "move", "read", "write", "create", "delete"}
 
@@ -375,7 +375,7 @@ class Handler(TerminalHTTPMixin, BaseHTTPRequestHandler):
             if path == "/api/vnc":
                 self.origin_check()
                 return self.websocket(query["vm"])
-            operations = {"/api/storage-locations": "storage_locations", "/api/components": "components", "/api/storage": "storage", "/api/apps": "apps", "/api/app-networks": "app_networks", "/api/vms": "vms",
+            operations = {"/api/storage-locations": "storage_locations", "/api/components": "components", "/api/storage": "storage", "/api/apps": "apps", "/api/app-networks": "app_networks", "/api/app-devices": "app_devices", "/api/app-metrics": "app_metrics", "/api/vms": "vms",
                           "/api/snapshots": "snapshots", "/api/vm-options": "vm_options", "/api/isos": "isos", "/api/iso-library": "iso_library"}
             if path in operations:
                 return self.reply(self.app.agent.call(operations[path]))

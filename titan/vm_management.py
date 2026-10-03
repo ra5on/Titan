@@ -106,6 +106,8 @@ class VMMixin:
         video = ET.SubElement(devices, "video")
         ET.SubElement(video, "model", type="vga")
         ET.SubElement(devices, "input", type="tablet", bus="usb")
+        balloon = ET.SubElement(devices,"memballoon",model="virtio")
+        ET.SubElement(balloon,"stats",period="5")
         return ET.tostring(root, encoding="unicode")
 
     def register_vm_definition(self, name, xml, virtual_size=None):
@@ -445,3 +447,17 @@ class VMMixin:
             metadata.unlink(missing_ok=True)
             raise
         return {"ok": True, "id": vm_id, "name": name, "message": "VM unter neuem Namen wiederhergestellt und ausgeschaltet angelegt."}
+
+    def op_vm_disk_grow(self, vm, disk_gb):
+        record = self.managed_vm(vm)
+        if record["state"] != "shut off": raise Error("VM zuerst herunterfahren.",409)
+        disk_gb = integer(disk_gb,1,16384)
+        current = self.vm_disk_details(record).get("virtual_size")
+        if current is None or disk_gb*1024**3 <= current: raise Error("Nur eine größere Laufwerkskapazität ist erlaubt.")
+        self.prepare_vm_storage_access()
+        self.command(["qemu-img","resize","-f","qcow2",record["disk"],str(disk_gb)+"G"],timeout=60)
+        entries = self.load("vms",[])
+        for item in entries:
+            if item["id"] == record["id"]: item["virtual_size"] = disk_gb*1024**3
+        self.save("vms",entries)
+        return {"ok":True,"message":"Laufwerk erweitert. Partition/Dateisystem im Gastsystem erweitern."}

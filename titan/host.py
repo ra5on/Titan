@@ -1,3 +1,4 @@
+from .vm_metrics import VMMetricsMixin
 from .platforms import current as host_platform
 import base64
 import contextlib
@@ -52,7 +53,7 @@ def run(arguments, input=None, timeout=120, pass_fds=()):
     return result.stdout.strip()
 
 
-class Host(VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -90,7 +91,7 @@ class Host(VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMSto
         # Account revocation must remain responsive during large file/VM backups.
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove"}
         read_ops = {"services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
-                    "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "shares_access"}
+                    "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "app_devices", "app_metrics", "shares_access"}
         selected_lock = self.account_lock if operation in account_ops else contextlib.nullcontext() if operation in read_ops else self.lock
         with selected_lock:
             with self.account_lock if operation in ("backup_config_restore", "share_create", "share_update", "share_remove") else contextlib.nullcontext():
@@ -363,6 +364,7 @@ class Host(VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMSto
                                 "cpu_ids": self.vm_cpu_ids(root), "network": self.vm_network_info(root)})
             except (Error, ValueError, ET.ParseError) as exc:
                 warnings.append(f"VM {vm_id} konnte nicht geprüft werden: {exc}")
+        self.vm_measurements(records)
         return {**capability, "vms": records, "warnings": warnings}
 
     def vm_network_ready(self):
@@ -491,7 +493,7 @@ class Host(VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMSto
             self.vm_selected_network_ready(ET.fromstring(self.managed_vm(vm)["xml"]))
         choices = {"start": ["start"], "shutdown": ["shutdown"], "reboot": ["reboot"],
                    "autostart": ["autostart"], "disable-autostart": ["autostart", "--disable"],
-                   "resume": ["resume"], "poweroff": ["destroy"]}
+                   "suspend": ["suspend"], "resume": ["resume"], "poweroff": ["destroy"]}
         if action not in choices:
             raise Error("Ungültige VM-Aktion.")
         result = run(["virsh", *choices[action], vm])
@@ -560,3 +562,9 @@ class Host(VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMSto
     def op_system_reboot(self, repository, expected_digest, confirmation):
         from .updates import reboot
         return reboot(repository, expected_digest, confirmation, "/var/lib/titan/titan.sqlite3")
+
+    def op_system_shutdown(self, confirmation):
+        if confirmation is not True: raise Error("Ausschalten bestätigen.")
+        if any(vm["state"] != "shut off" for vm in self.op_vms()["vms"]): raise Error("Virtuelle Maschinen zuerst herunterfahren.", 409)
+        run(["shutdown", "-h", "+1", "Titan: bestätigtes Ausschalten"], timeout=15)
+        return {"ok": True, "message": "NAS wird in etwa einer Minute ausgeschaltet."}

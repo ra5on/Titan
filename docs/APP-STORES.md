@@ -6,7 +6,7 @@ Bekannte Quellen sind LinuxServer.io (offizielle API), CasaOS/IceWhale, BigBear 
 
 Downloads sind begrenzt: 8 MiB API-Daten, 1 MiB Titan-JSON, 96 MiB ZIP, 512 MiB deklarierter ZIP-Inhalt. Der gezielte Repository-Import begrenzt jede Vorlage auf 128 KiB und insgesamt 16 MiB. Keine Weiterleitungen, YAML-Aliase, beliebigen Hostpfade oder direkte Compose-Ausführung. Inkompatible Vorlagen werden mit Grund aufgelistet. Importierte Vorlagen behalten einen direkten Dokumentationslink; unbestätigte Anmeldedaten sind als solche erkennbar. Die bisherigen 42 Vorlagen behalten ihre geprüften Hinweise.
 
-Das erste Format unterstützt einen Container je App. Ports, Umgebungsvariablen, Speicherfreigabe und Bridge-/Host-/eigenes Docker-Netz werden vor der Installation eingestellt. Vorgaben stehen bereits im Formular. Geheimnisse werden erst dort eingegeben und separat mit privaten Dateirechten gespeichert. Zusätzliche Ports können einzeln geändert werden. Der Konfigurationsmount ist `/config`; `config_mount: false` deaktiviert ihn. Der Datenmount wird durch `mount` festgelegt, `null` deaktiviert ihn. NAS-Pfade kommen aus Titan, nicht aus dem fremden Store.
+Das einfache Titan-Format unterstützt einen Container je App. Ab **0.4.11-alpha.1** übersetzt der CasaOS-Adapter auch Verbünde mit bis zu acht Containern, statischen Kommandos, Healthchecks und Abhängigkeiten in verwaltete Titan-Vorlagen. Verbünde verwenden ihr eigenes isoliertes Standardnetz; Einzelcontainer können andere unterstützte Netze verwenden. Ports, Umgebungsvariablen, Speicherfreigabe und Bridge-/Host-/eigenes Docker-Netz werden vor der Installation eingestellt. Vorgaben stehen bereits im Formular. Geheimnisse werden erst dort eingegeben und separat mit privaten Dateirechten gespeichert. Zusätzliche Ports können einzeln geändert werden. Der Konfigurationsmount ist `/config`; `config_mount: false` deaktiviert ihn. Der Datenmount wird durch `mount` festgelegt, `null` deaktiviert ihn. NAS-Pfade kommen aus Titan, nicht aus dem fremden Store.
 
 ## Format
 
@@ -33,11 +33,11 @@ Beispielstruktur; Image und Dokumentationsadresse durch die eigene getestete Anw
 }
 ```
 
-`login_note` ist verpflichtend: Standardzugang, eigenes Konto oder Ort eines automatisch erzeugten Passworts beschreiben. Der Hinweis erscheint vor der Installation. Pro Store maximal 400 Apps, insgesamt maximal 20 Stores. Titan unterstützt keine privilegierten Container, Docker-Socket-Mounts, freie Hostgeräte, Startskripte oder mehrteiligen Compose-Stacks aus diesem Format. Unbekannte Felder werden abgewiesen. Kataloge werden nicht automatisch aktualisiert. Store-Einträge bleiben auf der gemeinsamen Datenpartition über Systemupdates erhalten; das Konfigurations-Exportformat enthält sie derzeit nicht.
+`login_note` ist verpflichtend: Standardzugang, eigenes Konto oder Ort eines automatisch erzeugten Passworts beschreiben. Der Hinweis erscheint vor der Installation. Pro Store maximal 400 Apps, insgesamt maximal 20 Stores. Titan unterstützt keine privilegierten Container, Docker-Socket-Mounts, freie Hostgeräte, Startskripte oder ungeprüften Compose-Dateien aus diesem Format. Unbekannte Felder werden abgewiesen. Kataloge werden nicht automatisch aktualisiert. Store-Einträge bleiben auf der gemeinsamen Datenpartition über Systemupdates erhalten; das Konfigurations-Exportformat enthält sie derzeit nicht.
 
 ## CasaOS / ZimaOS als Referenz
 
-Die offizielle [ZimaOS-Dokumentation](https://www.zimaspace.com/docs/developer/docker-app-publishing) beschreibt Docker Compose mit zusätzlichen `x-casaos`-Metadaten und Installationshinweisen. Das Bedienprinzip – Quellen hinzufügen, App wählen, Vorgaben prüfen, installieren – dient als Referenz. Titan verwendet eigenen Code und ein bewusst begrenztes Schema; CasaOS-/ZimaOS-Archive sind **nicht direkt importierbar**.
+Die offizielle [ZimaOS-Dokumentation](https://www.zimaspace.com/docs/developer/docker-app-publishing) beschreibt Docker Compose mit zusätzlichen `x-casaos`-Metadaten und Installationshinweisen. Das Bedienprinzip – Quellen hinzufügen, App wählen, Vorgaben prüfen, installieren – dient als Referenz. Titan verwendet eigenen Code und ein bewusst begrenztes Schema; Kompatible CasaOS-/ZimaOS-Vorlagen werden übersetzt; nicht unterstützte Hostrechte oder dynamische Kommandos werden mit Begründung ausgelassen.
 
 [CasaOS-AppManagement](https://github.com/IceWhaleTech/CasaOS-AppManagement/blob/main/LICENSE) und [CasaOS-AppStore](https://github.com/IceWhaleTech/CasaOS-AppStore/blob/main/LICENSE) führen Apache 2.0. Bei tatsächlicher Übernahme von Code oder Vorlagen sind unter anderem Lizenz-, Copyright- und gegebenenfalls NOTICE-Hinweise sowie Kennzeichnung von Änderungen zu erhalten. Die Titan-Nichtkommerziell-Lizenz ersetzt diese Fremdlizenzen nicht. Container, Logos und andere Assets haben eigene Bedingungen. Das öffentliche [ZimaOS-Repository](https://github.com/IceWhaleTech/ZimaOS) ist keine pauschale Lizenzfreigabe für alle ZimaOS-Komponenten. Für diese Erweiterung wurden keine fremden Implementierungen oder Logos übernommen.
 
@@ -54,3 +54,9 @@ Die neuen Verwaltungswege sind Alpha. Tests mit realen USB-Geräten, GPU-Hardwar
 ## Rollback-Kompatibilität
 
 Neue Quellen liegen in `app-store-sources.json`. Ein vorhandenes `app-stores.json` wird beim ersten Zugriff übernommen, aber nicht mit neuen Formaten überschrieben. Ältere Systemversionen ignorieren die neue Datei und können ihren Verwaltungsdienst weiter starten. Neu importierte Apps benötigen zur Verwaltung die neuere Titan-Version; deren Container und Daten werden durch einen OS-Rollback nicht entfernt.
+
+## USB/GPU und Speicher ab 0.4.11
+
+Das Installationsformular bietet erkannte USB-/serielle Geräte sowie GPU-Rendergeräte einzeln an. NVIDIA setzt einen bereits installierten Treiber und eine funktionsfähige NVIDIA-Container-Runtime voraus. Geräte werden nicht durch privilegierte Container ersetzt. Ein abgezogenes Gerät verhindert neue Starts; Stoppen und Entfernen bleiben möglich. Physische Hardware ist in der QEMU-Releaseprüfung nicht verfügbar.
+
+Importierte Mounts werden auf private Titan-App-Verzeichnisse abgebildet. Ein erkennbarer Nutzdaten-Mount (`/data`, `/media`, `/downloads`, `/files`, `/storage`) verwendet die gewählte Freigabe bzw. das eigene Datenverzeichnis; dieselbe Quellzuordnung bleibt im Verbund geteilt. Datenbanken und zusätzliche Konfigurations-Mounts erhalten getrennte private Unterordner.

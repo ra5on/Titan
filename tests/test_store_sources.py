@@ -51,11 +51,13 @@ class SourcesTests(unittest.TestCase):
 
     def test_casaos_rejects_privileges_multiservice_host_mounts_and_aliases(self):
         base={'services':{'app':{'image':'example/app:1','ports':['8081:80']}},'x-casaos':{'port_map':'8081'}}
-        for key,value in [('privileged',True),('command','shell-command'),('volumes',['/var/run/docker.sock:/socket'])]:
+        for key,value in [('privileged',True),('command','echo ${UNRESOLVED}'),('volumes',['/var/run/docker.sock:/socket'])]:
             doc=json.loads(json.dumps(base));doc['services']['app'][key]=value
             with self.assertRaises(ValueError): casaos_document(self.archive(json.dumps(doc)),'owner/store')
         base['services']['db']={'image':'db:1'}
-        with self.assertRaises(ValueError): casaos_document(self.archive(json.dumps(base)),'owner/store')
+        converted, skipped = casaos_document(self.archive(json.dumps(base)),'owner/store')
+        self.assertFalse(skipped)
+        self.assertEqual(len(converted['apps'][0]['stack']['services']),2)
         with self.assertRaises(ValueError): casaos_document(self.archive('services: &root\n  app: *root'),'owner/store')
 
     def test_presets_have_valid_urls_and_default_can_be_disabled_without_removing_apps(self):

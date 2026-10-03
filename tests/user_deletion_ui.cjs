@@ -28,7 +28,7 @@ const evaluate=expression=>vm.runInContext(expression,context);
  assert.equal(captured.title,'Benutzer löschen');
  assert(captured.body.includes('Ordner und Dateien bleiben erhalten.'));
  assert(!captured.body.includes('name="confirmation"'));
- assert(captured.body.includes('Ja, Benutzer löschen'));
+ assert(captured.body.includes('>Ja</button>')&&captured.body.includes('>Nein</button>'));
  const requests=[];
  context.fetch=async(url,options)=>{requests.push({url,...options});return {ok:true,json:async()=>({job:'delete-reader'})};};
  await captured.submit(new Map());

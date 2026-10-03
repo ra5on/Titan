@@ -5,8 +5,9 @@
  if (typeof module === 'object' && module.exports) module.exports = dashboard;
  if (root) root.TitanDashboard = dashboard;
 })(typeof window === 'undefined' ? null : window, function () {
- const ids = Object.freeze(['storage','resources','health','apps','shares','vms']);
+ const ids = Object.freeze(['tools','storage','resources','health','apps','shares','vms']);
  const saved = new Map();
+ const choices = new Map();
  let current = null;
  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
  const measured = value => typeof value === 'number' && Number.isFinite(value);
@@ -81,6 +82,7 @@
    const result = await api('/api/dashboard-layout');
    const order = normalize(result.order);
    saved.set(owner, order);
+   choices.set(owner,{hidden:Array.isArray(result.hidden)?result.hidden:[],wide:Array.isArray(result.wide)?result.wide:["tools","resources"]});
    return {order:order.slice(), available:true};
   } catch (error) {
    // A layout failure must never prevent access to the NAS status and tools.
@@ -96,13 +98,13 @@
   return '<div class="dashboard-toolbar" aria-label="Übersicht anpassen"><p id="dashboard-layout-hint" class="hint">Deine Übersicht · Kacheln nach deinen Wünschen anordnen.</p><div class="dashboard-layout-actions"><button type="button" class="button small" data-layout-edit>Übersicht anpassen <span aria-hidden="true">↕</span></button><button type="button" class="button small" data-layout-reset hidden>Standard</button><button type="button" class="button small" data-layout-cancel hidden>Abbrechen</button><button type="button" class="button small primary" data-layout-save hidden>Speichern</button></div><span class="sr-only" id="dashboard-layout-announcement" role="status" aria-live="polite" aria-atomic="true"></span></div>';
  }
  function controls(id, title) {
-  return `<div class="tile-controls" hidden><button type="button" class="tile-handle" data-layout-handle="${id}" aria-label="${title}: ziehen oder mit Pfeiltasten verschieben" aria-describedby="dashboard-layout-hint" title="Ziehen · Pfeil hoch / runter"><span aria-hidden="true">⠿</span></button><button type="button" class="tile-step" data-layout-move="-1" aria-label="${title}: nach vorne verschieben" title="Nach vorne">↑</button><button type="button" class="tile-step" data-layout-move="1" aria-label="${title}: nach hinten verschieben" title="Nach hinten">↓</button></div>`;
+  return `<div class="tile-controls" hidden><button type="button" class="tile-handle" data-layout-handle="${id}" aria-label="${title}: ziehen oder mit Pfeiltasten verschieben" aria-describedby="dashboard-layout-hint" title="Ziehen · Pfeil hoch / runter"><span aria-hidden="true">⠿</span></button><button type="button" class="tile-step" data-layout-move="-1" aria-label="${title}: nach vorne verschieben" title="Nach vorne">↑</button><button type="button" class="tile-step" data-layout-move="1" aria-label="${title}: nach hinten verschieben" title="Nach hinten">↓</button><button type="button" class="tile-step" data-layout-width aria-label="${title}: Breite ändern">↔</button><button type="button" class="tile-step" data-layout-hide aria-label="${title}: entfernen">×</button></div>`;
  }
  function dispose() {
   if (current) current.destroy();
   current = null;
  }
- function clear() { dispose(); saved.clear(); }
+ function clear() { dispose(); saved.clear(); choices.clear(); }
  function mount(main, {api, owner, toast, metricsFormat}) {
   dispose();
   const grid = main?.querySelector('#dashboard-grid');
@@ -111,6 +113,10 @@
   const cancel = main.querySelector('[data-layout-cancel]'), save = main.querySelector('[data-layout-save]');
   const hint = main.querySelector('#dashboard-layout-hint'), announcement = main.querySelector('#dashboard-layout-announcement');
   const doc = grid.ownerDocument;
+  let options=JSON.parse(JSON.stringify(choices.get(owner)||{hidden:[],wide:["tools","resources"]})), originalOptions=JSON.parse(JSON.stringify(options));
+  const picker=doc.createElement("div");picker.className="tile-picker";picker.hidden=true;main.querySelector(".dashboard-toolbar")?.after(picker);
+  function applyChoices(){for(const tile of grid.querySelectorAll("[data-dashboard-tile]")){tile.hidden=options.hidden.includes(tile.dataset.dashboardTile);tile.classList.toggle("tile-wide",options.wide.includes(tile.dataset.dashboardTile));}picker.innerHTML=[...grid.querySelectorAll("[data-dashboard-tile]")].map(tile=>`<label><input type="checkbox" data-layout-choice="${tile.dataset.dashboardTile}" ${tile.hidden?"":"checked"}>${escape(tile.querySelector("h2")?.textContent||tile.dataset.dashboardTile)}</label>`).join("");}
+  applyChoices();
   let original = readOrder(grid), editing = false, busy = false, drag = null, metricsBusy = false;
   const liveResources = main.querySelector('[data-live-resources]');
   async function refreshMetrics() {
@@ -130,6 +136,8 @@
     if (updated) updated.textContent = 'Verbindung unterbrochen';
    } finally { metricsBusy = false; }
   }
+  let masonry=null;
+  if(doc.defaultView?.ResizeObserver){grid.classList.add("dashboard-masonry");masonry=new doc.defaultView.ResizeObserver(entries=>{for(const entry of entries){const tile=entry.target;if(tile.hidden)continue;const height=tile.getBoundingClientRect().height;tile.style.gridRowEnd="span "+Math.max(1,Math.ceil((height+16)/24));}});for(const tile of grid.querySelectorAll("[data-dashboard-tile]"))masonry.observe(tile);}
   const metricsTimer = liveResources && doc.defaultView?.setInterval ? doc.defaultView.setInterval(refreshMetrics,10000) : null;
   function visibility() { if (!doc.hidden) void refreshMetrics(); }
   if (liveResources) doc.addEventListener('visibilitychange',visibility);
@@ -138,6 +146,7 @@
   function state(value) {
    editing = value;
    grid.classList.toggle('layout-editing', editing);
+   picker.hidden=!editing;
    edit.hidden = editing;
    for (const item of [reset, cancel, save]) item.hidden = !editing;
    grid.querySelectorAll('.tile-controls').forEach(item => item.hidden = !editing);
@@ -173,14 +182,16 @@
   function onClick(event) {
    if (busy) return;
    if (event.target.closest('[data-layout-edit]')) {
-    original = readOrder(grid); state(true); updateButtons();
-    grid.querySelector('[data-layout-handle]').focus({preventScroll:true});
+    original = readOrder(grid); originalOptions=JSON.parse(JSON.stringify(options)); state(true); updateButtons();
+    grid.querySelector('[data-layout-handle]')?.focus({preventScroll:true});
    } else if (event.target.closest('[data-layout-reset]')) {
-    finishDrag(); applyOrder(grid, ids); updateButtons(); announce('Standardreihenfolge. Zum Übernehmen speichern.');
+    finishDrag(); options={hidden:[],wide:["tools","resources"]};applyChoices();applyOrder(grid, ids); updateButtons(); announce('Standardreihenfolge. Zum Übernehmen speichern.');
    } else if (event.target.closest('[data-layout-cancel]')) {
-    finishDrag(); applyOrder(grid, original); state(false); announce('Änderungen verworfen.'); edit.focus({preventScroll:true});
+    finishDrag();options=JSON.parse(JSON.stringify(originalOptions));applyChoices(); applyOrder(grid, original); state(false); announce('Änderungen verworfen.'); edit.focus({preventScroll:true});
    } else if (event.target.closest('[data-layout-save]')) {
     finishDrag(); void persist();
+   } else if(editing && event.target.closest("[data-layout-hide],[data-layout-width]")){
+    const control=event.target.closest("[data-layout-hide],[data-layout-width]"),id=control.closest("[data-dashboard-tile]").dataset.dashboardTile;const key=control.hasAttribute("data-layout-hide")?"hidden":"wide";options[key]=options[key].includes(id)?options[key].filter(value=>value!==id):[...options[key],id];applyChoices();
    } else {
     const control = event.target.closest('[data-layout-move]');
     if (!editing || !control || control.disabled || !grid.contains(control)) return;
@@ -195,10 +206,10 @@
    updateButtons();
    const order = readOrder(grid);
    try {
-    const result = await api('/api/dashboard-layout', {order});
+    const result = await api('/api/dashboard-layout', {order,...options});
     saved.set(owner, normalize(result.order || order));
     if (current?.grid !== grid) return;
-    original = order.slice(); state(false); main.querySelector('.layout-load-hint')?.remove(); announce('Deine Übersicht wurde gespeichert.');
+    choices.set(owner,JSON.parse(JSON.stringify(options)));original = order.slice(); state(false); main.querySelector('.layout-load-hint')?.remove(); announce('Deine Übersicht wurde gespeichert.');
     toast('Deine Übersicht wurde gespeichert.'); edit.focus({preventScroll:true});
    } catch (error) {
     if (current?.grid !== grid) return;
@@ -211,6 +222,8 @@
     updateButtons();
    }
   }
+  function onChoice(event){const choice=event.target.closest("[data-layout-choice]");if(!editing||busy||!choice)return;options.hidden=options.hidden.filter(id=>id!==choice.dataset.layoutChoice);if(!choice.checked)options.hidden.push(choice.dataset.layoutChoice);applyChoices();}
+  main.addEventListener("change",onChoice);
   function onKey(event) {
    if (!editing || busy) return;
    if (event.key === 'Escape' && drag) { event.preventDefault(); finishDrag(true); announce('Verschieben abgebrochen.'); return; }
@@ -259,9 +272,10 @@
   doc.addEventListener('pointerup', onPointerEnd);
   doc.addEventListener('pointercancel', onPointerEnd);
   current = {grid, editing:() => editing, destroy() {
+   masonry?.disconnect();picker.remove?.();
    if (metricsTimer !== null) doc.defaultView.clearInterval(metricsTimer);
    if (liveResources) doc.removeEventListener('visibilitychange',visibility);
-   finishDrag(); main.removeEventListener('click', onClick); main.removeEventListener('keydown', onKey);
+   finishDrag(); main.removeEventListener('click', onClick);main.removeEventListener("change",onChoice); main.removeEventListener('keydown', onKey);
    grid.removeEventListener('pointerdown', onPointerDown); doc.removeEventListener('pointermove', onPointerMove);
    doc.removeEventListener('pointerup', onPointerEnd); doc.removeEventListener('pointercancel', onPointerEnd);
   }};

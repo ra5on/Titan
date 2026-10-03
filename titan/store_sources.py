@@ -92,58 +92,11 @@ def casaos_document(raw, name):
                 # Reject aliases; bounded YAML can still expand recursively.
                 if any(isinstance(token, (yaml.tokens.AliasToken, yaml.tokens.AnchorToken)) for token in yaml.scan(source)): raise ValueError('YAML-Verweise nicht unterstützt')
                 doc = yaml.safe_load(source)
-                services = doc.get('services', {})
-                if not isinstance(services,dict) or len(services)!=1: raise ValueError('Mehrere Container erforderlich')
-                service = next(iter(services.values()))
-                allowed = {'image','container_name','restart','environment','ports','volumes','labels','deploy','x-casaos','networks','cpu_shares','mem_limit'}
-                if set(service)-allowed: raise ValueError('Zusätzliche Laufzeitoptionen erforderlich')
-                if service.get('networks') or doc.get('networks'): raise ValueError('Eigene Compose-Netzwerke erforderlich')
-                meta = doc.get('x-casaos', {})
-                web, _ = port(meta.get('port_map',''))
-                ports = []
-                for mapping in service.get('ports', []):
-                    if isinstance(mapping, str):
-                        parts=mapping.split(':')
-                        if len(parts)!=2: raise ValueError('Nicht unterstützte Portzuordnung')
-                        published,_=port(parts[0]); target,protocol=port(parts[1])
-                    elif isinstance(mapping,dict):
-                        published,_=port(mapping['published']);target,_=port(mapping['target']);protocol=mapping.get('protocol','tcp')
-                    else: raise ValueError('Ungültige Portzuordnung')
-                    ports.append((published,target,protocol))
-                primary=next((p for p in ports if p[0]==web and p[2]=='tcp'),None)
-                if primary is None: raise ValueError('Kein eindeutiger Webport')
-                targets=[]
-                for mapping in service.get('volumes', []):
-                    if isinstance(mapping,str):
-                        parts=mapping.split(':')
-                        if len(parts)!=2: raise ValueError('Besondere Volume-Optionen erforderlich')
-                        source,target=parts
-                    else:
-                        if set(mapping)-{'type','source','target'} or mapping.get('type','bind')!='bind': raise ValueError('Besondere Volume-Optionen erforderlich')
-                        source,target=mapping['source'],mapping['target']
-                    if source.startswith(('/dev','/proc','/sys','/etc','/var/run','/run','/lib')): raise ValueError('Hostdateien erforderlich')
-                    targets.append(target)
-                extra=[target for target in targets if target!='/config']
-                if len(extra)>1: raise ValueError('Mehrere erforderliche Datenziele')
-                env=service.get('environment',{})
-                if isinstance(env,list): env=dict(value.split('=',1) for value in env)
-                settings=[]
-                for key,value in env.items():
-                    if key in ('PUID','PGID','TZ'): continue
-                    secret=bool(re.search(r'password|secret|token|api.?key',key,re.I))
-                    value='' if secret else str(value)
-                    if '$' in value: raise ValueError('Dynamische Compose-Variablen erforderlich')
-                    settings.append({'env':key,'label':line(key,80),'default':value,'secret':secret})
-                image=service['image']
-                if ':' not in image and '@' not in image: image+=':latest'
-                title=line(localized(meta.get('title')) or label,80)
-                apps.append({'id':slug(label),'name':title,'description':line(localized(meta.get('description'))),'image':image,
-                    'port':primary[1],'scheme':'https' if meta.get('scheme') == 'https' else 'http','default_port':max(1024,web),'mount':extra[0] if extra else None,'config_mount':'/config' in targets,
-                    'documentation':'https://github.com/'+name,'login_note':login(title),'settings':settings,
-                    'ports':[{'target':p[1],'published':max(1024,p[0]),'protocol':p[2]} for p in ports if p!=primary]})
-            except (ValueError, KeyError, TypeError, AttributeError, yaml.YAMLError) as exc:
+                from .compose_templates import translate
+                apps.append(translate(doc,label,name))
+            except (ValueError, KeyError, TypeError, AttributeError, Error, yaml.YAMLError) as exc:
                 skipped.append({'name':line(label,80),'reason':line(str(exc),200)})
-    if not apps: raise ValueError('Keine kompatiblen Einzelcontainer-Vorlagen gefunden')
+    if not apps: raise ValueError('Keine kompatiblen App-Vorlagen gefunden')
     return {'schema':1,'name':name.split('/')[-1],'apps':apps}, skipped
 
 def download(url, limit):

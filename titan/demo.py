@@ -65,6 +65,8 @@ class Demo:
         self._system_path = self._private / "system"
         for name in ("etc", "home/demo", "srv", "tmp", "var/media/demo-backup/Archiv", "var/media/demo-backup/Computer"):
             (self._system_path / name).mkdir(parents=True, exist_ok=True)
+        (self._system_path / "var/srv/titan").mkdir(parents=True,exist_ok=True)
+        (self._system_path / "var/srv/titan/Willkommen.md").write_text("# NAS-Dateien\nDateien in der isolierten Titan-Demo.\n")
         (self._system_path / "etc/hostname").write_text("titan-demo\n")
         (self._system_path / "home/demo/Notizen.txt").write_text("Isolierte Systemdatei der Titan-Demo.\n")
         self.backup_settings = {"target": "", "auto_backup": False, "interval": "daily", "window_day": 6,
@@ -128,6 +130,14 @@ class Demo:
                 **AppNetworkMixin._app_address_summary(self, raw, item, {name: info}, self.demo_host_addresses())}
 
     def call(self, operation, **args):
+        if operation in ("app_devices","system_shutdown"): return getattr(self,"op_"+operation)(**args)
+        if operation == "vm_disk_grow":
+            vm=self.vm(args["vm"])
+            if vm["state"]!="shut off": raise Error("VM zuerst herunterfahren.",409)
+            size=integer(args["disk_gb"],1,16384)
+            if size<=vm["disk_gb"]: raise Error("Nur vergrößern erlaubt.")
+            vm.update(disk_gb=size,virtual_size=size*1024**3)
+            return {"ok":True,"message":"Demo: Laufwerk erweitert."}
         if operation.startswith("terminal_"):
             method = {"terminal_create": self.terminals.create, "terminal_poll": self.terminals.poll,
                       "terminal_write": self.terminals.write, "terminal_resize": self.terminals.resize,
@@ -272,6 +282,8 @@ class Demo:
                     "warnings": ["Demo: SMB-Zugang wird ausschließlich simuliert."]}
         if operation == "app_networks":
             return self.demo_app_networks()
+        if operation == "app_metrics":
+            return {"available":True,"apps":{app["id"]:{"cpu_percent":2.4,"memory_bytes":128*1024**2,"disk_read_bytes":1024**2,"disk_write_bytes":2*1024**2} for app in self.apps}}
         if operation == "apps":
             installed = copy.deepcopy(self.apps)
             available = self.services["docker.service"]["active"]
@@ -282,7 +294,10 @@ class Demo:
                 for item in installed:
                     item["container"] = self.demo_app_container(item)
             return {"installed": installed, "available": available, "error": "" if available else "[Demo] Docker-Dienst ist gestoppt."}
-        if operation == "vms": return {"vms": copy.deepcopy(self.vms), "available": True}
+        if operation == "vms":
+            vms=copy.deepcopy(self.vms)
+            for vm in vms: vm["metrics"]={"cpu_percent":12.4 if vm["state"]=="running" else 0,"memory_resident_bytes":1200*1024**2 if vm["state"]=="running" else None,"disk_allocated_bytes":8*1024**3,"disk_read_bps":128*1024,"disk_write_bps":64*1024,"network_rx_bps":1024,"network_tx_bps":2048}
+            return {"vms":vms,"available":True}
         if operation == "snapshots": return copy.deepcopy(self.snapshots)
         if operation == "isos": return [item["name"] for item in self.isos]
         if operation == "iso_library":
@@ -530,6 +545,7 @@ class Demo:
             if item is None: raise Error("App ist nicht installiert.", 404)
             if args["action"] == "remove": self.apps.remove(item)
             elif args["action"] == "stop": item["state"] = "exited"
+            elif args["action"]=="suspend": item["state"]="paused"
             elif args["action"] in ("start", "restart"): item["state"] = "running"
             elif args["action"] == "logs": return {"output": "[Demo] Dienst bereit.\n[Demo] Keine Fehler."}
             elif args["action"] in ("update", "backup"):
@@ -564,6 +580,7 @@ class Demo:
         elif operation == "vm_action":
             item = self.vm(args["vm"])
             if args["action"] in ("autostart", "disable-autostart"): item["autostart"] = args["action"] == "autostart"
+            elif args["action"]=="suspend": item["state"]="paused"
             elif args["action"] in ("start", "reboot", "shutdown", "stop", "poweroff", "resume"): item["state"] = "running" if args["action"] in ("start", "reboot", "resume") else "shut off"
             else: raise Error("Unbekannte VM-Aktion.")
         elif operation in ("vm_update", "vm_remove", "vm_backup"):
@@ -886,3 +903,10 @@ class Demo:
             operate(str(source), "copy", source_share, destination=name + "/" + source_share,
                     destination_root=str(target))
         return {"ok": True, "message": "Demo: Dateien in separatem Ordner wiederhergestellt.", "path": name}
+
+    def op_system_shutdown(self, confirmation):
+        if confirmation is not True: raise Error("Ausschalten bestätigen.")
+        return {"ok":True,"message":"Demo: Ausschalten simuliert."}
+
+    def op_app_devices(self):
+        return {"devices":[],"notes":["Demo: keine physischen Geräte."]}

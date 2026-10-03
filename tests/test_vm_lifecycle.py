@@ -57,6 +57,7 @@ class VMLifecycleTests(unittest.TestCase):
                 return "shut off\n"
             if arguments[:2] == ["virsh", "dominfo"]:
                 return "Name: titan-linux\nAutostart:          enable  \n"
+            if arguments[:2] == ["virsh","domstats"]: return ""
             raise AssertionError(arguments)
         with patch("titan.host.vm_availability", return_value=CAPABILITY), patch("titan.host.run", side_effect=command):
             result = self.host.op_vms()

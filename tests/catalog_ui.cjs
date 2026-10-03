@@ -23,7 +23,7 @@ context.passwordSchema={install_schema:[{key:'password',label:'Passwort',type:'p
  replies['/api/apps']={available:true,installed:[{id:defaultApp.id,name:defaultApp.name,port:8083,state:'running'}]};
  const store=await evaluate('pages.apps()');assert(store.includes('Details & Anmeldung'));assert(store.includes('Standardzugang'));assert(store.includes('data-action="app-info"'));assert(!store.includes('admin123'),'Cards give discoverable login details without exposing credentials across the whole catalog');
  await evaluate('actions["app-info"]({dataset:{id:"calibre-web",installed:"false",canInstall:"true"}})');assert(node('#dialog-body').innerHTML.includes('admin123'));assert(node('#dialog-body').innerHTML.includes('data-action="app-install"'));
- replies['/api/shares']=[];await evaluate('actions["app-install"]({dataset:{id:"calibre-web"}})');assert(node('#dialog-body').innerHTML.includes('data-login-mode="default"'),'Initial installation shows login guidance before submitting');
+ replies['/api/shares']=[];replies['/api/app-devices']={devices:[],notes:[]};await evaluate('actions["app-install"]({dataset:{id:"calibre-web"}})');assert(node('#dialog-body').innerHTML.includes('data-login-mode="default"'),'Initial installation shows login guidance before submitting');
  await evaluate('actions["app-copy-login"]({dataset:{id:"calibre-web",field:"password"}})');assert.deepEqual(clipboard,['admin123']);
  assert(cleared.length,'Successful copy releases its deadline timer');
  await assert.rejects(evaluate('actions["app-copy-login"]({dataset:{id:"calibre-web",field:"options"}})'),/keinen öffentlichen/);assert.equal(clipboard.length,1);

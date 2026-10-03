@@ -63,7 +63,7 @@ class Element {
 }
 function fixture(){
  let interval,cleared=false;
- const doc=new Element('document');doc.hidden=false;
+ const doc=new Element('document');doc.hidden=false;doc.createElement=tag=>new Element(tag);
  doc.defaultView={setInterval(callback,ms){assert.equal(ms,10000);interval=callback;return 42;},clearInterval(id){assert.equal(id,42);cleared=true;}};
  const grid=new Element('grid');grid.ownerDocument=doc;
  const main=new Element('main'),live=new Element('live'),updated=new Element('updated');

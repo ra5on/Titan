@@ -447,11 +447,13 @@ class VMStorageMixin:
         # or parse live backing chains. Stored creation size is the fallback.
         metadata = next((item for item in self.load("vms", []) if item["name"] == record["name"]), {})
         size = metadata.get("virtual_size")
+        allocated = None
         try:
             with self.vm_storage_fd(record["storage"]) as (fd, _):
                 source = os.open(Path(record["disk"]).name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd)
                 try:
                     size = self.vm_image_probe(source, "qcow2")["virtual-size"]
+                    allocated = os.fstat(source).st_blocks * 512
                 finally:
                     os.close(source)
         except (Error, OSError, ValueError):
@@ -459,4 +461,4 @@ class VMStorageMixin:
         if not isinstance(size, int) or size < 0:
             size = None
         return {"disk_path": record["disk"], "storage": record["storage"], "virtual_size": size,
-                "disk_gb": math.ceil(size / GIB) if size else None}
+                "disk_gb": math.ceil(size / GIB) if size else None, "disk_allocated_bytes": allocated}

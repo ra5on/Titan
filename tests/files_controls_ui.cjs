@@ -108,7 +108,7 @@ const turn = () => new Promise(resolve => setImmediate(resolve));
  const system = fixture([entry('one'), entry('two')], {share:'@system', path:'etc'}); files.mount(system.main, system.ctx);
  system.change(0); assert(system.key('F2').defaultPrevented); assert.deepEqual(system.actions.at(-1), {action:'rename', path:'etc/one'});
  assert(system.key('Delete').defaultPrevented); assert.deepEqual(system.actions.at(-1), {action:'delete', path:'etc/one'}); assert(system.buttons.trash.disabled);
- system.change(1); const numberOfActions = system.actions.length; system.key('Delete'); assert.equal(system.actions.length, numberOfActions); assert.match(system.notices.at(-1).message, /einzeln löschen/);
+ system.change(1); const numberOfActions = system.actions.length; system.key('Delete'); assert.equal(system.actions.length, numberOfActions); assert.match(system.dialogBody(), /dauerhaft gelöscht/);
  assert(!system.key('s', {ctrlKey:true}).defaultPrevented);
  // Delete on a normal share opens a confirmation form and performs no operation until submit.
  const trash = fixture([entry('one'), entry('two')]); files.mount(trash.main, trash.ctx); trash.selectAll(); trash.key('Delete');
