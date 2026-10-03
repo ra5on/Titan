@@ -84,7 +84,7 @@ class FakeGuest:
             return {"available": True, "networks": list(self.networks.values()), "public_ip": None,
                     "host_addresses": [{"address": "10.0.2.15", "family": 4, "interface": "eth0"}], "warnings": []}
         if path == "/api/updates/system":
-            return {"platform": "ucore-hci", "update_kind": "image", "booted": {"digest": "sha256:" + "a" * 64},
+            return {"platform": "debian-rauc", "update_kind": "image", "health_confirmed": True, "booted": {"slot":"A", "digest": "sha256:" + "a" * 64},
                 "staged": None, "rollback": None, "rollback_available": False, "rollback_queued": False,
                 "reboot_required": False, "automatic_reboot": False, "reboot_scheduled": False}
         if path == "/api/system-disk":
@@ -407,7 +407,7 @@ class RuntimeSmokeTests(unittest.TestCase):
         check = next(item for item in report["checks"] if item["name"] == "smb_multiuser_access")
         self.assertEqual(check["status"], "failed")
 
-    def test_invalid_fresh_bootc_status_and_mutation_are_failures(self):
+    def test_invalid_fresh_debian_status_and_mutation_are_failures(self):
         mutations = [lambda value: value.update(rollback_available=True),
                      lambda value: value.update(automatic_reboot=True),
                      lambda value: value.update(reboot_scheduled=True),

@@ -1,6 +1,7 @@
 """Failed service results retain retry metadata without putting it in audit."""
 import tempfile
 import time
+import threading
 import unittest
 
 from titan.core import Jobs, Store
@@ -24,6 +25,24 @@ class ServiceJobTests(unittest.TestCase):
                 return record
             time.sleep(0.005)
         self.fail("Disposable service job did not finish")
+
+    def test_waiting_mutation_is_not_reported_as_running(self):
+        started,release=threading.Event(),threading.Event()
+        def first():
+            started.set();release.wait(3);return {'ok':True}
+        first_id=self.jobs.submit('administrator','first',first)['job']
+        try:
+            self.assertTrue(started.wait(2))
+            second_id=self.jobs.submit('administrator','second',lambda:{'ok':True})['job']
+            records={row['id']:row for row in self.store.jobs()}
+            self.assertEqual(records[first_id]['status'],'running')
+            self.assertIn('started_at',records[first_id]['result'])
+            self.assertEqual(records[second_id]['status'],'queued')
+        finally:
+            release.set()
+            deadline=time.monotonic()+3
+            while time.monotonic()<deadline and any(row['status'] in ('queued','running') for row in self.store.jobs()):
+                time.sleep(.01)
 
     def test_created_service_with_failed_start_retains_retry_metadata_and_failed_status(self):
         result = {"ok": False, "created": True, "service": "titan-custom-report.service",

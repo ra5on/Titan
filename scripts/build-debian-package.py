@@ -74,7 +74,6 @@ Description: Experimental Titan Debian integration, without system updates
 set -eu
 . /etc/os-release
 [ "$ID" = debian ] && [ "$VERSION_ID" = 13 ] || { echo 'Debian 13 required; Ubuntu is not supported yet.' >&2; exit 1; }
-[ ! -e /run/ostree-booted ] && ! command -v bootc >/dev/null 2>&1 || { echo 'No conversion of an existing image-managed NAS.' >&2; exit 1; }
 ''')
     (control/'preinst').chmod(0o755)
 

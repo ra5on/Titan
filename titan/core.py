@@ -331,10 +331,10 @@ class Jobs:
             raise
         def work():
             try:
-                with self.store.connection() as db:
-                    db.execute("UPDATE jobs SET status='running' WHERE id=?", (job,))
                 # Serialize mutations so storage/app/user operations do not race each other.
                 with contextlib.nullcontext() if security else self.lock:
+                    with self.store.connection() as db:
+                        db.execute("UPDATE jobs SET status='running',result=? WHERE id=?", (json.dumps({"started_at": time.time()}), job))
                     result = function()
                 status = "failed" if isinstance(result, dict) and result.get("ok") is False else "completed"
                 self.store.audit(user, action, "Fehlgeschlagen; Details im Auftrag" if status == "failed" else "Erfolgreich")

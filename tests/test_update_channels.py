@@ -10,35 +10,33 @@ from unittest.mock import Mock, patch
 
 from titan.core import Error
 from titan.server import Application, Handler
-from titan import updates
+from titan import updates, debian_updates
+from update_fixtures import identity, manifest, state
 
 
 def release(tag, *, name=None, prerelease=False, draft=False):
     value = {"tag_name": tag, "name": name or tag, "prerelease": prerelease,
              "draft": draft, "body": "Release notes", "html_url": "https://github.com/example/titan/releases/" + tag,
              "assets": [{"name": "manifest.json", "url": "https://api.github.com/assets/" + tag + "/manifest"},
-                        {"name": "manifest.json.sig", "url": "https://api.github.com/assets/" + tag + "/signature"}]}
+                        {"name": "manifest.json.sig", "url": "https://api.github.com/assets/" + tag + "/signature"},
+                        {"name":"titan-test-amd64.raucb","url":"https://api.github.com/assets/bundle"}]}
     return value
 
 
 class ChannelSelectionTests(unittest.TestCase):
     def check(self, releases, channel, current="0.0.0"):
-        info = {"version": current, "release_stage": "alpha", "architecture": "x86_64",
-                "image_repository": "ghcr.io/example/titan"}
-        state = {"current": current, "current_stage": "alpha", "reboot_required": False}
+        info = identity(current)
+        status = state(current)
         def download(url, *args, **kwargs):
             if "/releases?" in url:
                 return json.dumps(releases).encode()
             tag = url.split("/")[-2]
             item = next(item for item in releases if isinstance(item, dict) and item.get("tag_name") == tag)
-            return json.dumps({"format": updates.FORMAT, "platform": "ucore-hci", "version": tag,
-                "release_stage": updates.release_stage(item), "architecture": "x86_64",
-                "image": "ghcr.io/example/titan@sha256:" + "a" * 64,
-                "boot_test": "passed", "runtime_test": "passed"}).encode()
+            return json.dumps(manifest(tag, updates.release_stage(item))).encode()
         with ExitStack() as stack:
             stack.enter_context(patch.object(updates, "__version__", current))
-            stack.enter_context(patch.object(updates, "image_info", return_value=info))
-            stack.enter_context(patch.object(updates, "system_status", return_value=state))
+            stack.enter_context(patch.object(debian_updates, "image_info", return_value=info))
+            stack.enter_context(patch.object(debian_updates, "system_status", return_value=status))
             stack.enter_context(patch.object(updates, "PUBLIC_KEY", Mock(is_file=Mock(return_value=True))))
             stack.enter_context(patch.object(updates, "fetch", side_effect=download))
             stack.enter_context(patch.object(updates, "verify_manifest", side_effect=lambda path, *args: updates.strict_json(Path(path).read_bytes())))
@@ -181,28 +179,26 @@ class ManifestChannelTests(unittest.TestCase):
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         self.events = []
-        self.info = {"version": "0.0.0", "release_stage": "alpha", "architecture": "x86_64",
-                     "image_repository": "ghcr.io/example/titan"}
-        self.manifest = {"format": updates.FORMAT, "platform": "ucore-hci", "version": "1.0.0",
-                         "release_stage": "stable", "architecture": "x86_64",
-                         "image": "ghcr.io/example/titan@sha256:" + "a" * 64,
-                         "boot_test": "passed", "runtime_test": "passed"}
+        self.info = identity()
+        self.manifest = manifest('1.0.0','stable')
         self.release = {"available": True, "latest": "v1.0.0", "latest_stage": "stable", "signed": True,
                         "url": "https://github.com/example/titan/releases/v1.0.0",
                         "assets": {"manifest.json": "https://api.github.com/assets/manifest",
                                    "manifest.json.sig": "https://api.github.com/assets/signature"}}
-        self.state = {"booted": {"image": "ghcr.io/example/titan:previous", "digest": "sha256:" + "b" * 64,
-                                  "incompatible": False}, "reboot_required": False}
+        self.state = state()
         self.stack.enter_context(patch.object(updates, "read_token", return_value=None))
-        self.stack.enter_context(patch.object(updates, "check", return_value=self.release))
-        self.stack.enter_context(patch.object(updates, "image_info", return_value=self.info))
-        self.stack.enter_context(patch.object(updates, "system_status", return_value=self.state))
+        self.stack.enter_context(patch.object(debian_updates, "check", side_effect=self.offer))
+        self.stack.enter_context(patch.object(debian_updates, "image_info", return_value=self.info))
+        self.stack.enter_context(patch.object(debian_updates, "system_status", return_value=self.state))
         self.stack.enter_context(patch.object(updates, "PUBLIC_KEY", Mock(is_file=Mock(return_value=True))))
-        self.policy = self.stack.enter_context(patch.object(updates, "verify_container_policy"))
-        self.backup = self.stack.enter_context(patch.object(updates, "backup_configuration", return_value="/temporary/backup"))
+        self.backup = self.stack.enter_context(patch.object(updates, "backup_configuration", side_effect=ImageStagingReached))
         self.run = self.stack.enter_context(patch("titan.host.run", side_effect=ImageStagingReached))
         self.fetch = self.stack.enter_context(patch.object(updates, "fetch", side_effect=self.download))
         self.verify = self.stack.enter_context(patch.object(updates, "verify_manifest", side_effect=self.verified_manifest))
+
+    def offer(self,*args):
+        updates.version(self.info['version'])
+        return {**self.release,'available':updates.staged_version(self.release['latest'],self.release['latest_stage'])>updates.staged_version(self.info['version'],self.info['release_stage'])}
 
     def download(self, url, *args, **kwargs):
         self.events.append("signature" if url.endswith("/signature") else "manifest")
@@ -213,7 +209,7 @@ class ManifestChannelTests(unittest.TestCase):
         return self.manifest.copy()
 
     def install(self, channel):
-        return updates.install("example/titan", channel, self.release["latest"], "/unused/database.sqlite3")
+        return debian_updates.install.__wrapped__.__wrapped__("example/titan", channel, self.release["latest"], "/unused/database.sqlite3")
 
     def assert_rejected_before_staging(self, channel):
         with self.assertRaises(Error):
@@ -266,8 +262,8 @@ class ManifestChannelTests(unittest.TestCase):
                     with self.assertRaises(ImageStagingReached):
                         self.install(channel)
                     self.assertEqual(self.events, ["manifest", "signature", "verify"])
-        self.assertEqual(self.run.call_count, 6)
-        self.run.assert_called_with(["bootc", "switch", "--enforce-container-sigpolicy", self.manifest["image"]], timeout=1800)
+        self.assertEqual(self.backup.call_count, 6)
+        self.run.assert_not_called()
 
     def test_running_old_agent_cannot_stage_a_downgrade(self):
         self.info["version"] = "1.1.0-alpha.1"

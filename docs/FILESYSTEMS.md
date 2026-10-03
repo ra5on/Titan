@@ -1,6 +1,6 @@
 # Ext4, XFS und ZFS
 
-Titan verwendet **Ext4 als Vorauswahl** für ein neues einzelnes Datenlaufwerk. XFS bleibt auswählbar, ZFS bietet weiterhin Pools und Datasets. Die Werkzeuge für alle drei Dateisysteme sind im Systemimage enthalten. Das Dateisystem des bereits installierten uCore-Systemlaufwerks wird nicht geändert.
+Titan verwendet **Ext4 als Vorauswahl** für ein neues einzelnes Datenlaufwerk. XFS bleibt auswählbar, ZFS bietet weiterhin Pools und Datasets. Die Werkzeuge für alle drei Dateisysteme sind im Systemimage enthalten. Das Dateisystem des bereits installierten Debian-Systemlaufwerks wird nicht geändert.
 
 Ext4 ist hier die einfache Allround-Vorgabe. Seine Linux-Werkzeuge unterstützen beispielsweise das Vergrößern und das Verkleinern eines ausgehängten Dateisystems. Das ist ein Grund für die Auswahl; es ist keine Behauptung, dass jedes Ext4-System zuverlässiger als jedes XFS-System wäre. Hintergrund: [Linux-Ext4-Dokumentation](https://www.kernel.org/doc/html/latest/filesystems/ext4/overview.html), [resize2fs im e2fsprogs-Projekt](https://github.com/tytso/e2fsprogs/blob/master/resize/resize2fs.8.in) und [Linux-XFS-Dokumentation](https://docs.kernel.org/admin-guide/xfs.html).
 

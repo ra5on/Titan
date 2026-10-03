@@ -54,7 +54,7 @@ def mount_paths(root):
 
 
 def writable_path(root, path, parent_only=False):
-    """Respect the actual mount, including uCore's immutable /usr deployment."""
+    """Respect the actual mount, including Debian's immutable /usr deployment."""
     candidate = Path(root) / path
     if parent_only and candidate != Path(root):
         candidate = candidate.parent

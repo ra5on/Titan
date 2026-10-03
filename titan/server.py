@@ -354,6 +354,10 @@ class Handler(TerminalHTTPMixin, BaseHTTPRequestHandler):
                 if set(query) != {"path"}:
                     raise Error("Ein Image-Dateipfad ist erforderlich.")
                 return self.reply(self.app.agent.call("vm_image_details", path=query["path"]))
+            if path == "/api/updates/progress":
+                if query:
+                    raise Error("Fortschritt unterstützt keine zusätzlichen Optionen.")
+                return self.reply(self.app.agent.call("update_progress"), extra={"Cache-Control": "no-store"})
             if path == "/api/updates/system":
                 if query:
                     raise Error("Systemstatus unterstützt keine zusätzlichen Optionen.")

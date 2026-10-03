@@ -219,7 +219,7 @@ class SystemFileHostTests(unittest.TestCase):
             self.assertEqual(worker.call_count, 1)
 
 
-class UCoreImmutableFileTests(unittest.TestCase):
+class ReadOnlyMountFileTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)

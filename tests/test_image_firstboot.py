@@ -17,7 +17,7 @@ firstboot = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(firstboot)
 
 
-class UCoreFirstBootTests(unittest.TestCase):
+class DebianFirstBootTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
@@ -25,7 +25,7 @@ class UCoreFirstBootTests(unittest.TestCase):
         self.existing_contexts = False
         self.failure = ''
         self.write('/usr/share/titan/image-info.json', json.dumps({
-            'format': 'titan-ucore-image-v1', 'platform': 'ucore-hci'}))
+            'format': 'titan-debian-preview-v1', 'platform': 'debian-preview'}))
         self.write('/usr/share/titan/release-public.pem', 'PUBLIC KEY FIXTURE\n')
         self.write('/etc/samba/smb.conf', '[global]\nworkgroup = FAMILY\n')
         self.write('/sys/fs/selinux/enforce', '1\n')

@@ -24,7 +24,7 @@ class KernelTelemetryTests(unittest.TestCase):
         (self.proc / "stat").write_text(summary + "\ncpu0 50 0 25 400 25 0 0 0 40 0\ncpu1 50 0 25 400 25 0 0 0 40 0\n")
 
     def memory(self):
-        (self.proc / "meminfo").write_text("MemTotal: 1000 kB\nMemAvailable: 600 kB\nCached: 200 kB\nSReclaimable: 40 kB\nShmem: 10 kB\nSwapTotal: 500 kB\nSwapFree: 400 kB\n")
+        (self.proc / "meminfo").write_text("MemTotal: 1000 kB\nMemAvailable: 600 kB\nMemFree: 100 kB\nBuffers: 20 kB\nCached: 200 kB\nSReclaimable: 40 kB\nShmem: 10 kB\nSwapTotal: 500 kB\nSwapFree: 400 kB\n")
 
     def hwmon(self, name, identifier="hwmon0", **fields):
         directory = self.sys / "class/hwmon" / identifier
@@ -56,6 +56,10 @@ class KernelTelemetryTests(unittest.TestCase):
     def test_ram_uses_available_memory_and_exposes_cache_and_swap_separately(self):
         sample = self.monitor.sample()
         self.assertEqual(sample["memory_used"], 400 * 1024)
+        self.assertEqual(sample["memory_occupied"], 900 * 1024)
+        self.assertEqual(sample["memory_free"], 100 * 1024)
+        self.assertEqual(sample["memory_buffers"], 20 * 1024)
+        self.assertEqual(sample["status_history"][0]["memory_occupied_percent"],90)
         self.assertEqual(sample["memory_available"], 600 * 1024)
         self.assertEqual(sample["memory_cached"], 230 * 1024)
         self.assertEqual(sample["swap_used"], 100 * 1024)

@@ -576,3 +576,9 @@ dialog:has([data-file-editor-form]){width:min(1100px,calc(100vw - 40px))}
  .file-editor-meta{font-size:10px;justify-content:flex-start}
  .file-editor-workspace .form-actions .button{flex:1 1 auto}
 }
+
+.memory-breakdown{display:grid;gap:.4rem;margin:1rem 0;font-size:.82rem}.memory-breakdown>div{display:flex;justify-content:space-between;gap:1rem}.memory-breakdown dt{color:var(--muted)}.memory-breakdown dd{margin:0;white-space:nowrap}
+
+#update-progress progress{width:100%;height:12px;accent-color:var(--purple)}
+#inline-activity{margin-bottom:18px}
+@media(max-width:600px){.job-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center}.job-row>.row-icon{grid-column:1;grid-row:1}.job-row>.row-main{grid-column:2 / -1;grid-row:1}.job-row>.pill{grid-column:2;grid-row:2;justify-self:start}.job-row>button{grid-column:3;grid-row:2}.job-row .row-main strong,.job-row .row-main small{white-space:normal;overflow-wrap:anywhere}}

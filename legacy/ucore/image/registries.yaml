@@ -1,3 +1,0 @@
-docker:
-  ghcr.io/ra5on/titan:
-    use-sigstore-attachments: true

@@ -3,7 +3,7 @@
 Titan verwendet Debian 13 (trixie), amd64, mit eigenen signierten Systempaketen.
 Ubuntu ist eine mögliche spätere Plattform, derzeit aber nicht unterstützt.
 Die Installation erfolgt als neues Image, nicht als Umstellung eines laufenden
-RaNAS-/uCore-Systems.
+anderes NAS-Systems.
 
 ## Umgesetzt
 

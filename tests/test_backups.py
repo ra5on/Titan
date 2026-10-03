@@ -366,8 +366,8 @@ class BackupTests(unittest.TestCase):
             with self.assertRaises(Error):
                 restore(self.host, data, self.store.path, runner)
         commands = [item.args[0] for item in runner.call_args_list]
-        self.assertIn(["systemctl", "stop", "smb.service"], commands)
-        self.assertNotIn(["systemctl", "start", "smb.service"], commands)
+        self.assertIn(["systemctl", "stop", "smbd.service"], commands)
+        self.assertNotIn(["systemctl", "start", "smbd.service"], commands)
         self.assertTrue(list(self.host.directory.glob("restore-recovery-*/recovery.json")))
 
     def test_restore_applies_target_acl_and_rejects_blocked_share(self):
@@ -386,7 +386,7 @@ class BackupTests(unittest.TestCase):
         backup = self.backups.create()
         data = self.backups.read_config(backup["id"])
         def runner(args):
-            if args == ["systemctl", "start", "smb.service"]:
+            if args == ["systemctl", "start", "smbd.service"]:
                 raise Error("SMB konnte nicht starten")
         command = Mock(side_effect=runner)
         with self.assertRaises(Error):

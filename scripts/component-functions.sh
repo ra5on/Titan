@@ -1,5 +1,5 @@
 #!/bin/bash
-# The immutable Titan uCore-HCI image supplies packages. Runtime repair only
+# The immutable Titan Debian image supplies packages. Runtime repair only
 # verifies those programs and activates fixed, already installed services.
 
 prepare_vm_runtime() {
@@ -31,14 +31,8 @@ vm_network_active() {
 }
 
 activate_vm_services() {
-    local task_failed=0 task_socket
-    for task_socket in virtqemud virtnetworkd virtstoraged virtlogd virtlockd virtnodedevd virtnwfilterd virtsecretd; do
-        if ! systemctl enable --now "$task_socket.socket"; then
-            printf 'Warnung: %s.socket konnte nicht starten. Titan-Systemimage und Dienststatus prüfen.\n' "$task_socket" >&2
-            task_failed=1
-        fi
-    done
-    [[ "$task_failed" -eq 0 ]] || return 1
+    local task_failed=0
+    systemctl enable --now libvirtd.socket virtlogd.socket virtlockd.socket || return 1
     if ! LC_ALL=C LANG=C virsh -c qemu:///system net-info default >/dev/null 2>&1; then
         if ! LC_ALL=C LANG=C virsh -c qemu:///system net-define /usr/share/libvirt/networks/default.xml; then
             printf '%s\n' 'Warnung: Das Standardnetzwerk für VMs konnte nicht angelegt werden.' >&2
@@ -63,7 +57,7 @@ activate_vm_services() {
 
 install_apps() {
     if ! command -v docker >/dev/null 2>&1; then
-        printf '%s\n' 'Docker fehlt im Titan-Systemimage. Ein vollständiges Titan-uCore-HCI-Image installieren oder aktualisieren.' >&2
+        printf '%s\n' 'Docker fehlt im Titan-Systemimage. Ein vollständiges Titan-Debian-Image installieren oder aktualisieren.' >&2
         return 1
     fi
     if ! docker compose version; then
@@ -87,7 +81,7 @@ verify_vm_programs() {
 
 install_vm_components() {
     if [[ "$(uname -m)" != x86_64 ]]; then
-        printf '%s\n' 'Das aktuelle Titan-uCore-HCI-Image unterstützt x86_64.' >&2
+        printf '%s\n' 'Das aktuelle Titan-Debian-Image unterstützt x86_64.' >&2
         return 1
     fi
     verify_vm_programs || return 1

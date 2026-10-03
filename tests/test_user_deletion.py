@@ -218,7 +218,7 @@ class HostDeletionTests(unittest.TestCase):
     def test_samba_reload_failure_never_reenables_removed_identity(self):
         original = self.command
         def fail(args, **kwargs):
-            if args == ["systemctl", "reload", "smb"]:
+            if args == ["systemctl", "reload", "smbd"]:
                 raise Error("reload unavailable")
             return original(args, **kwargs)
         self.host.command.side_effect = fail

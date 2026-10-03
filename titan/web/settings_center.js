@@ -4,7 +4,7 @@
  const groups=[
   {title:'System',items:[
    {key:'general',title:'Server & Zugriff',description:'Anzeigename, Webzugriff und Konten',icon:'settings',href:'#settings?section=general',keywords:'hostname name server https port anmelden konto zugang'},
-   {key:'updates',title:'Updates & Kanäle',description:'Version, Update-Kanal und automatische Prüfung',icon:'updates',href:'#settings?section=updates',keywords:'alpha beta stable release repository github zeitplan wartung'},
+   {key:'updates',title:'Updates & Rollback',description:'Version, Update-Kanal und automatische Prüfung',icon:'updates',href:'#updates',keywords:'alpha beta stable release repository github zeitplan wartung'},
    {key:'components',title:'Systemkomponenten',description:'Docker, Virtualisierung und Dienste prüfen',icon:'control',href:'#settings?section=components',keywords:'kvm libvirt qemu novnc reparieren installation'}
   ]},
   {title:'Daten & Berechtigungen',items:[
@@ -31,7 +31,7 @@
   if(!visible.has('auto_check'))html+=`<input type="checkbox" name="auto_check" hidden aria-hidden="true" tabindex="-1" ${settings.auto_check?'checked':''}>`;
   return html;
  }
- function sectionNav(section,esc){return `<nav class="sc-section-nav" aria-label="Einstellungsbereiche">${['general','updates','components'].map(key=>`<a href="#settings?section=${key}" ${key===section?'class="active" aria-current="page"':''}>${esc(labels[key])}</a>`).join('')}</nav>`;}
+ function sectionNav(section,esc){return `<nav class="sc-section-nav" aria-label="Einstellungsbereiche">${['general','updates','components'].map(key=>`<a href="${key==='updates'?'#updates':'#settings?section='+key}" ${key===section?'class="active" aria-current="page"':''}>${esc(labels[key])}</a>`).join('')}</nav>`;}
  function render(context={}){
   const esc=context.esc||escape,field=context.field||defaultField,select=context.selectField||defaultSelect,settings=context.settings||{},session=context.session||{},section=sections.has(context.section)?context.section:'',releaseLabel=context.releaseLabel||(stage=>stages[stage]||'Unbekannt');
   const heading=(title,description)=>`<header class="sc-heading"><div>${section?'<a class="sc-back" href="#settings">← Alle Einstellungen</a>':''}<h1>${esc(title)}</h1><p>${esc(description)}</p></div><a class="button small sc-diagnostics" href="/api/diagnostics?download=1">Diagnose herunterladen</a></header>`;
@@ -48,6 +48,7 @@
    body=typeof context.componentPanel==='function'?context.componentPanel(context.components||{}):'<section class="panel"><p>Der Komponentenstatus ist nicht verfügbar. Lade die Seite erneut.</p></section>';
    body+='<section class="sc-component-links"><a class="button small" href="#apps">Docker-Apps verwalten</a><a class="button small" href="#vms">Virtuelle Maschinen verwalten</a><a class="button small" href="#services">Alle Dienste anzeigen</a></section>';
   }
+  if(context.formOnly)return body;
   return `<section class="settings-center" data-settings-center data-settings-section="${section}">${heading(labels[section],section==='general'?'Name und Zugänge deines Servers.':section==='updates'?'Wähle deinen Kanal und lege fest, wann Titan nach Updates sucht.':'Prüfe die installierten Komponenten und repariere ihre Dienste.')}${sectionNav(section,esc)}${body}</section>`;
  }
  function dispose(){mounted?.dispose();mounted=null;}

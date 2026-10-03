@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import unittest
 from titan.core import Error
-from titan.updates import verify_manifest, validate_image_manifest, FORMAT
+from titan.updates import verify_manifest
 
 
 class SignatureTests(unittest.TestCase):
@@ -32,17 +32,7 @@ class SignatureTests(unittest.TestCase):
         self.manifest.write_text(text)
         subprocess.run(["openssl", "pkeyutl", "-sign", "-rawin", "-inkey", str(self.key),
                         "-in", str(self.manifest), "-out", str(self.signature)], check=True, capture_output=True)
-    def test_signed_manifest_binds_image_digest_and_architecture(self):
-        image = "ghcr.io/ra5on/titan@sha256:" + "a" * 64
-        info = {"architecture": "x86_64", "image_repository": "ghcr.io/ra5on/titan"}
-        self.sign(json.dumps({"format": FORMAT, "platform": "ucore-hci", "version": "0.3.0",
-                              "release_stage": "alpha", "architecture": "x86_64", "image": image,
-                              "boot_test": "passed", "runtime_test": "passed"}))
-        manifest = verify_manifest(self.manifest, self.signature, self.public)
-        self.assertEqual(validate_image_manifest(manifest, info), image)
-        self.manifest.write_text(self.manifest.read_text().replace("sha256:" + "a" * 64, "sha256:" + "b" * 64))
-        with self.assertRaises(Error):
-            verify_manifest(self.manifest, self.signature, self.public)
+
     def test_duplicate_json_keys_are_rejected_even_with_an_authentic_signature(self):
         self.sign('{"version":"0.3.0","version":"9.0.0"}')
         with self.assertRaises(Error):

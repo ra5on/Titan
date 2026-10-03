@@ -18,6 +18,7 @@ import urllib.parse
 import urllib.request
 
 from .core import Error, atomic_json
+from .update_progress import report, tracked
 
 FORMAT = 'titan-debian-ab-v1'
 COMPATIBLE = 'titan-debian13-amd64-ab-v1'
@@ -276,6 +277,8 @@ def download(url, destination, bundle, token=None):
     if token and urllib.parse.urlsplit(url).hostname == 'api.github.com':
         headers['Authorization'] = 'Bearer ' + token
     digest, size, deadline = hashlib.sha256(), 0, time.monotonic() + 1800
+    last_report = 0
+    report('download', received=0, total=bundle['size'])
     try:
         with urllib.request.build_opener(common.Redirect()).open(urllib.request.Request(url, headers=headers), timeout=30) as response, destination.open('xb') as output:
             while block := response.read(1024 * 1024):
@@ -284,6 +287,9 @@ def download(url, destination, bundle, token=None):
                     raise Error('Systemupdate-Download überschreitet die geprüfte Größe oder Zeitgrenze.')
                 digest.update(block)
                 output.write(block)
+                if time.monotonic() - last_report >= 0.5:
+                    report('download', received=size, total=bundle['size'])
+                    last_report = time.monotonic()
             output.flush()
             os.fsync(output.fileno())
     except Error:
@@ -307,6 +313,7 @@ def activate(slot, record, state, kind):
 
 
 @locked
+@tracked
 def install(repo, channel, expected_version, database):
     from . import updates as common
     token = common.read_token()
@@ -317,17 +324,21 @@ def install(repo, channel, expected_version, database):
     validate_manifest(manifest)
     if manifest['system_accounts'] != image_info()['system_accounts']:
         raise Error('Systemkontenvertrag des Updates ist nicht kompatibel.', 409)
-    if common.version(manifest['version']) != common.version(expected_version) or not common.allowed_stage(channel, manifest['release_stage']):
+    if (common.version(manifest['version']) != common.version(expected_version) or
+            manifest['release_stage'] != offer.get('latest_stage') or
+            not common.allowed_stage(channel, manifest['release_stage'])):
         raise Error('Update-Version oder Kanal hat sich geändert.', 409)
     current = system_status()
     if current['reboot_required'] or current['reboot_scheduled'] or not current['health_confirmed']:
         raise Error('Systemwechsel ist derzeit gesperrt.', 409)
     target = 'B' if current['booted']['slot'] == 'A' else 'A'
+    report('backup')
     backup = common.backup_configuration(database)
     CACHE.mkdir(parents=True, exist_ok=True, mode=0o700)
     with tempfile.TemporaryDirectory(prefix='install-', dir=CACHE) as work:
         bundle = Path(work) / manifest['bundle']['name']
         download(assets[manifest['bundle']['name']], bundle, manifest['bundle'], token)
+        report('verification')
         # RAUC performs its own certificate, compatible and verity verification.
         run(['rauc', '--conf=/etc/rauc/system.conf', 'info', '--keyring=/usr/share/titan/rauc-root.pem', str(bundle)], timeout=120)
         fresh = system_status()
@@ -339,6 +350,7 @@ def install(repo, channel, expected_version, database):
         # installs must never leave an old digest selectable for a partial slot.
         state['slots'].pop(target, None)
         save_state(state)
+        report('writing')
         try:
             run(['rauc', 'install', str(bundle)], timeout=1800)
         except Error as exc:
@@ -349,6 +361,7 @@ def install(repo, channel, expected_version, database):
             except Error:
                 detail = ''
             raise Error('Systemupdate fehlgeschlagen. ' + str(exc) + ('\n' + detail[-3000:] if detail else ''), 503) from None
+        report('confirming')
         _, slots, booted = rauc_status()
         detail = slots[target].get('slot_status', {})
         if (booted != current['booted']['slot'] or detail.get('checksum', {}).get('sha256') != manifest['rootfs_sha256'] or

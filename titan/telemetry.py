@@ -51,12 +51,17 @@ class Telemetry:
         total, available = memory["MemTotal"], memory["MemAvailable"]
         if total <= 0 or not 0 <= available <= total:
             raise ValueError("Ungültige RAM-Kapazität.")
+        free = memory.get("MemFree")
+        if free is not None and not 0 <= free <= total:
+            raise ValueError("Ungültiger freier RAM.")
         swap_total, swap_free = memory.get("SwapTotal"), memory.get("SwapFree")
         swap_used = (swap_total - swap_free if swap_total is not None and swap_free is not None
                      and 0 <= swap_free <= swap_total else None)
         cached = max(0, memory.get("Cached", 0) + memory.get("SReclaimable", 0) - memory.get("Shmem", 0))
         return {"memory_total": total, "memory_available": available,
                 "memory_used": total - available, "memory_cached": min(total, cached),
+                "memory_free": free, "memory_occupied": total - free if free is not None else None,
+                "memory_buffers": min(total, memory.get("Buffers", 0)),
                 "swap_total": swap_total, "swap_used": swap_used}
 
     @staticmethod
@@ -122,6 +127,7 @@ class Telemetry:
                 return {**self.cached, "status_history": [dict(item) for item in self.history]}
             value = {"cpu_percent": None, "cpus": None, "memory_total": None,
                      "memory_used": None, "memory_available": None, "memory_cached": None,
+                     "memory_free": None, "memory_occupied": None, "memory_buffers": None,
                      "swap_total": None, "swap_used": None, "cpu_temperature": None,
                      "temperatures": [], "temperature_available": False,
                      "telemetry_sampled_at": time.time(), "telemetry_errors": {}}
@@ -142,6 +148,8 @@ class Telemetry:
                 self.history.append({"time": value["telemetry_sampled_at"], "cpu_percent": value["cpu_percent"],
                                      "memory_percent": round(100 * value["memory_used"] / value["memory_total"], 1)
                                      if value["memory_total"] else None,
+                                     "memory_occupied_percent": round(100 * value["memory_occupied"] / value["memory_total"], 1)
+                                     if value["memory_total"] and value["memory_occupied"] is not None else None,
                                      "cpu_temperature": value["cpu_temperature"]})
                 self.history_time = now
             self.previous_time, self.cached = now, value

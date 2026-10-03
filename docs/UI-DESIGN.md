@@ -27,7 +27,7 @@ Der Hybridansatz ist unsere Designentscheidung aus diesen Hinweisen und den Tita
 
 ## Daten- und Sicherheitsgrenzen der Auswahl
 
-`GET /api/storage-locations` steht nur Administratoren offen und verändert keine Laufwerke. Die Liste basiert auf vorhandenen Verzeichnissen, Freigaben und eingehängten Laufwerken. Als Backupziel werden nur vom bestehenden Backupvalidator geprüfte separate beschreibbare Dateisysteme angeboten. Kanonische uCore-Orte `/var/mnt` und `/var/media` werden unterstützt. Unverfügbare oder nicht sicher geprüfte Laufwerke werden nicht als Sicherungsziele angeboten.
+`GET /api/storage-locations` steht nur Administratoren offen und verändert keine Laufwerke. Die Liste basiert auf vorhandenen Verzeichnissen, Freigaben und eingehängten Laufwerken. Als Backupziel werden nur vom bestehenden Backupvalidator geprüfte separate beschreibbare Dateisysteme angeboten. Zusätzliche eingehängte Orte `/var/mnt` und `/var/media` werden unterstützt. Unverfügbare oder nicht sicher geprüfte Laufwerke werden nicht als Sicherungsziele angeboten.
 
 Der Ordnerpicker verwendet die bestehende Administrator-Dateiliste, respektiert deren Lesbarkeit, überspringt symbolische Links und bietet weitere Seiten bei großen Ordnern an. Das Auswählen ersetzt keine Backendprüfung: jede eigentliche Aktion prüft Rechte, Mounts und Pfade erneut. Die Auswahlliste kann sich zwischen Anzeige und Ausführung ändern.
 

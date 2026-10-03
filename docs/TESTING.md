@@ -1,137 +1,15 @@
-# uCore-Testplan
+# Debian-Testplan
 
-Titan bleibt Alpha; die **erste Beta ist das nächste Ziel**. Der [Beta-Plan](BETA.md) führt erforderliche Nachweise und den aktuellen Stand auf. Das veröffentlichte v0.4.2-IMG dient als Startbasis für Web-Update/Rollback und App-Netze. v0.4.3 ergänzt Systemdisk-Erweiterung und v0.4.4 den Dateimanager sowie einklappbare Navigation als Updates ohne neues Installations-IMG; nach der v0.4.2-Installation wird zuerst aktualisiert und ausdrücklich neu gestartet. Die CI verwendet für jeden Kandidaten weiterhin eine interne Raw-Testdisk. Das bereits veröffentlichte v0.4.0-ISO-Archiv bleibt unverändert und gehört nicht mehr zur laufenden Build-Pipeline.
+## Automatisierte Prüfungen
 
-Python/API-Tests und Node-UI-Prüfungen verwenden temporäre Dateien, Mock-Hostbefehle und lokale Testserver. Sie installieren kein Betriebssystem auf der Entwickler-Maschine. Ein erfolgreiches Ergebnis dieser Tests bestätigt keinen Betrieb auf dem NAS.
+- `python3 -m unittest discover -s tests -v`: APIs, Rechte, Dateiverwaltung, Signaturen, Debian-Profile und A/B-Updategrenzen.
+- `node tests/<suite>.cjs`: UI-Verhalten und Darstellung.
+- Shell- und JavaScript-Syntaxprüfung in CI.
+- Debian-Image-Workflow: echter QEMU-Start und Laufzeitprüfung von HTTPS, Anmeldung, Metriken, SMB, Docker und VM-Komponenten.
+- A/B-Integration: Update auf den Kandidaten, Neustart, Gesundheitsbestätigung, Rollback, unveränderte persistente Daten sowie Vergrößerung der Systemdisk und fehlgeschlagener Start mit Rückfall.
 
-## Dateimanager und Navigation in v0.4.4
+Laufzeitberichte gehören zur tatsächlich getesteten Version. Ein nicht verfügbarer Hardwaretest wird als übersprungen dokumentiert. Er darf nicht als erfolgreicher Betriebsnachweis gelten.
 
-v0.4.4 hat am **2. Oktober 2026** im [Actions-Lauf 36998515941](https://github.com/ra5on/Titan/actions/runs/36998515941) den Image-Erststart und alle **zehn Laufzeitprüfungen** bestanden. Der geprüfte Source-Stand ist [a228b96fff5f](https://github.com/ra5on/Titan/commit/a228b96fff5f137b04419982feedba6ab38a5331); der [öffentliche Laufzeitbericht](https://github.com/ra5on/Titan/releases/download/v0.4.4/runtime-test.json) enthält die tatsächlichen Ergebnisse. SMB mit unterschiedlichen Benutzerrechten, Docker-App und eigenes Bridge-Netz, VMs mit verfügbarem KVM und Browserkonsolen-Verbindung, CPU/RAM sowie Systemdisk-Erweiterung sind auf diesem Stand erneut bestanden. Die virtuelle Systemdisk wurde von 32 auf 36 GiB vergrößert; Partition und XFS wuchsen jeweils um genau 4 GiB; UUIDs, Partitionsanfang, Testdatei-SHA256 und originales Raw-Image blieben erhalten. Die öffentlichen Manifest-/Prüfsummensignaturen und Asset-Digests wurden nach Veröffentlichung unabhängig geprüft. Der tatsächliche Titan-Updater erkennt v0.4.4 vom simulierten installierten v0.4.3-Stand als verfügbares signiertes Alpha-Update; es wurde dabei kein Update installiert oder Neustart ausgelöst.
+## Manuelle Prüfung
 
-Die folgende Bedienungsprüfung wurde am **2. Oktober 2026** lokal in einer isolierten Demo durchgeführt und bestätigt die Weboberfläche mit temporären Dateidaten. Sie ersetzt keinen manuellen Proxmox-/Hardwaretest und keinen vollständigen OS-Update-/Neustart-/Rollback-Zyklus.
-
-- **973 Python-Tests**, ohne Fehler; ein historischer ISO-Fixture wurde wegen fehlender ISO-Prüfwerkzeuge übersprungen. **22 Node-Testsuiten** und Syntaxprüfung aller **15 Browser-JS-Dateien** bestanden.
-- Bei **1280 × 720**, **1024 × 768** und **390 × 844** werden Toolbar und Navigation unabhängig von der Dateiliste angeordnet. Auf dem Desktop wurde eine Liste mit 50 Einträgen bis zum letzten Eintrag gescrollt: Dateilisten-Scrollposition 2301 px, Seiten-Scrollposition 0, Werkzeugleistenposition unverändert. Mobile Prüfung ohne seitlichen Überlauf.
-- Eine UTF-8-Datei mit unbekannter Endung `.custom` direkt über das Stiftsymbol geöffnet und mit **Strg+S** gespeichert; Dialog blieb offen und meldete „Gespeichert“. Tatsächliche gespeicherte Bytes behielten BOM und CRLF. Eine zweite Datei über den mobilen Speichern-Knopf bearbeitet. Binärdatei wurde ohne Schreibaktion abgewiesen.
-- „Weiter bearbeiten“ behielt ungespeicherten Inhalt; „Änderungen verwerfen und schließen“ schloss den Dialog ohne Schreibaktion. Editor-Suiten prüfen außerdem Versionskonflikte, externe Änderungen, begrenzte Antworten, Zeitüberschreitungen und verspätete Antworten nach dem Schließen.
-- Menü eingeklappt und nach Neuladen wiederhergestellt; mobile Menüöffnung, Escape und Rückgabe des Fokus an den Menüknopf geprüft. Keine Warnungen/Fehler in der Browserkonsole während dieser Bedienungsprüfungen.
-
-Textbearbeitung gilt für **UTF-8-Text bis 1 MiB unabhängig von der Dateiendung**. Office-Dateien, Bilder, Archive und andere Binärformate werden dadurch nicht zu Text; unveränderliche Systempfade und Freigabenrechte bleiben wirksam. Screenshots liegen bei der lokalen Entwicklung unter `artifacts/ui/file-editor-mobile-0.4.4.jpg` und `artifacts/ui/file-manager-0.4.4.jpg`.
-
-## Nachweis für v0.4.3
-
-v0.4.3 hat am **2. Oktober 2026** im [Actions-Lauf 36984481129](https://github.com/ra5on/Titan/actions/runs/36984481129) den Image-Erststart und alle **zehn Laufzeitprüfungen** bestanden. Der geprüfte Source-Stand ist [a792e96c16da](https://github.com/ra5on/Titan/commit/a792e96c16daf510492db93bafa4f30d0d6ebca6); der [öffentliche Laufzeitbericht](https://github.com/ra5on/Titan/releases/download/v0.4.3/runtime-test.json) enthält die tatsächlichen Ergebnisse. Nested-KVM war verfügbar. Alle bisherigen SMB-/Docker-/VM-/Metrikprüfungen sind auf diesem Systemstand erneut bestanden.
-
-- Erststart auf 32 GiB: automatische Erweiterung vor den NAS-Diensten bestätigt; XFS-Größe **32.747.008.000 Bytes**.
-- QMP vergrößert ausschließlich das Testoverlay auf 36 GiB; die bestätigte Titan-Aktion erweitert die Partition auf **37.041.978.880 Bytes** und XFS auf **37.041.975.296 Bytes**. Beide wachsen um genau 4 GiB.
-- Partitionsanfang und Disk-/Partitions-/Dateisystem-UUIDs erhalten; Testdatei-Inhalt und SHA256 identisch, Testdatei danach entfernt. Wiederholung auf der vollständig genutzten Disk verändert nichts. Der originale Raw-Image-SHA256 bleibt vor/nach dem Gasttest identisch.
-- Die öffentliche Manifest-/Prüfsummensignatur wurde nach Veröffentlichung unabhängig mit dem vertrauten Schlüssel geprüft. GitHub-Assetgrößen und SHA256-Digests der öffentlichen Dateien stimmen überein. v0.4.3 ist ein Systemupdate ohne neues Installations-IMG.
-
-Diese Prüfung enthält keinen NAS-Neustart nach der Online-Erweiterung und keinen echten OS-Update-/Rollback-Zyklus. Die lokalen 972 Python-Tests (eine historische ISO-Prüfung ausgelassen), 20 Node-UI-Prüfungen und die Browserdemo bei Desktop-/390-Pixel-Breite ergänzen den Gasttest; sie ersetzen den manuellen Proxmox-/Hardwaretest nicht.
-
-## Nachweis für v0.4.2
-
-Der [Actions-Lauf 36976868510](https://github.com/ra5on/Titan/actions/runs/36976868510) für Source [4bf641b481dd](https://github.com/ra5on/Titan/commit/4bf641b481dd5d3cce89de47a75678597ca75727) hat am **2. Oktober 2026** den echten Image-Erststart und alle neun Runtime-Prüfungen bestanden. `runtime-test.json` enthält folgende Ergebnisse aus einem getrennten QEMU-Overlay:
-
-- HTTPS/Ersteinrichtung und Administratorlogin, 42 öffentliche Katalogvorlagen mit Anmeldehinweisen, live gelesener Erststart-Updatezustand und zurückgewiesene falsche Rollback-/Neustartbestätigungen.
-- Reale CPU-/RAM-Messung sowie laufende Docker-/Compose-/libvirt-Dienste; Nested-KVM war verfügbar. Die VM hatte keine Temperatursensoren.
-- Heimdall im Standardnetz und auf einer eigens angelegten Bridge mit fester Container-IPv4: tatsächliche IP, Gateway und veröffentlichter NAS-LAN-Endpunkt geprüft; die Webseite lieferte jeweils vor und nach Stoppen/Starten HTTP 200. App und eigenes Testnetz anschließend entfernt.
-- SMB mit dem frisch eingerichteten Administrator, separatem Lesekonto und unberechtigtem Konto vom externen Runner: Datei schreiben/lesen und Inhalt vergleichen, Lesen erlauben/Schreiben verweigern, unberechtigte Verbindung verweigern und private Freigabe ausblenden; entbehrliche Testdaten und Konten anschließend entfernt.
-- VM anlegen/starten/ausschalten/entfernen, noVNC-Dateien und authentifizierten WebSocket-/RFB-3.8-Aufbau prüfen; ausgeschaltete VM-Disk über den direkten Image-Pfad als zweite VM kopieren/starten/ausschalten/entfernen. Die Metadatenrevision der Quelle blieb unverändert.
-
-Dieser Nachweis umfasst Heimdall als eine reale App und den Katalog der übrigen Vorlagen. Er umfasst keinen echten OS-Update-/Neustart-/Rollback-Zyklus, kein installiertes VM-Gastbetriebssystem, keine Browserbild-/Eingabeprüfung, keinen Quell-Inhalts-Hashvergleich beim VM-Import und keinen Proxmox-/Hardware-/Dauerlauf. Die folgenden manuellen Prüfungen bleiben daher für die Beta erforderlich.
-
-## Verpflichtende Image-Build-Prüfungen
-
-- uCore-HCI-Basis und Builder-Digest festgelegt; Docker, Compose, Samba, QEMU/libvirt, noVNC und Dateisystemwerkzeuge im Image vorhanden.
-- bootc-Container-Lint erfolgreich; keine geräteeigenen Schlüssel, Benutzer oder Daten in das Downloadimage eingebettet.
-- OCI-Signatur mit dem vorhandenen öffentlichen Release-Schlüssel einschließlich Skopeo-Vertrauensrichtlinie geprüft.
-- Interne Raw-Testdisk aus genau diesem signierten Digest gebaut und über ein getrenntes QEMU-Overlay gestartet. Bei ausdrücklich gewählter Installationsveröffentlichung bleibt das spätere Downloadimage dadurch unverändert.
-- Ab v0.4.3 ausschließlich dieses QCOW-Overlay vor dem Erststart auf 32 GiB erweitern. Die Startprüfung muss die tatsächliche Systempartition und XFS auf die verfügbare Kapazität vergrößern. Danach ausschließlich das private Overlay über den festen QMP-Systemdrive auf 36 GiB vergrößern und über die bestätigte Titan-Aktion sowohl Partition als auch XFS erweitern. Live-Kapazitäten, Partitionsanfang, Disk-/Partitions-/Dateisystem-UUIDs, Testdatei-Inhalt und SHA256 sowie wirkungslose Wiederholung prüfen. Der originale Raw-Image-SHA256 muss vor/nach dem Test identisch sein. Keine Host-Blockgeräte verwenden; fehlgeschlagene Identitäts-/Wachstums-/Hashprüfung blockiert Veröffentlichung und Updates.
-- HTTPS auf Port 5000 erreichbar, korrekte Version, Demo aus, kein vorbereiteter Administrator; Einrichtung und Anmeldung funktionieren.
-- CPU-/RAM-Messung, Docker-App-Lebenszyklus und libvirt im entbehrlichen Gast prüfen. Heimdall muss vor und nach dem erneuten Start seine tatsächliche Webseite per HTTP ausliefern.
-- Eigene Docker-Bridge mit Testsubnetz/Gateway anlegen, Heimdall mit fester IP installieren und tatsächliche Container-/LAN-Adressen in App-Liste und App-Details prüfen. App-Webseite vor/nach erneutem Start erreichen, ausschließlich die erzeugte Test-App und ihr unbenutztes Testnetz entfernen.
-- Den live gelesenen Systemupdate-Status prüfen: frische Installation ohne vorherige Rollback-Version, kein vorbereitetes Image/Neustart. Falsche Rollback-/Neustartbestätigungen müssen HTTP 400 liefern und den Zustand unverändert lassen. Der Gasttest startet weder das NAS neu noch führt er einen Rollback aus.
-- Neu eingerichteten Administrator als eigenes verwaltetes SMB-Konto prüfen. Zwei entbehrliche Lese-/unberechtigte Konten und eine private Testfreigabe anlegen. Vom Runner per `smbclient` über einen festen lokalen QEMU-Portforward schreiben/lesen und Dateiinhalt vergleichen; Lesen mit dem Lesekonto, ausdrückliche Schreibverweigerung sowie Verbindungsverweigerung/ausgeblendete Freigabe für das unberechtigte Konto prüfen. Testdatei, Freigabe und die zwei Testkonten danach entfernen. Zugangsdaten existieren nur im Speicher und in temporären Dateien mit Modus 0600; CLI-Argumente und öffentliche Berichte enthalten keine Passwörter.
-- Bei verfügbarem Nested-KVM eine VM anlegen/starten und Konsolenseite, noVNC-Dateien und authentifizierten WebSocket-/RFB-Verbindungsaufbau prüfen. Nach dem Ausschalten ihre Testdisk über den direkten Image-Pfad prüfen und als zweite VM kopieren/starten/ausschalten/entfernen. Metadatenrevision, Dateigröße und Kapazität der Quelle müssen erhalten bleiben; das ist kein Inhalts-Hashvergleich. Fehlendes Nested-KVM ausdrücklich als übersprungen ausweisen.
-- Boot- und Laufzeitergebnisse im signierten Manifest festhalten; `boot-test.json`, `runtime-test.json` und Konsolenausgaben erhalten. Veröffentlichung und Updates verlangen explizit `passed` für beide kritischen Ergebnisse. Fehlende, unbekannte und fehlgeschlagene Statuswerte genügen nicht.
-
-Der Runtime-Test bedient keinen Browser, installiert kein Gastbetriebssystem und prüft keine physischen Datenlaufwerke. Der Systemdisk-Nachweis ab v0.4.3 prüft Boot-Autogrowth und eine anschließende Online-Erweiterung; er startet dabei das NAS nicht erneut und ersetzt keinen vollständigen OS-Update-/Rollback-Zyklus. Sein SMB-Nachweis verwendet `smbclient` im entbehrlichen Runner; Windows-/macOS-Clients bleiben eigene Betriebsprüfungen. Er testet eine reale App; die übrigen Katalogvorlagen benötigen eigene Betriebsnachweise. Fehlerdiagnosen bleiben als Actions-Artefakte und geschlossene Fehlerkategorien im Actions-Protokoll verfügbar. Reguläre Update-Releases enthalten keinen Installations-IMG-Download; dessen Komprimierung und Veröffentlichung erfolgt nur bei expliziter Auswahl im Workflow. ISO-Build, ISO-Installation und die Verteilung von ISO-Stücken entfallen für neue Veröffentlichungen. Das [historische ISO-Verfahren](ISO-BUILD.md) beschreibt ausschließlich v0.4.0 und seine bisherigen Prüfungen.
-
-Der authentifizierte Image-Gasttest prüft auch `/api/catalog`: vollständige bekannte App-Auswahl, alle ersten Anmeldeschritte und Dokumentationslinks sowie die Grenze zwischen öffentlichen Vorlagen und privaten Einstellungen. Das Ergebnis enthält nur Appzahl, Moduszähler und Status. Ein Katalogtest bestätigt noch keine erfolgreiche Installation jeder App.
-
-## Manueller Proxmox-Test des Alpha-Images
-
-**[Installationsimage · v0.4.2 IMG herunterladen](https://github.com/ra5on/Titan/releases/download/v0.4.2/titan-0.4.2-x86_64.img.xz)**. Einen späteren neueren Kandidaten anschließend über den passenden Update-Kanal vorbereiten und in Titan ausdrücklich neu starten. OCI-Digest und tatsächlich gestartete Version dokumentieren; Ergebnisse gehören immer zur exakt getesteten Version. Die neuen Update-/Rollback- und App-Netzabläufe sind im [v0.4.2-Proxmox-Test](PROXMOX-TEST.md) ausführlich beschrieben.
-
-1. Eine neue VM mit entbehrlichen Daten anlegen. `.img.xz` nach [Installation](INSTALL.md#download-und-datenträger) prüfen und entpacken.
-2. Das Raw-Image als neue virtuelle Systemdisk importieren, der VM zuweisen und in der Bootreihenfolge zuerst auswählen. Keine vorhandene NAS-Disk überschreiben.
-3. UEFI/OVMF mit separater EFI-Disk, Q35, VirtIO-SCSI oder VirtIO-Block sowie mindestens 4 GiB RAM und zwei virtuelle CPUs verwenden. Die importierte Systemdisk muss mindestens die Größe des entpackten Image behalten. Für weitere Apps und eine Gast-VM zusätzliche Ressourcen einplanen.
-4. Den Netzwerkadapter mit einer LAN-Bridge verbinden, damit DHCP eine im LAN erreichbare IPv4-Adresse zuweist.
-5. Für VMs **innerhalb von Titan** CPU-Typ `host` wählen und Nested Virtualization auf dem Proxmox-Host bereitstellen. CPU-Typ allein ersetzt nicht die Freigabe auf dem Host. Ohne `/dev/kvm` muss der NAS-Webzugang weiter funktionieren.
-
-Proxmox dokumentiert den Diskimport und die verfügbaren VM-Optionen in den [offiziellen qm-Quellen](https://github.com/proxmox/pve-docs/blob/master/generated/qm.1-synopsis.adoc). SSH ist zunächst abgeschaltet. Die Proxmox-Konsole zeigt beim Erststart Bootmeldungen; der Web-Administrator ist kein automatisch angelegtes Linux-Login.
-
-Nach dem Start folgende Ergebnisse festhalten:
-
-1. DHCP-Adresse, Version und `https://IP:5000` erreichbar; Administrator ohne Einrichtungscode anlegen und erneut anmelden.
-2. Als Web-Administrator im Web-Terminal `systemctl --failed`, Status und Journal von `titan-firstboot`, `titan-agent`, `titan-web` und `titan-proxy` prüfen. Falls der Webzugang ausfällt, die sichtbaren Bootmeldungen festhalten; ohne eingerichtete Systemzugangsdaten sind in der Proxmox-Konsole keine Diagnosebefehle möglich.
-3. Einen neuen Datenbereich über die Speicher-/Freigabenauswahl verwenden. Ordnerbrowser, Orte/Breadcrumbs, Vor-/Zurück/oben, Listen-/Symbolansicht, Zeilenklick-Vorschau/Eigenschaften, Mehrfachauswahl und Dateiaktionen prüfen; Namen/Enter/Doppelklick öffnen. Sortierung betrifft die aktuelle Seite einer begrenzten Dateiliste. Name/Endung neuer Dateien und Ordnerauswahl beim Kopieren/Verschieben kontrollieren; keine Pfade für Standardabläufe manuell eingeben müssen.
-4. Apps installieren und die App-Webseiten öffnen. Standard-, eigenes Bridge-Netz/Fest-IP und Host-Modus getrennt prüfen; angezeigte Container-/LAN-Adressen mit dem tatsächlichen Zugriff vergleichen. Die Angaben zum ersten Login direkt im App Store überprüfen: dokumentiertes Anfangspasswort, selbst gewähltes Passwort, Einrichtungsassistent oder im App-Protokoll erzeugtes Einmalpasswort müssen korrekt unterschieden werden. Anfangspasswort anschließend ändern und erneut anmelden.
-5. Eine echte Gast-VM aus einem Installationsimage einrichten. Zusätzlich ein eigenständiges raw/qcow2-Image per Dateiauswahl und direkt angegebenem Pfad kopieren; Format, virtuelle Mindestgröße, unveränderte Quelle und gewählten VM-Speicher prüfen. Gastbetriebssystem starten, im Browser sichtbares Bild, Tastatur und Maus testen; Diskgröße/-Ort, CPU-Auswahl, Neustart und Autostart prüfen. Ein RFB-Verbindungsaufbau allein genügt dafür nicht.
-6. Die Titan-VM vollständig neu starten. Anmeldung, Speicherzuordnungen, App-Konfigurationen und eingerichtete Dienste müssen erhalten bleiben.
-7. Ab v0.4.3 die Systemdisk in Proxmox vergrößern und **Speicher → Systemplatte** prüfen: Start-Autogrowth oder **Kapazität erweitern**, tatsächliche Partition-/XFS-Größen, unveränderte Testdatei-SHA256 und Persistenz nach einem weiteren Neustart. Die Schritte stehen im [Systemdisk-Test](PROXMOX-TEST.md#systemdisk-ab-v043-erweitern).
-
-Danach die nachstehenden NAS-Tests durchführen. Ein Proxmox-Test kann virtuelle Datenlaufwerke verwenden. SMART-Werte, reale Temperaturen und die Erkennung von P-/E-Kernen benötigen zusätzlich passende Hardware. Bei Fehlern die Befehle aus [Installation → Diagnose](INSTALL.md#diagnose) verwenden.
-
-## Separater NAS- und Datentest
-
-Alle Formatierungs- und Fehlerfalltests verwenden neue entbehrliche Datenlaufwerke beziehungsweise virtuelle Disks. Die Systemdisk und produktive Daten bleiben ausgeschlossen.
-
-1. **Speicher:** Ext4, XFS und ZFS getrennt anlegen; Kapazität, Mounts und Zuordnung nach Neustart prüfen. Ein fehlendes Volume muss Zugriffe verweigern und darf keine Ersatzdaten auf der Systemdisk erhalten. ZFS-Dataset, Snapshot und Wiederherstellung separat testen.
-2. **Dateimanager:** Erstellen, Vorschau/Bearbeiten unterstützter Dateien, Upload/Download, Kopieren, Verschieben und Löschen mit Wiederherstellung aus dem Papierkorb prüfen. `/usr` bleibt lesbar und schreibgeschützt; administrative Änderungen unter `/etc` und `/var` sowie begrenzte Rechte normaler Benutzer kontrollieren.
-3. **SMB:** Administrator und mindestens zwei Benutzer mit unterschiedlichen Rechten anlegen. Von einem separaten Client lesen/schreiben, verbotene Zugriffe prüfen und Benutzer sperren/löschen. Die Freigaben müssen nach Neustart dieselben Rechte besitzen; SELinux bleibt enforcing.
-4. **Apps:** Installieren, ersten Login, Öffnen, Stoppen/Starten, Neustart, Update und Konfigurationssicherung testen. Portkonflikte und fehlende Freigaben müssen als verständliche Fehler erscheinen. Jede für die Beta angebotene Vorlage braucht einen dokumentierten Installations-/Zugriffstest; eine HTTP-Prüfung von Heimdall bestätigt die anderen Apps nicht.
-5. **VMs:** Ein installiertes Gastbetriebssystem mit Browserbild und Eingabe bedienen. Danach Neustart, Autostart, ausgeschaltete VM sichern und unter neuem Namen wiederherstellen. Ohne KVM müssen die übrigen NAS-Funktionen benutzbar bleiben.
-6. **Backups:** Testdateien und NAS-Konfiguration auf ein getrenntes Ziel sichern. Dateien in eine neue Zielfreigabe wiederherstellen und Inhalt beziehungsweise Hashes vergleichen. Konfigurationsrestore auf demselben Host mit vorhandenen UID-/Pfadzuordnungen prüfen; anmelden, SMB-Rechte und Dienste erneut kontrollieren. Ein fehlendes Sicherungsziel darf keine Sicherung auf der Systemdisk erzeugen.
-7. **Update und Rollback:** Ein neueres signiertes Titan-Image vorbereiten, laufenden Betrieb ohne automatischen Neustart bestätigen, Apps/VMs geordnet stoppen und in Titan kontrolliert neu starten. Danach die vorherige OS-Version über den Rollbackdialog vorbereiten und den nötigen Neustart ausdrücklich bestätigen. Falsche Bestätigungen, veraltete Digests und bereits geplante Neustarts müssen blockiert werden. UID/GID, Dateien, Datenbank, App-Konfigurationen und Freigaben müssen geprüft werden. Ein OS-Rollback setzt Daten unter `/var` nicht zurück. Auf einer frischen Installation ohne späteres Update bleibt der vollständige Zyklus offen.
-8. **Dienste und Terminal:** Eigene Dienste über installierte Programme und Arbeitsordnerauswahl anlegen, starten, stoppen und nach Neustart prüfen. Status und Aufträge müssen Erfolg und Fehler korrekt anzeigen. Webterminal-Eingabe, Kopieren/Einfügen und Unterbrechen unter aktiven SELinux-/systemd-Regeln testen.
-9. **Metriken:** CPU mit einem kontrollierten kurzen Workload vergleichen; RAM-Gesamt/Verfügbar gegen `/proc/meminfo`, Temperaturen gegen tatsächlich vorhandene Sensoren prüfen. Fehlende Sensoren als nicht verfügbar anzeigen. Der erste CPU-Sample nach Neustart muss als ausstehend erscheinen. Uhr und Diagramme müssen ohne Neuladen weiterlaufen.
-10. **Bedienung und Dauerbetrieb:** Desktop und Mobilgerät verwenden, Dialoge per Tastatur bedienen, gespeicherte Kachelanordnung prüfen und wenigstens 24 Stunden mit den eingerichteten Apps/VMs laufen lassen. Ressourcenverlauf, neue Dienstfehler und unerwartete Neustarts dokumentieren.
-
-## Ergebnis dokumentieren
-
-Zu jedem Test Version, OCI-Digest, Datum, Proxmox-/Hardwarekonfiguration, verwendete App-/Gast-OS-Version, erwartetes Ergebnis und Beobachtung festhalten. Status ausdrücklich **bestanden**, **fehlgeschlagen**, **übersprungen** oder **offen** nennen. Geheimnisse und persönliche Dateien gehören nicht in öffentliche Testberichte.
-
-Ein bestandener CI-Lauf ohne Nested-KVM ersetzt keinen VM-/Browserkonsolentest. Eine Demo oder ein Source-Test ersetzt keinen Betriebsnachweis. Die [Beta-Kriterien](BETA.md) bündeln die Freigabeentscheidung.
-
-
-## NAS-Desktop und Manager in v0.4.5
-
-Die isolierte Browser-Demo wurde bei 1280×720, 1024×768 und 390×844 geprüft. Alle 15 Verwaltungsansichten luden als helle Appfenster ohne Verbindungsfehler oder horizontalen Überlauf. Der Desktop zeigt zwölf direkte Werkzeuge und sechs bestehende Statuskarten; die im Browser verschobene Ressourcenkarte stand nach Speichern und Neuladen weiterhin zuerst. Die CPU-/RAM-Anzeige verwendet weiterhin das vorhandene Live-Modul; die Demo kennzeichnet Beispielwerte und Beispielverlauf.
-
-Die zehn Einstellungs-Kacheln und ihre Suche wurden sichtbar geprüft. Das Speichern eines geänderten Servernamens bewahrte sämtliche Updatewerte im tatsächlichen temporären Demo-Datenbankdatensatz. Die getrennten Kategorieformulare sind zusätzlich mit aktivierter und deaktivierter Prüfung, Escaping und Wartungszeit 0:00 durch Node-Regressionen abgesichert. Der Speichern-Knopf erhält den Fokus zurück; Fenster erweitern/verkleinern änderte die sichtbare Breite von 1153 auf 1181 Pixel und zurück.
-
-Der VM-Manager zeigte Maschinen, CPU/RAM/Laufwerksdaten, ISO-Medien und die Host-Topologie. Im Erstellen-Dialog waren manuelle P-/E-Kern-Auswahl sowie QCOW2-/RAW-Image-Auswahl, direkter NAS-Pfad und Laufwerksziel verfügbar. Der Docker-Manager zeigte Status und Container-IP; die Suche führte zum Verwaltungsdialog mit Anmeldung, Start/Stop, Logs und tatsächlichen Netzwerkdetails. Im App-Installationsdialog blieben Standard-, Bridge-, Host- und eigene Netzoptionen erreichbar. Diese UI-Prüfungen verändern keine Host-Dienste und ersetzen keine tatsächliche VM-/Container-Ausführung.
-
-Der Dateimanager wurde mit 70 temporären Einträgen geprüft. Beim Scrollen änderte sich der Listenoffset von 315 auf 565 Pixel, während die Toolbar exakt bei 178,5 Pixel blieb. Direkte Bearbeitung einer unbekannten `.anything`-Endung und Strg+S speicherten tatsächliche UTF-8-BOM/CRLF-Bytes korrekt. Der mobile Editor behielt den Schutz ungespeicherter Änderungen. Die festen Leisten, eigene Scrollbereiche und Menübedienung blieben auf dem Telefon erreichbar. Die Browserkonsole meldete keine Warnungen oder Fehler.
-
-Die lokalen vollständigen Prüfungen umfassen **973 Python-Tests** ohne Fehler (ein historischer ISO-Fixture ausgelassen), **25 Node-Testsuiten** und die Syntax aller **18 Browser-JS-Dateien**. Die öffentliche Freigabe bleibt zusätzlich an die bestehenden Image-Erststart-/Laufzeitprüfungen und Signaturprüfung gebunden. Deren reale Ergebnisse werden nach erfolgreichem Lauf dokumentiert.
-
-
-v0.4.5 hat am **2. Oktober 2026** im [Actions-Lauf 37034137762](https://github.com/ra5on/Titan/actions/runs/37034137762) den Image-Erststart und alle **zehn Laufzeitprüfungen** bestanden. Der geprüfte Source-Stand ist [67e5fab51b7a](https://github.com/ra5on/Titan/commit/67e5fab51b7afdad3dd4782c93b6596a43caf3e1); der [öffentliche Laufzeitbericht](https://github.com/ra5on/Titan/releases/download/v0.4.5/runtime-test.json) dokumentiert die tatsächlichen Ergebnisse. Geprüft wurden Administrator-Ersteinrichtung, App-Katalog/Anmeldung, Update-Zustand, CPU/RAM, Systemdisk-Erweiterung, SMB mit mehreren Benutzerrechten, installierte Komponenten, Docker-App mit Standard- und eigenem Bridge-Netz sowie VM-Lebenszyklus und authentifizierte Browserkonsolen-Verbindung mit RFB 3.8. Die Systemdisk wuchs von 32 auf 36 GiB; Partition und XFS wuchsen um genau 4 GiB, während Partitionsanfang, UUIDs, Testdatei-SHA256 und originales Raw-Image erhalten blieben. Wiederholungen waren wirkungslos. Die öffentlichen Manifest-/Prüfsummensignaturen und sämtliche Asset-Digests wurden unabhängig überprüft. Der tatsächliche Titan-Updater erkennt v0.4.5 vom simulierten installierten v0.4.4-Stand als verfügbares signiertes Alpha-Update; dabei wurde weder ein Update installiert noch ein Neustart ausgelöst.
-
-Die VM-Prüfung bestätigt Definition, Start, Stop, Laufwerksimage-Kopie und Browserkonsolen-Verbindung. Ein installiertes Gastbetriebssystem, grafische Eingabe und der vollständige OS-Update-/Neustart-/Rollback-Zyklus bleiben manuell zu prüfen; die neue Oberfläche allein begründet keine Beta-Freigabe.
-
-
-## Hauptmenü und Fensterrahmen in v0.4.6
-
-Die lokale isolierte Demo wurde am 2. Oktober 2026 über CUA im Browser geprüft. Alle 16 Verwaltungsseiten sowie das Hauptmenü wurden bei 1280×720, 1920×1080 und 320×640 vermessen; alle Verwaltungsseiten zusätzlich bei 390×844. Keine dieser Prüfungen zeigte horizontalen Seiten-/Appinhaltüberlauf oder ein Fenster außerhalb des sichtbaren Bereichs. Weitere Sichtprüfungen erfolgten bei 1024×768 und 1440×900. 844×390 bestätigt den scrollbar bleibenden Inhalt bei geringer Höhe.
-
-Ein VM-Fenster wurde am nativen Griff von 1280 auf 640 px verkleinert: Die interne Navigation wechselte automatisch in die horizontale Anordnung, ohne horizontalen Inhaltsüberlauf. Maximieren änderte die tatsächliche Fenstergröße; Wiederherstellen gab die vorherige Größe zurück. Die Node-Regression prüft die Maximierungswahl getrennt nach Konto und App, gesperrten Browserspeicher sowie das Entfernen alter Ereignisbehandler.
-
-Die 70 Einträge einer temporären Dateiliste wurden gescrollt (Listenoffset 0 → 1536 px), während die Toolbar exakt bei 129,46875 px blieb. Eine `.custom`-Datei wurde direkt geöffnet, bearbeitet und per Strg+S gespeichert; der Editor blieb offen und meldete „Gespeichert“. Docker-Details mit Anmelde-/Netzwerkhinweisen passten mobil ohne Überlauf. Die VM-Erstellung mit manueller P-Kern-Auswahl blieb im Querformat scrollbar bedienbar. Alle Aktionen verwendeten ausschließlich die Demo.
-
-973 Python-Tests bestanden (ein historischer ISO-Fixture ausgelassen), 25 Node-Testsuiten und 17 JavaScript-Syntaxprüfungen bestanden. Die öffentliche Freigabe bleibt zusätzlich an den obligatorischen realen Image-Erststart und die Laufzeitprüfungen gebunden. Diese UI-Nachweise ersetzen keinen manuellen NAS-/Rollback-Test.
-
-Zusätzlich wurden alle 16 Appfenster auf einem 1440×900-Desktop über den echten Größen-Griff auf 640 px verkleinert. Auch App-Store-Katalog und Filter passen sich nun der Fensterbreite an. Nach dieser Korrektur zeigte keine dieser 16 Ansichten horizontalen Appinhaltüberlauf; VM und Docker ordneten ihre interne Navigation passend um.
+Siehe [Proxmox-Test](PROXMOX-TEST.md). Zusätzlich sind echte Windows-/macOS-SMB-Clients, physische NAS-Laufwerke und längere App-/VM-Betriebszeiten zu prüfen. RAM-Werte im Gast müssen gegen `/proc/meminfo` verglichen werden; die Host-Speicherbelegung einer VM ist eine andere Messgröße.

@@ -1,7 +1,7 @@
 """Administrative systemd service inventory and creation of isolated custom units.
 
 Only the system manager is addressed. Existing unit files are never edited.
-Current uCore/systemd supplies JSON tables for both inventory commands.
+Current Debian/systemd supplies JSON tables for both inventory commands.
 """
 import json
 import os
@@ -94,7 +94,7 @@ class ServiceManagerMixin:
         try:
             rows = json.loads(output)
         except (ValueError, TypeError):
-            raise Error("systemd liefert keine gültige JSON-Dienstliste (aktuelles Titan-uCore-Systemimage erforderlich).", 503) from None
+            raise Error("systemd liefert keine gültige JSON-Dienstliste (aktuelles Titan-Debian-Systemimage erforderlich).", 503) from None
         if not isinstance(rows, list) or len(rows) > 20000 or any(not isinstance(row, dict) for row in rows):
             raise Error("systemd liefert eine ungültige Dienstliste.", 503)
         return rows

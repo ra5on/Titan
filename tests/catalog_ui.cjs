@@ -17,7 +17,7 @@ context.loginApp={first_login:{mode:'__proto__',password:'private'}};assert.equa
 context.loginApp={...defaultApp,first_login:{mode:'generated',username:'admin',instructions:'Passwort steht im Protokoll.'}};assert(evaluate('appLoginPanel(loginApp,{logsAvailable:true})').includes('data-action="app-show-login-log"'));assert(!evaluate('appLoginPanel(loginApp)').includes('data-action="app-show-login-log"'));
 context.passwordSchema={install_schema:[{key:'password',label:'Passwort',type:'password',default:'MUST-NOT-PREFILL'}]};assert(!evaluate('appInstallFields(passwordSchema)').includes('MUST-NOT-PREFILL'));
 (async()=>{
- const html=await evaluate('pages.control()');for(const label of ['Dateimanager','Speicher','Freigaben','Backups','Dienste','Benutzer','Aufträge'])assert(html.includes(label));assert(html.includes('href="#vms"'));assert(html.includes('data-control-search='));
+ const html=await evaluate('pages.control()');for(const label of ['Dateimanager','Speicher','Freigaben','Backups','Dienste','Benutzer'])assert(html.includes(label));assert(!html.includes('href="#jobs"'));assert(html.includes('href="#vms"'));assert(html.includes('data-control-search='));
  evaluate('session={demo:false,user:{role:"admin"}};catalogData=[]');
  replies['/api/catalog']={apps:[defaultApp],source:'LinuxServer.io'};
  replies['/api/apps']={available:true,installed:[{id:defaultApp.id,name:defaultApp.name,port:8083,state:'running'}]};

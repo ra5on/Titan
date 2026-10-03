@@ -1,4 +1,4 @@
-"""Fixed, administrator-only uCore image component service repair. No arbitrary commands."""
+"""Fixed, administrator-only Debian image component service repair. No arbitrary commands."""
 from collections import deque
 import json
 import os

@@ -982,32 +982,19 @@ class RuntimeSmoke:
             time.sleep(3)
         if (status.get('platform') != 'debian-rauc' or not status.get('health_confirmed') or
                 status.get('rollback_available') or status.get('reboot_required') or
-                status.get('booted', {}).get('slot') != 'A'):
+                status.get('booted', {}).get('slot') != 'A' or status.get('automatic_reboot') or
+                status.get('reboot_scheduled') or status.get('staged') is not None or
+                not re.fullmatch(r'sha256:[a-f0-9]{64}', status.get('booted', {}).get('digest', ''))):
             raise SmokeFailure('Debian A/B initial health and slot status failed.')
-        return {'initial_slot':'A', 'health_confirmed':True, 'first_install_rollback_unavailable':True}
-
-    def updates(self):
-        status = self.client.request("/api/updates/system")
-        booted = status.get("booted") if isinstance(status, dict) else None
-        digest = booted.get("digest") if isinstance(booted, dict) else None
-        if (not isinstance(status, dict) or status.get("platform") != "ucore-hci" or
-                status.get("update_kind") != "image" or not isinstance(digest, str) or
-                not re.fullmatch(r"sha256:[a-f0-9]{64}", digest) or
-                status.get("staged") is not None or status.get("rollback") is not None or
-                status.get("rollback_available") is not False or status.get("rollback_queued") is not False or
-                status.get("reboot_required") is not False or status.get("automatic_reboot") is not False or
-                status.get("reboot_scheduled") is not False):
-            raise SmokeFailure("Fresh-image live system update state is unavailable or inconsistent.")
-        for operation in ("update_rollback", "system_reboot"):
-            self.client.request("/api/actions", {"operation": operation, "arguments": {
-                "expected_digest": digest, "confirmation": "INVALID"}}, expected_status=400)
-        after = self.client.request("/api/updates/system")
-        for key in ("booted", "staged", "rollback", "rollback_queued", "reboot_required", "reboot_scheduled"):
+        for operation in ('update_rollback', 'system_reboot'):
+            self.client.request('/api/actions', {'operation':operation, 'arguments':{
+                'expected_digest':status['booted']['digest'], 'confirmation':'INVALID'}}, expected_status=400)
+        after = self.client.request('/api/updates/system')
+        for key in ('booted','staged','rollback','rollback_queued','reboot_required','reboot_scheduled'):
             if after.get(key) != status.get(key):
-                raise SmokeFailure("Rejected update action changed the fresh-image system state.")
-        return {"live_bootc_status": True, "first_install_rollback_unavailable": True,
-                "invalid_rollback_confirmation_rejected": True, "invalid_reboot_confirmation_rejected": True,
-                "automatic_reboot": False}
+                raise SmokeFailure('Rejected update action changed the fresh-image system state.')
+        return {'initial_slot':'A', 'health_confirmed':True, 'first_install_rollback_unavailable':True,
+                'automatic_reboot':False}
 
     def smb(self):
         users = self.client.request("/api/users")
@@ -1267,10 +1254,10 @@ class RuntimeSmoke:
             self.report['limitations'].append('Debian preview: A/B updates, rollback and data migration are not implemented. Cloud root growth is not tested by the legacy XFS growth test.')
             self.record('system_update_state_confirmation', 'skipped', 'Debian preview does not offer system updates or rollback.')
         else:
-            self.run_check("system_update_state_confirmation", self.updates)
+            self.run_check("system_update_state_confirmation", self.debian_updates)
         self.run_check("cpu_ram_metrics", self.metrics)
         if debian_preview or debian_ab:
-            self.record('system_disk_growth', 'skipped', 'Legacy XFS/OSTree growth test does not apply to Debian ext4.')
+            self.record('system_disk_growth', 'skipped', 'System partition growth is verified by the separate Debian A/B integration test.')
         else:
             self.run_check("system_disk_growth", self.system_disk)
         self.run_check("smb_multiuser_access", self.smb)

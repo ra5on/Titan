@@ -29,26 +29,24 @@ class DebianProfileTests(unittest.TestCase):
         self.assertEqual(value.vm_unit,'libvirtd.socket')
         self.assertEqual(value.updates,'disabled')
 
-    def test_legacy_development_and_ucore_keep_existing_bindings(self):
-        self.assertEqual(platforms.current(self.path),platforms.UCORE)
-        self.write({'platform':'ucore-hci','format':'titan-ucore-image-v1'})
-        self.assertEqual(platforms.current(self.path),platforms.UCORE)
+    def test_source_development_disables_updates(self):
+        self.assertEqual(platforms.current(self.path),platforms.DEBIAN)
 
     def test_unknown_mixed_and_corrupt_markers_fail_closed(self):
         for value in ({'platform':'ubuntu','format':'titan-debian-preview-v1'},
-                      {'platform':'debian-preview','format':'titan-ucore-image-v1'},[],None):
+                      {'platform':'debian-preview','format':'unsupported-format'},[],None):
             with self.subTest(value=value):
                 self.write(value)
                 with self.assertRaises(Error):platforms.current(self.path)
         self.path.write_text('{broken')
         with self.assertRaises(Error):platforms.current(self.path)
 
-    def test_debian_cannot_reach_bootc_or_download_an_ucore_update(self):
+    def test_preview_cannot_enable_system_updates(self):
         self.write({'platform':'debian-preview','format':'titan-debian-preview-v1'})
-        with patch.object(updates,'IMAGE_INFO',self.path), patch('titan.host.run') as command:
-            with self.assertRaisesRegex(Error,'A/B'):
+        with patch('titan.debian_updates.INFO',self.path), patch('titan.host.run') as command:
+            with self.assertRaises(Error):
                 updates.system_status()
-            command.assert_not_called()
+            self.assertTrue(all(call.args[0][0]=='openssl' for call in command.call_args_list))
 
     def test_monitor_queries_debian_services(self):
         host=Mock();host.directory=Path(self.temp.name)

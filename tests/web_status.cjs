@@ -79,6 +79,6 @@ evaluate("session={user:{name:'admin',role:'admin'}};");
  assert.equal(timers.size,0);
  const rows=evaluate("jobRows([{id:'safe',username:'<user>',action:'app_install',time:1,status:'failed',result:{error:'<script>bad</script>'}}])");
  assert(rows.includes('App installieren'));assert(rows.includes('Fehlgeschlagen'));assert(rows.includes('&lt;script&gt;'));assert(!rows.includes('<script>'));
- assert(evaluate("nav.some(([key,label])=>key==='jobs'&&label==='Aufträge')"));
+ assert(!evaluate("nav.some(([key])=>key==='jobs')"));
  console.log('Web status: relevant services and configured failures; live clock, midnight, hidden tabs and isolated forms passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

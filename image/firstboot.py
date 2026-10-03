@@ -86,7 +86,7 @@ def main():
     if os.geteuid() != 0:
         raise RuntimeError('Titan first boot requires root.')
     info = json.loads(Path('/usr/share/titan/image-info.json').read_text())
-    if (info.get('platform'), info.get('format')) not in (('ucore-hci', 'titan-ucore-image-v1'), ('debian-preview', 'titan-debian-preview-v1'), ('debian-rauc', 'titan-debian-ab-v1')):
+    if (info.get('platform'), info.get('format')) not in (('debian-preview', 'titan-debian-preview-v1'), ('debian-rauc', 'titan-debian-ab-v1')):
         raise RuntimeError('This is not a supported Titan image.')
     if info.get('platform') == 'debian-rauc':
         import pwd, grp

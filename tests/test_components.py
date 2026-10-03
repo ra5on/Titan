@@ -76,7 +76,7 @@ class ComponentTests(unittest.TestCase):
             with self.assertRaises(Error): self.host.op_component_install('docker')
             execute.assert_not_called()
         self.host.component_helper.unlink()
-        self.host.component_helper.symlink_to(ROOT / 'scripts/install-components.sh')
+        self.host.component_helper.symlink_to(ROOT / 'packaging/debian/runtime.sh')
         with self.helper() as execute:
             with self.assertRaises(Error): self.host.op_component_install('docker')
             execute.assert_not_called()
@@ -129,10 +129,10 @@ class ComponentTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(media.stat().st_mode), 0o640)
 
     def test_helper_dry_run_does_not_require_root_or_execute_apt(self):
-        result = subprocess.run(['bash', str(ROOT / 'scripts/install-components.sh'), '--component', 'all', '--dry-run'], capture_output=True, text=True)
+        result = subprocess.run(['bash', str(ROOT / 'packaging/debian/runtime.sh'), '--component', 'all', '--dry-run'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
         self.assertIn('keine Datenlaufwerke', result.stdout)
-        result = subprocess.run(['bash', str(ROOT / 'scripts/install-components.sh'), '--component', 'all;touch /tmp/nope', '--dry-run'], capture_output=True)
+        result = subprocess.run(['bash', str(ROOT / 'packaging/debian/runtime.sh'), '--component', 'all;touch /tmp/nope', '--dry-run'], capture_output=True)
         self.assertEqual(result.returncode, 2)
 
     def test_agent_restart_makes_interrupted_repair_retryable(self):
@@ -179,8 +179,8 @@ class ComponentHTTPTests(HTTPFixture, unittest.TestCase):
 class ComponentOrchestrationTests(unittest.TestCase):
     def helper(self, component='all', fail=''):
         import shlex
-        source = (ROOT / 'scripts/install-components.sh').read_text()
-        source = source[source.index('docker_state=skip'):]
+        source = (ROOT / 'packaging/debian/runtime.sh').read_text()
+        source = source[source.index('failed=0'):]
         fixture = ('set -euo pipefail\njson=true\ncomponent=' + shlex.quote(component) + '\nfail=' + shlex.quote(fail) + '''
 apt-get() { printf 'apt:%s\n' "$*" >&2; [[ "$fail" != update ]]; }
 install_apps() { printf 'docker-attempt\n' >&2; [[ "$fail" != docker ]]; }
@@ -211,7 +211,7 @@ install_vm_components() { printf 'vm-attempt\n' >&2; [[ "$fail" != vms ]]; }
         self.assertNotIn('apt:', result.stderr)
 
 
-class UCoreComponentServiceTests(unittest.TestCase):
+class DebianComponentServiceTests(unittest.TestCase):
     def network_fixture(self, active=False, racing=False, failure=''):
         import shlex
         with tempfile.TemporaryDirectory() as temporary:
@@ -245,10 +245,8 @@ activate_vm_services
         self.assertNotIn('net-start', result.stderr)
         self.assertNotIn('locale:unset', result.stderr)
         self.assertIn('locale:C', result.stderr)
-        for socket in ('virtqemud', 'virtnetworkd', 'virtstoraged', 'virtlogd', 'virtlockd',
-                       'virtnodedevd', 'virtnwfilterd', 'virtsecretd'):
-            self.assertIn('enable --now ' + socket + '.socket', result.stderr)
-        self.assertNotIn('libvirtd', result.stderr)
+        for socket in ('libvirtd', 'virtlogd', 'virtlockd'):
+            self.assertIn(socket + '.socket', result.stderr)
 
     def test_start_race_is_success_only_if_network_is_now_active(self):
         result = self.network_fixture(racing=True)
@@ -259,7 +257,7 @@ activate_vm_services
         self.assertIn('Netzwerkstatus', result.stderr)
 
     def test_missing_socket_failures_do_not_continue_to_network_changes(self):
-        result = self.network_fixture(failure='virtqemud.socket')
+        result = self.network_fixture(failure='libvirtd.socket')
         self.assertEqual(result.returncode, 1)
         self.assertNotIn('virsh:', result.stderr)
 
@@ -280,7 +278,7 @@ install_apps
     def test_system_update_inventory_delegates_to_image_status_without_apt(self):
         with tempfile.TemporaryDirectory() as temporary:
             host = Host(Path(temporary) / 'agent')
-            status = {'platform': 'ucore-hci', 'reboot_required': True}
+            status = {'platform': 'debian-rauc', 'reboot_required': True}
             with patch('titan.updates.system_status', return_value=status) as image_status, patch('titan.host.run') as run:
                 self.assertEqual(host.op_system_updates(), status)
             image_status.assert_called_once_with()

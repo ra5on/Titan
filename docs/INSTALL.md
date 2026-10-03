@@ -12,5 +12,5 @@ Größere Platten erweitern beim Start den Datenbereich. Anschließend
 [Ausführliche Anleitung](TITAN-IMAGE.md) · [Updates und Rollback](UPDATES.md)
 
 Nach dieser Neuinstallation kommen weitere kompatible Versionen über den
-Alpha-Update-Kanal. Bestehende RaNAS-/uCore-Systeme werden nicht automatisch
+Alpha-Update-Kanal. Bestehende anderes NAS-Systeme werden nicht automatisch
 konvertiert; das Image nicht über deren Datenplatten schreiben.

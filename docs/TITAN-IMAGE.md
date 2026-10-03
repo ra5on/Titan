@@ -4,7 +4,7 @@
 
 Titan ist eine frühe Alpha. Verwende eine separate Test-VM und unabhängige
 Sicherungen. Das Image ist für eine Neuinstallation bestimmt; es konvertiert
-kein bestehendes RaNAS-/uCore-System und übernimmt dessen Daten nicht automatisch.
+kein bestehendes anderes NAS-System und übernimmt dessen Daten nicht automatisch.
 
 ## Installation in Proxmox
 

@@ -1,3 +1,4 @@
+from update_fixtures import identity, manifest, state
 import base64
 import json
 from pathlib import Path
@@ -156,15 +157,10 @@ class HostValidationTests(unittest.TestCase):
 class UpdatesTests(unittest.TestCase):
     def setUp(self):
         self.addCleanup(patch.stopall)
-        patch("titan.updates.image_info", return_value={"version": "0.0.0", "release_stage": "alpha",
-              "architecture": "x86_64", "image_repository": "ghcr.io/x/y"}).start()
-        patch("titan.updates.system_status", return_value={"current": "0.0.0", "current_stage": "alpha",
-              "reboot_required": False}).start()
+        patch("titan.debian_updates.image_info", return_value=identity()).start()
+        patch("titan.debian_updates.system_status", return_value=state()).start()
         def verified(release, token):
-            return ({"format": "titan-ucore-image-v1", "platform": "ucore-hci", "architecture": "x86_64",
-                     "version": release["tag_name"], "release_stage": "beta" if "-beta." in release["tag_name"] else "stable",
-                     "image": "ghcr.io/x/y@sha256:" + "a" * 64,
-                     "boot_test": "passed", "runtime_test": "passed"}, {})
+            return (manifest(release['tag_name'], 'beta' if '-beta.' in release['tag_name'] else 'stable'), {'titan-test-amd64.raucb':'https://github.com/x/y/bundle'})
         patch("titan.updates.verified_release", side_effect=verified).start()
     def test_semantic_version_sort(self):
         self.assertGreater(version("v0.10.0"), version("v0.9.9"))

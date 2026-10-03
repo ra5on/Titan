@@ -91,7 +91,7 @@ class ManagedHostTests(unittest.TestCase):
         rollback_seen = []
         def command(args, **kwargs):
             nonlocal failed
-            if args == ["systemctl", "reload", "smb"] and not failed:
+            if args == ["systemctl", "reload", "smbd"] and not failed:
                 failed = True
                 raise Error("Secret must not appear: " + self.password_snapshot)
             if args[0] == "pdbedit" and "-i" in args:

@@ -27,7 +27,7 @@ function submitted(html){
 const hub=ui.render({settings,session,icon:key=>`<svg data-icon="${key}"></svg>`});
 assert(hub.includes('data-settings-center'));assert(hub.includes('data-settings-search-input'));assert(hub.includes('10 Bereiche'));
 assert.equal([...hub.matchAll(/data-settings-category=/g)].length,10);assert(!hub.includes('id="settings-form"'));
-for(const route of ['settings?section=general','settings?section=updates','settings?section=components','storage','users','shares','services','backups','monitoring','logs'])assert(hub.includes(`href="#${route}"`),route);
+for(const route of ['settings?section=general','updates','settings?section=components','storage','users','shares','services','backups','monitoring','logs'])assert(hub.includes(`href="#${route}"`),route);
 assert(!hub.includes('javascript:'));assert(!hub.includes('coming soon'));
 assert(ui.render({section:'unknown'}).includes('data-settings-search-input'));
 
@@ -37,7 +37,7 @@ for(const section of ['general','updates']){
    const current={...settings,auto_check,window_day,window_hour},html=ui.render({section,settings:current,session,channelNotice:channel=>`Kanal: <${channel}>`});
    const expected={...current};delete expected.allow_reboot;assert.deepEqual(submitted(html),expected);
    assert(html.includes('id="settings-form"'));assert(html.includes(`data-settings-section="${section}"`));assert(html.includes('href="#settings"'));
-   assert(html.includes(`href="#settings?section=${section}" class="active" aria-current="page"`));
+   assert(html.includes(`href="${section==='updates'?'#updates':'#settings?section='+section}" class="active" aria-current="page"`));
    assert(!html.includes('name="allow_reboot"'));
    if(section==='general'){assert.match(html,/<input[^>]+name="hostname" type="text"/);assert.match(html,/<input type="checkbox" name="auto_check" hidden/);assert(html.includes('HTTPS · Port 5000'));assert(html.includes('href="#users"'));}
    else{assert.match(html,/<input type="hidden" name="hostname"/);assert.match(html,/<select[^>]+name="channel"/);assert(html.includes('id="channel-notice"'));assert(html.includes('Kanal: &lt;alpha&gt;'));assert(html.includes('href="#updates"'));}

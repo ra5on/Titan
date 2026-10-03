@@ -35,5 +35,11 @@ nicht erneuert. Änderungen daran oder am Partitionslayout erfordern derzeit ein
 neues Installationsimage. Normale kompatible Titan-/Debian-Versionen werden über
 den Update-Kanal eingespielt.
 
-[Installationsimage und Testgrenzen](TITAN-IMAGE.md). Eine bestehende RaNAS-/uCore-
+[Installationsimage und Testgrenzen](TITAN-IMAGE.md). Eine bestehende anderes NAS-
 Installation lässt sich damit nicht direkt auf Titan umstellen.
+
+## Status in der Oberfläche
+
+Kanalwahl, automatische Prüfung, Vorbereitung und Rollback sind unter **Einstellungen → Updates & Rollback** zusammengeführt. Die obere Schaltfläche **Aktivität** zeigt laufende und letzte Aktionen. Im jeweiligen Bereich erscheint zusätzlich der aktuelle Vorgang.
+
+Ein Systemupdate meldet Angebotsprüfung, Konfigurationssicherung, Download, Signaturprüfung, Schreiben des inaktiven Slots und Bereitschaft zum Neustart. Download-Prozentwerte entstehen aus tatsächlich übertragenen Bytes und der signierten Gesamtgröße. Andere Phasen zeigen Status und Dauer ohne geschätzten Fortschrittsbalken. Fehler und unterbrochene Ausführungen sind unterscheidbar; vor einem erneuten Versuch den Systemstatus prüfen.

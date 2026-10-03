@@ -89,7 +89,7 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
         # Account revocation must remain responsive during large file/VM backups.
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove"}
         read_ops = {"services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
-                    "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "system_disk", "app_networks", "shares_access"}
+                    "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "shares_access"}
         selected_lock = self.account_lock if operation in account_ops else contextlib.nullcontext() if operation in read_ops else self.lock
         with selected_lock:
             with self.account_lock if operation in ("backup_config_restore", "share_create", "share_update", "share_remove") else contextlib.nullcontext():
@@ -519,6 +519,10 @@ class Host(StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMi
             raise Error("VNC-Proxy ist nicht erreichbar.")
         self.console_processes[vm] = (child, port, target)
         return {"port": port}
+
+    def op_update_progress(self):
+        from .update_progress import read
+        return read()
 
     def op_system_updates(self):
         from .updates import system_status

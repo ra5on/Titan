@@ -213,13 +213,14 @@ class Demo:
                        if mounted else {"total": 8 * 1024**4, "used": 2.34 * 1024**4})
             return {"hostname": "titan", "uptime": 352845, "load": 0.32, "cpus": 8,
                     "memory_total": 32 * 1024**3, "memory_used": 8.6 * 1024**3,
+                    "memory_occupied": 13 * 1024**3, "memory_free": 19 * 1024**3, "memory_buffers": 0.3 * 1024**3,
                     "memory_available": 23.4 * 1024**3, "memory_cached": 4.1 * 1024**3,
                     "swap_total": 0, "swap_used": 0, "cpu_percent": 22.0,
                     "cpu_temperature": 42.0, "temperature_available": True,
                     "telemetry_sampled_at": time.time(), "telemetry_errors": {},
                     "temperatures": [{"id": "demo:cpu", "label": "Demo · CPU", "kind": "cpu", "current": 42.0, "critical": 100.0}],
                     "status_history": [{"time": time.time()-(23-index)*5, "cpu_percent": 12+(index%7)*2,
-                                        "memory_percent": 26.875, "cpu_temperature": 42.0} for index in range(24)],
+                                        "memory_percent": 26.875, "memory_occupied_percent": 40.625, "cpu_temperature": 42.0} for index in range(24)],
                     "services": {**{name: self.services[unit]["active"] for name, unit in
                                     (("docker", "docker.service"), ("samba", "smb.service"), ("vms", "virtqemud.service"))}, "zfs": True},
                     "service_details": {name: {"installed": True, "active": active, "state": "active" if active else "inactive"}
@@ -374,6 +375,7 @@ class Demo:
         if operation == "update_check":
             return self.update_check(args["repository"], args.get("channel", "stable"))
         if operation == "update_install": raise Error("Installation ist im Demo-Modus deaktiviert.")
+        if operation == "update_progress": return {"status":"idle"}
         if operation == "system_updates": return copy.deepcopy(self.system_updates())
         if operation in ("update_rollback", "system_reboot"):
             from .updates import validate_system_action
@@ -727,16 +729,19 @@ class Demo:
                 "partition_growable_bytes": growable, "filesystem_growable_bytes": 0, "growable_bytes": growable}
         return self._system_disk_state
 
+    def update_progress(self):
+        return {"status": "idle"}
+
     def system_updates(self):
         if self._system_state is None:
             major, minor, patch = map(int, __version__.split("."))
             previous = f"{major}.{minor}.{max(0, patch - 1)}"
-            repo = "ghcr.io/ra5on/titan"
-            booted = {"image": repo + "@sha256:" + "a" * 64, "digest": "sha256:" + "a" * 64,
+            repo = "Debian A/B"
+            booted = {"slot": "A", "image": "Debian A/B · Slot A", "digest": "sha256:" + "a" * 64,
                       "version": __version__, "incompatible": False}
-            rollback = {"image": repo + "@sha256:" + "b" * 64, "digest": "sha256:" + "b" * 64,
+            rollback = {"slot": "B", "image": "Debian A/B · Slot B", "digest": "sha256:" + "b" * 64,
                         "version": previous, "incompatible": False}
-            self._system_state = {"platform": "ucore-hci", "update_kind": "image", "current": __version__,
+            self._system_state = {"platform": "debian-rauc", "update_kind": "image", "current": __version__,
                 "current_stage": __release_stage__, "architecture": "x86_64", "image_repository": repo,
                 "booted": booted, "staged": None, "rollback": rollback, "next_boot": copy.deepcopy(booted),
                 "rollback_queued": False, "reboot_required": False, "reboot_scheduled": False, "reboot_schedule": None,

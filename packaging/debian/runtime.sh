@@ -3,15 +3,17 @@ set -euo pipefail
 export LC_ALL=C.UTF-8
 component=all
 json=false
+dry_run=false
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --component) component="${2:?Component required}"; shift 2 ;;
         --json) json=true; shift ;;
-        --dry-run) echo 'Debian-Testsystem: vorinstallierte Komponenten prüfen; keine Paketinstallation.'; exit 0 ;;
+        --dry-run) dry_run=true; shift ;;
         *) exit 2 ;;
     esac
 done
 [[ "$component" =~ ^(all|docker|vms)$ ]] || exit 2
+if $dry_run; then echo 'Debian: vorinstallierte Komponenten prüfen; keine Paketinstallation, keine Datenlaufwerke verändern.'; exit 0; fi
 [[ "$EUID" == 0 && -d /run/systemd/system ]] || exit 1
 /usr/bin/python3 - <<'PY'
 import json, platform
@@ -22,17 +24,6 @@ assert osinfo['ID']=='debian' and osinfo['VERSION_ID']=='13'
 assert (info['platform'],info['format'])in (('debian-preview','titan-debian-preview-v1'),('debian-rauc','titan-debian-ab-v1'))
 PY
 source /usr/share/titan/component-functions.sh
-# Debian 13 uses its packaged monolithic libvirt service. AppArmor stays enabled.
-activate_vm_services() {
-    systemctl enable --now libvirtd.socket virtlogd.socket virtlockd.socket || return 1
-    if ! virsh -c qemu:///system net-info default >/dev/null 2>&1; then
-        virsh -c qemu:///system net-define /usr/share/libvirt/networks/default.xml || return 1
-    fi
-    virsh -c qemu:///system net-autostart default || return 1
-    if ! vm_network_active; then
-        virsh -c qemu:///system net-start default || vm_network_active || return 1
-    fi
-}
 failed=0
 docker_state=skip
 vm_state=skip

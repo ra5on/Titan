@@ -1,6 +1,6 @@
 # Backups und Meldungen · Alpha
 
-Titan 0.2.0 bietet externe Sicherungen und kontrollierte Wiederherstellungen. Die Verfahren wurden mit temporären Daten und gemockten Hostbefehlen geprüft. Die uCore-, Samba- und libvirt-Integration muss noch auf Testhardware geprüft werden.
+Titan 0.2.0 bietet externe Sicherungen und kontrollierte Wiederherstellungen. Die Verfahren wurden mit temporären Daten und gemockten Hostbefehlen geprüft. Die Debian-, Samba- und libvirt-Integration muss noch auf Testhardware geprüft werden.
 
 ## Sicherungsziel
 
@@ -10,7 +10,7 @@ Jede Installation besitzt einen eigenen Bereich unter `.titan-backups/`. Archive
 
 ## Inhalt und Zeitplan
 
-Die ausgewählten Freigaben werden vollständig gesichert. NAS-Konfiguration umfasst Webkonten mit Passworthashes, Rollen und Sperren, Titan-Einstellungen, verwaltete Linux-UIDs, SMB-Zugangsdaten sowie Freigabenrechte und Verwaltungsmetadaten. Websitzungen und laufende Aufträge werden ausgeschlossen. App-Konfigurationsverzeichnisse, Containerdatenbanken, VM-Disks, TLS-Schlüssel, GitHub-Lesetoken und das vollständige uCore-System sind nicht Bestandteil dieser Konfigurationssicherung. App-Konfigurationen werden über die App-Verwaltung separat gesichert; Nutzdatenverzeichnisse können als Freigaben gesichert werden.
+Die ausgewählten Freigaben werden vollständig gesichert. NAS-Konfiguration umfasst Webkonten mit Passworthashes, Rollen und Sperren, Titan-Einstellungen, verwaltete Linux-UIDs, SMB-Zugangsdaten sowie Freigabenrechte und Verwaltungsmetadaten. Websitzungen und laufende Aufträge werden ausgeschlossen. App-Konfigurationsverzeichnisse, Containerdatenbanken, VM-Disks, TLS-Schlüssel, GitHub-Lesetoken und das vollständige Debian-System sind nicht Bestandteil dieser Konfigurationssicherung. App-Konfigurationen werden über die App-Verwaltung separat gesichert; Nutzdatenverzeichnisse können als Freigaben gesichert werden.
 
 Tägliche oder wöchentliche Sicherung im gewählten Stundenfenster aktivieren. Die Uhrzeit verwendet die Zeitzone des NAS; der Webdienst muss laufen. Es gibt einen Versuch pro Fenster und keine fortlaufende Wiederholung bei fehlendem Laufwerk. Verpasste Fenster werden nicht nachgeholt. Die Aufbewahrung entfernt nur erkannte eigene Datensicherungen nach einem erfolgreichen Lauf; VM-Sicherungen werden davon nicht gelöscht.
 

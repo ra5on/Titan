@@ -29,7 +29,7 @@ class DiskFixture:
         self.kernel_start_bytes = 3 * GIB
         self.part_uuid = '00000000-0000-4000-a000-000000000004'
         self.fs_uuid = '910678ff-f77e-4a7d-8d53-86f2ac47a823'
-        self.mounts = {'/var': {'target': '/var', 'source': partition + '[/ostree/deploy/default/var]', 'fstype': 'xfs', 'options': 'rw,relatime,seclabel', 'maj:min': self.major_minor, 'fsroot': '/ostree/deploy/default/var'},
+        self.mounts = {'/var': {'target': '/var', 'source': partition + '[/var]', 'fstype': 'xfs', 'options': 'rw,relatime,seclabel', 'maj:min': self.major_minor, 'fsroot': '/var'},
                        '/sysroot': {'target': '/sysroot', 'source': partition, 'fstype': 'xfs', 'options': 'ro,relatime,seclabel', 'maj:min': self.major_minor, 'fsroot': '/'}}
         self.rows = [{'name': disk, 'type': 'disk', 'maj:min': self.disk_major_minor, 'size': self.disk_size, 'ro': False, 'rm': False, 'pkname': None, 'log-sec': sector},
                      {'name': partition, 'type': 'part', 'maj:min': self.major_minor, 'size': self.partition_size, 'ro': False, 'rm': False, 'pkname': disk, 'log-sec': sector, 'fstype': 'xfs', 'uuid': self.fs_uuid, 'parttype': ROOT_TYPE, 'partlabel': 'root', 'partuuid': self.part_uuid}]
@@ -343,16 +343,7 @@ class SystemDiskTests(unittest.TestCase):
         self.assertEqual(result['after']['sector_size'], 4096)
         self.assertEqual(result['after']['disk'], '/dev/nvme0n1')
 
-    def test_boot_service_is_enabled_and_orders_before_nas_without_requiring_growth(self):
-        # Read real repository text without the simulated sysfs reader.
-        with patch('titan.system_disk.Path.read_text', REAL_READ_TEXT):
-            root = Path(__file__).resolve().parents[1]
-            service = (root / 'legacy/ucore/image/titan-system-grow.service').read_text()
-            self.assertIn('After=local-fs.target', service)
-            self.assertIn('Before=titan-firstboot.service', service)
-            self.assertIn('ExecStart=-/usr/bin/python3 -m titan.system_disk --boot', service)
-            self.assertIn('enable titan-system-grow.service', (root / 'legacy/ucore/image/00-00-titan.preset').read_text())
-            self.assertIn('cloud-utils-growpart gdisk', (root / 'legacy/ucore/Containerfile').read_text())
+
 
     def test_lock_symlink_is_rejected_without_device_mutation(self):
         revision = self.manager.status()['revision']
