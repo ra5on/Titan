@@ -63,6 +63,8 @@ def main():
         base.chmod(0o755)
         if os.geteuid() != 0:
             raise Error('The disposable Host/HTTP lifecycle check requires root.')
+        # Match the installed management agent's directory permissions.
+        os.umask(0o027)
         # File workers use the immutable production code location. Install only
         # the package link on this explicitly disposable runner, never repo
         # metadata, signing files, or another checkout.

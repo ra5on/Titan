@@ -63,6 +63,7 @@ def error_category(result):
         ("memory_budget", ("passen momentan nicht sicher in den arbeitsspeicher", "ram-engpass",
                            "ram-limit", "gültige ram-messwerte fehlen", "verfügbare arbeitsspeicher ist nicht messbar",
                            "ram-bedarf laufender virtueller maschinen", "vm-ram-budget")),
+        ("dependency_health", ("dependency failed to start", "is unhealthy", "didn't complete successfully", "did not complete successfully")),
         ("registry_rate_limit", ("toomanyrequests", "too many requests", "rate limit")),
         ("registry_auth", ("unauthorized", "authentication required", "pull access denied",
                            "requested access to the resource is denied")),
@@ -553,6 +554,8 @@ class GuestClient:
                             values["app"] = app_observation(self.request("/api/app-details?app=" + diagnostic_app + "&tail=50"))
                         except Exception:
                             values["app"] = {"available": False}
+                        if diagnostic_app == RUNTIME_STACK_ID and category != 'memory_budget':
+                            values['stack'] = self.stack_diagnostic()
                         if diagnostic_app == 'heimdall':
                             try:
                                 values["guest"] = self.guest_diagnostic()
@@ -687,6 +690,35 @@ class GuestClient:
             observed["app"] = {"available": False}
         observed["guest"] = self.guest_diagnostic()
         raise SmokeFailure(expected_app.capitalize() + " HTTP page did not become ready within the bounded deadline.", observed)
+
+    def stack_diagnostic(self):
+        """Only fixed Nextcloud service states and classified logs leave the guest."""
+        try:
+            details = self.request('/api/package-details?app=' + RUNTIME_STACK_ID)
+            rows = details.get('services', []) if isinstance(details, dict) else []
+            if not isinstance(rows, list):
+                return {'available': False}
+            result = {'available': True, 'services': {}}
+            for key, label in ((RUNTIME_STACK_ID, 'nextcloud'),
+                               (RUNTIME_STACK_ID + '-db-nextcloud', 'database'),
+                               (RUNTIME_STACK_ID + '-redis-nextcloud', 'redis'),
+                               (RUNTIME_STACK_ID + '-cron', 'cron')):
+                row = next((item for item in rows if isinstance(item, dict) and item.get('id') == key), None)
+                if row is None:
+                    continue
+                logs = ''
+                try:
+                    response = self.request('/api/package-logs?app=' + RUNTIME_STACK_ID + '&service=' + key + '&tail=50')
+                    logs = response.get('logs', '') if isinstance(response, dict) else ''
+                except Exception:
+                    pass
+                value = app_observation({'container': row.get('container'), 'logs': logs})
+                value['warning_category'] = error_category({'error': row.get('warning')})
+                value['log_error_category'] = error_category({'error': logs})
+                result['services'][label] = value
+            return result
+        except Exception:
+            return {'available': False}
 
     def guest_diagnostic(self):
         """One fixed read-only command through the existing administrator PTY."""

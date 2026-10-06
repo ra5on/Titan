@@ -1217,6 +1217,28 @@ def client_frame_payload(frame):
 
 
 class RuntimeTransportTests(unittest.TestCase):
+    def test_stack_diagnostics_keep_only_known_services_and_closed_states(self):
+        client = smoke.GuestClient()
+        client.request = Mock(side_effect=[{'services': [
+            {'id': smoke.RUNTIME_STACK_ID + '-redis-nextcloud',
+             'container': {'state': 'restarting', 'exit_code': 1, 'Env': ['PASSWORD=private-secret']},
+             'warning': 'private-warning'},
+            {'id': 'private-unrelated-container', 'container': {'state': 'running'}}]},
+            {'logs': 'Permission denied: private-path private-secret'}])
+        value = client.stack_diagnostic()
+        self.assertEqual(set(value['services']), {'redis'})
+        self.assertEqual(value['services']['redis']['state'], 'restarting')
+        self.assertEqual(value['services']['redis']['log_error_category'], 'filesystem_permissions')
+        self.assertNotIn('private', json.dumps(value))
+        self.assertEqual(client.request.call_count, 2)
+        client.request.assert_called_with('/api/package-logs?app=' + smoke.RUNTIME_STACK_ID + '&service=' + smoke.RUNTIME_STACK_ID + '-redis-nextcloud&tail=50')
+
+    def test_stack_diagnostic_failure_never_replaces_or_discloses_install_failure(self):
+        client = smoke.GuestClient()
+        client.request = Mock(side_effect=RuntimeError('private-secret'))
+        self.assertEqual(client.stack_diagnostic(), {'available': False})
+        self.assertEqual(smoke.error_category({'error': 'dependency failed to start: container private-secret is unhealthy'}), 'dependency_health')
+
     def test_error_categories_cover_distinct_failures_without_echoing_values(self):
         errors = {
             "memory_budget": "Die Containergrenzen und die NAS-Reserve passen momentan nicht sicher in den Arbeitsspeicher. private-value",
