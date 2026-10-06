@@ -22,8 +22,9 @@ class PackagesTests(unittest.TestCase):
             user['office_mode'] = 'enabled'
         return validate_options(name, prepare_options(name, user))
 
-    def test_only_four_complete_packages_are_offered_without_private_fields(self):
-        public = catalog()['apps']
+    def test_retired_packages_are_hidden_but_existing_installs_remain_manageable(self):
+        self.assertFalse(set(PACKAGES) & {item['id'] for item in catalog()['apps']})
+        public = [item for item in catalog(include_legacy=True)['apps'] if item['id'] in PACKAGES]
         self.assertEqual({item['id'] for item in public}, set(PACKAGES))
         self.assertEqual(len(public), 4)
         for item in public:

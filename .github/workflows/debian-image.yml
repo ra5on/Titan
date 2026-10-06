@@ -1,31 +1,6 @@
 name: Titan Debian system release
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/debian-image.yml'
-      - '.github/workflows/debian-system-build.yml'
-      - '.github/workflows/app-packages.yml'
-      - 'titan/**'
-      - 'image/debian/**'
-      - 'packaging/debian/**'
-      - 'scripts/build-debian*.py'
-      - 'scripts/build-debian*.sh'
-      - 'scripts/prepare-system-build.py'
-      - 'scripts/debian-maintenance.py'
-      - 'scripts/debian-package-state.py'
-      - 'scripts/prepare-maintenance-baseline.sh'
-      - 'scripts/prepare-debian-rootfs.sh'
-      - 'scripts/prepare-system-signing.sh'
-      - 'scripts/system-release-metadata.py'
-      - 'scripts/validate-system-evidence.py'
-      - 'scripts/publish-debian-system.sh'
-      - 'scripts/smoke-image.sh'
-      - 'scripts/smoke-runtime.py'
-      - 'scripts/smoke-debian-ab.py'
-      - 'scripts/smoke-app-packages.py'
-      - 'scripts/smoke-office-gateway.py'
 permissions:
   contents: write
 # Both dispatchers use this queue so version allocation cannot race publication.

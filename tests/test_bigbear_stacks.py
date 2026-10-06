@@ -53,6 +53,19 @@ class BigBearTests(unittest.TestCase):
         self.assertEqual(built['services'][key + '-db']['volumes'][0]['source'], '/control/config/mount-2')
         self.assertIn(key, {item['id'] for item in catalog()['apps']})
 
+    def test_original_container_name_is_private_dns_alias(self):
+        source, meta = example()
+        source['services']['db']['container_name'] = 'immich-postgres'
+        result = translate(source, meta, 'example')
+        self.assertEqual(result['stack']['services']['db']['aliases'], ['immich-postgres'])
+        _, values = recipes({'schema': 1, 'name': 'BigBear', 'apps': [result]}, URL)
+        key, recipe = next(iter(values.items()))
+        APPS[key] = recipe
+        self.addCleanup(APPS.pop, key, None)
+        options = {recipe['install_schema'][0]['key']: 'privatePassword'}
+        built = compose(key, '/control', 1000, 1000, 8088, '/private/data', options)
+        self.assertEqual(built['services'][key + '-db']['networks']['default']['aliases'], ['db', 'immich-postgres'])
+
     def test_literal_database_identifiers_stay_paired_with_healthcheck(self):
         source, meta = example()
         source['services']['db']['environment']['POSTGRES_USER'] = 'database-user'

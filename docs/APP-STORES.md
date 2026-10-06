@@ -1,6 +1,6 @@
 # Titan AppStore und Geräteauswahl
 
-Titan verwendet seine eigene Docker-Verwaltung für lokale Container und zusammengehörige Compose-Stacks. Unter **App Store → BigBear-Katalog → BigBear-Katalog laden** wird der externe Katalog ausdrücklich aktiviert. Unterstützte Vorlagen erscheinen danach neben vorhandenen Titan-Paketen.
+Titan verwendet seine eigene Docker-Verwaltung für lokale Container und zusammengehörige Compose-Stacks. Unter **App Store → BigBear-Katalog → BigBear-Katalog laden** wird der externe Katalog ausdrücklich aktiviert. Unterstützte Vorlagen erscheinen danach im AppStore. Eigene Titan-App-Pakete werden nicht mehr angeboten.
 
 ## BigBear
 
@@ -12,30 +12,7 @@ Installierte Vorlagen werden separat eingefroren und nach einem Agent-Neustart w
 
 Die Katalogvorlagen und deren Logos werden nicht mit Titan ausgeliefert. Eine ausdrückliche kommerzielle Weitergabefreigabe für den BigBear-Katalog wurde noch nicht verifiziert. Vor kommerzieller Auslieferung die Rechte am Katalog und an den einzelnen Anwendungen klären. Die technische Importprüfung bestätigt keine uneingeschränkte Lizenz oder Funktionsfähigkeit sämtlicher Apps.
 
-## Vorhandene Titan-Pakete
-
-| Paket | Automatisch enthalten | Erste Anmeldung |
-| --- | --- | --- |
-| Immich | Immich Server 3.2.4, Machine Learning 3.2.4, PostgreSQL mit VectorChord, Valkey | Konto beim ersten Öffnen anlegen |
-| AdGuard Home | AdGuard Home 0.107.79 mit persistenten Einstellungen | Konto im Assistenten anlegen; internen Webport 3000 beibehalten |
-| Pi-hole | Pi-hole 2026.09.0 mit persistenten Einstellungen | Gewähltes Web-Passwort unter `/admin/` |
-| Nextcloud mit optionalem Euro-Office | Nextcloud 35, PostgreSQL 17, Redis 7, Cron; optional Euro-Office 9.3.4-hotfix.1 und Nextcloud-Connector | Gewählter Nextcloud-Administrator und Passwort |
-
-Datenbank- und Office-Schlüssel erzeugt Titan automatisch. Erneutes Starten und Wiederinstallation mit erhaltenen Daten behalten diese internen Schlüssel. Nextcloud richtet seinen Administrator nur bei einer neuen Datenbank ein; vorhandene Konten bleiben bestehen. Datenbanken sind ausschließlich im internen Paketnetz erreichbar.
-
-Die Oberfläche lädt den BigBear-Katalog nach ausdrücklicher Aktivierung. Container-Images und der Nextcloud-Connector werden von ihren Herausgebern heruntergeladen. Ihre Lizenzen gelten unverändert. Die früheren Rezepte bleiben intern für bestehende Installationen und Rollback erhalten.
-
-AdGuard und Pi-hole benötigen beide Port 53/TCP und UDP. Für den normalen Heimnetzbetrieb eines der Pakete wählen; auf derselben NAS-IP können sie nicht gleichzeitig diesen Port belegen. Alternative veröffentlichte Ports sind einstellbar, müssen aber auch von den DNS-Clients unterstützt werden.
-
-Die Installation prüft das aktuelle RAM-Budget einschließlich laufender Apps, aktiver VMs und NAS-Reserve vor dem Download. Nextcloud enthält standardmäßig Datenbank, Cache und Hintergrundaufgaben; Office ist separat auswählbar und benötigt zusätzlichen RAM. Auf einem 8-GiB-NAS zunächst ohne Office testen. Die tatsächlichen Containergrenzen und das berechnete Budget zeigt der Installationsdialog. Datenbanken und Konfigurationen liegen lokal im geschützten App-Verzeichnis; der gewählte Datenbereich enthält die Nutzdaten. Bei Wahl einer Freigabe bekommt das Paket darin einen eigenen Unterordner `Titan-Apps/<Paketkennung>`. Die App-Sicherung stoppt alle laufenden Paketdienste vor dem Sichern der Konfiguration einschließlich Datenbank. Nutzdaten separat sichern.
-
-### Dokumente bearbeiten
-
-Mit gewähltem Office-Zusatz verbindet das Nextcloud-Paket Euro-Office automatisch und prüft die Verbindung. Danach öffnet Nextcloud unterstützte Dokumente direkt im Browser. Die NAS-Adresse wird im Installationsdialog vorausgefüllt; ändern, wenn die dort verwendete Adresse vom Endgerät nicht erreichbar ist. Standardmäßig sind Nextcloud und Office lokale HTTP-Dienste; für HTTPS-Zugriff beide über einen Reverse-Proxy bereitstellen und die öffentliche Office-Adresse in Nextcloud anpassen. Zertifikatsprüfungen werden nicht deaktiviert.
-
-Nach Einrichtung des Office-Pakets bietet der Titan-Dateimanager die integrierte Dokumentbearbeitung unterstützter Dateien an. Der eigene Connector prüft Dateiberechtigungen, befristete Tokens, Bearbeitungssperren und Versionen vor dem Rückspeichern. Dokumentabruf, Konvertierung, signiertes Speichern und erhaltene Dateirechte werden im echten Pakettest geprüft; die interaktive Bearbeitung auf dem eigenen NAS bleibt Teil der Beta-Abnahme.
-
-Quellen: [Immich Compose](https://docs.immich.app/install/docker-compose/), [AdGuard Docker](https://github.com/AdguardTeam/AdGuardHome/wiki/Docker), [Pi-hole Docker](https://docs.pi-hole.net/docker/), [Nextcloud Docker](https://github.com/nextcloud/docker), [Euro-Office Connector](https://github.com/Euro-Office/eurooffice-nextcloud).
+Bereits installierte frühere Pakete bleiben über Docker verwaltbar. Ihre Kompatibilitätsdefinitionen bleiben für Start, Stop, Sicherung und Deinstallation erhalten; Container und Nutzdaten werden durch die Katalogbereinigung nicht gelöscht.
 
 ## Eine App installieren
 

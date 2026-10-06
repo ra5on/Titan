@@ -55,7 +55,12 @@ def translate(document, metadata, label):
     meta.update(title={'de_DE': line(localized(metadata.get('name')) or label, 80)},
                 description={'de_DE': line(localized(metadata.get('description')))},
                 port_map=str(metadata.get('port') or meta.get('port_map') or ''))
+    if label == 'adguard-home':
+        # A fresh AdGuard installation serves its setup wizard on port 3000.
+        meta['port_map'] = '3000'
     result = compose_translate(source, label, REPOSITORY)
+    if label == 'adguard-home':
+        result['login_note'] = 'Beim ersten Öffnen den Einrichtungsassistenten abschließen. Den Webport im Assistenten auf 3000 belassen oder anschließend den App-Link anpassen.'
     result['documentation'] = 'https://github.com/' + REPOSITORY + '/tree/main/Apps/' + label
     result['category'] = 'BigBear'
     return result

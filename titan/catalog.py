@@ -347,7 +347,7 @@ def _image_metadata(images):
 def catalog(refresh=False, include_legacy=False):
     apps = []
     for app_id, recipe in list(APPS.items()):
-        if not include_legacy and app_id not in PACKAGES and not recipe.get('imported_stack'):
+        if not include_legacy and not recipe.get('imported_stack'):
             continue
         remote = {}
         public_recipe = {key: value for key, value in recipe.items() if key not in ("environment", "stack")}

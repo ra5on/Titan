@@ -10,7 +10,8 @@ def validate_stack(value):
     if not isinstance(value,dict) or set(value)!={'primary','services'} or not isinstance(value['services'],dict) or not 1<=len(value['services'])<=8 or value['primary'] not in value['services']: raise Error('Ungültiger App-Containerverbund.')
     if len({name.lower() for name in value['services']})!=len(value['services']): raise Error('Container-Namen sind nicht eindeutig.')
     for name,service in value['services'].items():
-        if not isinstance(name,str) or not re.fullmatch(NAME,name) or not isinstance(service,dict) or set(service)-{'image','environment','mounts','command','entrypoint','depends_on','ports','healthcheck','memory','shm_size','user'}: raise Error('Nicht unterstützte Containeroption.')
+        if not isinstance(name,str) or not re.fullmatch(NAME,name) or not isinstance(service,dict) or set(service)-{'image','environment','mounts','command','entrypoint','depends_on','ports','healthcheck','memory','shm_size','user','aliases'}: raise Error('Nicht unterstützte Containeroption.')
+        if not isinstance(service.get('aliases', []), list) or len(service.get('aliases', [])) > 4 or any(not isinstance(alias, str) or not re.fullmatch(NAME, alias) for alias in service.get('aliases', [])): raise Error('Ungültiger interner Netzwerkname.')
         if not isinstance(service.get('image'),str) or not re.fullmatch(IMAGE,service['image']): raise Error('Ungültiges Container-Image.')
         if 'user' in service and (not isinstance(service['user'], str) or not re.fullmatch(r'[0-9]{1,9}(?::[0-9]{1,9})?', service['user'])): raise Error('Nur numerische Container-Benutzer unterstützt.')
         for key in ('memory', 'shm_size'):
@@ -53,6 +54,7 @@ def build(app_id, recipe, directory, uid, gid, port, data_path, options, config_
     stack=validate_stack(recipe['stack']);primary=stack['primary']; names={key:app_id if key==primary else app_id+'-'+key.lower() for key in stack['services']};services={}
     for name,template in stack['services'].items():
         identifier=names[name];service={'image':template['image'],'container_name':'titan-'+identifier,'restart':'unless-stopped','mem_limit':template.get('memory',recipe['memory']),'cpus':2,'logging':{'driver':'json-file','options':{'max-size':'10m','max-file':'3'}},'labels':{'io.titan.managed':'true','io.titan.app':app_id},'networks':{'default':{'aliases':[name]}},'environment':{},'volumes':[],'ports':[]}
+        service['networks']['default']['aliases'] = list(dict.fromkeys([name] + template.get('aliases', [])))
         if any(isinstance(other.get('depends_on'),dict) and other['depends_on'].get(name,{}).get('condition') == 'service_completed_successfully' for other in stack['services'].values()):
             service['restart'] = 'no'
         for key,value in template.get('environment',{}).items():
@@ -95,6 +97,10 @@ def translate(doc,label,repository):
         if 'user' in source: entry_user = str(source['user'])
         else: entry_user = None
         image=source['image'];image=image if ':' in image or '@' in image else image+':latest';entry={'image':image,'environment':{},'mounts':[],'ports':[]}
+        # Upstream environment values may refer to the original container name.
+        # Retain it only as DNS inside this stack's private network.
+        if source.get('container_name'): entry['aliases'] = [source['container_name']]
+        if source.get('hostname'): entry.setdefault('aliases', []).append(source['hostname'])
         if entry_user is not None: entry['user'] = entry_user
         if 'shm_size' in source: entry['shm_size'] = str(source['shm_size']).lower()
         for mapping in source.get('ports',[]):

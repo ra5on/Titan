@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Prepare disposable Debian container
         run: |
+          # ZFS dependencies are shipped in Debian contrib.
+          sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources
           apt-get update
           apt-get install -y --no-install-recommends python3 ca-certificates
           printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
