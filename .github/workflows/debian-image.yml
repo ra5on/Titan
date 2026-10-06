@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Test the current BigBear import and full multi-service lifecycle in the booted NAS.
+# Test full BigBear stacks with enough guest RAM for all enforced service limits.
 on:
   workflow_dispatch:
   push:

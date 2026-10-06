@@ -296,7 +296,7 @@ class RuntimeSmokeTests(unittest.TestCase):
                                         for index, value in enumerate(state["containers"])]}
             raise AssertionError("Unexpected stack fixture route: " + path)
 
-        def action(operation, arguments):
+        def action(operation, arguments, **parameters):
             actions.append((operation, arguments))
             if operation == "app_store_add":
                 self.assertEqual(arguments, {"url": smoke.RUNTIME_STACK_URL, "trusted": True})
@@ -305,6 +305,7 @@ class RuntimeSmokeTests(unittest.TestCase):
                 state["store"] = True
                 return {"ok": True, "apps": 1, "name": "Titan runtime fixture"}
             if operation == "app_install":
+                self.assertEqual(parameters, {"timeout": 900})
                 self.assertTrue(state["store"])
                 self.assertEqual(arguments["app"], app)
                 self.assertEqual(arguments["port"], 18080)
@@ -368,8 +369,8 @@ class RuntimeSmokeTests(unittest.TestCase):
         client = self.stack_fixture()
         original = client.action
 
-        def action(operation, arguments):
-            result = original(operation, arguments)
+        def action(operation, arguments, **parameters):
+            result = original(operation, arguments, **parameters)
             return {**result, "apps": 0} if operation == "app_store_add" else result
 
         client.action = action

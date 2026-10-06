@@ -87,7 +87,8 @@ task_accel=tcg
 task_cpu=max
 if [[ -r /dev/kvm && -w /dev/kvm ]]; then task_accel=kvm; task_cpu=host; fi
 printf 'Raw image boot test: %s acceleration.\n' "$task_accel"
-qemu-system-x86_64 -accel "$task_accel" -machine q35 -cpu "$task_cpu" -m 3072 -smp 2 \
+# Six GiB allow the four-service BigBear Nextcloud limits plus NAS reserve.
+qemu-system-x86_64 -accel "$task_accel" -machine q35 -cpu "$task_cpu" -m 6144 -smp 2 \
     -display none -monitor none -qmp unix:"$task_dir/qmp.sock",server=on,wait=off -serial file:"$task_dir/console.log" \
     -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
     -drive if=pflash,format=raw,file="$task_dir/vars.fd" \
