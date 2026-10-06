@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build the verified cloud root into new A/B slots; never reuse obsolete images.
+# Clear build-machine identity after final customization, before exporting A/B slots.
 on:
   workflow_dispatch:
   push:
