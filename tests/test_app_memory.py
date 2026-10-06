@@ -85,7 +85,7 @@ class AppMemoryTests(unittest.TestCase):
         self.assertEqual(base['startup_limit_bytes'], int(3.75 * GIB))
 
     def test_public_catalog_exposes_safe_default_and_optional_office_without_credentials(self):
-        value = next(item for item in catalog()['apps'] if item['id'] == 'titan-nextcloud-office')
+        value = next(item for item in catalog(include_legacy=True)['apps'] if item['id'] == 'titan-nextcloud-office')
         self.assertEqual(value['containers_default'], 4)
         self.assertEqual(len(value['dependencies']), 4)
         self.assertEqual(len(value['optional_dependencies']), 2)

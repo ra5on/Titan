@@ -70,7 +70,8 @@ class FakeGuest:
         if path == "/api/catalog":
             cache = {"time": app_catalog.time.time(), "images": {}, "error": None}
             with patch.object(app_catalog, "_cache", cache), patch.object(app_catalog.urllib.request, "urlopen") as fetch:
-                value = copy.deepcopy(app_catalog.catalog())
+                value = copy.deepcopy(app_catalog.catalog(include_legacy=True))
+                value['apps'] = [item for item in value['apps'] if item['id'] in app_catalog.PACKAGES]
                 fetch.assert_not_called()
             return value
         if path == "/api/status":
@@ -257,7 +258,7 @@ class RuntimeSmokeTests(unittest.TestCase):
         report = self.run_fixture(client)
         self.assertTrue(report["ok"])
         check = next(item for item in report["checks"] if item["name"] == "app_catalog_first_login")
-        self.assertEqual(check["values"]["app_count"], len(app_catalog.PACKAGES))
+        self.assertEqual(check["values"]["app_count"], 0)
         self.assertEqual(sum(check["values"]["first_login_mode_counts"].values()), len(app_catalog.PACKAGES))
         self.assertEqual(set(check["values"]), {"app_count", "first_login_mode_counts", "ok"})
         client.request.assert_any_call("/api/catalog")

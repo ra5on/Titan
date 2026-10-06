@@ -1161,13 +1161,17 @@ class RuntimeSmoke:
         value = self.client.request("/api/catalog")
         apps = value.get("apps") if isinstance(value, dict) else None
         if (not isinstance(value, dict) or set(value) - {"apps", "source", "error", "installed_recipes"}
-                or not isinstance(apps, list) or len(apps) != len(PACKAGES)):
+                or not isinstance(apps, list)):
             raise SmokeFailure("App catalog or first-login guidance is incomplete.")
+        # Empty is valid until the user explicitly enables BigBear. Keep a
+        # compatibility check for old complete catalogs on existing installs.
+        if apps and all(isinstance(app, dict) and app.get('id') in PACKAGES for app in apps) and len(apps) != len(PACKAGES):
+            raise SmokeFailure("Legacy app catalog is incomplete.")
         modes = {mode: 0 for mode in ("default", "generated", "install", "none", "setup", "documentation")}
         seen = set()
         for app in apps:
             identifier = app.get("id") if isinstance(app, dict) else None
-            if not isinstance(identifier, str) or identifier not in PACKAGES or identifier in seen:
+            if not isinstance(identifier, str) or identifier not in APPS or identifier in seen:
                 raise SmokeFailure("App catalog contains an unexpected or duplicate template.")
             seen.add(identifier)
             recipe = APPS[identifier]

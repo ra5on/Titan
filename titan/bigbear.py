@@ -58,6 +58,9 @@ def translate(document, metadata, label):
     if label == 'adguard-home':
         # A fresh AdGuard installation serves its setup wizard on port 3000.
         meta['port_map'] = '3000'
+        service = next((service for service in source['services'].values() if service['image'].startswith('adguard/adguardhome:')), None)
+        if service is not None:
+            service.setdefault('ports', []).append('3000:3000')
     result = compose_translate(source, label, REPOSITORY)
     if label == 'adguard-home':
         result['login_note'] = 'Beim ersten Öffnen den Einrichtungsassistenten abschließen. Den Webport im Assistenten auf 3000 belassen oder anschließend den App-Link anpassen.'
