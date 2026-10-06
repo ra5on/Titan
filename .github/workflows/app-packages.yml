@@ -17,11 +17,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [titan-immich, titan-adguard, titan-pihole, titan-nextcloud-office]
+        package: [bigbear:immich, bigbear:adguard-home, bigbear:nextcloud]
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
+      - name: Install YAML parser
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
       - name: Complete package startup, connection and restart
         run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py '${{ matrix.package }}' --confirm-disposable-runner

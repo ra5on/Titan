@@ -6,7 +6,7 @@ Titan ist eine eigenständige NAS-Oberfläche auf Debian mit persönlichem Deskt
 
 **Entwicklungsstand: 0.5.3 · Alpha.** Dieser Quellstand ist noch keine neue Image-Veröffentlichung und keine Freigabe für produktive Daten.
 
-![Titan Desktop](docs/images/desktop-control-panel.jpg)
+![Titan Desktop · Demoansicht](docs/images/titan-desktop-bigbear.jpg)
 
 ## Docker mit BigBear
 

@@ -141,6 +141,7 @@ def main():
                 report.update(published_baseline_metadata(args.baseline_kind, baseline, baseline_hash, args.baseline_bundle_sha256))
             else:
                 baseline='0.4.5-alpha.1'
+                report.update(baseline_source='generated-current-build', baseline_version=baseline, baseline_sha256=baseline_hash)
                 command(['python3','scripts/system-release-metadata.py','identity','--version',baseline,'--accounts',str(directory/'ab-input/system-accounts.json'),'--output',str(work/'image-info.json')])
                 # Signed older system identity only in the private overlay; complete
                 # root filesystem replacement then proves A -> B -> A transitions.

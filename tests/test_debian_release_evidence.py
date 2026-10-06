@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec=importlib.util.spec_from_file_location('system_evidence',Path(__file__).resolve().parents[1]/'scripts/validate-system-evidence.py')
 evidence=importlib.util.module_from_spec(spec);spec.loader.exec_module(evidence)
@@ -40,6 +41,17 @@ class EvidenceTests(unittest.TestCase):
     def test_synthetic_baseline_cannot_publish_update(self):
         self.ab['baseline_source']='synthetic';self.save()
         with self.assertRaises(ValueError):evidence.validate(self.root)
+    def test_first_image_requires_explicit_generated_baseline_mode(self):
+        self.ab.update(baseline_source='generated-current-build', baseline_version='0.4.5-alpha.1', baseline_sha256='a'*64)
+        self.ab['checks'].remove('published_release_baseline')
+        self.save()
+        with self.assertRaises(ValueError): evidence.validate(self.root)
+        with patch.dict('os.environ', {'TITAN_INITIAL_IMAGE': 'true', 'TITAN_UPDATE_KIND': 'titan'}):
+            self.assertEqual(set(evidence.validate(self.root).values()), {'passed'})
+            self.ab['baseline_sha256'] = 'invalid'; self.save()
+            with self.assertRaises(ValueError): evidence.validate(self.root)
+        with patch.dict('os.environ', {'TITAN_INITIAL_IMAGE': 'true', 'TITAN_UPDATE_KIND': 'system'}):
+            with self.assertRaises(ValueError): evidence.validate(self.root)
     def test_conflicting_duplicate_checks_rejected(self):
         self.runtime['checks'].append({**self.runtime['checks'][0],'status':'failed'});self.save()
         with self.assertRaises(ValueError):evidence.validate(self.root)

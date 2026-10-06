@@ -1,6 +1,9 @@
 name: Titan Debian system release
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/debian-image.yml']
 permissions:
   contents: write
 # Both dispatchers use this queue so version allocation cannot race publication.
@@ -9,7 +12,6 @@ concurrency:
   cancel-in-progress: false
 jobs:
   identity:
-    if: github.event_name != 'push' || github.event.head_commit.message != 'Initialize Titan eigenbau with BigBear stacks'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -35,5 +37,7 @@ jobs:
       app_version: ${{ needs.identity.outputs.app_version }}
       app_stage: ${{ needs.identity.outputs.app_stage }}
       update_kind: titan
+      include_image: true
+      initial_image: true
     secrets:
       TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}

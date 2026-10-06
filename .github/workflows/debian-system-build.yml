@@ -27,6 +27,12 @@ on:
         required: false
         type: string
         default: ''
+      include_image:
+        type: boolean
+        default: false
+      initial_image:
+        type: boolean
+        default: false
     secrets:
       TITAN_SIGNING_KEY:
         required: true
@@ -43,7 +49,8 @@ jobs:
     timeout-minutes: 150
     env:
       TITAN_SYSTEM_VERSION: ${{ inputs.version }}
-      TITAN_UPDATE_ONLY: 'true'
+      TITAN_UPDATE_ONLY: ${{ inputs.include_image && 'false' || 'true' }}
+      TITAN_INITIAL_IMAGE: ${{ inputs.initial_image && 'true' || 'false' }}
       TITAN_UPDATE_KIND: ${{ inputs.update_kind }}
       TITAN_APP_VERSION: ${{ inputs.app_version }}
       TITAN_APP_STAGE: ${{ inputs.app_stage }}
@@ -65,7 +72,7 @@ jobs:
           if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
       - name: Current builder and API regression tests
         run: |
-          env -u TITAN_UPDATE_KIND -u TITAN_PREVIOUS_TAG -u TITAN_APP_VERSION -u TITAN_APP_STAGE -u TITAN_APP_SOURCE_COMMIT -u TITAN_BUILD_SOURCE_COMMIT -u TITAN_SYSTEM_REVISION -u TITAN_APP_SOURCE_ROOT python3 -m unittest discover -s tests
+          env -u TITAN_INITIAL_IMAGE -u TITAN_UPDATE_KIND -u TITAN_PREVIOUS_TAG -u TITAN_APP_VERSION -u TITAN_APP_STAGE -u TITAN_APP_SOURCE_COMMIT -u TITAN_BUILD_SOURCE_COMMIT -u TITAN_SYSTEM_REVISION -u TITAN_APP_SOURCE_ROOT python3 -m unittest discover -s tests
           for task_script in image/debian/ab/*.sh scripts/*.sh; do bash -n "$task_script"; done
       - name: JavaScript and UI regression tests
         run: |
@@ -97,6 +104,7 @@ jobs:
       - name: Boot, HTTPS, UEFI, VNC and complete runtime checks
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
       - name: Fetch verified published installation baseline
+        if: inputs.initial_image != true
         run: |
           mkdir -p dist/debian-baseline
           curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
@@ -108,9 +116,12 @@ jobs:
       - name: Reconstruct verified published maintenance baseline
         if: inputs.update_kind == 'system'
         run: bash scripts/prepare-maintenance-baseline.sh --disposable-runner
-      - name: Real update, rollback and failure recovery from published baseline
+      - name: Real update, rollback and failure recovery
         run: |
-          task_args=(--baseline-image dist/debian-baseline/baseline.img --baseline-version 0.4.6-alpha.1)
+          task_args=()
+          if [[ "$TITAN_INITIAL_IMAGE" != true ]]; then
+            task_args=(--baseline-image dist/debian-baseline/baseline.img --baseline-version 0.4.6-alpha.1)
+          fi
           if [[ "$TITAN_UPDATE_KIND" == system ]]; then
             task_sha=$(python3 -c 'import json; from pathlib import Path; print(json.loads(Path("dist/debian-input/previous-manifest.json").read_text())["bundle"]["sha256"])')
             task_args=(--baseline-image dist/debian-baseline/system-baseline.img --baseline-version "${TITAN_PREVIOUS_TAG#v}" --baseline-kind published-system --baseline-bundle-sha256 "$task_sha")

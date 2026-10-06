@@ -55,11 +55,16 @@ def validate(directory):
     if not isinstance(ab.get('checks'),list) or not AB.issubset(ab['checks']):
         raise ValueError('Required update/rollback check missing')
     system_only = os.environ.get('TITAN_UPDATE_KIND') == 'system'
-    baseline_source = 'published-system-release' if system_only else 'published-release'
-    expected_version = os.environ.get('TITAN_PREVIOUS_TAG', '').lstrip('v') if system_only else '0.4.6-alpha.1'
+    initial_image = os.environ.get('TITAN_INITIAL_IMAGE') == 'true'
+    if initial_image and system_only:
+        raise ValueError('Initial-image evidence cannot publish Debian maintenance updates')
+    baseline_source = 'generated-current-build' if initial_image else 'published-system-release' if system_only else 'published-release'
+    expected_version = '0.4.5-alpha.1' if initial_image else os.environ.get('TITAN_PREVIOUS_TAG', '').lstrip('v') if system_only else '0.4.6-alpha.1'
     if (ab.get('baseline_source') != baseline_source or ab.get('baseline_version') != expected_version
-            or ab.get('baseline_image_unchanged') is not True or 'published_release_baseline' not in ab['checks']):
-        raise ValueError('Update from the expected verified published baseline was not verified')
+            or ab.get('baseline_image_unchanged') is not True
+            or (not initial_image and 'published_release_baseline' not in ab['checks'])
+            or (initial_image and (not re.fullmatch(r'[a-f0-9]{64}', ab.get('baseline_sha256', '')) or 'published_release_baseline' in ab['checks']))):
+        raise ValueError('Update/rollback baseline identity was not verified')
     if system_only:
         previous=json.loads((directory.parent/'debian-input/previous-manifest.json').read_text())
         if not expected_version or ab.get('baseline_bundle_sha256') != previous['bundle']['sha256']:
