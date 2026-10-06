@@ -223,9 +223,11 @@ def main():
                         except ValueError:
                             pass
             try:
-                diagnostic = run([*command, 'logs', '--no-color', '--tail', '25'], timeout=30)
+                diagnostic = run([*command, 'logs', '--no-color', '--tail', '120'], timeout=30)
+                for container in run([*command, 'ps', '-aq'], timeout=30).splitlines():
+                    diagnostic += run(['docker', 'inspect', '--format', '{{json .State}}', container], timeout=30)
                 for value in secrets: diagnostic = diagnostic.replace(value, '[redacted]')
-                print(diagnostic[-12000:], file=sys.stderr)
+                print(diagnostic[-36000:], file=sys.stderr)
             except Exception:
                 pass
             raise

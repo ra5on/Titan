@@ -61,7 +61,14 @@ def translate(document, metadata, label):
         service = next((service for service in source['services'].values() if service['image'].startswith('adguard/adguardhome:')), None)
         if service is not None:
             service.setdefault('ports', []).append('3000:3000')
+    if label == 'immich':
+        for service in source['services'].values():
+            if service['image'].startswith('ghcr.io/immich-app/immich-server:v3.'):
+                # The v3 server uses /data; the catalog still maps its v1 path.
+                service['volumes'] = [mapping.replace(':/usr/src/app/upload', ':/data') if isinstance(mapping, str) else mapping for mapping in service.get('volumes', [])]
     result = compose_translate(source, label, REPOSITORY)
+    if label == 'immich':
+        result['stack']['services'][result['stack']['primary']]['memory'] = '2g'
     if label == 'adguard-home':
         result['login_note'] = 'Beim ersten Öffnen den Einrichtungsassistenten abschließen. Den Webport im Assistenten auf 3000 belassen oder anschließend den App-Link anpassen.'
     result['documentation'] = 'https://github.com/' + REPOSITORY + '/tree/main/Apps/' + label
