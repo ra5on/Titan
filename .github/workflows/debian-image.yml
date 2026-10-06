@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Keep runtime source isolation while checking complete BigBear stacks with enforced RAM limits.
+# Test complete BigBear stacks in an eight GiB guest with production memory safeguards.
 on:
   workflow_dispatch:
   push:
