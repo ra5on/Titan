@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Clear build-machine identity after final customization, before exporting A/B slots.
+# Test the current BigBear import and full multi-service lifecycle in the booted NAS.
 on:
   workflow_dispatch:
   push:

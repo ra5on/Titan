@@ -271,10 +271,10 @@ class RuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(result['app_count'], 0)
         self.assertTrue(result['ok'])
 
-    def stack_fixture(self):
-        url = "https://raw.githubusercontent.com/ra5on/Titan/main/tests/fixtures/runtime-stack-store.json"
-        store = hashlib.sha256(url.encode()).hexdigest()[:10]
-        app = "s" + store + "-runtime-stack"
+    def stack_fixture(self, schema=None):
+        url = smoke.RUNTIME_STACK_URL
+        store = "bigbear"
+        app = smoke.RUNTIME_STACK_ID
         state = {"installed": False, "store": False, "containers": ["running", "running"]}
         actions, requests = [], []
         client = SimpleNamespace(actions=actions, requests=requests, state=state, app=app, store=store)
@@ -282,7 +282,8 @@ class RuntimeSmokeTests(unittest.TestCase):
         def request(path):
             requests.append((path, state["installed"]))
             if path == "/api/catalog":
-                return {"apps": [{"id": identifier} for identifier in app_catalog.PACKAGES],
+                return {"apps": ([{"id": identifier} for identifier in app_catalog.PACKAGES] +
+                                 ([{"id": app, "containers": 2, "install_schema": schema or []}] if state["store"] else [])),
                         "installed_recipes": [{"id": app, "containers": 2}] if state["installed"] else []}
             if path == "/api/apps":
                 return {"installed": [{"id": app, "state": "running"}] if state["installed"] else []}
@@ -298,12 +299,19 @@ class RuntimeSmokeTests(unittest.TestCase):
         def action(operation, arguments):
             actions.append((operation, arguments))
             if operation == "app_store_add":
+                self.assertEqual(arguments, {"url": smoke.RUNTIME_STACK_URL, "trusted": True})
+                self.assertEqual(smoke.RUNTIME_STACK_URL, "https://github.com/bigbeartechworld/big-bear-dockge")
                 self.assertFalse(state["store"])
                 state["store"] = True
                 return {"ok": True, "apps": 1, "name": "Titan runtime fixture"}
             if operation == "app_install":
                 self.assertTrue(state["store"])
-                self.assertEqual(arguments, {"app": app, "port": 18080})
+                self.assertEqual(arguments["app"], app)
+                self.assertEqual(arguments["port"], 18080)
+                expected = {field["key"] for field in schema or [] if field["type"] == "password" and not field.get("generated")}
+                self.assertEqual(set(arguments["options"]), expected)
+                for value in arguments["options"].values():
+                    self.assertRegex(value, r"^Test-[a-f0-9]{48}$")
                 state["installed"] = True
             elif operation == "docker_container_batch":
                 self.assertEqual(arguments["containers"], ["fixture-0", "fixture-1"])
@@ -319,7 +327,8 @@ class RuntimeSmokeTests(unittest.TestCase):
                 raise AssertionError("Unexpected stack fixture action: " + operation)
             return {"ok": True}
 
-        def http_ready():
+        def http_ready(**options):
+            self.assertEqual(options, {"timeout": 240, "expected_app": "nextcloud"})
             self.assertTrue(state["installed"])
             self.assertEqual(state["containers"], ["running", "running"])
             return {"http_status": 200, "app_page": True}
@@ -337,9 +346,22 @@ class RuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(client.app_http_ready.call_count, 2)
         self.assertEqual([arguments["action"] for operation, arguments in client.actions
                           if operation == "docker_container_batch"], ["stop", "start"])
-        self.assertTrue(all(installed for path, installed in client.requests if path == "/api/catalog"))
+        self.assertEqual([installed for path, installed in client.requests if path == "/api/catalog"], [False, True])
         self.assertEqual(set(row["id"] for row in client.request("/api/catalog")["apps"]), set(app_catalog.PACKAGES))
         self.assertFalse(client.state["installed"])
+        self.assertFalse(client.state["store"])
+
+    def test_bigbear_stack_supplies_private_required_passwords_before_install(self):
+        client = self.stack_fixture(schema=[
+            {"key": "database", "type": "password", "required": True},
+            {"key": "administrator", "type": "password", "required": True},
+            {"key": "generated", "type": "password", "generated": True},
+            {"key": "username", "type": "text", "default": "admin"}])
+        result = smoke.RuntimeSmoke(client).docker_stack()
+        self.assertTrue(result["import"] and result["remove"])
+        install = next(args for op, args in client.actions if op == "app_install")
+        self.assertNotEqual(install["options"]["database"], install["options"]["administrator"])
+        self.assertNotIn(install["options"]["database"], json.dumps(result))
         self.assertFalse(client.state["store"])
 
     def test_imported_stack_rejects_bad_import_before_install_and_cleans_source(self):
@@ -359,7 +381,7 @@ class RuntimeSmokeTests(unittest.TestCase):
     def test_imported_stack_requires_real_inventory_metadata_metrics_and_grouping(self):
         failures = [
             ("/api/catalog", lambda value: value.update(installed_recipes=[]), "source was not translated"),
-            ("/api/catalog", lambda value: value["installed_recipes"][0].update(containers=1), "source was not translated"),
+            ("/api/catalog", lambda value: value["installed_recipes"][0].update(containers=1) if value["installed_recipes"] else None, "source was not translated"),
             ("/api/apps", lambda value: value["installed"][0].update(state="exited") if value["installed"] else None,
              "managed running state"),
             ("/api/app-metrics", lambda value: value.update(apps={}), "statistics are unavailable"),
@@ -1254,6 +1276,20 @@ class RuntimeTransportTests(unittest.TestCase):
         connection.assert_called_once_with("127.0.0.1", 15080, timeout=5)
         connection.return_value.request.assert_called_once_with("GET", "/", headers={"Host": "10.0.2.15:18080"})
         response.read.assert_called_once_with(1024 * 1024 + 1)
+
+    def test_nextcloud_probe_uses_fixed_login_page_and_rejects_unknown_apps(self):
+        response = Mock(status=200)
+        response.read.return_value = b"<!doctype html><title>Nextcloud</title>"
+        response.getheader.return_value = "text/html"
+        with patch.object(smoke.http.client, "HTTPConnection") as connection:
+            connection.return_value.getresponse.return_value = response
+            self.assertTrue(smoke.GuestClient().app_http_ready(expected_app="nextcloud")["app_page"])
+            connection.return_value.request.assert_called_once_with(
+                "GET", "/index.php/login", headers={"Host": "10.0.2.15:18080"})
+        with patch.object(smoke.http.client, "HTTPConnection") as connection:
+            with self.assertRaisesRegex(smoke.SmokeFailure, "Unknown runtime"):
+                smoke.GuestClient().app_http_ready(expected_app="https://external.invalid")
+            connection.assert_not_called()
 
     def test_http_redirects_and_wrong_pages_do_not_pass_or_leak_response(self):
         for status, page in ((302, b"private-location"), (200, b"private-login-error")):

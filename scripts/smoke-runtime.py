@@ -28,8 +28,9 @@ RUNTIME_APP_ROOT = Path(os.environ.get('TITAN_APP_SOURCE_ROOT', Path(__file__).r
 sys.path.insert(0, str(RUNTIME_APP_ROOT))
 from titan.catalog import APPS
 
-RUNTIME_STACK_URL = 'https://raw.githubusercontent.com/ra5on/Titan/main/tests/fixtures/runtime-stack-store.json'
-RUNTIME_STACK_ID = 's' + hashlib.sha256(RUNTIME_STACK_URL.encode()).hexdigest()[:10] + '-runtime-stack'
+from titan.store_sources import BIGBEAR
+RUNTIME_STACK_URL = BIGBEAR
+RUNTIME_STACK_ID = 's' + hashlib.sha256(RUNTIME_STACK_URL.encode()).hexdigest()[:10] + '-nextcloud'
 
 
 class SmokeFailure(Exception):
@@ -638,15 +639,20 @@ class GuestClient:
                 "reader_read": True, "reader_write_denied": True, "unauthorized_connect_denied": True,
                 "unauthorized_share_hidden": True, "test_file_removed": True}
 
-    def app_http_ready(self, timeout=120):
-        """Only the fixed Heimdall publication in this disposable guest."""
+    def app_http_ready(self, timeout=120, expected_app="heimdall"):
+        """Only named test applications on the fixed disposable-guest forward."""
+        if expected_app not in {"heimdall", "nextcloud"}:
+            raise SmokeFailure("Unknown runtime HTTP application.")
+        marker = expected_app.encode()
+        target_path = "/index.php/login" if expected_app == "nextcloud" else "/"
+        identifier = RUNTIME_STACK_ID if expected_app == "nextcloud" else "heimdall"
         deadline = time.monotonic() + timeout
         observed = {"last_http_status": None, "last_content_type": "unavailable",
                     "last_transport": "unavailable", "response_category": "unavailable"}
         while time.monotonic() < deadline:
             connection = http.client.HTTPConnection("127.0.0.1", 15080, timeout=5)
             try:
-                connection.request("GET", "/", headers={"Host": "10.0.2.15:18080"})
+                connection.request("GET", target_path, headers={"Host": "10.0.2.15:18080"})
                 response = connection.getresponse()
                 data = response.read(1024 * 1024 + 1)
                 content_type = (response.getheader("Content-Type") or "").partition(";")[0].strip().lower()
@@ -655,13 +661,13 @@ class GuestClient:
                     "text/html", "text/plain", "application/json", "application/octet-stream"} else "other"
                 observed["last_transport"] = "http_response"
                 observed["response_category"] = ("response_too_large" if len(data) > 1024 * 1024 else
-                    "unexpected_page" if response.status == 200 and (content_type != "text/html" or b"heimdall" not in data.lower()) else
+                    "unexpected_page" if response.status == 200 and (content_type != "text/html" or marker not in data.lower()) else
                     "http_status" if response.status != 200 else "app_page")
                 # Do not follow redirects to arbitrary hosts, and require the
                 # actual app page rather than a container that merely exists.
                 if (response.status == 200 and len(data) <= 1024 * 1024 and
                         content_type == "text/html" and
-                        b"heimdall" in data.lower()):
+                        marker in data.lower()):
                     return {"http_status": 200, "app_page": True}
             except ConnectionRefusedError:
                 observed["last_transport"] = "connection_refused"
@@ -677,11 +683,11 @@ class GuestClient:
                 connection.close()
             time.sleep(2)
         try:
-            observed["app"] = app_observation(self.request("/api/app-details?app=heimdall&tail=50"))
+            observed["app"] = app_observation(self.request("/api/app-details?app=" + identifier + "&tail=50"))
         except Exception:
             observed["app"] = {"available": False}
         observed["guest"] = self.guest_diagnostic()
-        raise SmokeFailure("Heimdall HTTP page did not become ready within the bounded deadline.", observed)
+        raise SmokeFailure(expected_app.capitalize() + " HTTP page did not become ready within the bounded deadline.", observed)
 
     def guest_diagnostic(self):
         """One fixed read-only command through the existing administrator PTY."""
@@ -1594,44 +1600,50 @@ class RuntimeSmoke:
 
     def docker_stack(self):
         url = RUNTIME_STACK_URL
-        store = hashlib.sha256(url.encode()).hexdigest()[:10]
-        app = 's' + store + '-runtime-stack'
+        store = 'bigbear'
+        app = RUNTIME_STACK_ID
         added = False
         try:
             imported = self.client.action('app_store_add', {'url': url, 'trusted': True})
             added = True
-            if imported.get('ok') is not True or imported.get('apps') != 1:
+            if imported.get('ok') is not True or not isinstance(imported.get('apps'), int) or imported['apps'] < 1:
                 raise SmokeFailure('Multi-container source was not imported.')
-            # The public catalog offers only Titan's curated packages. Imported
-            # compatibility recipes become visible with their installed app.
-            self.client.action('app_install', {'app': app, 'port': 18080})
+            offered = next((row for row in self.client.request('/api/catalog').get('apps', [])
+                            if row.get('id') == app), None)
+            if not offered or not isinstance(offered.get('containers'), int) or offered['containers'] < 2:
+                raise SmokeFailure('BigBear multi-container offer is unavailable.')
+            container_count = offered['containers']
+            options = {field['key']: 'Test-' + secrets.token_hex(24)
+                       for field in offered.get('install_schema', [])
+                       if field.get('type') == 'password' and not field.get('generated')}
+            self.client.action('app_install', {'app': app, 'port': 18080, 'options': options})
             installed = next((row for row in self.client.request('/api/apps')['installed']
                               if row.get('id') == app), None)
             template = next((row for row in self.client.request('/api/catalog').get('installed_recipes', [])
                              if row.get('id') == app), None)
-            if not template or template.get('containers') != 2:
+            if not template or template.get('containers') != container_count:
                 raise SmokeFailure('Installed multi-container source was not translated.')
             if not installed or installed.get('state') != 'running':
                 raise SmokeFailure('Imported stack did not reach the managed running state.')
-            self.client.app_http_ready()
+            self.client.app_http_ready(timeout=240, expected_app="nextcloud")
             metrics = self.client.request('/api/app-metrics').get('apps', {}).get(app, {})
             if any(not isinstance(metrics.get(key), (int, float)) for key in
                    ('cpu_percent', 'memory_bytes', 'disk_read_bytes', 'disk_write_bytes')):
                 raise SmokeFailure('Managed container stack statistics are unavailable.')
             stack_rows = [row for row in self.client.request('/api/docker-engine')['containers']
                           if row.get('managed_app') == app]
-            if len(stack_rows) != 2 or len({row.get('project') for row in stack_rows}) != 1 or not stack_rows[0].get('project'):
+            if len(stack_rows) != container_count or len({row.get('project') for row in stack_rows}) != 1 or not stack_rows[0].get('project'):
                 raise SmokeFailure('Compose stack grouping unavailable.')
             self.client.action('docker_container_batch', {'containers': [row['id'] for row in stack_rows], 'action': 'stop'})
             if any(row['state'] == 'running' for row in self.client.request('/api/docker-engine')['containers']
                    if row.get('managed_app') == app):
                 raise SmokeFailure('Stack batch stop left a service running.')
             self.client.action('docker_container_batch', {'containers': [row['id'] for row in stack_rows], 'action': 'start'})
-            self.client.app_http_ready()
+            self.client.app_http_ready(timeout=240, expected_app="nextcloud")
             self.client.action('app_action', {'app': app, 'action': 'remove'})
             if any(row['id'] == app for row in self.client.request('/api/apps')['installed']):
                 raise SmokeFailure('Removed stack remains installed.')
-            return {'containers': 2, 'compose_grouping': True, 'batch_stop_start': True, 'import': True,
+            return {'containers': container_count, 'compose_grouping': True, 'batch_stop_start': True, 'import': True,
                     'install': True, 'http': True, 'stop': True, 'start': True, 'remove': True, 'live_resources': True}
         finally:
             if added:
