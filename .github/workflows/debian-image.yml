@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# The image includes BigBear-backed stacks and a freshly verified A/B baseline.
+# Build the verified cloud root into new A/B slots; never reuse obsolete images.
 on:
   workflow_dispatch:
   push:
