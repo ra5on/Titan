@@ -28,8 +28,7 @@ RUNTIME_APP_ROOT = Path(os.environ.get('TITAN_APP_SOURCE_ROOT', Path(__file__).r
 sys.path.insert(0, str(RUNTIME_APP_ROOT))
 from titan.catalog import APPS
 
-from titan.store_sources import BIGBEAR
-RUNTIME_STACK_URL = BIGBEAR
+RUNTIME_STACK_URL = 'https://github.com/bigbeartechworld/big-bear-dockge'
 RUNTIME_STACK_ID = 's' + hashlib.sha256(RUNTIME_STACK_URL.encode()).hexdigest()[:10] + '-nextcloud'
 
 
