@@ -53,6 +53,22 @@ class BigBearTests(unittest.TestCase):
         self.assertEqual(built['services'][key + '-db']['volumes'][0]['source'], '/control/config/mount-2')
         self.assertIn(key, {item['id'] for item in catalog()['apps']})
 
+    def test_dependency_data_is_private_and_keeps_its_numeric_owner(self):
+        source, meta = example()
+        source['services']['cache']['user'] = '1000:1000'
+        _, values = recipes({'schema': 1, 'name': 'BigBear', 'apps': [translate(source, meta, 'example')]}, URL)
+        key, recipe = next(iter(values.items()))
+        APPS[key] = recipe
+        self.addCleanup(APPS.pop, key, None)
+        options = {recipe['install_schema'][0]['key']: 'privatePassword'}
+        built = compose(key, '/control', 996, 996, 8088, '/nas/user-files', options)
+        primary = built['services'][key]
+        cache = built['services'][key + '-cache']
+        self.assertEqual(primary['volumes'][0]['source'], '/nas/user-files')
+        self.assertEqual(cache['volumes'][0]['source'], '/control/config/mount-3')
+        self.assertEqual(cache['user'], '1000:1000')
+        self.assertNotEqual(cache['volumes'][0]['source'], primary['volumes'][0]['source'])
+
     def test_original_container_name_is_private_dns_alias(self):
         source, meta = example()
         source['services']['db']['container_name'] = 'immich-postgres'

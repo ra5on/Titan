@@ -124,7 +124,10 @@ def translate(doc,label,repository):
             elif isinstance(mapping,dict) and not set(mapping)-{'type','source','target','read_only'} and mapping.get('type','bind') in ('bind','volume'): original,target=mapping['source'],mapping['target'];readonly=mapping.get('read_only',False)
             else: raise Error('Nicht unterstützte Dateizuordnung.')
             if original.startswith(('/dev','/proc','/sys','/etc','/var/run','/run','/lib')): raise Error('Hostdateien erforderlich; explizite USB/GPU-Auswahl separat verwenden.')
-            if original not in slots: slots[original]='data' if target in ('/data','/media','/downloads','/files','/storage') and 'data' not in slots.values() else 'mount-'+str(len(slots)+1)
+            # Only the primary application's user files belong in the NAS data
+            # directory. Dependency /data volumes (Redis, databases) are private
+            # config mounts with their own numeric container owner.
+            if original not in slots: slots[original]='data' if name == primary and target in ('/data','/media','/downloads','/files','/storage') and 'data' not in slots.values() else 'mount-'+str(len(slots)+1)
             entry['mounts'].append({'slot':slots[original],'target':target,'readonly':readonly})
         env=source.get('environment',{})
         if isinstance(env,list): env=dict(part.split('=',1) for part in env)

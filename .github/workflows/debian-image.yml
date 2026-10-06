@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Match package tests to agent permissions and capture bounded stack failure diagnostics.
+# Keep dependency data private with correct ownership under production agent permissions.
 on:
   workflow_dispatch:
   push:
