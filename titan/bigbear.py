@@ -68,7 +68,10 @@ def translate(document, metadata, label):
                 service['volumes'] = [mapping.replace(':/usr/src/app/upload', ':/data') if isinstance(mapping, str) else mapping for mapping in service.get('volumes', [])]
     result = compose_translate(source, label, REPOSITORY)
     if label == 'immich':
-        result['stack']['services'][result['stack']['primary']]['memory'] = '2g'
+        primary = result['stack']['services'][result['stack']['primary']]
+        primary['memory'] = '2g'
+        primary['environment']['IMMICH_HOST'] = '0.0.0.0'
+        primary['healthcheck'] = {'test': ['CMD', 'immich-healthcheck'], 'interval': '10s', 'timeout': '5s', 'start_period': '90s', 'retries': 10}
     if label == 'adguard-home':
         result['login_note'] = 'Beim ersten Öffnen den Einrichtungsassistenten abschließen. Den Webport im Assistenten auf 3000 belassen oder anschließend den App-Link anpassen.'
     result['documentation'] = 'https://github.com/' + REPOSITORY + '/tree/main/Apps/' + label
