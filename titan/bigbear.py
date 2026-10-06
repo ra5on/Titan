@@ -67,6 +67,11 @@ def translate(document, metadata, label):
                 # The v3 server uses /data; the catalog still maps its v1 path.
                 service['volumes'] = [mapping.replace(':/usr/src/app/upload', ':/data') if isinstance(mapping, str) else mapping for mapping in service.get('volumes', [])]
     result = compose_translate(source, label, REPOSITORY)
+    if label == 'nextcloud':
+        primary = result['stack']['services'][result['stack']['primary']]
+        primary['environment']['NEXTCLOUD_TRUSTED_DOMAINS'] = '@option:stack_nas_host'
+        result['stack_fields'].append({'key': 'stack_nas_host', 'label': 'NAS-IP oder Hostname',
+            'type': 'text', 'default': 'titan.local', 'required': True, 'min_length': 1, 'max_length': 1000})
     if label == 'immich':
         primary = result['stack']['services'][result['stack']['primary']]
         primary['memory'] = '2g'

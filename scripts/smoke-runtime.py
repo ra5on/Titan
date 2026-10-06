@@ -1647,6 +1647,8 @@ class RuntimeSmoke:
             options = {field['key']: 'Test-' + secrets.token_hex(24)
                        for field in offered.get('install_schema', [])
                        if field.get('type') == 'password' and not field.get('generated')}
+            if any(field.get('key') == 'stack_nas_host' for field in offered.get('install_schema', [])):
+                options['stack_nas_host'] = self.client.HOST.rsplit(':', 1)[0]
             self.client.action('app_install', {'app': app, 'port': 18080, 'options': options}, timeout=900)
             installed = next((row for row in self.client.request('/api/apps')['installed']
                               if row.get('id') == app), None)

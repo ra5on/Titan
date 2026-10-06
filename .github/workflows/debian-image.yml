@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Keep dependency data private with correct ownership under production agent permissions.
+# Configure an explicit NAS hostname for the complete Nextcloud browser lifecycle.
 on:
   workflow_dispatch:
   push:

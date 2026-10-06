@@ -49,6 +49,7 @@ def main():
     for key in options:
         if key.startswith('stack_port_') and '_53_' in key: options[key] = 15053
     if 'nas_host' in options: options['nas_host'] = '127.0.0.1'
+    if 'stack_nas_host' in options: options['stack_nas_host'] = 'nas.test'
     secrets = [str(options[f['key']]) for f in recipe['install_schema'] if f['type'] == 'password' and f['key'] in options]
     def run(command, input=None, timeout=600):
         result = subprocess.run(command, input=input, text=True, capture_output=True, timeout=timeout)
@@ -162,14 +163,29 @@ def main():
             options = actual_options
             secrets.extend(str(options[f['key']]) for f in recipe['install_schema'] if f['type'] == 'password' and f['key'] in options)
             endpoint = '/api/server/ping' if app == 'titan-immich' else '/admin/' if app == 'titan-pihole' else '/status.php' if app == 'titan-nextcloud-office' else '/'
+            bigbear_nextcloud = args.package == 'bigbear:nextcloud'
+            if bigbear_nextcloud: endpoint = '/index.php/login'
+            app_request = urllib.request.Request('http://127.0.0.1:18080' + endpoint,
+                headers={'Host': 'nas.test:18080'} if bigbear_nextcloud else {})
             for attempt in range(45):
                 try:
-                    with urllib.request.urlopen('http://127.0.0.1:18080' + endpoint, timeout=5) as response:
+                    with urllib.request.urlopen(app_request, timeout=5) as response:
                         if response.status != 200: raise Error('App HTTP readiness failed')
+                        if bigbear_nextcloud and b'nextcloud' not in response.read(1024 * 1024).lower():
+                            raise Error('Nextcloud login page is unavailable under the configured NAS hostname.')
                     break
                 except (OSError, Error):
                     if attempt == 44: raise Error('App HTTP readiness failed') from None
                     time.sleep(2)
+            if bigbear_nextcloud:
+                denied = urllib.request.Request('http://127.0.0.1:18080/index.php/login',
+                    headers={'Host': 'untrusted.invalid:18080'})
+                try:
+                    urllib.request.urlopen(denied, timeout=5).close()
+                except urllib.error.HTTPError as error:
+                    if error.code != 400: raise Error('Unexpected untrusted-host response.') from None
+                else:
+                    raise Error('Nextcloud must reject an unconfigured hostname.')
             # A restart must preserve initialized databases and account settings.
             office_gateway = None
             if app == 'titan-nextcloud-office':

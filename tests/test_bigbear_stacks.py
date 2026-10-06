@@ -69,6 +69,21 @@ class BigBearTests(unittest.TestCase):
         self.assertEqual(cache['user'], '1000:1000')
         self.assertNotEqual(cache['volumes'][0]['source'], primary['volumes'][0]['source'])
 
+    def test_nextcloud_has_an_explicit_validated_nas_hostname(self):
+        source, meta = example()
+        _, values = recipes({'schema': 1, 'name': 'BigBear', 'apps': [translate(source, meta, 'nextcloud')]}, URL)
+        key, recipe = next(iter(values.items()))
+        APPS[key] = recipe
+        self.addCleanup(APPS.pop, key, None)
+        options = {field['key']: 'privatePassword' for field in recipe['install_schema'] if field['type'] == 'password'}
+        for host in ('192.168.10.18', 'nas.example.test', 'fd00::18'):
+            checked = validate_options(key, {**options, 'stack_nas_host': host})
+            built = compose(key, '/control', 996, 996, 8088, '/nas/data', checked)
+            self.assertEqual(built['services'][key]['environment']['NEXTCLOUD_TRUSTED_DOMAINS'], host)
+        for host in ('*', 'nas.test other.test', 'http://nas.test', 'nas.test:8088', 'nas.test/path', '-invalid.test'):
+            with self.subTest(host=host), self.assertRaises(Error):
+                validate_options(key, {**options, 'stack_nas_host': host})
+
     def test_original_container_name_is_private_dns_alias(self):
         source, meta = example()
         source['services']['db']['container_name'] = 'immich-postgres'

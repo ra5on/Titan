@@ -299,6 +299,9 @@ def validate_options(app_id, options=None):
                 raise Error("Benutzername darf nur Buchstaben, Ziffern und _.@- enthalten.")
             if field.get("pattern") and not re.fullmatch(field["pattern"], value):
                 raise Error(f"{field['label']} darf nur Buchstaben und Ziffern enthalten.")
+        if field['key'] == 'stack_nas_host':
+            from .app_package_setup import validate_host
+            value = validate_host(value)
         result[field["key"]] = value
     return result
 
