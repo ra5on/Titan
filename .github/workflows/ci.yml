@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Store parser dependency
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+      - name: Python and API tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Shell syntax
+        run: |
+          shopt -s nullglob
+          for task_script in bootstrap.sh install.sh scripts/*.sh image/*.sh image/debian/*.sh packaging/debian/*.sh; do bash -n "$task_script"; done
+      - name: JavaScript syntax
+        run: |
+          for task_js in titan/web/*.js; do node --check "$task_js"; done
+      - name: All UI behavior suites
+        run: |
+          for task_test in tests/*.cjs; do node "$task_test"; done
+  reset-obsolete-history:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Initialize Titan eigenbau with BigBear stacks'
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Remove explicitly authorized obsolete refs and releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/reset-github-history.py

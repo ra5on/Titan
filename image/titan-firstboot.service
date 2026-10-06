@@ -1,0 +1,21 @@
+[Unit]
+Description=Prepare Titan persistent state and network endpoint
+StartLimitIntervalSec=0
+Wants=network-online.target firewalld.service
+Wants=titan-runtime.service titan-agent.service titan-web.service titan-proxy.service docker.service smb.service
+After=network-online.target firewalld.service systemd-sysusers.service systemd-tmpfiles-setup.service
+Before=titan-agent.service titan-web.service titan-proxy.service docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=15min
+ExecStart=/usr/bin/python3 /usr/share/titan/firstboot.py
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+Restart=on-failure
+RestartSec=10
+SELinuxContext=system_u:system_r:unconfined_service_t:s0
+
+[Install]
+WantedBy=multi-user.target

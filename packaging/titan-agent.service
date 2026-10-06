@@ -1,0 +1,30 @@
+[Unit]
+Description=Titan local privileged management agent
+After=network.target
+
+Requires=titan-firstboot.service
+After=titan-firstboot.service
+Requires=titan-service-containment.service
+After=titan-service-containment.service
+
+[Service]
+Type=simple
+User=root
+Group=titan
+WorkingDirectory=/usr/lib/titan
+ExecStart=/usr/bin/python3 -m titan.agent
+Restart=on-failure
+RestartSec=3
+RuntimeDirectory=titan
+RuntimeDirectoryMode=0750
+StateDirectory=titan-agent
+StateDirectoryMode=0700
+UMask=0027
+PrivateTmp=false
+StandardOutput=journal+console
+StandardError=journal+console
+
+SELinuxContext=system_u:system_r:unconfined_service_t:s0
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict');
+const picker=require('../titan/web/device_picker.js');
+const artwork=require('../titan/web/app_artwork.js');
+const storage=require('../titan/web/storage_view.js');
+const html=picker.fields([{id:'usb:real',kind:'usb',path:'/dev/bus/usb/001/004',label:'Samsung Portable SSD · serial <123>'},{id:'npu:real',kind:'npu',path:'/dev/accel/accel0',label:'Intel NPU'}],['npu:real']);
+assert.match(html,/Samsung Portable SSD/);assert.match(html,/&lt;123&gt;/);assert.match(html,/value="npu:real" checked/);assert.match(html,/NPU · KI/);assert(!html.includes('USB1'));
+assert.match(artwork.render('jellyfin','lscr.io/linuxserver/jellyfin:latest'),/\/app-icons\/jellyfin.svg/);
+assert(!artwork.render('https://evil.test/x','<script>').includes('evil.test'));
+assert(!artwork.render('https://evil.test/x','<script>').includes('<script>'));
+const ctx={esc:v=>String(v).replace(/[<>]/g,c=>c==='<'?'&lt;':'&gt;'),bytes:v=>String(v),pill:v=>v,button:()=>'',systemPanel:()=>'<section>Systemplatte</section>'};
+const empty=storage.render({volumes:[],pools:[],datasets:[],disks:[]},[],{},ctx);
+assert.match(empty,/Systemplatte/);assert(!empty.includes('ZFS-Diagnose'));assert(!empty.includes('Scrub'));
+const active=storage.render({volumes:[{name:'media',filesystem:'ext4',mounted:true,total:100,free:60}],pools:[],datasets:[],disks:[]},[],{},ctx);
+assert.match(active,/media/);assert.match(active,/Ext4|EXT4/);assert.match(active,/40/);
+console.log('Owned artwork, actual USB/NPU labels, escaping and active-only storage passed.');

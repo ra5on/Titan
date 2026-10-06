@@ -1,0 +1,34 @@
+/* Shared DSM-style administration rhythm; each application owns its panes. */
+:root{--app-radius:5px;--app-space:16px;--app-control:34px}
+.nas-window-content{color:#354454;font-size:13px;line-height:1.5;min-width:0;scrollbar-width:thin}
+.nas-window-content :is(h1,h2,h3){letter-spacing:0;line-height:1.35}
+.nas-window-content>.page-heading{margin:0 0 14px;padding-bottom:12px;align-items:center;gap:10px}
+.nas-window-content>.page-heading h1{font-size:20px}.nas-window-content>.page-heading .subtitle{font-size:12px;max-width:none;margin:5px 0 0}
+.nas-window-content>.page-heading .eyebrow{display:none}
+.nas-window-content .panel{border-radius:5px;box-shadow:none;background:#fff;min-width:0;padding:16px}
+.nas-window-content :is(.panel-heading,.section-heading){gap:10px;flex-wrap:wrap}.nas-window-content .panel-heading h2{font-size:15px;margin:0}
+.nas-window-content :is(.button,input:not([type=checkbox],[type=radio]),select,textarea){border-radius:4px;font-size:12px;min-height:34px}
+.nas-window-content .button{padding:6px 12px;box-shadow:none}.nas-window-content .button.small{padding:5px 10px}
+.nas-window-content :is(input,select,textarea){max-width:100%;min-width:0}.nas-window-content input[type=checkbox]{width:17px;height:17px;min-height:0}
+.nas-window-content .two-columns{gap:16px;align-items:start}.nas-window-content .form-grid{gap:12px}.nas-window-content .field{margin:12px 0;gap:5px}
+.nas-window-content :is(.hint,.subtitle){font-size:12px;line-height:1.6}.nas-window-content :is(pre,code){max-width:100%;overflow-wrap:anywhere}.nas-window-content .table-wrap{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior:contain}
+.nas-window-content :is(th,td){font-size:12px;vertical-align:middle}.nas-window-content th{font-weight:500;text-transform:none;letter-spacing:0}.nas-window-content td :is(strong,small){overflow-wrap:anywhere}
+.nas-window-content .form-actions{gap:7px;flex-wrap:wrap}.nas-window-content :is(.notice,.inline-activity){border-radius:4px}
+html[data-desktop-embedded=true] #shell[data-page] .nas-window-content:has(.fb-browser,.mv-manager,.engine-workbench,.storage-workspace){padding:0;display:flex;flex-direction:column;overflow:hidden}
+#shell .nas-window-content:has(.fb-browser,.mv-manager,.engine-workbench,.storage-workspace)>.page-heading{display:none}
+.cp-sidebar a{border-radius:0;font-size:13px;min-height:38px}.cp-sidebar .cp-nav-icon{width:19px;height:19px}.cp-content{min-width:0}.cp-content .cp-page-title{font-size:18px}
+.nas-window-content .service-card{background:#fff;border-color:#d9e2ec;border-radius:4px;color:#354454}.nas-window-content .service-list{border-color:#d9e2ec}.nas-window-content .service-card small{color:#7a899b}
+#dialog .um-tabs{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}#dialog .um-tabs button{flex:1;min-width:0;white-space:normal;padding:7px 9px}
+.nas-window-content :is(button,a,input,select,textarea):focus-visible{outline:2px solid #1685d5;outline-offset:2px}
+@media(max-width:760px){
+ :root{--app-space:12px;--app-control:42px}
+ html[data-desktop-embedded=true] #shell .nas-window-content{padding:12px}
+ .nas-window-content :is(.button,.button.small){min-height:42px;font-size:12px;padding:7px 10px}
+ .nas-window-content :is(input:not([type=checkbox],[type=radio]),select,textarea){min-height:42px;font-size:16px}
+ .nas-window-content>.page-heading{gap:9px;align-items:flex-start}.nas-window-content>.page-heading h1{font-size:19px}
+ .nas-window-content>.page-heading .subtitle{font-size:12px}.nas-window-content>.page-heading>.form-actions{width:100%;justify-content:flex-start}
+ .nas-window-content .panel{padding:12px}.nas-window-content .two-columns,.nas-window-content .form-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+ .nas-window-content :is(.metrics-io-grid,.settings-grid){grid-template-columns:minmax(0,1fr)}
+ .nas-window-content :is(.panel-heading,.section-heading){align-items:flex-start}.nas-window-content :is(.hint,.notice){overflow-wrap:anywhere}
+}
+@media(prefers-reduced-motion:no-preference){.nas-window-content .button{transition:background .12s,border-color .12s}.nas-window-content [role=tabpanel]{animation:app-pane-enter .12s ease-out}@keyframes app-pane-enter{from{opacity:.6}to{opacity:1}}}

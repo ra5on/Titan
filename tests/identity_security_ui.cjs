@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');
+const context=vm.createContext({window:{},setTimeout,structuredClone});
+vm.runInContext(fs.readFileSync('titan/web/identity_controls.js','utf8'),context);
+vm.runInContext(fs.readFileSync('titan/web/security_center.js','utf8'),context);
+const identity=context.window.TitanIdentity,security=context.window.TitanSecurity;
+const data={policy:{schema:1,groups:[{name:'family',description:'<Family>',members:['alice'],applications:{},shares:{photos:'read'}}],users:{}},users:[{name:'alice',display_name:'Alice <Admin>',system_user:'alice',role:'user'}],homes:{alice:{share:'home-alice'}},shares:[{name:'photos'},{name:'home-alice'}],effective:{alice:{applications:Object.fromEntries(['files','apps','vms','backups'].map(id=>[id,{allowed:id==='files',source:'family',inherited:true}])),shares:{photos:{permission:'read',source:'family'},'home-alice':{permission:'write',source:'Persönlicher Ordner'}}}}};
+const html=identity.render(data);
+assert(html.includes('Alice &lt;Admin&gt;'));assert(html.includes('&lt;Family&gt;'));assert(html.includes('data-identity-edit="family"'));assert(html.includes('Wirksame Rechte'));
+const user=identity.userPanel(data.users[0],data);assert(user.includes('Von Gruppen / Standard übernehmen'));assert(user.includes('Speicherlimit'));assert(user.includes('data-user-share="photos"'));assert(!user.includes('data-user-share="home-alice"'),'Private homes must not offer group/user permission overrides.');
+const securityHtml=security.render({checks:[{id:'https',ok:false,label:'HTTPS',action:'HTTPS konfigurieren'}],two_factor:false,recovery_remaining:0,sessions:[{id:'a'.repeat(32),username:'<Alice>',address:'192.0.2.1',user_agent:'<Browser>',created:0,last_seen:0,current:true}],login_events:[{success:0,username:'<Alice>',time:0,address:'192.0.2.1'}],all_users:false},{admin:true});
+assert(securityHtml.includes('data-security-action="begin"'));assert(securityHtml.includes('&lt;Browser&gt;'));assert(securityHtml.includes('data-security-revoke'));assert(securityHtml.includes('Alle Benutzer anzeigen'));
+(async()=>{let calls=0;const result=await identity.waitJob(async()=>{calls++;return [{id:'test',status:'completed',result:{ok:true}}]},'test');assert(result.ok);assert.equal(calls,1);await assert.rejects(identity.waitJob(async()=>[{id:'test',status:'failed',result:{error:'ACL denied'}}],'test'),/ACL denied/);console.log('Identity/security UI: escaping, private homes, effective rights and job errors passed.');})().catch(error=>{console.error(error);process.exitCode=1;});

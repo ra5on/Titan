@@ -1,0 +1,37 @@
+[Unit]
+Description=Titan web interface
+After=network.target titan-agent.service
+Wants=titan-agent.service
+
+Requires=titan-firstboot.service
+After=titan-firstboot.service
+
+[Service]
+Type=simple
+User=titan
+Group=titan
+WorkingDirectory=/usr/lib/titan
+EnvironmentFile=/etc/titan/web.env
+ExecStart=/usr/bin/python3 -m titan.server --host 127.0.0.1 --port 5001 --data /var/lib/titan
+Restart=on-failure
+RestartSec=3
+StateDirectory=titan
+StateDirectoryMode=0700
+UMask=0077
+StandardOutput=journal+console
+StandardError=journal+console
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/titan
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+
+SELinuxContext=system_u:system_r:unconfined_service_t:s0
+
+[Install]
+WantedBy=multi-user.target

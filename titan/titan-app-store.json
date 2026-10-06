@@ -1,0 +1,932 @@
+{
+  "schema": 1,
+  "name": "Titan AppStore",
+  "apps": [
+    {
+      "id": "adguardhome-sync",
+      "name": "adguardhome-sync",
+      "description": "Einstellungen zwischen mehreren AdGuard-Home-Instanzen abgleichen.",
+      "image": "lscr.io/linuxserver/adguardhome-sync:latest",
+      "port": 8080,
+      "default_port": 18000,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-adguardhome-sync/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-adguardhome-sync/",
+      "settings": [],
+      "ports": [],
+      "category": "Netzwerk"
+    },
+    {
+      "id": "apprise-api",
+      "name": "apprise-api",
+      "description": "Benachrichtigungen über eine gemeinsame Schnittstelle an verschiedene Dienste senden.",
+      "image": "lscr.io/linuxserver/apprise-api:latest",
+      "port": 8000,
+      "default_port": 18001,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-apprise-api/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-apprise-api/",
+      "settings": [],
+      "ports": [],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "babybuddy",
+      "name": "babybuddy",
+      "description": "Schlaf, Mahlzeiten und Entwicklung eines Babys dokumentieren.",
+      "image": "lscr.io/linuxserver/babybuddy:latest",
+      "port": 8000,
+      "default_port": 18002,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-babybuddy/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-babybuddy/",
+      "settings": [
+        {
+          "env": "CSRF_TRUSTED_ORIGINS",
+          "label": "CSRF_TRUSTED_ORIGINS",
+          "default": "http://127.0.0.1:8000,https://babybuddy.domain.com",
+          "secret": false
+        }
+      ],
+      "ports": [],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "bitcoin-knots",
+      "name": "bitcoin-knots",
+      "description": "Einen eigenen Bitcoin-Knoten betreiben und Transaktionen prüfen.",
+      "image": "lscr.io/linuxserver/bitcoin-knots:latest",
+      "port": 3000,
+      "default_port": 18003,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-bitcoin-knots/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-bitcoin-knots/",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18004,
+          "protocol": "tcp"
+        },
+        {
+          "target": 8333,
+          "published": 18005,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Netzwerk"
+    },
+    {
+      "id": "bookstack",
+      "name": "bookstack",
+      "description": "Wissen und Dokumentation als übersichtliche Bücher und Kapitel organisieren.",
+      "image": "lscr.io/linuxserver/bookstack:latest",
+      "port": 80,
+      "default_port": 18006,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-bookstack/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-bookstack/",
+      "settings": [
+        {
+          "env": "APP_URL",
+          "label": "APP_URL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "APP_KEY",
+          "label": "APP_KEY",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_HOST",
+          "label": "DB_HOST",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_PORT",
+          "label": "DB_PORT",
+          "default": "3306",
+          "secret": false
+        },
+        {
+          "env": "DB_USERNAME",
+          "label": "DB_USERNAME",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_PASSWORD",
+          "label": "DB_PASSWORD",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "DB_DATABASE",
+          "label": "DB_DATABASE",
+          "default": "",
+          "secret": false
+        }
+      ],
+      "ports": [],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "budge",
+      "name": "budge",
+      "description": "Persönliche Budgets und Ausgaben verwalten.",
+      "image": "lscr.io/linuxserver/budge:latest",
+      "port": 80,
+      "default_port": 18007,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-budge/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-budge/",
+      "settings": [],
+      "ports": [
+        {
+          "target": 443,
+          "published": 18008,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "diskover",
+      "name": "diskover",
+      "description": "Dateibestände indexieren und große Speicherbereiche analysieren.",
+      "image": "lscr.io/linuxserver/diskover:latest",
+      "port": 80,
+      "default_port": 18009,
+      "mount": "/data",
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-diskover/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-diskover/",
+      "settings": [
+        {
+          "env": "ES_HOST",
+          "label": "ES_HOST",
+          "default": "elasticsearch",
+          "secret": false
+        },
+        {
+          "env": "ES_PORT",
+          "label": "ES_PORT",
+          "default": "9200",
+          "secret": false
+        }
+      ],
+      "ports": [],
+      "category": "Dateien"
+    },
+    {
+      "id": "flexget",
+      "name": "flexget",
+      "description": "Medienabläufe mit Regeln und geplanten Aufgaben automatisieren.",
+      "image": "lscr.io/linuxserver/flexget:latest",
+      "port": 5050,
+      "default_port": 18010,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-flexget/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-flexget/",
+      "settings": [
+        {
+          "env": "FG_LOG_LEVEL",
+          "label": "FG_LOG_LEVEL",
+          "default": "info",
+          "secret": false
+        },
+        {
+          "env": "FG_LOG_FILE",
+          "label": "FG_LOG_FILE",
+          "default": "/config/flexget.log",
+          "secret": false
+        },
+        {
+          "env": "FG_CONFIG_FILE",
+          "label": "FG_CONFIG_FILE",
+          "default": "/config/.flexget/config.yml",
+          "secret": false
+        }
+      ],
+      "ports": [],
+      "category": "Downloads"
+    },
+    {
+      "id": "habridge",
+      "name": "habridge",
+      "description": "Eine Hue-kompatible Schnittstelle für Hausautomatisierung bereitstellen.",
+      "image": "lscr.io/linuxserver/habridge:latest",
+      "port": 8080,
+      "default_port": 18011,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-habridge/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-habridge/",
+      "settings": [
+        {
+          "env": "SEC_KEY",
+          "label": "SEC_KEY",
+          "default": "",
+          "secret": false
+        }
+      ],
+      "ports": [
+        {
+          "target": 50000,
+          "published": 18012,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Netzwerk"
+    },
+    {
+      "id": "healthchecks",
+      "name": "healthchecks",
+      "description": "Überwachen, ob geplante Aufgaben regelmäßig erfolgreich laufen.",
+      "image": "lscr.io/linuxserver/healthchecks:latest",
+      "port": 8000,
+      "default_port": 18013,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-healthchecks/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-healthchecks/",
+      "settings": [
+        {
+          "env": "SECRET_KEY",
+          "label": "SECRET_KEY",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "SITE_ROOT",
+          "label": "SITE_ROOT",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SITE_NAME",
+          "label": "SITE_NAME",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SUPERUSER_EMAIL",
+          "label": "SUPERUSER_EMAIL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SUPERUSER_PASSWORD",
+          "label": "SUPERUSER_PASSWORD",
+          "default": "",
+          "secret": true
+        }
+      ],
+      "ports": [],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "hedgedoc",
+      "name": "hedgedoc",
+      "description": "Markdown-Dokumente gemeinsam im Browser bearbeiten.",
+      "image": "lscr.io/linuxserver/hedgedoc:latest",
+      "port": 3000,
+      "default_port": 18014,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-hedgedoc/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-hedgedoc/",
+      "settings": [
+        {
+          "env": "DB_HOST",
+          "label": "DB_HOST",
+          "default": "<hostname or ip>",
+          "secret": false
+        },
+        {
+          "env": "DB_PORT",
+          "label": "DB_PORT",
+          "default": "3306",
+          "secret": false
+        },
+        {
+          "env": "DB_USER",
+          "label": "DB_USER",
+          "default": "hedgedoc",
+          "secret": false
+        },
+        {
+          "env": "DB_PASS",
+          "label": "DB_PASS",
+          "default": "<secret password>",
+          "secret": false
+        },
+        {
+          "env": "DB_NAME",
+          "label": "DB_NAME",
+          "default": "hedgedoc",
+          "secret": false
+        },
+        {
+          "env": "CMD_DOMAIN",
+          "label": "CMD_DOMAIN",
+          "default": "localhost",
+          "secret": false
+        }
+      ],
+      "ports": [],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "htpcmanager",
+      "name": "htpcmanager",
+      "description": "Medien- und Download-Dienste über eine gemeinsame Oberfläche steuern.",
+      "image": "lscr.io/linuxserver/htpcmanager:latest",
+      "port": 8085,
+      "default_port": 18015,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-htpcmanager/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-htpcmanager/",
+      "settings": [],
+      "ports": [],
+      "category": "Medien"
+    },
+    {
+      "id": "kdenlive",
+      "name": "kdenlive",
+      "description": "Videos mit einem umfangreichen Schnittprogramm bearbeiten.",
+      "image": "lscr.io/linuxserver/kdenlive:latest",
+      "port": 3000,
+      "default_port": 18016,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-kdenlive/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-kdenlive/",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18017,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Medien"
+    },
+    {
+      "id": "kimai",
+      "name": "kimai",
+      "description": "Arbeitszeiten für Projekte und Aufgaben erfassen.",
+      "image": "lscr.io/linuxserver/kimai:latest",
+      "port": 80,
+      "default_port": 18018,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-kimai/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-kimai/",
+      "settings": [
+        {
+          "env": "APP_SECRET",
+          "label": "APP_SECRET",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "DATABASE_URL",
+          "label": "DATABASE_URL",
+          "default": "mysql://your_db_user:your_db_pass@your_db_host:3306/your_db_name?charset=your_db_charset&serverVersion=your_db_version",
+          "secret": false
+        },
+        {
+          "env": "TRUSTED_HOSTS",
+          "label": "TRUSTED_HOSTS",
+          "default": "kimai.example.com",
+          "secret": false
+        }
+      ],
+      "ports": [
+        {
+          "target": 443,
+          "published": 18019,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "limnoria",
+      "name": "limnoria",
+      "description": "Einen anpassbaren IRC-Bot betreiben.",
+      "image": "lscr.io/linuxserver/limnoria:latest",
+      "port": 8080,
+      "default_port": 18020,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-limnoria/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-limnoria/",
+      "settings": [],
+      "ports": [],
+      "category": "Netzwerk"
+    },
+    {
+      "id": "lm-studio",
+      "name": "lm-studio",
+      "description": "Lokale KI-Modelle laden und ausführen.",
+      "image": "lscr.io/linuxserver/lm-studio:latest",
+      "port": 3000,
+      "default_port": 18021,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-lm-studio/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-lm-studio/",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18022,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "lychee",
+      "name": "lychee",
+      "description": "Fotos in einer eigenen Webgalerie organisieren und teilen.",
+      "image": "lscr.io/linuxserver/lychee:latest",
+      "port": 80,
+      "default_port": 18023,
+      "mount": "/pictures",
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-lychee/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-lychee/",
+      "settings": [
+        {
+          "env": "DB_CONNECTION",
+          "label": "DB_CONNECTION",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_HOST",
+          "label": "DB_HOST",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_PORT",
+          "label": "DB_PORT",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_USERNAME",
+          "label": "DB_USERNAME",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_PASSWORD",
+          "label": "DB_PASSWORD",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "DB_DATABASE",
+          "label": "DB_DATABASE",
+          "default": "",
+          "secret": false
+        }
+      ],
+      "ports": [],
+      "category": "Medien"
+    },
+    {
+      "id": "manyfold",
+      "name": "manyfold",
+      "description": "Eine Sammlung von 3D-Modellen verwalten.",
+      "image": "lscr.io/linuxserver/manyfold:latest",
+      "port": 3214,
+      "default_port": 18024,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-manyfold/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-manyfold/",
+      "settings": [
+        {
+          "env": "DATABASE_URL",
+          "label": "DATABASE_URL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "REDIS_URL",
+          "label": "REDIS_URL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SECRET_KEY_BASE",
+          "label": "SECRET_KEY_BASE",
+          "default": "",
+          "secret": true
+        }
+      ],
+      "ports": [],
+      "category": "Dateien"
+    },
+    {
+      "id": "orcaslicer",
+      "name": "orcaslicer",
+      "description": "3D-Modelle für FDM-Drucker vorbereiten.",
+      "image": "lscr.io/linuxserver/orcaslicer:latest",
+      "port": 3000,
+      "default_port": 18025,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-orcaslicer/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-orcaslicer/",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18026,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "phpmyadmin",
+      "name": "phpmyadmin",
+      "description": "MySQL- und MariaDB-Datenbanken im Browser verwalten.",
+      "image": "lscr.io/linuxserver/phpmyadmin:latest",
+      "port": 80,
+      "default_port": 18027,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-phpmyadmin/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-phpmyadmin/",
+      "settings": [],
+      "ports": [],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "piwigo",
+      "name": "piwigo",
+      "description": "Eine Fotogalerie mit Alben und Zugriffsrechten betreiben.",
+      "image": "lscr.io/linuxserver/piwigo:latest",
+      "port": 80,
+      "default_port": 18028,
+      "mount": "/gallery",
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-piwigo/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-piwigo/",
+      "settings": [],
+      "ports": [],
+      "category": "Medien"
+    },
+    {
+      "id": "planka",
+      "name": "planka",
+      "description": "Projekte und Aufgaben auf Kanban-Tafeln organisieren.",
+      "image": "lscr.io/linuxserver/planka:latest",
+      "port": 1337,
+      "default_port": 18029,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-planka/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-planka/",
+      "settings": [
+        {
+          "env": "BASE_URL",
+          "label": "BASE_URL",
+          "default": "https://planka.example.com",
+          "secret": false
+        },
+        {
+          "env": "DATABASE_URL",
+          "label": "DATABASE_URL",
+          "default": "postgresql://user:password@planka-db:5432/planka",
+          "secret": false
+        },
+        {
+          "env": "DEFAULT_ADMIN_EMAIL",
+          "label": "DEFAULT_ADMIN_EMAIL",
+          "default": "demo@demo.demo",
+          "secret": false
+        },
+        {
+          "env": "DEFAULT_ADMIN_USERNAME",
+          "label": "DEFAULT_ADMIN_USERNAME",
+          "default": "demo",
+          "secret": false
+        },
+        {
+          "env": "DEFAULT_ADMIN_PASSWORD",
+          "label": "DEFAULT_ADMIN_PASSWORD",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "DEFAULT_ADMIN_NAME",
+          "label": "DEFAULT_ADMIN_NAME",
+          "default": "Demo User",
+          "secret": false
+        },
+        {
+          "env": "SECRET_KEY",
+          "label": "SECRET_KEY",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "TRUST_PROXY",
+          "label": "TRUST_PROXY",
+          "default": "false",
+          "secret": false
+        }
+      ],
+      "ports": [],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "ppsspp",
+      "name": "ppsspp",
+      "description": "PSP-Spiele mit einem Emulator ausführen.",
+      "image": "lscr.io/linuxserver/ppsspp:latest",
+      "port": 3000,
+      "default_port": 18030,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-ppsspp/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-ppsspp/",
+      "settings": [],
+      "ports": [
+        {
+          "target": 3001,
+          "published": 18031,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Medien"
+    },
+    {
+      "id": "projectsend",
+      "name": "projectsend",
+      "description": "Dateien für Benutzer hochladen und gezielt bereitstellen.",
+      "image": "lscr.io/linuxserver/projectsend:latest",
+      "port": 80,
+      "default_port": 18032,
+      "mount": "/data",
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-projectsend/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-projectsend/",
+      "settings": [],
+      "ports": [],
+      "category": "Dateien"
+    },
+    {
+      "id": "pwndrop",
+      "name": "pwndrop",
+      "description": "Dateien über eigene Download-Links bereitstellen.",
+      "image": "lscr.io/linuxserver/pwndrop:latest",
+      "port": 8080,
+      "default_port": 18033,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-pwndrop/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-pwndrop/",
+      "settings": [],
+      "ports": [],
+      "category": "Dateien"
+    },
+    {
+      "id": "speedtest-tracker",
+      "name": "speedtest-tracker",
+      "description": "Die Geschwindigkeit der Internetverbindung regelmäßig messen.",
+      "image": "lscr.io/linuxserver/speedtest-tracker:latest",
+      "port": 80,
+      "default_port": 18034,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-speedtest-tracker/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-speedtest-tracker/",
+      "settings": [
+        {
+          "env": "APP_KEY",
+          "label": "APP_KEY",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "APP_URL",
+          "label": "APP_URL",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "DB_CONNECTION",
+          "label": "DB_CONNECTION",
+          "default": "sqlite",
+          "secret": false
+        },
+        {
+          "env": "SPEEDTEST_SCHEDULE",
+          "label": "SPEEDTEST_SCHEDULE",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SPEEDTEST_SERVERS",
+          "label": "SPEEDTEST_SERVERS",
+          "default": "",
+          "secret": false
+        }
+      ],
+      "ports": [],
+      "category": "Netzwerk"
+    },
+    {
+      "id": "synclounge",
+      "name": "synclounge",
+      "description": "Plex-Inhalte gemeinsam mit anderen ansehen.",
+      "image": "lscr.io/linuxserver/synclounge:latest",
+      "port": 8088,
+      "default_port": 18035,
+      "mount": null,
+      "config_mount": false,
+      "documentation": "https://docs.linuxserver.io/images/docker-synclounge/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-synclounge/",
+      "settings": [],
+      "ports": [],
+      "category": "Medien"
+    },
+    {
+      "id": "thelounge",
+      "name": "thelounge",
+      "description": "IRC-Chats über eine eigene Weboberfläche nutzen.",
+      "image": "lscr.io/linuxserver/thelounge:latest",
+      "port": 9000,
+      "default_port": 18036,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-thelounge/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-thelounge/",
+      "settings": [],
+      "ports": [],
+      "category": "Netzwerk"
+    },
+    {
+      "id": "unifi-netwo-3e1611",
+      "name": "unifi-network-application",
+      "description": "UniFi-Netzwerkgeräte zentral konfigurieren und überwachen.",
+      "image": "lscr.io/linuxserver/unifi-network-application:latest",
+      "port": 8443,
+      "default_port": 18037,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-unifi-network-application/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-unifi-network-application/",
+      "settings": [
+        {
+          "env": "MONGO_USER",
+          "label": "MONGO_USER",
+          "default": "unifi",
+          "secret": false
+        },
+        {
+          "env": "MONGO_PASS",
+          "label": "MONGO_PASS",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "MONGO_HOST",
+          "label": "MONGO_HOST",
+          "default": "unifi-db",
+          "secret": false
+        },
+        {
+          "env": "MONGO_PORT",
+          "label": "MONGO_PORT",
+          "default": "27017",
+          "secret": false
+        },
+        {
+          "env": "MONGO_DBNAME",
+          "label": "MONGO_DBNAME",
+          "default": "unifi",
+          "secret": false
+        },
+        {
+          "env": "MONGO_AUTHSOURCE",
+          "label": "MONGO_AUTHSOURCE",
+          "default": "admin",
+          "secret": false
+        }
+      ],
+      "ports": [
+        {
+          "target": 3478,
+          "published": 18038,
+          "protocol": "udp"
+        },
+        {
+          "target": 10001,
+          "published": 18039,
+          "protocol": "udp"
+        },
+        {
+          "target": 8080,
+          "published": 18040,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Netzwerk"
+    },
+    {
+      "id": "vscodium-web",
+      "name": "vscodium-web",
+      "description": "Code und Projekte mit VSCodium im Browser bearbeiten.",
+      "image": "lscr.io/linuxserver/vscodium-web:latest",
+      "port": 8000,
+      "default_port": 18041,
+      "mount": null,
+      "config_mount": true,
+      "documentation": "https://docs.linuxserver.io/images/docker-vscodium-web/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-vscodium-web/",
+      "settings": [],
+      "ports": [],
+      "category": "Werkzeuge"
+    },
+    {
+      "id": "your_spotify",
+      "name": "your_spotify",
+      "description": "Eigene Spotify-Hörgewohnheiten auswerten.",
+      "image": "lscr.io/linuxserver/your_spotify:latest",
+      "port": 80,
+      "default_port": 18042,
+      "mount": null,
+      "config_mount": false,
+      "documentation": "https://docs.linuxserver.io/images/docker-your_spotify/",
+      "login_note": "Vorlage in Vorbereitung: Zugang, erforderliche Zusatzdienste und sichere Vorgaben sind noch nicht vollständig geprüft. Neue Installation derzeit nicht freigegeben. Bereits installierte Apps bleiben verwaltbar. Hinweise des Herausgebers: https://docs.linuxserver.io/images/docker-your_spotify/",
+      "settings": [
+        {
+          "env": "APP_URL",
+          "label": "APP_URL",
+          "default": "http://localhost",
+          "secret": false
+        },
+        {
+          "env": "SPOTIFY_PUBLIC",
+          "label": "SPOTIFY_PUBLIC",
+          "default": "",
+          "secret": false
+        },
+        {
+          "env": "SPOTIFY_SECRET",
+          "label": "SPOTIFY_SECRET",
+          "default": "",
+          "secret": true
+        },
+        {
+          "env": "SPOTIFY_API_DELAY_MS",
+          "label": "SPOTIFY_API_DELAY_MS",
+          "default": "2000",
+          "secret": false
+        },
+        {
+          "env": "CORS",
+          "label": "CORS",
+          "default": "http://localhost:80,https://localhost:443",
+          "secret": false
+        },
+        {
+          "env": "MONGO_ENDPOINT",
+          "label": "MONGO_ENDPOINT",
+          "default": "mongodb://mongo:27017/your_spotify",
+          "secret": false
+        }
+      ],
+      "ports": [
+        {
+          "target": 443,
+          "published": 18043,
+          "protocol": "tcp"
+        }
+      ],
+      "category": "Medien"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+name: Debian security and package maintenance
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+      timezone: Europe/Berlin
+permissions:
+  contents: write
+concurrency:
+  group: titan-debian-release-queue
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      available: ${{ steps.plan.outputs.available }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Probe official Debian candidates against signed previous inventories
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/debian-maintenance.py plan
+  build:
+    needs: plan
+    if: needs.plan.outputs.available == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    uses: ./.github/workflows/debian-system-build.yml
+    with:
+      version: ${{ matrix.version }}
+      source_ref: ${{ matrix.source_ref }}
+      app_version: ${{ matrix.app_version }}
+      app_stage: ${{ matrix.app_stage }}
+      system_revision: ${{ format('{0}', matrix.system_revision) }}
+      previous_tag: ${{ matrix.previous_tag }}
+      update_kind: system
+    secrets:
+      TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}

@@ -1,0 +1,161 @@
+import copy
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from titan import debian_updates as updates
+from titan.core import Error
+
+
+class DebianABTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        root = Path(self.temp.name)
+        for name, path in [('STATE', root/'state.json'), ('BOOT_OK', root/'boot-ok'), ('LOCK', root/'update.lock')]:
+            p = patch.object(updates, name, path); p.start(); self.addCleanup(p.stop)
+        self.info = {'format':updates.FORMAT, 'platform':'debian-rauc', 'compatible':updates.COMPATIBLE,
+                     'architecture':'x86_64', 'state_schema':1, 'release_id':'sha256:'+'a'*64,
+                     'version':'0.4.6-alpha.1', 'release_stage':'alpha',
+                     'system_accounts':{'users':{'root':{'uid':0,'gid':0}},'groups':{'root':0}}}
+        self.old = {**self.info, 'version':'0.4.5-alpha.1', 'release_id':'sha256:'+'b'*64}
+        p = patch.object(updates, 'image_info', return_value=self.info); p.start(); self.addCleanup(p.stop)
+        p = patch('titan.updates.architecture', return_value='x86_64'); p.start(); self.addCleanup(p.stop)
+        p = patch('titan.updates.scheduled_reboot', return_value=None); p.start(); self.addCleanup(p.stop)
+        self.rauc = {'compatible':updates.COMPATIBLE, 'boot_primary':'rootfs.0', 'slots':[
+            {'rootfs.0':{'bootname':'A','state':'booted','device':'/dev/disk/by-partlabel/TITAN-A','type':'ext4','boot_status':'good'}},
+            {'rootfs.1':{'bootname':'B','state':'inactive','device':'/dev/disk/by-partlabel/TITAN-B','type':'ext4','boot_status':'good'}}]}
+        p = patch.object(updates.os.path, 'ismount', return_value=True); p.start(); self.addCleanup(p.stop)
+        p = patch.dict(updates.os.environ, {'TITAN_ORIGIN':'https://nas.local:5000'}); p.start(); self.addCleanup(p.stop)
+        self.commands=[]
+        def run(args, **kwargs):
+            self.commands.append(args)
+            return json.dumps(self.rauc) if args[:2]==['rauc','status'] and '--detailed' in args else ''
+        p = patch.object(updates, 'run', side_effect=run); p.start(); self.addCleanup(p.stop)
+
+    def state(self):
+        return {'schema':1,'slots':{'A':{'identity':self.info,'confirmed':True},'B':{'identity':self.old,'confirmed':True}}}
+
+    def test_each_boot_requires_new_health_confirmation(self):
+        updates.save_state(self.state())
+        self.assertFalse(updates.system_status()['rollback_available'])
+        updates.BOOT_OK.write_text(self.info['release_id'])
+        value=updates.system_status()
+        self.assertTrue(value['health_confirmed'])
+        self.assertEqual([x['slot'] for x in value['rollback_options']],['B'])
+        self.assertTrue(value['rollback_available'])
+
+    def test_unconfirmed_or_bad_slot_not_offered(self):
+        state=self.state();state['slots']['B']['confirmed']=False;updates.save_state(state)
+        self.assertEqual(updates.system_status()['rollback_options'],[])
+        state['slots']['B']['confirmed']=True;updates.save_state(state)
+        self.rauc['slots'][1]['rootfs.1']['boot_status']='bad'
+        self.assertEqual(updates.system_status()['rollback_options'],[])
+
+    def test_foreign_partition_fails_closed(self):
+        self.rauc['slots'][1]['rootfs.1']['device']='/dev/sdc'
+        with self.assertRaises(Error):updates.system_status()
+
+    def test_unknown_primary_is_not_silently_accepted(self):
+        self.rauc['boot_primary']='rootfs.2'
+        with self.assertRaises(Error):updates.system_status()
+
+    def test_untracked_activation_rejected(self):
+        updates.save_state(self.state());self.rauc['boot_primary']='rootfs.1'
+        with self.assertRaises(Error):updates.system_status()
+
+    def test_pending_update_confirmed_only_after_health(self):
+        state=self.state();state['slots']['A']['confirmed']=False
+        state['pending']={'slot':'A','digest':self.info['release_id'],'kind':'update'}
+        updates.save_state(state)
+        updates.confirm_boot()
+        self.assertNotIn('pending',updates.load_state())
+        self.assertTrue(updates.load_state()['slots']['A']['confirmed'])
+        self.assertEqual(updates.BOOT_OK.read_text().strip(),self.info['release_id'])
+        self.assertIn(['rauc','status','mark-good','booted'],self.commands)
+
+    def test_failed_candidate_is_removed_from_rollback_choices(self):
+        state=self.state();state['pending']={'slot':'B','digest':self.old['release_id'],'kind':'update'}
+        updates.save_state(state);updates.confirm_boot()
+        self.assertFalse(updates.load_state()['slots']['B']['confirmed'])
+        self.assertEqual(updates.load_state()['last_failure']['slot'],'B')
+        self.assertIn(['rauc','status','mark-bad','rootfs.1'],self.commands)
+
+    def test_health_failure_does_not_mark_good(self):
+        updates.save_state(self.state())
+        def run(args, **kwargs):
+            if args[0]=='mountpoint':raise Error('missing mount')
+            return json.dumps(self.rauc)
+        with patch.object(updates,'run',side_effect=run):
+            with self.assertRaises(Error):updates.confirm_boot()
+        self.assertFalse(updates.BOOT_OK.exists())
+
+    def test_missing_persistent_mount_blocks_mutation_before_lock_or_command(self):
+        with patch.object(updates.os.path,'ismount',return_value=False):
+            with self.assertRaises(Error):updates.confirm_boot()
+        self.assertEqual(self.commands,[])
+
+    def test_restarting_health_unit_does_not_cancel_a_prepared_update(self):
+        state=self.state();state['pending']={'slot':'B','digest':self.old['release_id'],'kind':'update'}
+        updates.save_state(state);updates.BOOT_OK.write_text(self.info['release_id'])
+        result=updates.confirm_boot()
+        self.assertTrue(result['already_confirmed'])
+        self.assertEqual(updates.load_state(),state)
+        self.assertFalse(any('mark-bad' in cmd or 'mark-active' in cmd for cmd in self.commands))
+
+    def test_health_keeps_literal_ip_for_tls_certificate_selection(self):
+        updates.save_state(self.state())
+        with patch.dict(updates.os.environ, {'TITAN_ORIGIN':'https://192.168.10.18:5000'}):
+            updates.confirm_boot()
+        request=next(cmd for cmd in self.commands if cmd[0]=='curl')
+        self.assertNotIn('--connect-to',request)
+        self.assertEqual(request[-1],'https://192.168.10.18:5000/api/session')
+
+    def test_one_failed_service_prevents_health_confirmation(self):
+        updates.save_state(self.state())
+        def run(args, **kwargs):
+            self.commands.append(args)
+            if args[0]=='rauc':return json.dumps(self.rauc)
+            if args==['systemctl','is-active','--quiet','smbd.service']:raise Error('SMB unavailable')
+            return ''
+        with patch.object(updates,'run',side_effect=run):
+            with self.assertRaises(Error):updates.confirm_boot()
+        self.assertFalse(updates.BOOT_OK.exists())
+        self.assertFalse(any('mark-good' in cmd for cmd in self.commands))
+
+    def test_pending_digest_mismatch_never_confirms(self):
+        state=self.state();state['pending']={'slot':'A','digest':'sha256:'+'f'*64,'kind':'update'}
+        updates.save_state(state)
+        with self.assertRaises(Error):updates.confirm_boot()
+        self.assertFalse(any('mark-good' in cmd for cmd in self.commands))
+        self.assertFalse(updates.BOOT_OK.exists())
+
+    def test_device_check_rejects_another_physical_disk(self):
+        paths={'/dev/disk/by-partlabel/TITAN-A':Path('/dev/vda3'),
+               '/dev/disk/by-partlabel/TITAN-B':Path('/dev/vdb4'),'/dev/vda3':Path('/dev/vda3')}
+        def resolve(path, strict=False):return paths[str(path)]
+        def run(args,**kwargs):
+            if args[0]=='findmnt':return '/dev/vda3'
+            return 'vda' if args[-1]=='/dev/vda3' else 'vdb'
+        def read(path,*args,**kwargs):return '3' if 'vda3' in str(path) else '4'
+        with patch.object(Path,'resolve',resolve),patch.object(Path,'read_text',read),patch.object(updates,'run',side_effect=run):
+            with self.assertRaises(Error):updates.verify_devices('A','B')
+
+    def test_bad_manifest_rejected_before_install(self):
+        value={**self.info,'boot_test':'passed','runtime_test':'passed','update_test':'passed','rollback_test':'passed',
+               'bundle':{'name':'titan-0.4.6-alpha.1-amd64.raucb','size':1024,'sha256':'c'*64},'rootfs_sha256':'d'*64}
+        updates.validate_manifest(value)
+        for field,bad in [('state_schema',2),('rollback_test','skipped'),('architecture','aarch64')]:
+            with self.subTest(field=field),self.assertRaises(Error):updates.validate_manifest({**value,field:bad})
+        for field,bad in [('size',True),('name','../../disk'),('sha256','wrong')]:
+            with self.subTest(field=field),self.assertRaises(Error):updates.validate_manifest({**value,'bundle':{**value['bundle'],field:bad}})
+
+    def test_stale_selection_never_activates_slot(self):
+        updates.save_state(self.state());updates.BOOT_OK.write_text(self.info['release_id'])
+        with self.assertRaises(Error):updates.rollback('ra5on/Titan','sha256:'+'c'*64,'ROLLBACK',Path('/unused'))
+        self.assertFalse(any('mark-active' in cmd for cmd in self.commands))
+
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,87 @@
+/* Common application rhythm. Responsive rules also apply inside desktop frames. */
+:root{--app-space:16px;--app-radius:10px;--app-control:38px}
+*,*::before,*::after{box-sizing:border-box}
+html,body{max-width:100%;overscroll-behavior-x:none}
+.nas-window-content,.mv-workspace,.mv-content,.fb-workspace,.sc-content{min-width:0}
+dialog:has(.vm-extension-detail),dialog:has(.package-center){width:min(1000px,calc(100vw - 24px))}
+body:has(dialog[open]) :is(#main,.nas-window-content,.mv-content,.sl-content,.fb-browser){overflow:hidden!important}
+.nas-window-content .page-heading{margin-bottom:16px}
+.nas-window-content .page-heading .eyebrow{display:none}
+.nas-window-content .page-heading h1{font-size:22px;line-height:1.25}
+.nas-window-content .panel{border-radius:var(--app-radius)}
+.nas-window-content :is(.button,input,select){min-height:var(--app-control)}
+.nas-window-content :is(.section-heading,.mv-toolbar,.form-actions){gap:10px;flex-wrap:wrap}
+.nas-window-content :is(.hint,.subtitle,.notice,dd){overflow-wrap:anywhere}
+.nas-window-content .table-wrap{min-width:0;max-width:100%}
+.nas-window-content :is(.stats-grid,.control-grid,.catalog-grid){gap:14px}
+.desktop-window-titlebar{min-height:44px}
+.desktop-window-controls button{min-width:34px;min-height:34px}
+.desktop-window:focus-within{border-color:#70a3df;box-shadow:0 18px 60px #1a355042}
+.desktop-shortcut{will-change:transform;contain:layout style}
+.shortcut-dragging{transition:none!important;cursor:grabbing;filter:drop-shadow(0 12px 12px #17345f33)}
+.desktop-drop-preview{position:absolute;pointer-events:none;width:100px;height:100px;border:2px dashed #3385d8;border-radius:14px;background:#ffffff35;z-index:1;transition:left .1s,top .1s}
+.fb-favorites h3,.fb-folder-tree summary{font-size:12px;font-weight:600;color:#607792;margin:12px 0 6px}
+.fb-favorites .hint,.fb-folder-tree .hint{font-size:11px;margin:6px}
+.fb-folder-tree>.fb-place{padding-left:20px}
+.fb-favorite{flex:0 0 38px;font-size:21px;padding:4px!important}
+.fb-search-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;flex-basis:100%;min-width:0}
+.fb-search-options label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);min-width:0}
+.fb-search-options label:first-child{flex-direction:row;align-items:center}
+.fb-search-options input,.fb-search-options select{width:100%;min-width:0}
+.fb-search-options input[type=checkbox]{width:18px;min-height:18px}
+.fb-search-warning{flex-basis:100%;margin:0}
+.fb-name-button>span small{display:block;color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.fb-places-toggle{display:none}
+.fb-browser .fb-toolbar{background:#f8fbff}
+.fb-browser .fb-selection{background:#edf5ff;border-bottom:1px solid #cbdff7}
+.fb-browser .fb-filter-row{background:#fff}
+@media(prefers-reduced-motion:no-preference){
+ .desktop-shortcut:not(.shortcut-dragging){transition:left .15s ease,top .15s ease,background .12s}
+ .button,.fb-place{transition:background .12s,border-color .12s,box-shadow .12s}
+}
+@media(max-width:760px){
+ :root{--app-space:12px;--app-control:44px}
+ #shell :is(main,.nas-window,.nas-window-content,.mv-manager,.sc-panel){max-width:100%;min-width:0}
+ #shell .nas-window-content{padding:12px;overflow:auto;overscroll-behavior:contain}
+ #shell .nas-window-content:has(.fb-browser),#shell .nas-window-content:has(.mv-manager){padding:0;overflow:hidden}
+ #shell .nas-window-content .page-heading h1{font-size:19px}
+ .nas-window-content :is(input,select,textarea){font-size:16px}
+ .desktop-menu-grid,[data-installed-apps]{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #shell[data-desktop=true] .topbar{min-height:96px;align-content:center}
+ .desktop-window-layer{top:96px}
+ #shell .fb-browser.panel{position:relative;overflow:auto;display:block}
+ #shell .fb-places{display:none;overflow:visible;padding:12px;background:#f7faff;border-bottom:1px solid #dbe5ef;flex-wrap:wrap}
+ #shell .fb-browser[data-places=true] .fb-places{display:block}
+ #shell .fb-places h2,#shell .fb-places h3,#shell .fb-place-note{display:block}
+ #shell .fb-places .fb-place{display:flex;width:100%;max-width:none}
+ #shell .fb-places-toggle{display:inline-flex}
+ #shell .fb-toolbar{position:sticky;top:0;z-index:5;gap:4px;padding:6px;background:#f8fbfff5;box-shadow:0 1px 4px #35567815}
+ #shell .fb-navigation [data-fb-history],#shell .fb-create [data-action=trash-view]{display:none}
+ #shell .fb-navigation{gap:3px}
+ #shell .fb-navigation .button{width:36px;min-width:36px;padding:5px}
+ #shell .fb-create{gap:4px;justify-content:flex-start}
+ #shell .fb-create .button{font-size:11px;padding:6px 7px}
+ #shell .fb-selection{position:sticky;top:var(--fb-toolbar-height,100px);z-index:4;margin:0;padding:8px;gap:6px}
+ #shell .fb-selection>div{display:flex;gap:5px;flex-wrap:wrap}
+ #shell .fb-selection .button{min-height:40px;font-size:11px;padding:5px 7px}
+ #shell .fb-search-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #shell .fb-content,#shell .fb-list,#shell .fb-table-wrap{overflow:visible;min-height:0}
+ #shell .fb-inspector{display:none!important}
+ #shell .fb-table thead th{position:static}
+ #shell .fb-address{padding:6px 8px;flex-wrap:wrap}
+ #shell .fb-address .file-breadcrumbs{flex:1;min-width:0;flex-wrap:wrap}
+ #shell .fb-status{padding:8px}
+ #shell .fb-filter-row{scroll-margin-top:110px}
+ .form-grid,.two-columns,.control-grid{grid-template-columns:minmax(0,1fr)}
+ dialog :is(.form-actions,.dialog-actions){display:flex;flex-wrap:wrap}
+ dialog :is(.form-actions,.dialog-actions) .button{flex:1;min-width:90px}
+}
+@media(max-height:480px){
+ #shell .nas-window-content:has(.fb-browser){overflow:auto}
+ #shell .fb-browser.panel{max-height:none;overflow:visible}
+ #shell .fb-workspace{overflow:visible}
+}
+
+.fb-search-advanced{flex-basis:100%;min-width:0;grid-column:1/-1}
+.fb-search-advanced summary{cursor:pointer;font-size:12px;color:#466583;padding:6px 0}
+.fb-search-advanced[open] .fb-search-options{padding:6px 0}

@@ -1,0 +1,137 @@
+name: Build and verify signed Debian system update
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      source_ref:
+        description: Exact application commit; frozen for Debian-only maintenance
+        required: true
+        type: string
+      app_version:
+        required: true
+        type: string
+      app_stage:
+        required: true
+        type: string
+      update_kind:
+        required: false
+        type: string
+        default: titan
+      system_revision:
+        required: false
+        type: string
+        default: '1'
+      previous_tag:
+        required: false
+        type: string
+        default: ''
+    secrets:
+      TITAN_SIGNING_KEY:
+        required: true
+permissions:
+  contents: write
+jobs:
+  packages:
+    uses: ./.github/workflows/app-packages.yml
+    with:
+      source_ref: ${{ inputs.source_ref }}
+  system:
+    needs: packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      TITAN_SYSTEM_VERSION: ${{ inputs.version }}
+      TITAN_UPDATE_ONLY: 'true'
+      TITAN_UPDATE_KIND: ${{ inputs.update_kind }}
+      TITAN_APP_VERSION: ${{ inputs.app_version }}
+      TITAN_APP_STAGE: ${{ inputs.app_stage }}
+      TITAN_APP_SOURCE_COMMIT: ${{ inputs.source_ref }}
+      TITAN_BUILD_SOURCE_COMMIT: ${{ github.sha }}
+      TITAN_SYSTEM_REVISION: ${{ inputs.system_revision }}
+      TITAN_PREVIOUS_TAG: ${{ inputs.previous_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Prepare disposable system builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient rauc grub2-common python3-yaml
+          sudo apt-get remove -y passt
+          sudo chmod a+r /boot/vmlinuz-*
+          if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
+      - name: Current builder and API regression tests
+        run: |
+          env -u TITAN_UPDATE_KIND -u TITAN_PREVIOUS_TAG -u TITAN_APP_VERSION -u TITAN_APP_STAGE -u TITAN_APP_SOURCE_COMMIT -u TITAN_BUILD_SOURCE_COMMIT -u TITAN_SYSTEM_REVISION -u TITAN_APP_SOURCE_ROOT python3 -m unittest discover -s tests
+          for task_script in image/debian/ab/*.sh scripts/*.sh; do bash -n "$task_script"; done
+      - name: JavaScript and UI regression tests
+        run: |
+          for task_js in titan/web/*.js; do node --check "$task_js"; done
+          for task_test in tests/*.cjs; do node "$task_test"; done
+      - name: Check out the frozen application source
+        if: inputs.update_kind == 'system'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: dist/titan-frozen-source
+          persist-credentials: false
+      - name: Bind exact application and OS builder identities
+        run: |
+          task_app_root=.
+          if [[ "$TITAN_UPDATE_KIND" == system ]]; then task_app_root=dist/titan-frozen-source; fi
+          python3 scripts/prepare-system-build.py --app-root "$task_app_root"
+      - name: Fetch signed previous inventory and system bundle
+        if: inputs.update_kind == 'system'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/debian-maintenance.py previous-bundle --tag "$TITAN_PREVIOUS_TAG"
+      - name: Prepare signing identity
+        env:
+          TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}
+        run: bash scripts/prepare-system-signing.sh
+      - name: Build signed Debian system in new regular image files
+        run: bash scripts/build-debian-ab-image.sh --disposable-runner
+      - name: Boot, HTTPS, UEFI, VNC and complete runtime checks
+        run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
+      - name: Fetch verified published installation baseline
+        run: |
+          mkdir -p dist/debian-baseline
+          curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
+            https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz \
+            -o dist/debian-baseline/baseline.img.xz
+          echo '78bc547f20735a55fa40680f82a966e93c248a78b64052c4272667a13bbf2e01  dist/debian-baseline/baseline.img.xz' | sha256sum --check
+          xz -dc dist/debian-baseline/baseline.img.xz | dd of=dist/debian-baseline/baseline.img conv=sparse status=none
+          rm dist/debian-baseline/baseline.img.xz
+      - name: Reconstruct verified published maintenance baseline
+        if: inputs.update_kind == 'system'
+        run: bash scripts/prepare-maintenance-baseline.sh --disposable-runner
+      - name: Real update, rollback and failure recovery from published baseline
+        run: |
+          task_args=(--baseline-image dist/debian-baseline/baseline.img --baseline-version 0.4.6-alpha.1)
+          if [[ "$TITAN_UPDATE_KIND" == system ]]; then
+            task_sha=$(python3 -c 'import json; from pathlib import Path; print(json.loads(Path("dist/debian-input/previous-manifest.json").read_text())["bundle"]["sha256"])')
+            task_args=(--baseline-image dist/debian-baseline/system-baseline.img --baseline-version "${TITAN_PREVIOUS_TAG#v}" --baseline-kind published-system --baseline-bundle-sha256 "$task_sha")
+          fi
+          python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" "${task_args[@]}" --confirm-disposable-guest
+      - name: Publish only tested signed update bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/publish-debian-system.sh
+      - name: Remove temporary private signing material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/titan-signing"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: titan-debian-${{ inputs.version }}-${{ inputs.update_kind }}-diagnostics
+          path: |
+            dist/debian-image/boot-status
+            dist/debian-image/boot-console.log
+            dist/debian-image/boot-http-error.txt
+            dist/debian-image/runtime-test.json
+            dist/debian-image/ab-test.json
+            dist/debian-image/ab-console.log
+          retention-days: 7

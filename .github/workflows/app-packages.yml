@@ -1,0 +1,27 @@
+name: App package runtime checks
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Frozen application commit whose packages are installed in this build
+        required: false
+        type: string
+        default: ''
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [titan-immich, titan-adguard, titan-pihole, titan-nextcloud-office]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Complete package startup, connection and restart
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py '${{ matrix.package }}' --confirm-disposable-runner

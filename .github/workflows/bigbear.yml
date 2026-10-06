@@ -1,0 +1,24 @@
+name: BigBear stack runtime checks
+on:
+  push:
+    branches: [main]
+    paths: ['titan/**', 'scripts/smoke-app-packages.py', '.github/workflows/bigbear.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [adguard-home, nextcloud, immich]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install YAML parser
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+      - name: Real Docker and HTTP lifecycle
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py 'bigbear:${{ matrix.app }}' --confirm-disposable-runner

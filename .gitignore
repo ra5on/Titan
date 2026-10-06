@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.secrets/
+.demo/
+.venv/
+dist/
+*.sqlite3
+*.sqlite3-*
+setup-token
+artifacts/
+*.log
+
+worktrees/

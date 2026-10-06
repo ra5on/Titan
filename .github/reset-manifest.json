@@ -1,0 +1,171 @@
+{
+  "refs": [
+    {
+      "ref": "heads/legacy-titan-before-umbrel",
+      "sha": "ccd54172f2fe1f55808e0fca0f57c6cb751a0892"
+    },
+    {
+      "ref": "tags/v0.4.10-alpha.1",
+      "sha": "7d9848841b2652f19723b71e818c58dd331bccb7"
+    },
+    {
+      "ref": "tags/v0.4.11-alpha.1",
+      "sha": "54e43d538922b1103f4085ad4b3ee80012569c8d"
+    },
+    {
+      "ref": "tags/v0.4.12-alpha.1",
+      "sha": "0a2099e2f1476325e28706f4018b6a7cb9247464"
+    },
+    {
+      "ref": "tags/v0.4.13-alpha.1",
+      "sha": "dbb92c857ed81cc0dc356013f837110120f118fe"
+    },
+    {
+      "ref": "tags/v0.4.14-alpha.1",
+      "sha": "66f842eb8266e4106fb2f997111428eddb624ff0"
+    },
+    {
+      "ref": "tags/v0.4.15-alpha.1",
+      "sha": "aebfc8c994c6ef8affa8546310c98405c53a324f"
+    },
+    {
+      "ref": "tags/v0.4.16-alpha.1",
+      "sha": "99c2c6ccf39d61c9795ddb0fa7ce95ab4a8697f4"
+    },
+    {
+      "ref": "tags/v0.4.17-alpha.1",
+      "sha": "f4bee7f402420273403634f6482156a37cad88fb"
+    },
+    {
+      "ref": "tags/v0.4.18-alpha.1",
+      "sha": "90f56cefd18ec841a66d70a6c5340e961964f252"
+    },
+    {
+      "ref": "tags/v0.4.6-alpha.1",
+      "sha": "0969c244934acc393f8842f7ea60d36cae40a1bd"
+    },
+    {
+      "ref": "tags/v0.4.7-alpha.1",
+      "sha": "adba1f491546b2026f5f9fcdf048e8bb8fa0aca1"
+    },
+    {
+      "ref": "tags/v0.4.8-alpha.1",
+      "sha": "6f34ad6d861fdff04df4777e0e9474f18ce94b3e"
+    },
+    {
+      "ref": "tags/v0.4.9-alpha.1",
+      "sha": "ff6d3ec8a279ea0e73bc510804aba45d80ef4974"
+    },
+    {
+      "ref": "tags/v0.5.0-alpha.1",
+      "sha": "bfe59aa00a7ae79b6f0e70ecd4aeec5839d644eb"
+    },
+    {
+      "ref": "tags/v0.5.1-alpha.1",
+      "sha": "d47a6005104ff32f45aad5d841715d02594fab7e"
+    },
+    {
+      "ref": "tags/v0.5.2-alpha.1",
+      "sha": "f84681309d10d3323ed248540d35f4a57a31254a"
+    },
+    {
+      "ref": "tags/v2.0.0",
+      "sha": "8446de77a70ee8f72a256cf9082266435d1d1a17"
+    },
+    {
+      "ref": "tags/v2.0.0-titan.1",
+      "sha": "d6dbdedf8ecce42e96b097bdc3ebf6beec917070"
+    },
+    {
+      "ref": "tags/v2.0.0-titan.2",
+      "sha": "a2d3c955b36d57bcf0f5afa35f2689c86f761b86"
+    },
+    {
+      "ref": "tags/v2.0.0-titan.3",
+      "sha": "8446de77a70ee8f72a256cf9082266435d1d1a17"
+    }
+  ],
+  "releases": [
+    {
+      "id": 403558563,
+      "tag_name": "v2.0.0-titan.3"
+    },
+    {
+      "id": 403584565,
+      "tag_name": "v2.0.0"
+    },
+    {
+      "id": 403453931,
+      "tag_name": "v2.0.0-titan.2"
+    },
+    {
+      "id": 403301844,
+      "tag_name": "v2.0.0-titan.1"
+    },
+    {
+      "id": 403173452,
+      "tag_name": "v0.5.2-alpha.1"
+    },
+    {
+      "id": 403110217,
+      "tag_name": "v0.5.1-alpha.1"
+    },
+    {
+      "id": 403038510,
+      "tag_name": "v0.5.0-alpha.1"
+    },
+    {
+      "id": 402961162,
+      "tag_name": "v0.4.18-alpha.1"
+    },
+    {
+      "id": 402718891,
+      "tag_name": "v0.4.17-alpha.1"
+    },
+    {
+      "id": 402691585,
+      "tag_name": "v0.4.16-alpha.1"
+    },
+    {
+      "id": 402670674,
+      "tag_name": "v0.4.15-alpha.1"
+    },
+    {
+      "id": 402646178,
+      "tag_name": "v0.4.14-alpha.1"
+    },
+    {
+      "id": 402594264,
+      "tag_name": "v0.4.13-alpha.1"
+    },
+    {
+      "id": 402575189,
+      "tag_name": "v0.4.12-alpha.1"
+    },
+    {
+      "id": 402503491,
+      "tag_name": "v0.4.11-alpha.1"
+    },
+    {
+      "id": 402471377,
+      "tag_name": "v0.4.10-alpha.1"
+    },
+    {
+      "id": 402445825,
+      "tag_name": "v0.4.9-alpha.1"
+    },
+    {
+      "id": 402388658,
+      "tag_name": "v0.4.8-alpha.1"
+    },
+    {
+      "id": 402360239,
+      "tag_name": "v0.4.7-alpha.1"
+    },
+    {
+      "id": 402245040,
+      "tag_name": "v0.4.6-alpha.1"
+    }
+  ],
+  "previous_main_sha": "8446de77a70ee8f72a256cf9082266435d1d1a17"
+}

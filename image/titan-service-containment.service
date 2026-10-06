@@ -1,0 +1,23 @@
+[Unit]
+Description=Contain legacy Titan custom services running as root
+DefaultDependencies=no
+After=local-fs.target
+Before=basic.target titan-agent.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/python3 -I /usr/lib/titan/titan/custom_services.py
+RemainAfterExit=yes
+TimeoutStartSec=90
+RuntimeDirectory=titan-service-containment
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=basic.target

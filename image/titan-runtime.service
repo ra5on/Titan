@@ -1,0 +1,16 @@
+[Unit]
+Description=Activate the bundled Titan Docker and VM components
+Requires=titan-firstboot.service
+After=titan-firstboot.service network-online.target docker.service
+Before=titan-agent.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/share/titan/install-components.sh --component all
+RemainAfterExit=yes
+SELinuxContext=system_u:system_r:unconfined_service_t:s0
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
