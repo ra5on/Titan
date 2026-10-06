@@ -59,7 +59,7 @@ jobs:
       TITAN_SYSTEM_REVISION: ${{ inputs.system_revision }}
       TITAN_PREVIOUS_TAG: ${{ inputs.previous_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -80,7 +80,7 @@ jobs:
           for task_test in tests/*.cjs; do node "$task_test"; done
       - name: Check out the frozen application source
         if: inputs.update_kind == 'system'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.source_ref }}
           path: dist/titan-frozen-source
@@ -134,7 +134,7 @@ jobs:
       - name: Remove temporary private signing material
         if: always()
         run: rm -rf "$RUNNER_TEMP/titan-signing"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
           name: titan-debian-${{ inputs.version }}-${{ inputs.update_kind }}-diagnostics

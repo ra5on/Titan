@@ -18,7 +18,7 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
       available: ${{ steps.plan.outputs.available }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Probe official Debian candidates against signed previous inventories

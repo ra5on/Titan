@@ -13,7 +13,7 @@ jobs:
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Prepare disposable Debian container
         run: |
           # ZFS dependencies are shipped in Debian contrib.
@@ -40,7 +40,7 @@ jobs:
           PYTHONPATH=/usr/lib/titan python3 -c 'from titan.platforms import current; assert current().name == "debian-preview"'
           python3 -m unittest discover -s tests -p test_debian_platform.py -v
           dpkg-query -W > dist/debian/packages.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: debian-preview-not-a-bootable-image
           path: dist/debian/

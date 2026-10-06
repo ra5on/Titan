@@ -8,7 +8,7 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Store parser dependency
         run: sudo apt-get update && sudo apt-get install -y python3-yaml
       - name: Python and API tests
@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Remove explicitly authorized obsolete refs and releases

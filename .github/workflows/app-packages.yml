@@ -19,7 +19,7 @@ jobs:
       matrix:
         package: [bigbear:immich, bigbear:adguard-home, bigbear:nextcloud]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
