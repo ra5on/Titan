@@ -1,4 +1,5 @@
 name: Titan Debian system release
+# The image includes BigBear-backed stacks and a freshly verified A/B baseline.
 on:
   workflow_dispatch:
   push:

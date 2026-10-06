@@ -72,6 +72,15 @@ def translate(document, metadata, label):
         primary['memory'] = '2g'
         primary['environment']['IMMICH_HOST'] = '0.0.0.0'
         primary['healthcheck'] = {'test': ['CMD', 'immich-healthcheck'], 'interval': '10s', 'timeout': '5s', 'start_period': '90s', 'retries': 10}
+        # Do not start Immich while PostgreSQL is still creating its database.
+        # A transient first-boot crash can otherwise make Compose --wait fail
+        # even though the restart becomes healthy moments later.
+        for name, service in result['stack']['services'].items():
+            if service['image'].startswith('ghcr.io/immich-app/postgres:'):
+                service['healthcheck'] = {'test': ['CMD', 'pg_isready', '-U', service['environment']['POSTGRES_USER'], '-d', service['environment']['POSTGRES_DB']], 'interval': '5s', 'timeout': '5s', 'start_period': '30s', 'retries': 20}
+            elif service['image'].startswith('redis:'):
+                service['healthcheck'] = {'test': ['CMD', 'redis-cli', 'ping'], 'interval': '5s', 'timeout': '5s', 'retries': 20}
+        primary['depends_on'] = {name: {'condition': 'service_healthy' if result['stack']['services'][name].get('healthcheck') else 'service_started'} for name in primary.get('depends_on', [])}
     if label == 'adguard-home':
         result['login_note'] = 'Beim ersten Öffnen den Einrichtungsassistenten abschließen. Den Webport im Assistenten auf 3000 belassen oder anschließend den App-Link anpassen.'
     result['documentation'] = 'https://github.com/' + REPOSITORY + '/tree/main/Apps/' + label

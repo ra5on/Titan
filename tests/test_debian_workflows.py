@@ -15,7 +15,7 @@ class DebianWorkflowTests(unittest.TestCase):
     def load(self, name):
         return yaml.load((ROOT/'.github/workflows'/name).read_text(), Loader=yaml.BaseLoader)
 
-    def test_both_dispatchers_serialize_allocations_and_publish_update_only(self):
+    def test_dispatchers_serialize_and_keep_maintenance_update_only(self):
         feature=self.load('debian-image.yml');maintenance=self.load('debian-security.yml')
         self.assertEqual(feature['concurrency'],maintenance['concurrency'])
         self.assertEqual(feature['concurrency']['cancel-in-progress'],'false')
@@ -23,7 +23,12 @@ class DebianWorkflowTests(unittest.TestCase):
             self.assertEqual(document['jobs']['build']['uses'],'./.github/workflows/debian-system-build.yml')
         reusable=self.load('debian-system-build.yml')
         self.assertNotIn('concurrency',reusable)  # Caller owns the lock; avoid nested lock deadlock.
-        self.assertEqual(reusable['jobs']['system']['env']['TITAN_UPDATE_ONLY'],'true')
+        self.assertEqual(reusable['on']['workflow_call']['inputs']['include_image']['default'], 'false')
+        self.assertEqual(reusable['on']['workflow_call']['inputs']['initial_image']['default'], 'false')
+        self.assertEqual(feature['jobs']['build']['with']['include_image'], 'true')
+        self.assertEqual(feature['jobs']['build']['with']['initial_image'], 'true')
+        self.assertNotIn('include_image', maintenance['jobs']['build']['with'])
+        self.assertIn('inputs.include_image', reusable['jobs']['system']['env']['TITAN_UPDATE_ONLY'])
         self.assertEqual(maintenance['jobs']['build']['strategy']['max-parallel'],'1')
         self.assertEqual(maintenance['on']['schedule'],[{'cron':'17 3 * * *','timezone':'Europe/Berlin'}])
 
@@ -46,10 +51,10 @@ class DebianWorkflowTests(unittest.TestCase):
         publish=names.index('Publish only tested signed update bundle')
         for required in ('Bind exact application and OS builder identities',
                          'Boot, HTTPS, UEFI, VNC and complete runtime checks',
-                         'Real update, rollback and failure recovery from published baseline'):
+                         'Real update, rollback and failure recovery'):
             self.assertLess(names.index(required),publish)
         boot=steps[names.index('Boot, HTTPS, UEFI, VNC and complete runtime checks')]['run']
-        ab=steps[names.index('Real update, rollback and failure recovery from published baseline')]['run']
+        ab=steps[names.index('Real update, rollback and failure recovery')]['run']
         self.assertIn('smoke-image.sh',boot);self.assertIn('--debian-ab',boot)
         self.assertIn('--baseline-kind published-system',ab)
         self.assertIn('--baseline-bundle-sha256',ab)
