@@ -258,11 +258,18 @@ class RuntimeSmokeTests(unittest.TestCase):
         report = self.run_fixture(client)
         self.assertTrue(report["ok"])
         check = next(item for item in report["checks"] if item["name"] == "app_catalog_first_login")
-        self.assertEqual(check["values"]["app_count"], 0)
+        self.assertEqual(check["values"]["app_count"], len(app_catalog.PACKAGES))
         self.assertEqual(sum(check["values"]["first_login_mode_counts"].values()), len(app_catalog.PACKAGES))
         self.assertEqual(set(check["values"]), {"app_count", "first_login_mode_counts", "ok"})
         client.request.assert_any_call("/api/catalog")
         self.assertNotIn("admin123", json.dumps(report))
+
+    def test_empty_catalog_before_bigbear_activation_is_valid(self):
+        client = Mock()
+        client.request.return_value = {'apps': [], 'source': 'Titan AppStore', 'error': None}
+        result = smoke.RuntimeSmoke(client).catalog()
+        self.assertEqual(result['app_count'], 0)
+        self.assertTrue(result['ok'])
 
     def stack_fixture(self):
         url = "https://raw.githubusercontent.com/ra5on/Titan/main/tests/fixtures/runtime-stack-store.json"

@@ -141,7 +141,11 @@ def translate(doc,label,repository):
             if not secret and '$' not in value and key != 'NEXTCLOUD_ADMIN_USER':
                 entry['environment'][key] = value
                 continue
-            group=(key,value)
+            # Client and database images use different keys for the same
+            # upstream password. Couple only known database-password aliases
+            # with an identical source value; keep admin/root secrets separate.
+            group_key = 'DATABASE_PASSWORD' if key in ('DB_PASSWORD', 'POSTGRES_PASSWORD', 'MYSQL_PASSWORD', 'MARIADB_PASSWORD') else key
+            group=(group_key,value)
             if group not in setting_groups:
                 option='stack_env_'+str(len(settings));setting_groups[group]=option
                 labels={'POSTGRES_PASSWORD':'Datenbankpasswort','DB_PASSWORD':'Datenbankpasswort','NEXTCLOUD_ADMIN_USER':'Nextcloud Administrator','NEXTCLOUD_ADMIN_PASSWORD':'Nextcloud Admin-Passwort'}

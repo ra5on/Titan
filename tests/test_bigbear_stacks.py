@@ -66,6 +66,14 @@ class BigBearTests(unittest.TestCase):
         built = compose(key, '/control', 1000, 1000, 8088, '/private/data', options)
         self.assertEqual(built['services'][key + '-db']['networks']['default']['aliases'], ['db', 'immich-postgres'])
 
+    def test_database_password_aliases_share_one_private_input(self):
+        source, meta = example()
+        source['services']['db']['environment'] = {'POSTGRES_PASSWORD': 'public-default'}
+        result = translate(source, meta, 'example')
+        self.assertEqual(result['stack']['services']['web']['environment']['DB_PASSWORD'],
+                         result['stack']['services']['db']['environment']['POSTGRES_PASSWORD'])
+        self.assertEqual(len(result['stack_fields']), 1)
+
     def test_literal_database_identifiers_stay_paired_with_healthcheck(self):
         source, meta = example()
         source['services']['db']['environment']['POSTGRES_USER'] = 'database-user'
