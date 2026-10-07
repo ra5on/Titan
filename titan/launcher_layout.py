@@ -7,7 +7,8 @@ def validate(value):
     if 'docker_added' in value and type(value['docker_added']) is not bool: raise Error('Ungültige Desktop-Initialisierung.')
     if 'icon_size' in value and value['icon_size'] not in ('small','medium','large'): raise Error('Ungültige Symbolgröße.')
     desktop=value.get('desktop',{})
-    if not isinstance(desktop,dict) or set(desktop)-{'background_click','transparency'}: raise Error('Ungültige Desktop-Einstellungen.')
+    if not isinstance(desktop,dict) or set(desktop)-{'background_click','transparency','color_mode'}: raise Error('Ungültige Desktop-Einstellungen.')
+    if 'color_mode' in desktop and desktop['color_mode'] not in ('light','dark','system'): raise Error('Ungültiger Darstellungsmodus.')
     if 'background_click' in desktop and desktop['background_click'] not in ('none','minimize'): raise Error('Ungültiges Desktop-Klickverhalten.')
     if 'transparency' in desktop and (type(desktop['transparency']) is not int or not 0<=desktop['transparency']<=100): raise Error('Transparenz muss zwischen 0 und 100 liegen.')
     seen=set(); folders=set(); count=0
@@ -33,8 +34,10 @@ def validate(value):
     for key,pos in positions.items():
         if key not in roots or not isinstance(pos,dict) or set(pos)!={'x','y'} or any(type(pos[k]) is not int or not 0<=pos[k]<limit for k,limit in [('x',32),('y',128)]): raise Error('Ungültige Desktop-Position.')
     widgets=value.get('widgets',{})
-    if not isinstance(widgets,dict) or set(widgets)-{'visible','collapsed','items'}: raise Error('Ungültige Widgets.')
+    if not isinstance(widgets,dict) or set(widgets)-{'visible','collapsed','items','position'}: raise Error('Ungültige Widgets.')
     if any(type(widgets[k]) is not bool for k in ('visible','collapsed') if k in widgets): raise Error('Ungültiger Widget-Status.')
+    position=widgets.get('position')
+    if 'position' in widgets and (not isinstance(position,dict) or set(position)!={'x','y'} or any(type(position[k]) is not int or not 0<=position[k]<=1000 for k in ('x','y'))): raise Error('Ungültige Widget-Position.')
     choices=widgets.get('items',[])
     if not isinstance(choices,list) or len(choices)>6 or any(not isinstance(k,str) or k not in {'cpu','ram','health','notifications','activity'} for k in choices) or len(set(choices))!=len(choices): raise Error('Ungültige Widget-Auswahl.')
     return value

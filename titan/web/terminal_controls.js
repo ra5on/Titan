@@ -214,7 +214,7 @@
     text = await clipboard.readText();
    } catch (_) {
     if (!live(session, token)) return;
-    ctx.dialog?.('Text ins Terminal einfügen', '<p>Füge den Text hier mit Strg+V oder dem Einfügen-Menü deines Geräts ein.</p><form><label for="terminal-paste-text">Text</label><textarea id="terminal-paste-text" class="terminal-clipboard" name="text" aria-label="Text zum Einfügen" required></textarea><div class="form-actions"><button type="button" class="button" data-action="close">Abbrechen</button><button class="button primary" type="submit">Einfügen</button></div></form>', async form => {
+    ctx.dialog?.('Text ins Terminal einfügen', '<p>Füge den Text hier mit Strg+V oder dem Einfügen-Menü deines Geräts ein.</p><form><label for="terminal-paste-text">Text</label><textarea id="terminal-paste-text" class="terminal-clipboard" name="text" aria-label="Text zum Einfügen" required></textarea><div class="form-actions"><button class="button primary" type="submit">Einfügen</button><button type="button" class="button" data-action="close">Abbrechen</button></div></form>', async form => {
      if (!live(session, token)) throw new Error('Die Terminal-Sitzung wurde inzwischen beendet.');
      pasteText(String(form.get('text') || ''));
     });

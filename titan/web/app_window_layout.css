@@ -1,0 +1,73 @@
+/* App-internal geometry only. Navigation widths and desktop chrome are owned elsewhere. */
+.nas-window-content{min-height:0;min-width:0;scroll-padding-block:12px}
+.nas-window-content>.page-heading{gap:8px;margin-bottom:10px;padding-bottom:8px}
+.nas-window-content>.page-heading h1{font-size:18px}
+.nas-window-content>.page-heading .subtitle{margin-top:3px;line-height:1.45}
+.nas-window-content .panel{min-width:0}
+.nas-window-content .form-actions,.package-center .form-actions{position:static;bottom:auto;z-index:auto;padding-block:0}
+.nas-window-content :is(.service-log,pre.code){max-height:none;overflow:visible;white-space:pre-wrap;word-break:break-word}
+.nas-window-content .table-wrap{min-height:0;max-height:none}
+.nas-window-content .two-columns,.nas-window-content .form-grid{min-width:0}
+.nas-window-content :is(.panel-heading,.section-heading){margin-bottom:10px}
+.nas-window-content :is(pre,code){overflow-wrap:anywhere}
+.cp-content,.storage-manager-content,.sl-manager,.vm-master-pane,.vm-detail-content{scrollbar-width:thin;scroll-padding-block:12px}
+
+/* The form's save controls follow the form instead of covering its last fields. */
+.cp-window .cp-toolbar{min-height:40px;padding:5px 10px;gap:8px}
+.cp-window .cp-content{min-height:0;padding:12px}
+.cp-content .sc-save-actions{position:static;bottom:auto;padding:8px 0 0;margin-top:12px}
+.cp-content .cp-overview-heading{margin-bottom:12px;gap:10px}
+.cp-content .cp-category{margin-bottom:16px}
+.cp-content .cp-category h2{padding-bottom:6px;margin-bottom:8px}
+.cp-content .sc-heading{margin-bottom:12px}
+.cp-content .sc-form-panel{height:auto;margin-bottom:10px}
+.cp-content .sc-form-panel>:last-child{margin-bottom:0}
+
+/* Storage commands and content share a scroller; the location navigation stays independent. */
+.storage-workspace .storage-main{display:block;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scroll-padding-block:12px}
+.storage-workspace .storage-toolbar{position:static;min-height:42px;padding:6px 12px;gap:8px}
+.storage-workspace .storage-toolbar h2{white-space:normal;overflow-wrap:anywhere}
+.storage-workspace .storage-manager-content{overflow:visible;min-height:0;flex:none;padding:12px}
+.storage-workspace .storage-manager-content>.panel:last-child{margin-bottom:0}
+
+/* User details retain their width while short lists stop reserving empty space. */
+.um-manager .um-body{min-height:0}
+.um-manager .um-toolbar{position:static;padding:8px 10px;gap:8px}
+.um-manager .um-filters{padding:8px 10px;gap:8px}
+.um-manager .um-list-footer{padding:7px 10px}
+.um-manager .um-detail{padding:12px}
+.um-manager .um-detail-section{padding-top:10px;margin-bottom:10px}
+
+/* App management uses the containing window's scroll area, including logs. */
+.package-center .manager-tabs{margin-bottom:10px;gap:5px}
+.package-center .package-summary{padding:10px;margin-bottom:10px;gap:8px}
+.package-center .package-service{padding:9px 10px;gap:9px}
+.package-center .package-login,.package-center .package-update{padding-top:10px;margin-top:12px}
+.package-center .package-log{max-height:none;overflow:visible;white-space:pre-wrap;overflow-wrap:anywhere}
+.nas-window-content .update-package-changes ul,.nas-window-content .catalog-status ul{max-height:none;overflow:visible}
+
+@media(max-width:760px){
+ .nas-window-content>.page-heading{gap:6px;margin-bottom:8px;padding-bottom:6px}
+ .nas-window-content>.page-heading h1{font-size:17px}
+ .cp-window .cp-toolbar{min-height:44px;padding:4px 8px}
+ .cp-window .cp-content{padding:10px}
+ .storage-workspace .storage-toolbar{min-height:44px;padding:5px 10px}
+ .storage-workspace .storage-manager-content{padding:10px}
+ .um-manager .um-toolbar{flex-wrap:wrap}
+ .um-manager .um-filters :is(input,select){min-height:42px}
+}
+
+/* Short app documents must retain useful content space and reachable commands. */
+@media(max-height:480px){
+ .nas-window-content>.page-heading .subtitle{display:none}
+ .nas-window-content .panel:not(.um-manager,.fb-browser,.mv-manager){padding:10px}
+ .nas-window-content .page-heading{margin-bottom:8px}
+ .cp-content .sc-save-actions{position:static}
+ .storage-workspace pre,.nas-window-content .backup-browser-list{max-height:none;overflow:visible}
+ #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-toolbar{min-height:36px;padding-block:3px}
+ #shell[data-page=vms] .vm-detail-header{padding-block:4px;gap:5px}
+ #shell[data-page=vms] .vm-extension-detail>.manager-tabs .button{min-height:34px;padding-block:6px}
+ #shell[data-page=terminal] #terminal-screen{height:40dvh;min-height:120px;max-height:none}
+ .terminal-panel .terminal-shortcuts{margin-block:6px}
+ .fb-browser .fb-toolbar,.fb-browser .fb-selection{position:static}
+}

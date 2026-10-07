@@ -3,7 +3,7 @@
  let current=null,explorer=null;
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const days=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
- const footer=label=>`<div class="form-actions wrap"><button type="button" class="button" data-action="close">Nein</button><button type="submit" class="button primary">${label}</button></div>`;
+ const footer=label=>`<div class="form-actions wrap"><button type="submit" class="button primary">${label}</button><button type="button" class="button" data-action="close" autofocus>Nein</button></div>`;
  const namespace=item=>({...item,path:['pool','volume'].includes(item.kind)?item.backup_path||item.path.replace(/\/+$/, '')+'/backups':item.path});
  const safeTarget=item=>item.path&&item.path!=='/'&&item.id!=='system'&&item.kind!=='internal';
  function targetsFor(locations){const sources=(locations.storage||locations.resources||[]).filter(item=>safeTarget(item)&&item.backup_eligible!==false&&item.capabilities?.includes('backups')&&['pool','volume'].includes(item.kind)).map(namespace),legacy=(locations.items||[]).filter(item=>safeTarget(item)&&item.backup_eligible).map(namespace);return [...sources,...legacy.filter(item=>!sources.some(resource=>resource.path===item.path))];}

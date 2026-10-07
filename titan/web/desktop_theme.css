@@ -1,0 +1,127 @@
+/* Original Titan palette. App contents stay opaque; glass belongs to desktop chrome. */
+:root,html[data-color-theme=light]{--bg:#eef2f8;--panel:#fff;--panel-soft:#f4f6fb;--surface-0:#eef2f8;--text:#26344b;--muted:#61728a;--line:#dce3ed;--border:#dce3ed;--accent:#356bc7;--purple:#356bc7;--green:#16856b;--red:#ba334e;--focus:#356bc7;--theme-hover:#eaf0fa;--theme-selected:#dfebff;--theme-glass:246 249 255;--theme-shadow:#102b4c28;--theme-top:246 249 255;--theme-strong:#193c6b;color-scheme:light}
+html[data-color-theme=dark]{--bg:#151d2b;--panel:#1c2738;--panel-soft:#222f43;--surface-0:#151d2b;--text:#e4ebf8;--muted:#a1b1c7;--line:#35445c;--border:#35445c;--accent:#90baff;--purple:#90baff;--green:#6ed5b7;--red:#ff9bad;--focus:#90baff;--theme-hover:#2b3c56;--theme-selected:#314c75;--theme-glass:25 36 55;--theme-shadow:#03071165;--theme-top:20 30 48;--theme-strong:#c3d8ff;color-scheme:dark}
+html[data-color-theme] body{background:var(--bg);color:var(--text)}
+html[data-color-theme] #shell[data-desktop=true]{background:radial-gradient(ellipse at 80% 10%,#bbd9fb 0,transparent 56%),radial-gradient(ellipse at 5% 95%,#c6c8ed 0,transparent 55%),linear-gradient(125deg,#d8e3f5,#b8cae5)}
+html[data-color-theme=dark] #shell[data-desktop=true]{background:radial-gradient(ellipse at 85% 10%,#20466c 0,transparent 55%),radial-gradient(ellipse at 10% 90%,#3a335d 0,transparent 55%),linear-gradient(125deg,#101827,#142438)}
+html[data-color-theme] #shell[data-wallpaper=dusk]{background:radial-gradient(ellipse at 80% 10%,#efc8df,transparent 60%),linear-gradient(135deg,#c5c5ea,#a8b9dd)}
+html[data-color-theme=dark] #shell[data-wallpaper=dusk]{background:radial-gradient(ellipse at 85% 5%,#603857,transparent 60%),linear-gradient(135deg,#211c3a,#1a2847)}
+html[data-color-theme] #shell[data-wallpaper=forest]{background:radial-gradient(ellipse at 80% 10%,#bce0dc,transparent 60%),linear-gradient(135deg,#aecdc5,#b1c1de)}
+html[data-color-theme=dark] #shell[data-wallpaper=forest]{background:radial-gradient(ellipse at 85% 5%,#24534e,transparent 60%),linear-gradient(135deg,#13282d,#182b40)}
+html[data-color-theme] #shell[data-desktop=true] .topbar{background:rgb(var(--theme-top) / calc(.35 + var(--desktop-glass-opacity)*.65));color:var(--text);border-bottom-color:var(--line);box-shadow:0 2px 18px var(--theme-shadow)}
+html[data-color-theme] #shell[data-desktop=true] .topbar :is(.shell-button,.desktop-task,.shell-icon,.desktop-brand){color:var(--text);text-shadow:none}
+html[data-color-theme] #shell[data-desktop=true] .topbar :is(.shell-button,.desktop-task,.shell-icon):hover,html[data-color-theme] #shell[data-desktop=true] .topbar :is(.is-active,[aria-expanded=true],[aria-pressed=true]){background:var(--theme-hover);color:var(--theme-strong);border-color:var(--line)}
+html[data-color-theme] #shell[data-desktop=true] .desktop-task.is-open{border-bottom-color:var(--accent)}
+html[data-color-theme] .desktop-window{border-color:rgb(var(--theme-glass) / .65);border-radius:15px;box-shadow:0 18px 55px var(--theme-shadow),0 1px 0 #ffffff26 inset}
+html[data-color-theme] .desktop-window-titlebar{background:rgb(var(--theme-glass) / calc(.55 + var(--desktop-glass-opacity)*.45));color:var(--text);border-color:var(--line)}
+html[data-color-theme] .desktop-window-controls button{color:var(--muted);background:transparent;border-radius:7px}
+html[data-color-theme] .desktop-window-controls button:hover{color:var(--text);background:var(--theme-hover)}
+html[data-color-theme] .desktop-window-controls [data-frame-close]:hover{background:#c73550;color:white}
+html[data-color-theme] .desktop-app-frame{background:var(--bg)}
+html[data-color-theme] .desktop-window-resize{background:var(--panel-soft);color:var(--muted)}
+html[data-color-theme] :is(.desktop-menu-dialog,.desktop-account,.shortcut-context,.desktop-folder-dialog,.widget-settings,.desktop-widget){background:rgb(var(--theme-glass) / calc(.48 + var(--desktop-glass-opacity)*.52));color:var(--text);border-color:rgb(var(--theme-glass) / .7);box-shadow:0 14px 40px var(--theme-shadow);backdrop-filter:blur(28px) saturate(125%);-webkit-backdrop-filter:blur(28px) saturate(125%)}
+html[data-color-theme] :is(.desktop-account,.desktop-widget)>header,html[data-color-theme] .desktop-account>strong,html[data-color-theme] .widget-content>button{border-color:var(--line)}
+html[data-color-theme] :is(.desktop-account label,.desktop-account .hint,.desktop-account select,.widget-content small){color:var(--muted)}
+html[data-color-theme] .shortcut-context button:hover,html[data-color-theme] .shortcut-context button:focus-visible{background:var(--theme-hover);color:var(--theme-strong)}
+html[data-color-theme] .shortcut-label{color:#243b61;text-shadow:0 1px 6px #ffffff90}
+html[data-color-theme=dark] .shortcut-label{color:#f1f5ff;text-shadow:0 1px 6px #030b20}
+html[data-color-theme] .shortcut-more{color:var(--text);background:rgb(var(--theme-glass) / .85);border-color:var(--line)}
+html[data-color-theme] .desktop-watermark{color:var(--theme-strong);opacity:.65}
+html[data-color-theme] .desktop-menu-entry{position:relative;padding:5px 3px;border-radius:14px}
+html[data-color-theme] .desktop-menu-app{color:var(--text);padding:12px 4px 8px;gap:9px;background:transparent;border-radius:12px}
+html[data-color-theme] .desktop-menu-app:hover{background:var(--theme-hover)}
+html[data-color-theme] .desktop-menu-more{position:absolute;right:1px;top:1px;display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:18px;line-height:1;cursor:pointer}
+html[data-color-theme] .desktop-menu-more:hover,html[data-color-theme] .desktop-menu-more:focus-visible{color:var(--text);background:var(--theme-hover)}
+html[data-color-theme] .desktop-menu-heading{gap:12px}.desktop-preferences legend{font-weight:650;font-size:12px}.desktop-preferences label{margin:9px 0}
+html[data-color-theme] .desktop-account{width:292px;padding:8px}.desktop-account>strong{letter-spacing:.02em}
+html[data-color-theme] :is(.desktop-search input,.desktop-preferences select,.desktop-folder-dialog input){background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:9px}
+html[data-color-theme] .desktop-menu-dialog::backdrop{background:#09182f40;backdrop-filter:blur(5px)}
+html[data-color-theme=dark] .desktop-menu-dialog::backdrop{background:#02071270}
+/* Shared semantic surfaces also cover legacy application components. */
+html[data-color-theme] #shell[data-page] :is(.nas-window,.nas-window-content,.mv-manager,.mv-workspace,.mv-content,.engine-workbench,.engine-main,.storage-main,.cp-content,.package-center,.um-manager,.um-content,.fb-workspace,.fb-table-wrap){background:var(--bg);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.panel,.service-card,.app-card,.sc-category-tile,.vm-card,.vm-tile,.vm-details-card,.mv-vm-card,.mv-card,.mv-empty,.um-user-card,.um-inspector,.storage-card,.storage-details,.storage-pool,.storage-drive,.engine-group,.engine-service-row,.engine-inspector,.engine-summary article,.engine-metric,.engine-metrics article,.engine-stats article,.engine-table,.engine-log-empty,.package-card,.pc-card,.pc-details,.cp-panel,.fb-row,.fb-grid-item){background:var(--panel);color:var(--text);border-color:var(--line);border-radius:9px}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-sidebar,.mv-sidebar,.storage-sidebar,.engine-navigation,.um-sidebar,.um-navigation,.fb-places,.fb-splitter,.fb-toolbar,.fb-status,.fb-table thead,.um-toolbar,.mv-toolbar,.engine-group>summary,.engine-group-toolbar,.engine-standalone-title,.engine-inspector-header,.engine-footer,.service-list,.sc-search,.package-toolbar,.pc-toolbar,.pc-sidebar,.vm-detail-header){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(h1,h2,h3,h4,.mv-brand,.mv-toolbar-title,.mv-section-title h2,.engine-name,.engine-group>summary>strong,.vm-tile-name,.vm-name,.sc-category-tile strong,.storage-title,.um-name,.fb-name,.row-main strong){color:var(--text)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.hint,.subtitle,.mv-section-title p,.mv-toolbar-title>span,.mv-side-foot,.engine-scope-label,.engine-feedback,.engine-footer,.engine-group>summary>span:last-child,.engine-service-meta,.sc-result-count,.storage-hint,.um-subtitle,.um-meta,.fb-places h3,.fb-place-note,.fb-folder-tree>summary,.fb-status,.service-card small,.app-card p,.stat-card small){color:var(--muted)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-sidebar a,.mv-tabs>button,.mv-side-button,.mv-side-link,.storage-sidebar button,.engine-navigation .button,.um-sidebar button,.fb-place){background:transparent;color:var(--muted);border-color:transparent}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-sidebar a,.mv-tabs>button,.mv-side-button,.mv-side-link,.storage-sidebar button,.engine-navigation .button,.um-sidebar button,.fb-place):hover{background:var(--theme-hover);color:var(--text)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-sidebar a.active,.cp-sidebar a[aria-current],.mv-tabs>button[aria-selected=true],.engine-navigation .button[aria-selected=true],.storage-sidebar button[aria-selected=true],.fb-place.active,.um-sidebar button[aria-selected=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
+html[data-color-theme] #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout]>.mv-sidebar{background:var(--panel-soft);border-color:var(--line)}
+html[data-color-theme] #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-tabs>button[aria-selected=true]{background:var(--theme-selected);color:var(--theme-strong);border-left-color:var(--accent)}
+html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.mv-content,.vm-machine-workspace,.vm-master-pane,.vm-selected-pane,.vm-extension-detail,.vm-detail-content){background:var(--bg);color:var(--text)}
+html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.vm-list-row,.vm-row-menu,.vm-header-more>div,.vm-overview-facts article,.vm-live-grid>div){background:var(--panel);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.mv-search,.vm-detail-header,.manager-tabs,.vm-operation-status){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.vm-row-select,.vm-row-name,.vm-live-grid strong,.vm-detail-title h2){color:var(--text)}
+html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.vm-live-grid small,.vm-live-caption,.vm-overview-facts small,.vm-overview-facts span){color:var(--muted)}
+html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-list-row:hover{background:var(--theme-hover);border-color:var(--accent)}
+html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-extension-detail>.manager-tabs .button{background:transparent;color:var(--muted)}
+html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-extension-detail>.manager-tabs .button[aria-selected=true]{background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(input:not([type=checkbox],[type=radio],[type=range]),select,textarea),html[data-color-theme] :is(#dialog,.widget-settings,.desktop-account) :is(input:not([type=checkbox],[type=radio],[type=range]),select,textarea){background:var(--panel);color:var(--text);border-color:var(--line);border-radius:8px}
+html[data-color-theme] :is(input,textarea)::placeholder{color:var(--muted);opacity:.85}
+html[data-color-theme] :is(input[type=range],input[type=checkbox],progress){accent-color:var(--accent)}
+html[data-color-theme] #shell[data-page] .nas-window-content .button,html[data-color-theme] :is(#dialog,.widget-settings,.desktop-menu-dialog,.desktop-folder-dialog) .button{background:var(--panel);color:var(--text);border-color:var(--line);border-radius:8px}
+html[data-color-theme] #shell[data-page] .nas-window-content .button:hover,html[data-color-theme] :is(#dialog,.widget-settings,.desktop-menu-dialog,.desktop-folder-dialog) .button:hover{background:var(--theme-hover);color:var(--theme-strong)}
+html[data-color-theme] #shell[data-page] .nas-window-content .button.primary,html[data-color-theme] :is(#dialog,.widget-settings,.desktop-menu-dialog,.desktop-folder-dialog) .button.primary{background:#356bc7;color:white;border-color:#356bc7}
+html[data-color-theme] #shell[data-page] .nas-window-content .button.danger,html[data-color-theme] #dialog .button.danger{background:var(--panel);color:var(--red);border-color:var(--red)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(table,td,th,.health-row,.service-list,.service-card,.mv-side-actions,.mv-tabs,.engine-inspector-scroll,.engine-inspector-header,.engine-service-row,.engine-group-toolbar,.fb-toolbar,.fb-status,.um-tabs,.sc-save-actions){border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(th,thead){background:var(--panel-soft);color:var(--muted)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.file-row,.engine-service-row,.um-user-row,.sc-category-tile):hover{background:var(--theme-hover)}
+html[data-color-theme] #shell[data-page] .nas-window-content .fb-row[aria-selected=true]{background:var(--theme-selected)}
+html[data-color-theme] #dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;box-shadow:0 22px 65px var(--theme-shadow)}
+html[data-color-theme] #dialog :is(.dialog-header,.dialog-heading,.form-actions,.um-tabs,.app-details>div){border-color:var(--line);background:transparent;color:var(--text)}
+html[data-color-theme] #dialog :is(h1,h2,h3,label,.field,.check-label){color:var(--text)}
+html[data-color-theme] #dialog :is(.hint,small,.subtitle){color:var(--muted)}
+html[data-color-theme] :is(.toast,.auth-card){background:var(--panel);color:var(--text);border-color:var(--line)}
+html[data-color-theme] .nas-window-content :is(.notice,.inline-activity){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] .nas-window-content :is(.error-text,.engine-feedback.is-error){color:var(--red)}
+html[data-color-theme] .desktop-search{color:var(--muted)}
+html[data-color-theme][data-desktop-embedded=true] #shell>.workspace{background:var(--bg)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(h1,h2,h3,h4,strong,td,dd,label){color:var(--text)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(small,dt,.engine-nav-heading,.engine-summary article small,.engine-service-name small,.engine-name small,.catalog-status small,.catalog-card p,.catalog-card small,.catalog-commandbar #catalog-count,.um-description,.um-info dt,.um-list-footer,.um-footnote,.storage-navigation-note,.storage-area-help,.storage-properties dt){color:var(--muted)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-toolbar,.engine-feedback,.engine-shortcuts>a,.engine-shortcuts>button,.engine-overview-links>a,.engine-overview-links>button,.engine-quick-links>a,.engine-quick-links>button,.sl-toolbar,.catalog-commandbar,.catalog-commandbar>.search,.catalog-filters,.catalog-status,.fb-address,.fb-selection,.fb-inspector,.fb-inline-preview,.fb-new-menu,.fb-layout-menu,.um-detail,.um-filters,.um-list-footer,.storage-navigation,.storage-toolbar,.storage-disk-details,.storage-partition-details,.storage-smart-details,.storage-volume,.storage-dataset,.storage-snapshot){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-overview-links,.engine-shortcuts,.engine-quick-links)>:is(button,a){background:var(--panel);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.sl-nav button,.storage-navigation button){background:transparent;color:var(--muted)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.sl-nav button[aria-current=page],.storage-navigation button[aria-selected=true],.storage-navigation button.active,.um-table tr.is-selected td,.fb-entry.selected,.fb-side-choice button[aria-pressed=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.sl-nav button,.storage-navigation button,.fb-entry):hover{background:var(--theme-hover);color:var(--text)}
+html[data-color-theme=dark] #shell[data-page] .nas-window-content .catalog-status.is-error{background:#44351f;color:#f1c674}
+html[data-color-theme]{--surface-soft:var(--panel-soft);--surface-alt:var(--panel-soft);--surface-muted:var(--panel-soft)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.stat-card,.code,.package-summary,.backup-stepper,.metrics-io-panel,.cp-view-switch,.cp-favorite-link){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.field label,.switch-row strong,.cp-icon-grid a strong,.cp-page-title,.stat-card strong){color:var(--text)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.field small,.switch-row small,.cp-sidebar h2,.cp-icon-grid small,.engine-nav-heading strong){color:var(--muted)}
+html[data-color-theme=dark] :is(.nas-window-content,#dialog) .pill{background:#1e493f;color:#94e1ca;border-color:#35675a}
+html[data-color-theme=dark] :is(.nas-window-content,#dialog) .pill.gray{background:#304057;color:#c0cee1;border-color:#40516a}
+html[data-color-theme=dark] :is(.nas-window-content,#dialog) .pill.purple{background:#36365f;color:#c9c4ff;border-color:#535078}
+html[data-color-theme=dark] :is(.nas-window-content,#dialog) .pill.red{background:#552c3b;color:#ffb4c3;border-color:#784052}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-log,.engine-object-status,.network-selected-detail,.storage-health-summary,.storage-area-list,.storage-drive-list,.cp-window,.cp-toolbar,.cp-content .sc-save-actions,.update-stream-versions div,.update-package-summary,.remote-checks,.fb-system-note,.fb-inline-preview pre){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-service-network,.network-manager,.network-select,.storage-usage-row,.storage-drive-summary,.storage-capacity strong,.storage-properties dd,.storage-drive-capacity strong,.um-info dd,.fb-name-button,.fb-view-controls button){color:var(--text)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-resource-list small,.engine-details dt,.catalog-login-summary,.um-role,.um-user small,.um-detail-heading p,.sc-category-copy>span,.update-stream-versions dt,.update-stream-versions small,.fb-inspector dt,.fb-size,.fb-type,.fb-modified){color:var(--muted)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.network-table tr.is-selected td,.storage-area-choice[aria-pressed=true],.cp-view-switch button[aria-pressed=true],.fb-view-controls button[aria-pressed=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.network-table tr:hover td,.um-table tr:hover td,.cp-tile:hover){background:var(--theme-hover);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #dialog :is(.um-permission,.um-detail,.update-package-summary){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme=dark] :is(.nas-window-content,#dialog) :is(.storage-health-summary.warning,.security-check){background:#44351f;color:#f1c674}
+html[data-color-theme=dark] :is(.nas-window-content,#dialog) .security-check.is-good{background:#1e493f;color:#94e1ca}
+html[data-color-theme=dark] :is(.nas-window-content,#dialog) .um-status{background:#1e493f;color:#94e1ca}
+html[data-color-theme=dark] :is(.nas-window-content,#dialog) .um-status.is-blocked{background:#552c3b;color:#ffb4c3}
+html[data-color-theme] #shell[data-page] .engine-navigation .button small{background:var(--theme-selected);color:var(--theme-strong)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.root-access-bar,.fb-filter-row,.fb-filters,.fb-view-controls){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-category h2,.mv-side-actions,.storage-navigation,.um-table td,.fb-table td){border-color:var(--line)}
+html[data-color-theme=dark] #shell[data-page] .nas-window-content .root-access-bar.is-root{background:#44351f;color:#f1c674}
+html[data-color-theme] #shell[data-page] .nas-window-content .fb-view-controls button:not([aria-pressed=true]){background:var(--panel);color:var(--muted)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.storage-health-summary p,.storage-brand,.engine-overview-heading p,.mv-empty p,.um-detail-heading p){color:var(--muted)}
+html[data-color-theme] #dialog :is(.dialog-title,.app-login-panel,.code,.um-permission,.app-login-values>div){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #dialog :is(.app-login-panel p,.app-login-panel .hint,.app-details small,.field small){color:var(--muted)}
+html[data-color-theme] #dialog :is(.app-details p,.app-login-values dd,.field label){color:var(--text)}
+html[data-color-theme] #dialog :is(strong,legend){color:var(--text)}
+html[data-color-theme] :is(.nas-window-content,#dialog) .text-link{color:var(--accent)}
+/* Long management dialogs scroll as one document, including heading and actions. */
+#dialog:not(:has([data-file-editor-form])) .dialog-title{position:static;top:auto;padding:0 0 12px;margin-bottom:14px;background:transparent}
+#dialog:not(:has([data-file-editor-form])) .form-actions{position:static;bottom:auto;z-index:auto;padding:8px 0 0;background:transparent}
+#dialog:not(:has([data-file-editor-form])) .app-login-panel{padding:14px;margin-block:12px}
+#dialog:not(:has([data-file-editor-form])) .code{max-height:none;overflow:visible;white-space:pre-wrap}
+html[data-color-theme=dark] .nas-window-content :is(.badge,.status-badge,.mv-status){background:#24354c;color:var(--text);border-color:var(--line)}
+html[data-color-theme=dark] .nas-window-content :is(.badge.success,.status-badge.running,.mv-status.running){color:var(--green)}
+html[data-color-theme] :is(.terminal-screen,.xterm-screen,.vm-console,.vm-console-frame){color-scheme:dark}
+html[data-color-theme] *{scrollbar-color:var(--line) transparent}
+@media(hover:hover){html[data-color-theme] .desktop-menu-more{opacity:0}html[data-color-theme] .desktop-menu-entry:hover .desktop-menu-more,html[data-color-theme] .desktop-menu-entry:focus-within .desktop-menu-more{opacity:1}}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){html[data-color-theme] :is(.desktop-window,.desktop-window-titlebar,.desktop-menu-dialog,.desktop-account,.shortcut-context,.desktop-folder-dialog,.widget-settings,.desktop-widget){background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}html[data-color-theme] #shell[data-desktop=true] .topbar{background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html[data-color-theme] :is(.desktop-window-titlebar,.desktop-menu-dialog,.desktop-account,.shortcut-context,.desktop-folder-dialog,.widget-settings,.desktop-widget){background:var(--panel)}html[data-color-theme] #shell[data-desktop=true] .topbar{background:var(--panel)}}

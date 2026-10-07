@@ -30,3 +30,14 @@ class Tests(unittest.TestCase):
         for desktop in ([],None,{'extra':1},{'transparency':True},{'transparency':1.5},{'transparency':'40'},{'transparency':-1},{'transparency':101},{'background_click':'anything'},{'background_click':False}):
             with self.subTest(desktop=desktop),self.assertRaises(Error):
                 validate({'items':[],'desktop':desktop})
+
+    def test_color_modes_and_widget_positions_are_per_account(self):
+        store=Store()
+        for mode in ('light','dark','system'):
+            for position in ({'x':0,'y':0},{'x':1000,'y':1000},{'x':432,'y':951}):
+                value={'items':[],'desktop':{'color_mode':mode},'widgets':{'position':position}}
+                save(store,'alice',value)
+                self.assertEqual(load(store,'alice'),value)
+                self.assertEqual(load(store,'bob'),{'items':[]})
+        for extra in ({'desktop':{'color_mode':True}},{'desktop':{'color_mode':'unknown'}},{'widgets':{'position':None}},{'widgets':{'position':{'x':True,'y':0}}},{'widgets':{'position':{'x':1001,'y':0}}},{'widgets':{'position':{'x':1.5,'y':0}}},{'widgets':{'position':{'x':0}}},{'widgets':{'position':{'x':0,'y':0,'z':0}}}):
+            with self.subTest(extra=extra),self.assertRaises(Error):validate({'items':[],**extra})

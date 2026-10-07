@@ -17,7 +17,27 @@ assert.equal(ui.internal('#users'),'#settings?section=users');assert.equal(ui.in
 const app=require('fs').readFileSync('titan/web/app.js','utf8');
 assert(app.includes("controlRoute=session.user.role==='admin'?"));
 assert(app.includes('window.TitanControlPanel.render(controlRoute.section,html,{icon,esc})'));
-assert(app.includes("event.source===window.parent&&event.data?.type==='titan-navigate'"));
+// Exercise the real embedded message handler with the real section resolver.
+// Full boot/readiness behavior is covered separately by embedded_app_ui.cjs.
+{
+ const vm=require('node:vm'),handlers=new Map(),messages=[];
+ const location={hash:'#settings',search:'?desktop-app=1',origin:'https://nas.test'};
+ const parent={postMessage:(data,origin)=>messages.push({data:JSON.parse(JSON.stringify(data)),origin})};
+ const document={documentElement:{dataset:{}},querySelector:()=>({addEventListener(){}}),addEventListener(){}};
+ const window={parent,TitanControlPanel:ui,addEventListener:(type,callback)=>handlers.set(type,callback)};
+ const context={window,document,location,URLSearchParams,console};vm.createContext(context);
+ vm.runInContext(app.replace(/boot\(\)\.catch\(error=>toast\(error.message,true\)\);\s*$/,''),context);
+ const navigate=(hash,requestId,overrides={})=>handlers.get('message')({origin:location.origin,source:parent,data:{type:'titan-navigate',hash,requestId},...overrides});
+ navigate('#settings?section=users',1);assert.equal(location.hash,'#settings');assert.deepEqual(messages,[],'An unfinished app cannot acknowledge or navigate');
+ vm.runInContext('embeddedReady=true',context);
+ navigate('#settings?section=users',2,{origin:'https://evil.test'});
+ navigate('#settings?section=users',3,{source:{}});
+ navigate('#docker',4);
+ assert.equal(location.hash,'#settings');assert.deepEqual(messages,[],'Both trust checks and the Control Panel route allowlist precede acknowledgement');
+ navigate('#settings?section=users',19);
+ assert.equal(location.hash,'#settings?section=users');
+ assert.deepEqual(messages,[{data:{type:'titan-app-route-accepted',requestId:19},origin:'https://nas.test'}]);
+}
 assert.deepEqual(ui.normalizePreferences({view:'list',favorites:['users','unknown','shares','users','__proto__']}),{view:'list',favorites:['users','shares']});
 assert.deepEqual(ui.normalizePreferences(null),{view:'grid',favorites:[]});
 const storage={data:new Map(),getItem(key){return this.data.get(key)||null;},setItem(key,value){this.data.set(key,value);}};
@@ -28,4 +48,4 @@ assert.equal(ui.writePreferences(null,'alice',{}),false);
 assert.deepEqual(ui.readPreferences({getItem(){throw Error('blocked');}},'alice'),{view:'grid',favorites:[]});
 const hub=ui.render('', '');
 assert(hub.includes('data-cp-view="list"'));assert(hub.includes('data-cp-favorites'));assert.equal((hub.match(/data-cp-pin=/g)||[]).length,11);
-console.log('Control Panel: safe section routing, persistent navigation, existing forms and mobile selector passed');
+console.log('Control Panel: safe section routing, real readiness/origin/source/ACK guards, persistent navigation, existing forms and mobile selector passed');
