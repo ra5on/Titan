@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.5.7 with complete dark surfaces and activation-bound token/domain jobs.
+# Build Titan 0.5.7 with complete dark surfaces and activation-bound token/domain jobs and official Ubuntu build mirrors.
 on:
   workflow_dispatch:
   push:
@@ -14,7 +14,16 @@ concurrency:
   # reached publication. Ordinary pushes and scheduled maintenance stay queued.
   cancel-in-progress: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[supersede-unpublished-release]') }}
 jobs:
+  hold:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[hold-release]')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Hold image publication while the requested application changes are prepared
+        run: echo 'Image publication is held for the next reviewed source commit.'
   identity:
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[hold-release]')
     runs-on: ubuntu-24.04
     permissions:
       contents: read

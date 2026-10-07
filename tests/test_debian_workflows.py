@@ -21,6 +21,10 @@ class DebianWorkflowTests(unittest.TestCase):
         self.assertEqual(maintenance['concurrency']['cancel-in-progress'],'false')
         self.assertEqual(feature['concurrency']['cancel-in-progress'],
                          "${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[supersede-unpublished-release]') }}")
+        self.assertEqual(feature['jobs']['identity']['if'],
+                         "github.event_name != 'push' || !contains(github.event.head_commit.message, '[hold-release]')")
+        self.assertEqual(feature['jobs']['hold']['if'],
+                         "github.event_name == 'push' && contains(github.event.head_commit.message, '[hold-release]')")
         for document in (feature,maintenance):
             self.assertEqual(document['jobs']['build']['uses'],'./.github/workflows/debian-system-build.yml')
         reusable=self.load('debian-system-build.yml')
@@ -82,6 +86,15 @@ class DebianWorkflowTests(unittest.TestCase):
                               env=environment,capture_output=True)
         self.assertNotEqual(result.returncode,0)
         self.assertEqual(result.stdout,b'');self.assertEqual(result.stderr,b'')
+
+    def test_dependency_mirror_setup_refuses_local_and_self_hosted_execution(self):
+        for github_actions,runner_environment in (('', ''), ('true', 'self-hosted'), ('', 'github-hosted')):
+            environment={**os.environ,'GITHUB_ACTIONS':github_actions,'RUNNER_ENVIRONMENT':runner_environment}
+            result=subprocess.run(['bash',str(ROOT/'scripts/ci-ubuntu-dependencies.sh'),'python3-yaml'],
+                                  env=environment,capture_output=True)
+            self.assertEqual(result.returncode,2)
+            self.assertEqual(result.stdout,b'')
+            self.assertEqual(result.stderr,b'Requires a disposable GitHub-hosted runner.\n')
 
     def test_unchanged_system_candidate_exits_before_evidence_signing_or_publication(self):
         with tempfile.TemporaryDirectory() as temporary:

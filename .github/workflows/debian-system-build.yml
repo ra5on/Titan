@@ -65,8 +65,7 @@ jobs:
           persist-credentials: false
       - name: Prepare disposable system builder
         run: |
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient rauc grub2-common python3-yaml
+          bash scripts/ci-ubuntu-dependencies.sh --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient rauc grub2-common python3-yaml
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 remove -y passt
           sudo chmod a+r /boot/vmlinuz-*
           if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
