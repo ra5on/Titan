@@ -28,3 +28,9 @@ Systemupdates können einen älteren Anwendungsstand behalten. Die App-Abnahme l
 Das aktuelle Build-Werkzeug wird getrennt unter `.titan-ci-builder` ausgecheckt. Host-Abhängigkeiten und neue CI-Helfer kommen aus diesem aktuellen Stand; die getesteten Produktmodule, Vorlagen und Produkt-Smokes stammen weiterhin aus dem eingefrorenen Anwendungsstand. So benötigt ein älterer Checkout keine nachträglich hinzugefügten Build-Helfer. Die APT-Spiegelanpassung gilt ausschließlich auf bestätigten GitHub-gehosteten Wegwerf-Runnern und verändert keine NAS-Paketquellen.
 
 Lokale Tests, Demo und simulierte Docker-Transporte ersetzen diese Betriebsprüfung nicht. Die echten Smoke-Skripte verlangen ausdrücklich einen Wegwerf-Runner und dürfen nicht auf einem benutzten NAS ausgeführt werden.
+
+## A/B-Testbasis bei Installationsimages
+
+Der Feature-Release-Workflow verwendet derzeit `initial_image: true`. Für diese Abnahme erzeugt er eine private, als älterer Stand markierte Kopie des aktuellen Builds. Der Bericht nennt sie `baseline_source: generated-current-build`; die Versionsmarkierung `0.4.5-alpha.1` bezeichnet hierbei keine heruntergeladene Veröffentlichung dieses alten Quellcodes.
+
+Damit werden das signierte Schreiben in den inaktiven Slot, Neustart, Konten-/Rechte-/Datenerhalt, manueller Rollback und die Rückkehr nach einem fehlgeschlagenen Kandidaten geprüft. Die Abnahme beweist keine vollständige Upgrade-Kompatibilität mit einer tatsächlich älteren veröffentlichten Titan-Version und ihren vorhandenen Zuständen. Dafür ist eine zusätzliche Prüfung mit deren verifiziertem Image beziehungsweise Systembundle nötig. Veröffentlichte Berichte und Manifeste müssen diese Testbasis eindeutig erkennen lassen.
