@@ -11,6 +11,7 @@ import sys
 import tempfile
 import threading
 import pwd
+import re
 from http.server import ThreadingHTTPServer
 import time
 import urllib.error
@@ -22,6 +23,36 @@ from titan.catalog import validate_options
 from titan.host import Host
 from titan.server import Application, Handler
 from titan.core import Error
+
+
+def cloudflared_lan_probe(run, url, credentials=None):
+    """Only report bounded response metadata, never bodies, cookies or secrets."""
+    command = ['ip', 'netns', 'exec', 'titan-ci-client', 'curl', '--noproxy', '*',
+        '--proto', '=http', '--connect-timeout', '2', '--max-time', '5', '-sS',
+        '-D', '-', '-o', '/dev/null', '-w', '\nTITAN_HTTP_STATUS:%{http_code}\n', url]
+    # Keep credentials out of argv/process listings and diagnostic output.
+    config = None
+    if credentials is not None:
+        if not re.fullmatch(r'[A-Za-z0-9+/]+={0,2}', credentials):
+            raise Error('Invalid test Basic authentication encoding.')
+        command.extend(['--config', '-'])
+        config = 'header = "Authorization: Basic ' + credentials + '"\n'
+    output = run(command, input=config, timeout=10)
+    result = {'http_status': 'unknown', 'content_type': '', 'www_authenticate': ''}
+    for line in output.splitlines():
+        if line.startswith('HTTP/'):
+            result['content_type'] = result['www_authenticate'] = ''
+        elif line.startswith('TITAN_HTTP_STATUS:'):
+            value = line.partition(':')[2]
+            if re.fullmatch(r'[0-9]{3}', value): result['http_status'] = value
+        else:
+            name, separator, value = line.partition(':')
+            key = {'content-type': 'content_type', 'www-authenticate': 'www_authenticate'}.get(name.lower())
+            if separator and key:
+                value = ''.join(char for char in value.strip() if 32 <= ord(char) < 127)
+                if credentials: value = value.replace(credentials, '[redacted]')
+                result[key] = value[:256]
+    return result
 
 
 def main():
@@ -207,18 +238,32 @@ def main():
                         return None
                 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
                 credentials = base64.b64encode((username + ':' + password).encode()).decode()
-                authenticated = urllib.request.Request('http://127.0.0.1:' + str(app_port) + '/', headers={'Authorization': 'Basic ' + credentials})
+                secrets.append(credentials)
+                # Upstream serves static HTML before auth middleware. Check
+                # the protected configuration API rather than assuming the
+                # public landing page itself challenges for credentials.
+                protected_url = 'http://127.0.0.1:' + str(app_port) + '/config'
+                try:
+                    opener.open(protected_url, timeout=5).close()
+                except urllib.error.HTTPError as response:
+                    if response.code != 401:
+                        raise Error('Cloudflared Web protected API denied with HTTP ' + str(response.code) + ' instead of 401.') from None
+                else:
+                    raise Error('Cloudflared Web protected API allowed unauthenticated access.')
+                authenticated = urllib.request.Request(protected_url, headers={'Authorization': 'Basic ' + credentials})
                 with opener.open(authenticated, timeout=5) as response:
-                    if response.status != 200:
+                    if response.status != 200 or not isinstance(json.load(response), dict):
                         raise Error('Configured Cloudflared Web credentials cannot open the application.')
             lan_url = 'http://10.254.254.1:' + str(app_port)
-            def check_cloudflared_lan(expected=401):
+            def check_cloudflared_lan():
                 if not cloudflared_web:
                     return
-                response = run(['ip', 'netns', 'exec', 'titan-ci-client', 'curl', '--noproxy', '*',
-                    '--connect-timeout', '2', '--max-time', '5', '-s', '-o', '/dev/null', '-w', '%{http_code}', lan_url], timeout=10).strip()
-                if response != str(expected):
-                    raise Error('Cloudflared Web must be reachable with authentication from the isolated LAN client.')
+                for path, expected, auth in (('/', '200', None), ('/config', '401', None), ('/config', '200', credentials)):
+                    diagnostic = cloudflared_lan_probe(run, lan_url + path, auth)
+                    if (diagnostic['http_status'] != expected or
+                            expected == '401' and not diagnostic['www_authenticate'].lower().startswith('basic')):
+                        raise Error('Cloudflared Web isolated LAN check failed for ' + path + '; expected HTTP ' + expected +
+                                    '; received ' + json.dumps(diagnostic, sort_keys=True))
                 state = request('/api/apps')['installed'][0]
                 if not state.get('web_available') or state.get('web_state') != 'ready':
                     raise Error('App API did not report verified HTTP readiness.')

@@ -4,6 +4,8 @@ Titan verwendet seine eigene Docker-Verwaltung für lokale Container und zusamme
 
 Ein vorhandener Katalog ist nach einem Neustart sofort aus dem lokalen Cache verfügbar. Eine ausdrückliche Deaktivierung oder Entfernung bleibt erhalten. Nach einem Verbindungsfehler werden höchstens drei automatische Versuche pro 24 Stunden durchgeführt; die ersten beiden Wiederholungen erfolgen nach einer beziehungsweise fünf Minuten. **Katalog aktualisieren** bleibt für einen gezielten erneuten Versuch verfügbar. Entwicklungs- und Demo-Instanzen laden keinen externen Katalog beim Start.
 
+Einzelne Downloads wiederholen vorübergehende Serverfehler, ausdrückliche Rate-Limits oder unterbrochene Verbindungen höchstens zweimal mit kurzen Wartezeiten. Fehler zeigen beispielsweise den HTTP-Code; Antwortinhalte und Adressen mit möglichen Zugangsdaten werden nicht ausgegeben. Ungültige Vorlagen, Weiterleitungen und Zertifikatsfehler werden dadurch nicht freigegeben.
+
 ## BigBear
 
 Der Import verarbeitet `compose.yaml`/`compose.yml` und `metadata.json` aus einer festgelegten Git-Version des BigBear-Dockge-Katalogs. Ein begrenztes Archiv vermeidet hunderte Einzelabrufe und gemischte Versionen. Bis zu 1000 Vorlagen, 16 Dienste pro App und acht private Bridge-Netze pro Stack sind zulässig. Getrennte Netze, interne Netze und DNS-Aliase bleiben getrennt; lokale Netzwerknamen werden pro Titan-Stack isoliert. Externe Netze, IPAM und besondere Netzwerktreiber werden weiterhin nicht automatisch eingerichtet.

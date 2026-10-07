@@ -4,9 +4,15 @@ No upstream Compose document is executed. Host paths, commands and privileges
 never cross the adapter boundary. Unsupported templates are reported explicitly.
 """
 import hashlib
+import errno
+import http.client
 import io
 import json
 import re
+import socket
+import ssl
+import time
+import urllib.error
 import urllib.request
 import zipfile
 from .core import Error
@@ -95,13 +101,51 @@ def casaos_document(raw, name):
     if not apps: raise ValueError('Keine kompatiblen App-Vorlagen gefunden')
     return {'schema':1,'name':name.split('/')[-1],'apps':apps}, skipped
 
+def _download_failure(exc):
+    """Return safe diagnostics and a retry decision, never remote error text."""
+    if isinstance(exc, urllib.error.HTTPError):
+        headers = exc.headers or {}
+        throttled = exc.code == 403 and (headers.get('X-RateLimit-Remaining') == '0' or headers.get('Retry-After') is not None)
+        return 'HTTP ' + str(exc.code), exc.code in (408, 425, 429, 500, 502, 503, 504) or throttled
+    reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+    if isinstance(reason, (ssl.SSLError, ssl.CertificateError)):
+        return 'TLS-Verbindung fehlgeschlagen', False
+    if isinstance(reason, (TimeoutError, socket.timeout)):
+        return 'Zeitüberschreitung', True
+    if isinstance(reason, socket.gaierror):
+        return 'DNS-Auflösung fehlgeschlagen', reason.errno == socket.EAI_AGAIN
+    if isinstance(reason, (ConnectionError, http.client.IncompleteRead, http.client.RemoteDisconnected)) or isinstance(reason, OSError) and reason.errno in (errno.ECONNRESET, errno.ECONNABORTED, errno.ECONNREFUSED, errno.ETIMEDOUT, errno.EHOSTUNREACH, errno.ENETUNREACH):
+        return 'Verbindung unterbrochen', True
+    return 'Netzwerkfehler', False
+
+
+def _download_delay(exc, attempt):
+    # Honor small server backoffs; a rate-limit window of hours must not block
+    # the worker or an explicit catalog refresh indefinitely.
+    value = (exc.headers or {}).get('Retry-After', '') if isinstance(exc, urllib.error.HTTPError) else ''
+    if isinstance(value, str) and re.fullmatch(r'[0-9]{1,8}', value):
+        return min(10, max(1, int(value)))
+    return (1, 3)[attempt - 1]
+
+
 def download(url, limit):
+    """Retry only temporary GET failures, keeping TLS/redirect/size safeguards."""
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self,*args,**kwargs): raise Error('Store-Weiterleitungen sind nicht erlaubt.')
-    with urllib.request.build_opener(NoRedirect).open(urllib.request.Request(url,headers={'User-Agent':'Titan-AppStore/2'}),timeout=30) as response:
-        raw=response.read(limit+1)
-    if len(raw)>limit: raise Error('Store-Download überschreitet das Größenlimit.')
-    return raw
+    opener = urllib.request.build_opener(NoRedirect)
+    for attempt in range(1, 4):
+        try:
+            with opener.open(urllib.request.Request(url,headers={'User-Agent':'Titan-AppStore/2'}),timeout=30) as response:
+                raw=response.read(limit+1)
+            if len(raw)>limit: raise Error('Store-Download überschreitet das Größenlimit.')
+            return raw
+        except (OSError, http.client.IncompleteRead) as exc:
+            detail, retry = _download_failure(exc)
+            delay = _download_delay(exc, attempt) if retry and attempt < 3 else 0
+            if isinstance(exc, urllib.error.HTTPError): exc.close()
+            if not retry or attempt == 3:
+                raise Error(f'Store-Abruf fehlgeschlagen ({detail}; {attempt} Versuch' + ('e' if attempt != 1 else '') + '). Bitte später erneut versuchen.', 503) from None
+            time.sleep(delay)
 
 def github_document(url):
     # Read only small deployment files; store artwork is never downloaded.
