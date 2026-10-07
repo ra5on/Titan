@@ -8,6 +8,16 @@
 - Debian-Image-Workflow: echter QEMU-Start und Laufzeitprüfung von HTTPS, Anmeldung, Metriken, SMB, Docker und VM-Komponenten.
 - A/B-Integration: Update auf den Kandidaten, Neustart, Gesundheitsbestätigung, Rollback, unveränderte persistente Daten sowie Vergrößerung der Systemdisk und fehlgeschlagener Start mit Rückfall.
 
+Der Nextcloud-Lauf des Image-App-Gates aktiviert zusätzlich `--app-backup-smoke`.
+Auf dem ausschließlich dafür bestätigten GitHub-Runner wird ein separater
+Ext4-Loopdatenträger eingehängt und über die normalen HTTP-APIs als Sicherungsziel
+ausgewählt. Der Test sichert die laufende App samt ausdrücklich ausgewählten
+Nutzdaten, verändert einen echten Nextcloud-Datenbankwert und Dateimarker,
+stellt das gestoppte Paket wieder her und prüft Zugangsdaten, Unix-Rechte,
+Recovery-Ordner sowie den erneuten Datenbank- und HTTP-Zugang. Die normale
+Zielvalidierung und der GitHub-Runner-Schutz werden dafür nicht abgeschaltet.
+Nur ein erfolgreicher tatsächlicher Workflow-Lauf ist der Betriebsnachweis.
+
 Laufzeitberichte gehören zur tatsächlich getesteten Version. Ein nicht verfügbarer Hardwaretest wird als übersprungen dokumentiert. Er darf nicht als erfolgreicher Betriebsnachweis gelten.
 
 ## Manuelle Prüfung

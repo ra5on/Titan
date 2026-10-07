@@ -313,6 +313,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         if record is None:
             raise Error("App ist nicht installiert.", 404)
         directory = self.directory / "apps" / app
+        if ((directory / "restore-pending.json").exists() or (directory / "restore-pending.json").is_symlink()) and getattr(getattr(self, "_app_restore_local", None), "app", None) != app:
+            raise Error("Eine App-Wiederherstellung wurde unterbrochen. App bleibt gesperrt; das gespeicherte Recovery-Verzeichnis lokal prüfen.", 503)
         path = directory / "compose.json"
         config = self._app_config_path(app, record)
         if any(item.is_symlink() for item in (self.directory, directory.parent, directory, path, directory / "config", config)) or not path.is_file() or not config.is_dir():

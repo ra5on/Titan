@@ -15,7 +15,7 @@ def allowed_manifest(manifest,allowed):
 
 def safe_settings(settings,allowed):
     return {**settings,'shares':[name for name in settings.get('shares',[]) if name in allowed],
-            'include_config':False,'delegated':True,'configuration_editable':False}
+            'include_config':False,'apps':[],'app_data':[],'delegated':True,'configuration_editable':False}
 
 
 def safe_listing(records,allowed):
@@ -58,6 +58,8 @@ def host_call(host,operation,user,arguments):
     if operation=='backups':return {'items':safe_listing(host.backups.list(),allowed),'delegated':True,'settings':safe_settings(host.backups.settings(),allowed)}
     if operation=='backup_settings':return safe_settings(host.backups.settings(),allowed)
     functions={'backup_create':host.backups.create,'backup_verify':host.backups.verify,'backup_browse':host.backups.browse,'backup_restore':host.backups.restore,'backup_restore_selection':host.backups.restore_selection}
+    if operation == 'backup_create':
+        arguments = {**arguments, 'apps': [], 'app_data': []}
     return functions[operation](**arguments)
 
 

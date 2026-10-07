@@ -1,0 +1,34 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),script=require('node:vm');
+const live=require('../titan/web/vm_live.js'),bytes=value=>`${value} B`,esc=value=>String(value).replaceAll('<','&lt;');
+const vm={id:'one',name:'Server',state:'running',cpus:2,memory_mb:2048,metrics:{cpu_percent:12.5,memory_resident_bytes:4096,disk_allocated_bytes:2048,disk_read_bps:128,network_rx_bps:256}};
+const compact=live.render(vm,{bytes,esc,compact:true});
+assert.match(compact,/12,5 %/);assert.match(compact,/4096 B/);assert.match(compact,/RAM auf NAS \(RSS\)/);assert.equal((compact.match(/<strong>/g)||[]).length,2);assert.doesNotMatch(compact,/2048 B|128 B\/s|256 B\/s|Kapazität|Gast-RAM konfiguriert/);
+const missing=live.render({...vm,metrics:{}},{bytes,esc,compact:true});assert.match(missing,/Messung läuft/);assert.match(missing,/<strong>—<\/strong>/);assert.doesNotMatch(missing,/0 %|0 B/,'Missing measurements do not become zero');
+const paused=live.render({...vm,state:'paused',metrics:{}},{bytes,esc,compact:true});assert.equal((paused.match(/<strong>—<\/strong>/g)||[]).length,2);
+const stopped=live.render({...vm,state:'shut off'},{bytes,esc,compact:true});assert.match(stopped,/0 %/);assert.match(stopped,/0 B/);assert.doesNotMatch(stopped,/12,5|4096/,'Stopped VMs do not retain stale resource use');
+assert.match(live.render(vm,{bytes,esc}),/Gast-RAM konfiguriert/);
+
+(async()=>{
+ const timers=new Map(),listeners=new Map();let nextTimer=0,calls=0,stateChanges=0,fail=false;
+ const doc={hidden:false,addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:name=>listeners.delete(name)};
+ const card={dataset:{vmLive:'one',vmState:'running',vmLiveCompact:''},hiddenByPane:false,innerHTML:''};
+ const pane={closest(){return card.hiddenByPane?{}:null;}};
+ const total={textContent:'',hiddenByPane:true,closest(){return this.hiddenByPane?{}:null;}};
+ const main={ownerDocument:doc,querySelector:()=>card,querySelectorAll:selector=>selector==='[data-vm-live]'?[card]:selector==='[data-vm-total-memory]'?[total]:[pane,total]};
+ const browser={},sandbox={window:browser,setInterval:(fn,delay)=>{assert.equal(delay,5000);timers.set(++nextTimer,fn);return nextTimer;},clearInterval:id=>timers.delete(id)};
+ script.runInNewContext(fs.readFileSync('titan/web/vm_live.js','utf8'),sandbox);
+ const ui=browser.TitanVMLive,api=async()=>{calls++;if(fail)throw Error('offline');return{vms:[vm]};};
+ ui.mount(main,{api,bytes,esc,onStateChange:()=>stateChanges++});await new Promise(setImmediate);
+ assert.equal(calls,1);assert.match(card.innerHTML,/is-compact/);assert.doesNotMatch(card.innerHTML,/Laufwerk/);assert.equal(total.textContent,'4096 B');assert.equal(timers.size,1);
+ const tick=()=>[...timers.values()][0]();
+ doc.hidden=true;await tick();assert.equal(calls,1,'Hidden browser documents do not poll');doc.hidden=false;
+ card.hiddenByPane=true;await tick();assert.equal(calls,1,'Hidden tiles and summary do not duplicate detail polling');
+ total.hiddenByPane=false;await tick();assert.equal(calls,2,'Visible summary continues measuring RSS while the tile panel is hidden');total.hiddenByPane=true;card.hiddenByPane=false;
+ fail=true;await tick();assert.match(card.innerHTML,/Messwerte momentan nicht erreichbar/);assert.doesNotMatch(card.innerHTML,/4096 B|12,5 %/);assert.equal(total.textContent,'Nicht erreichbar');
+ fail=false;await tick();assert.match(card.innerHTML,/4096 B/,'Measurements recover on the next successful sample');
+ doc.hidden=true;const before=calls;await listeners.get('visibilitychange')();assert.equal(calls,before);doc.hidden=false;listeners.get('visibilitychange')();await new Promise(setImmediate);assert.equal(calls,before+1,'Returning to the browser immediately refreshes visible metrics');
+ vm.state='shut off';await tick();assert.equal(stateChanges,1,'Real state changes refresh VM controls');
+ ui.mount(main,{api,bytes,esc});assert.equal(timers.size,1,'Remounting leaves one polling timer');ui.dispose();assert.equal(timers.size,0);assert.equal(listeners.size,0);
+ console.log('VM live UI: compact measured CPU/RSS, unknown/stopped values, five-second polling, visible pane guards, recovery, state refresh and disposal passed.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

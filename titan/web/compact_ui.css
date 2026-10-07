@@ -40,14 +40,15 @@ html[data-desktop-embedded=true] #shell[data-page] .nas-window-content{padding:1
 #shell[data-page=apps] .nas-window-content>.page-heading{flex:none;min-height:40px;padding:5px 12px;margin:0;background:#f9fbfd;border-bottom:1px solid #dce4ed}
 #shell[data-page=apps] .nas-window-content>.page-heading h1{font-size:15px}
 #shell[data-page=apps] .nas-window-content>.page-heading .form-actions{margin:0;gap:5px}
-.sl-manager{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden;gap:0}
-.sl-nav{display:flex;flex-direction:row;align-items:center;gap:4px;flex:0 0 auto;padding:5px 10px;background:#f5f8fc;border-right:0;border-bottom:1px solid #dce4ed}
+.sl-manager{display:block;min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.sl-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;padding:5px 10px;background:#f5f8fc;border-bottom:1px solid #dce4ed}
+.sl-nav{display:flex;flex-direction:row;align-items:center;gap:4px;flex:1 0 auto;padding:0;background:transparent;border:0}
 .sl-nav button{width:auto;min-height:32px;padding:6px 12px;border:0;border-radius:7px;text-align:center;background:transparent;color:#52677c;font:inherit;font-size:12px;cursor:pointer}
 .sl-nav button[aria-current=page]{background:#e1efff;color:#176cab;font-weight:600;border:0}
-.sl-content{padding:0;min-width:0;min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.sl-content{padding:0;min-width:0;min-height:0;overflow:visible;scrollbar-gutter:auto}
 .sl-content>.app-discover-section,.sl-content>.app-installed-section{padding:0 12px 12px;min-width:0}
 .sl-content .app-installed-section>.section-heading{margin:12px 0}.sl-content .app-installed-section h2{font-size:14px}
-.catalog-commandbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:8px;background:#fff;padding:9px 0;border-bottom:1px solid #e5ebf2;margin-bottom:10px}
+.catalog-commandbar{position:static;display:flex;align-items:center;flex-wrap:wrap;gap:8px;background:#fff;padding:7px 0;border-bottom:1px solid #e5ebf2;margin-bottom:10px}
 .catalog-commandbar>.search{flex:1;min-width:min(170px,100%);max-width:none;margin:0;height:34px;border-radius:7px;background:#f7f9fc}
 .catalog-commandbar>.search input{min-height:32px;font-size:12px;padding:6px 7px;min-width:0}
 .catalog-commands{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
@@ -133,6 +134,8 @@ html[data-desktop-embedded=true] #shell[data-page] .nas-window-content{padding:1
 @media(max-width:760px){.root-access-bar{gap:5px;padding:5px 8px}.root-access-bar .button.small{min-height:40px}.root-access-bar>div{margin-left:auto}.root-access-bar.is-root>span{flex-basis:100%}}
 #shell[data-page=apps] .nas-window-content>.page-heading>div:first-child:not(.catalog-window-actions){display:none}
 .catalog-window-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-left:auto}
+.sl-toolbar .catalog-window-actions>.button{min-height:32px;padding:6px 9px;font-size:12px}
+@media(max-width:760px){.sl-toolbar .catalog-window-actions>.button{min-height:40px}.sl-toolbar{padding:4px 8px}}
 .catalog-commandbar>.search{display:flex;align-items:center;position:relative;gap:5px;padding:0 9px}
 .catalog-commandbar>.search>span{position:static;flex:none;font-size:20px;line-height:1;color:#7890a5}
 .catalog-commandbar>.search>input{width:100%;flex:1;min-width:0;padding:6px 0;border:0;box-shadow:none;background:transparent}

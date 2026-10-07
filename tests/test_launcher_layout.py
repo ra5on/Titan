@@ -19,3 +19,14 @@ class Tests(unittest.TestCase):
     def test_desktop_v2_rejects_invalid_coordinates_and_widgets(self):
         for extra in [{'version':True},{'version':3},{'positions':{'tool:files':{'x':-1,'y':0}}},{'positions':{'tool:files':{'x':True,'y':0}}},{'positions':{'tool:unknown':{'x':0,'y':0}}},{'widgets':{'items':['ram','ram']}},{'widgets':{'items':['root']}},{'widgets':{'visible':'false'}}]:
             with self.subTest(extra=extra),self.assertRaises(Error):validate({'items':['tool:files'],**extra})
+
+    def test_desktop_preferences_are_validated_and_isolated_per_account(self):
+        store=Store()
+        for transparency in (0,40,100):
+            value={'items':['tool:files'],'desktop':{'background_click':'minimize','transparency':transparency}}
+            save(store,'alice',value)
+            self.assertEqual(load(store,'alice'),value)
+            self.assertEqual(load(store,'bob'),{'items':[]})
+        for desktop in ([],None,{'extra':1},{'transparency':True},{'transparency':1.5},{'transparency':'40'},{'transparency':-1},{'transparency':101},{'background_click':'anything'},{'background_click':False}):
+            with self.subTest(desktop=desktop),self.assertRaises(Error):
+                validate({'items':[],'desktop':desktop})

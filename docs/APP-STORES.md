@@ -6,6 +6,16 @@ Ein vorhandener Katalog ist nach einem Neustart sofort aus dem lokalen Cache ver
 
 Einzelne Downloads wiederholen vorübergehende Serverfehler, ausdrückliche Rate-Limits oder unterbrochene Verbindungen höchstens zweimal mit kurzen Wartezeiten. Fehler zeigen beispielsweise den HTTP-Code; Antwortinhalte und Adressen mit möglichen Zugangsdaten werden nicht ausgegeben. Ungültige Vorlagen, Weiterleitungen und Zertifikatsfehler werden dadurch nicht freigegeben.
 
+## Platz im App Store
+
+Katalogaktionen, die Ansichten **Installiert / Alle Apps**, Ladehinweise und Suche befinden sich zusammen mit den Apps in einem Scrollbereich. Die oberen Leisten scrollen beim Durchsehen der Anwendungen weg. Suche, Filter sowie Kachel-/Listenansicht bleiben beim Wechsel zwischen den Ansichten erhalten.
+
+## Cloudflared Web und Fernzugriff
+
+Bei neuen Cloudflared-Web-Installationen ist das Verwaltungspasswort optional. Ein leeres Passwort deaktiviert die Basic-Anmeldung der Cloudflared-Verwaltung; Tunnel-Token und Titan-Anmeldung sind davon unabhängig. Ein Katalog-Refresh verändert die gespeicherte Vorlage und Zugangsdaten einer bestehenden Installation nicht.
+
+Unter **Systemsteuerung → Allgemein → Fernzugriff · Cloudflare Tunnel** werden öffentliche Titan- und App-Adressen ausdrücklich eingetragen. Titan ermittelt das tatsächliche Host-/Bridge-Netz des Connectors und zeigt das lokale Tunnelziel auf Port 5102 an. Die Tunnelroute wird in Cloudflare eingerichtet. Einrichtung und Diagnose: [Fernzugriff mit Cloudflare Tunnel](REMOTE-ACCESS.md).
+
 ## BigBear
 
 Der Import verarbeitet `compose.yaml`/`compose.yml` und `metadata.json` aus einer festgelegten Git-Version des BigBear-Dockge-Katalogs. Ein begrenztes Archiv vermeidet hunderte Einzelabrufe und gemischte Versionen. Bis zu 1000 Vorlagen, 16 Dienste pro App und acht private Bridge-Netze pro Stack sind zulässig. Getrennte Netze, interne Netze und DNS-Aliase bleiben getrennt; lokale Netzwerknamen werden pro Titan-Stack isoliert. Externe Netze, IPAM und besondere Netzwerktreiber werden weiterhin nicht automatisch eingerichtet.

@@ -3,9 +3,13 @@ import re
 from .core import Error
 
 def validate(value):
-    if not isinstance(value,dict) or 'items' not in value or set(value)-{'items','hidden','version','positions','widgets','docker_added','icon_size'} or not isinstance(value['items'],list) or len(value['items'])>128: raise Error('Ungültige Hauptmenü-Anordnung.')
+    if not isinstance(value,dict) or 'items' not in value or set(value)-{'items','hidden','version','positions','widgets','docker_added','icon_size','desktop'} or not isinstance(value['items'],list) or len(value['items'])>128: raise Error('Ungültige Hauptmenü-Anordnung.')
     if 'docker_added' in value and type(value['docker_added']) is not bool: raise Error('Ungültige Desktop-Initialisierung.')
     if 'icon_size' in value and value['icon_size'] not in ('small','medium','large'): raise Error('Ungültige Symbolgröße.')
+    desktop=value.get('desktop',{})
+    if not isinstance(desktop,dict) or set(desktop)-{'background_click','transparency'}: raise Error('Ungültige Desktop-Einstellungen.')
+    if 'background_click' in desktop and desktop['background_click'] not in ('none','minimize'): raise Error('Ungültiges Desktop-Klickverhalten.')
+    if 'transparency' in desktop and (type(desktop['transparency']) is not int or not 0<=desktop['transparency']<=100): raise Error('Transparenz muss zwischen 0 und 100 liegen.')
     seen=set(); folders=set(); count=0
     def item(key):
         nonlocal count

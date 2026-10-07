@@ -4,9 +4,9 @@
 
 Titan ist eine eigenständige NAS-Oberfläche auf Debian mit persönlichem Desktop, Dateimanager, Freigaben, virtuellen Maschinen und Docker-Verwaltung.
 
-**Version: 0.5.4-alpha.1 · Alpha.** Zunächst mit Testdaten verwenden.
+**Version: 0.5.5-alpha.1 · Alpha.** Zunächst mit Testdaten verwenden.
 
-[**Image herunterladen · AMD64 (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.5.4-alpha.1/titan-0.5.4-alpha.1-amd64.img.xz) · [Release, Checksummen und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.4-alpha.1)
+[**Image herunterladen · AMD64 (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.5.5-alpha.1/titan-0.5.5-alpha.1-amd64.img.xz) · [Release, Checksummen und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.5-alpha.1)
 
 Für den VM-Test: **UEFI/OVMF**, **Secure Boot aus**, **8 GiB RAM** und mindestens **64 GiB Festplatte**. Die `.img.xz` entpacken; das enthaltene Image ist 48 GiB groß. Die virtuelle Festplatte vor dem ersten Start auf die gewünschte Größe erweitern. Danach Titan unter `https://NAS-IP` öffnen.
 
@@ -31,6 +31,12 @@ BigBear-Vorlagen werden bei Bedarf vom Herausgeber abgerufen und nicht mit Titan
 ![Docker-Verwaltung](docs/images/docker-stacks.jpg)
 
 ## Weitere Funktionen
+
+Im Benutzermenü lassen sich Desktop-Transparenz und das Verhalten beim Klick auf freien Desktop pro Konto einstellen. Die Seitenleisten von Systemsteuerung, Speicher, Docker und VM-Verwaltung können per Trennlinie schmaler oder breiter gezogen werden. [Bedienung und Platznutzung](docs/UI-DESIGN.md).
+
+**Fernzugriff:** Unter **Systemsteuerung → Allgemein** eine öffentliche HTTPS-Adresse und den Cloudflared-Connector einrichten. Titan zeigt das passende Tunnelziel für Host- oder Bridge-Netz und prüft lokale sowie öffentliche Erreichbarkeit. Die Tunnelroute wird weiterhin in Cloudflare eingerichtet. Das Verwaltungspasswort von Cloudflared Web ist bei neuen Installationen optional. [Einrichtung und Diagnose](docs/REMOTE-ACCESS.md)
+
+**VMs und App-Sicherungen:** Kompakte VM-Kacheln zeigen echte CPU- und RSS-Messwerte; ein Klick öffnet die Details. Der zentrale Sicherungsassistent kann App-Konfiguration, Datenbanken und Zugangsdaten sowie ausdrücklich ausgewählte Nutzdaten auf einem getrennten Ziel sichern. [VM-Verwaltung](docs/PACKAGES-AND-VMS.md) · [App-Sicherungen und Wiederherstellung](docs/BACKUPS.md)
 
 | Bereich | Funktionen |
 | --- | --- |

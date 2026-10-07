@@ -26,7 +26,8 @@ from .core import Error, identifier, integer, atomic_json, configuration_lock, u
 
 
 DEFAULTS = {"target": "", "auto_backup": False, "interval": "daily", "window_day": 6,
-            "window_hour": 3, "retention": 7, "shares": [], "include_config": True}
+            "window_hour": 3, "retention": 7, "shares": [], "include_config": True,
+            "apps": [], "app_data": []}
 BACKUP_ID = re.compile(r"b-[0-9]{8}T[0-9]{6}-[a-f0-9]{12}")
 MAX_ENTRIES = 1000000
 MAX_BYTES = 100 * 1024 ** 4
@@ -140,6 +141,11 @@ class Backups:
     def settings(self):
         return {**DEFAULTS, **self.host.load("backup-settings", {})}
 
+    @property
+    def apps(self):
+        from .app_backups import AppBackups
+        return AppBackups(self)
+
     def validate_settings(self, value):
         if not isinstance(value, dict) or set(value) - set(DEFAULTS):
             raise Error("Unbekannte Backup-Einstellung.")
@@ -153,8 +159,9 @@ class Backups:
         result["window_hour"] = integer(result["window_hour"], 0, 23)
         result["retention"] = integer(result["retention"], 1, 365)
         result["shares"] = self.selected_shares(result["shares"])
-        if not result["shares"] and not result["include_config"]:
-            raise Error("Mindestens eine Freigabe oder die Konfiguration auswählen.")
+        result["apps"], result["app_data"] = self.apps.selected(result["apps"], result["app_data"])
+        if not result["shares"] and not result["include_config"] and not result["apps"]:
+            raise Error("Mindestens eine Freigabe, App oder die Konfiguration auswählen.")
         if not isinstance(result["target"], str):
             raise Error("Ungültiges Backupziel.")
         if result["target"]:
@@ -269,6 +276,13 @@ class Backups:
             source = Path(item["path"]).absolute()
             if path.is_relative_to(source) or source.is_relative_to(path):
                 raise Error("Backupziel darf keine Quelle enthalten und nicht in einer Freigabe liegen.")
+        installed = self.host.load("apps", [])
+        for item in installed if isinstance(installed, list) else []:
+            for key in ("data", "config_path"):
+                if item.get(key):
+                    source = Path(item[key]).absolute()
+                    if path.is_relative_to(source) or source.is_relative_to(path) or source.exists() and source.stat().st_dev == target_info.st_dev:
+                        raise Error("Das Sicherungsziel enthält App-Quelldaten. Einen getrennten Datenträger wählen.")
         self._target_identity = (target_info.st_dev, target_info.st_ino)
         return path
 
@@ -365,7 +379,7 @@ class Backups:
         if not isinstance(value, dict):
             raise Error("Ungültiges Backupmanifest.")
         if (value.get("schema") != 1 or value.get("id") != backup or value.get("namespace") != self.state()["namespace"] or
-                value.get("type") not in ("shares", "vm") or not stat.S_ISREG(archive.st_mode) or
+                value.get("type") not in ("shares", "vm", "bundle") or not stat.S_ISREG(archive.st_mode) or
                 not re.fullmatch(r"[a-f0-9]{64}", str(value.get("sha256", ""))) or
                 not isinstance(value.get("created"), (int, float)) or not math.isfinite(value["created"]) or value["created"] < 0 or
                 type(value.get("entries")) is not int or not 0 < value["entries"] <= MAX_ENTRIES or
@@ -377,6 +391,10 @@ class Backups:
             identifier(name)
         if len(set(value["shares"])) != len(value["shares"]):
             raise Error("Backupmanifest enthält doppelte Freigaben.")
+        if value["type"] == "bundle":
+            self.apps.validate_manifest(value)
+        elif value.get("apps") or value.get("app_data"):
+            raise Error("App-Sicherung benötigt ein vollständiges Paketmanifest.")
         if value["type"] == "vm":
             identifier(value.get("vm_name"))
             if "vm_disks" in value:
@@ -446,12 +464,14 @@ class Backups:
                     raise Error("SMB-Zugangsdaten konnten nicht gesichert werden.") from None
         atomic_json(directory / "config.json", data)
 
-    def _add_tree(self, archive, source, prefix, totals):
+    def _add_tree(self, archive, source, prefix, totals, preserve=False):
         with self._data_fd(source) as rootfd:
             def recurse(fd, name):
                 info = os.fstat(fd)
                 node = tarfile.TarInfo(name)
                 node.type, node.mode, node.mtime = tarfile.DIRTYPE, 0o770, int(info.st_mtime)
+                if preserve:
+                    node.mode, node.uid, node.gid = stat.S_IMODE(info.st_mode) & 0o777, info.st_uid, info.st_gid
                 archive.addfile(node)
                 totals[0] += 1
                 for entry in sorted(os.listdir(fd)):
@@ -471,6 +491,8 @@ class Backups:
                                 raise Error("Quelle wurde während des Backups verändert.")
                             item = tarfile.TarInfo(name + "/" + entry)
                             item.size, item.mode, item.mtime = before.st_size, 0o660, int(before.st_mtime)
+                            if preserve:
+                                item.mode, item.uid, item.gid = stat.S_IMODE(before.st_mode) & 0o777, before.st_uid, before.st_gid
                             archive.addfile(item, stream)
                             after = os.fstat(stream.fileno())
                             if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
@@ -483,13 +505,16 @@ class Backups:
                         raise Error("Backup überschreitet die Sicherheitsgrenzen.")
             recurse(rootfd, prefix)
 
-    def create(self, shares=None, include_config=None):
+    def create(self, shares=None, include_config=None, apps=None, app_data=None):
         with self.lock:
             settings = self.settings()
+            use_defaults = shares is None and include_config is None and apps is None and app_data is None
+            apps, app_data = self.apps.selected(settings["apps"] if use_defaults else [] if apps is None else apps,
+                                                settings["app_data"] if use_defaults else [] if app_data is None else app_data)
             shares = self.selected_shares(settings["shares"] if shares is None else shares)
             include_config = settings["include_config"] if include_config is None else include_config
-            if not isinstance(include_config, bool) or (not shares and not include_config):
-                raise Error("Freigaben oder Konfiguration auswählen.")
+            if not isinstance(include_config, bool) or (not shares and not include_config and not apps):
+                raise Error("Freigaben, Apps oder Konfiguration auswählen.")
             records = {item["name"]: item for item in self.host.op_shares()}
             def write(archive, totals, temporary):
                 for name in shares:
@@ -500,7 +525,12 @@ class Backups:
                 if include_config:
                     self._config(temporary / "config")
                     self._add_tree(archive, temporary / "config", "config", totals)
-            return self._create("shares", {"shares": shares, "include_config": include_config}, write)
+                self.apps.write(archive, totals, temporary, prepared, app_data)
+            with self.apps.quiesce(apps) as prepared:
+                details = {"shares": shares, "include_config": include_config}
+                if apps:
+                    details.update(apps=apps, app_data=app_data)
+                return self._create("bundle" if apps else "shares", details, write)
 
     def _create(self, kind, details, write):
         destination = None
@@ -554,9 +584,12 @@ class Backups:
                     (member.isfile() and member.name in required_directories) or
                     not (member.isfile() or member.isdir()) or (member.isdir() and member.size != 0) or member.sparse or
                     member.size < 0 or member.size > MAX_BYTES or
-                    (manifest["type"] == "shares" and not ((parts[0] == "shares" and len(parts) >= 2 and parts[1] in manifest["shares"]) or
+                    (manifest["type"] in ("shares", "bundle") and not ((parts[0] == "shares" and len(parts) >= 2 and parts[1] in manifest["shares"]) or
                      (parts[0] == "config" and manifest.get("include_config") and
-                      (parts == ("config",) or parts in (("config", "config.json"), ("config", "titan.sqlite3")))))) or
+                      (parts == ("config",) or parts in (("config", "config.json"), ("config", "titan.sqlite3")))) or
+                     (manifest["type"] == "bundle" and self.apps.allowed_member(parts, manifest)))) or
+                    (manifest["type"] == "bundle" and (type(member.uid) is not int or type(member.gid) is not int or
+                     not 0 <= member.uid < 2**32 - 1 or not 0 <= member.gid < 2**32 - 1 or member.mode & ~0o777)) or
                     (manifest["type"] == "vm" and parts not in vm_members)):
                 raise Error("Archiv enthält unerwartete Pfade, Links oder Spezialdateien.")
             seen[member.name] = "file" if member.isfile() else "directory"
@@ -567,6 +600,13 @@ class Backups:
             yield member, parts
         if len(seen) != manifest["entries"] or size != manifest["unpacked_bytes"]:
             raise Error("Archiv stimmt nicht mit dem Manifest überein.")
+        if manifest["type"] == "bundle":
+            for app in manifest["apps"]:
+                prefix = "apps/" + app
+                if (seen.get(prefix) != "directory" or seen.get(prefix + "/app.json") != "file" or
+                        seen.get(prefix + "/config") != "directory" or
+                        app in manifest["app_data"] and seen.get(prefix + "/data") != "directory"):
+                    raise Error("App-Sicherung ist unvollständig; Konfiguration oder Nutzdaten fehlen.")
 
     @contextlib.contextmanager
     def _archive(self, backup):
@@ -598,15 +638,18 @@ class Backups:
             except (tarfile.TarError, OSError, EOFError) as exc:
                 raise Error("Backup ist beschädigt oder unvollständig.") from exc
 
-    def _extract(self, backup, destination, predicate, trim=0):
+    def _extract(self, backup, destination, predicate, trim=0, preserve=False):
         self.verify(backup)
         with self._data_fd(destination) as rootfd:
+            directories = []
             with self._archive(backup) as (manifest, archive):
                 for member, parts in self._members(archive, manifest):
                     if not predicate(parts):
                         continue
                     relative = parts[trim:]
                     if not relative:
+                        if preserve and member.isdir():
+                            directories.append((relative, member.uid, member.gid, member.mode))
                         continue
                     parent = os.dup(rootfd)
                     try:
@@ -625,14 +668,30 @@ class Backups:
                                 existing = os.stat(relative[-1], dir_fd=parent, follow_symlinks=False)
                                 if not stat.S_ISDIR(existing.st_mode):
                                     raise Error("Ziel enthält einen unerwarteten Pfad.")
+                            if preserve:
+                                directories.append((relative, member.uid, member.gid, member.mode))
                         else:
                             fd = os.open(relative[-1], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o660, dir_fd=parent)
                             with os.fdopen(fd, "wb") as stream:
                                 shutil.copyfileobj(archive.extractfile(member), stream, 1024 * 1024)
                                 stream.flush()
                                 os.fsync(stream.fileno())
+                                if preserve:
+                                    os.fchown(stream.fileno(), member.uid, member.gid)
+                                    os.fchmod(stream.fileno(), member.mode)
                     finally:
                         os.close(parent)
+            for relative, uid, gid, mode in sorted(directories, key=lambda value: len(value[0]), reverse=True):
+                child = os.dup(rootfd)
+                try:
+                    for component in relative:
+                        following = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=child)
+                        os.close(child)
+                        child = following
+                    os.fchown(child, uid, gid)
+                    os.fchmod(child, mode)
+                finally:
+                    os.close(child)
 
     def browse(self, backup, path="", offset=0, limit=200):
         """List user files only; configuration hashes are never exposed here."""
@@ -640,7 +699,7 @@ class Backups:
             offset, limit = integer(offset, 0, MAX_ENTRIES), integer(limit, 1, 500)
             prefix = archive_name(path) if path else ()
             with self._archive(backup) as (manifest, archive):
-                if manifest["type"] != "shares":
+                if manifest["type"] not in ("shares", "bundle"):
                     raise Error("Die Dateiansicht ist für Freigabensicherungen verfügbar.")
                 entries, found = {}, not prefix
                 for member, parts in self._members(archive, manifest):
@@ -674,7 +733,7 @@ class Backups:
                 raise Error("Zwischen einer und 1000 unterschiedliche Dateien oder Ordner auswählen.")
             selected = [archive_name(path) for path in paths]
             manifest = self.manifest(backup)
-            if manifest["type"] != "shares" or any(parts[0] not in manifest["shares"] for parts in selected):
+            if manifest["type"] not in ("shares", "bundle") or any(parts[0] not in manifest["shares"] for parts in selected):
                 raise Error("Nur gesicherte Freigabedaten können wiederhergestellt werden.")
             identifier(share)
             identifier(name)
@@ -720,7 +779,7 @@ class Backups:
     def restore(self, backup, share, name):
         with self.lock:
             manifest = self.manifest(backup)
-            if manifest["type"] != "shares" or not manifest["shares"]:
+            if manifest["type"] not in ("shares", "bundle") or not manifest["shares"]:
                 raise Error("Dieses Backup enthält keine Freigabedaten.")
             identifier(share)
             identifier(name)
@@ -747,7 +806,7 @@ class Backups:
     def read_config(self, backup):
         with self.lock:
             manifest = self.manifest(backup)
-            if manifest["type"] != "shares" or not manifest.get("include_config"):
+            if manifest["type"] not in ("shares", "bundle") or not manifest.get("include_config"):
                 raise Error("Backup enthält keine NAS-Konfiguration.")
             self.verify(backup)
             with self._archive(backup) as (manifest, archive):
@@ -845,7 +904,8 @@ class Backups:
         # Independently retain VM backups for each VM, and share backups as a group.
         groups = {}
         for item in self.list():
-            key = (item["type"], item.get("vm_name", ""))
+            key = (("bundle", tuple(item["apps"]), tuple(item["shares"]), item["include_config"])
+                   if item["type"] == "bundle" else (item["type"], item.get("vm_name", "")))
             groups.setdefault(key, []).append(item)
         for items in groups.values():
             for item in items[self.settings()["retention"]:]:

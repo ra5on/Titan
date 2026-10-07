@@ -2,6 +2,7 @@
 """Real Docker acceptance checks, exclusively on a disposable CI runner."""
 import argparse
 import base64
+import contextlib
 import importlib.util
 import json
 import os
@@ -23,6 +24,124 @@ from titan.catalog import validate_options
 from titan.host import Host
 from titan.server import Application, Handler
 from titan.core import Error
+
+
+@contextlib.contextmanager
+def disposable_backup_disk(base, run):
+    """Use a real, separately mounted ext4 device; no production check bypass.
+
+    The sparse backing file lives only on the explicitly disposable runner.
+    tmpfs is deliberately rejected by production backup target validation.
+    """
+    image = base / 'backup-smoke.ext4'
+    with image.open('xb') as stream:
+        stream.truncate(4 * 1024 ** 3)
+    target = Path(tempfile.mkdtemp(prefix='titan-app-backup-', dir='/mnt'))
+    target.chmod(0o700)
+    loop, mounted = None, False
+    try:
+        run(['mkfs.ext4', '-F', '-q', str(image)], timeout=60)
+        device = run(['losetup', '--find', '--show', str(image)], timeout=30).strip()
+        if not re.fullmatch(r'/dev/loop[0-9]+', device):
+            raise Error('Disposable backup disk did not receive a valid loop-device identity.')
+        loop = device
+        run(['mount', '-t', 'ext4', '-o', 'nodev,nosuid', loop, str(target)], timeout=30)
+        mounted = True
+        yield target
+    finally:
+        if mounted:
+            run(['umount', str(target)], timeout=60)
+        if loop:
+            run(['losetup', '--detach', loop], timeout=30)
+        target.rmdir()
+        image.unlink()
+
+
+def app_backup_restore_smoke(base, host, request, action, ready, app, installed, run, app_port):
+    """Real Nextcloud/PostgreSQL restore through production HTTP and Host APIs."""
+    config_root = host._app_config_path(app, installed)
+    data_root = Path(installed['data'])
+    private = host.directory / 'apps' / app / 'options.json'
+    options_before = json.loads(private.read_text())
+    primary = host._app_container(app, host.managed_app(app))
+    if not primary:
+        raise Error('Nextcloud primary container is missing before app backup acceptance.')
+
+    def occ(*arguments):
+        current = host._app_container(app, host.managed_app(app))
+        if not current:
+            raise Error('Nextcloud primary container is missing after restore.')
+        return run(['docker', 'exec', '--user', 'www-data', current['Id'],
+                    'php', '/var/www/html/occ', *arguments], timeout=60).strip()
+
+    before_value = 'snapshot-' + os.urandom(12).hex()
+    after_value = 'later-' + os.urandom(12).hex()
+    occ('config:app:set', 'titan_backup_smoke', 'snapshot_marker', '--value', before_value)
+    if occ('config:app:get', 'titan_backup_smoke', 'snapshot_marker') != before_value:
+        raise Error('Nextcloud database acceptance marker was not persisted before backup.')
+    sentinels = []
+    for root, name, value, mode in ((config_root, '.titan-backup-config-smoke', 'configuration-before', 0o600),
+                                     (data_root, '.titan-backup-data-smoke', 'user-data-before', 0o640)):
+        path = root / name
+        path.write_text(value)
+        owner = root.stat()
+        os.chown(path, owner.st_uid, owner.st_gid)
+        path.chmod(mode)
+        sentinels.append((path, value, mode, owner.st_uid, owner.st_gid))
+    previous_settings = request('/api/backup/settings')
+    with disposable_backup_disk(base, run) as target:
+        try:
+            # Both settings and lifecycle run through the authenticated HTTP
+            # API. The normal root agent validates the mounted target itself.
+            request('/api/backup/settings', {'target': str(target), 'shares': [], 'include_config': False,
+                'apps': [app], 'app_data': [app], 'auto_backup': False, 'retention': 2})
+            backup = action('backup_create', shares=[], include_config=False, apps=[app], app_data=[app])
+            if backup.get('type') != 'bundle' or backup.get('apps') != [app] or backup.get('app_data') != [app]:
+                raise Error('App backup API did not include explicit app configuration and user data.')
+            ready()
+            if json.loads(private.read_text()) != options_before:
+                raise Error('Cold app backup changed saved private credentials.')
+            occ('config:app:set', 'titan_backup_smoke', 'snapshot_marker', '--value', after_value)
+            if occ('config:app:get', 'titan_backup_smoke', 'snapshot_marker') != after_value:
+                raise Error('Nextcloud database acceptance marker was not changed after backup.')
+            for path, _, _, _, _ in sentinels:
+                path.write_text('changed-after-backup')
+                path.chmod(0o666)
+            action('app_action', app=app, action='stop')
+            restored = action('backup_app_restore', backup=backup['id'], app=app,
+                              confirmation=backup['id'], include_data=True)
+            if not restored.get('kept_stopped') or not restored.get('include_data'):
+                raise Error('App restore API did not retain the stopped state and selected user data.')
+            if any(host._app_container_active(row) for row in host._app_lifecycle_snapshot(app)):
+                raise Error('App restore unexpectedly started a container.')
+            if json.loads(private.read_text()) != options_before:
+                raise Error('App restore changed the saved private credentials.')
+            for path, value, mode, uid, gid in sentinels:
+                info = path.stat()
+                if path.read_text() != value or (info.st_mode & 0o777, info.st_uid, info.st_gid) != (mode, uid, gid):
+                    raise Error('App restore did not preserve sentinel contents, Unix owners and permissions.')
+            recovery = Path(restored['recovery'])
+            recovery_paths = json.loads((recovery / 'recovery.json').read_text())['paths']
+            for entry, sentinel in zip(recovery_paths, sentinels):
+                if (Path(entry['previous']) / sentinel[0].name).read_text() != 'changed-after-backup':
+                    raise Error('App restore did not retain the previous live directory for recovery.')
+            if (private.parent / 'restore-pending.json').exists():
+                raise Error('Successful app restore left a blocking pending marker.')
+            action('app_action', app=app, action='start')
+            ready()
+            if occ('config:app:get', 'titan_backup_smoke', 'snapshot_marker') != before_value:
+                raise Error('Real Nextcloud database state was not restored from the cold backup.')
+            check = urllib.request.Request('http://127.0.0.1:' + str(app_port) + '/status.php',
+                                           headers={'Host': 'nas.test:' + str(app_port)})
+            with urllib.request.urlopen(check, timeout=15) as response:
+                status = json.load(response)
+                if response.status != 200 or status.get('installed') is not True or status.get('maintenance') is not False:
+                    raise Error('Restored Nextcloud did not return an installed, usable HTTP status.')
+            return {'external_ext4_target': True, 'http_backup_restore': True, 'explicit_user_data': True,
+                    'credentials_retained': True, 'unix_permissions_retained': True, 'recovery_retained': True,
+                    'restore_kept_stopped': True, 'nextcloud_database_restored': True, 'restart_http_ready': True}
+        finally:
+            request('/api/backup/settings', previous_settings)
 
 
 def cloudflared_lan_probe(run, url, credentials=None):
@@ -61,15 +180,49 @@ def bigbear_revision(value):
     return value
 
 
+def check_cloudflared_api(url, credentials=None):
+    """Verify the real configuration API in the selected administration mode."""
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, request, response, code, message, headers, location):
+            return None
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    if credentials:
+        # Static HTML is public upstream, so exercise its protected API.
+        try:
+            opener.open(url, timeout=5).close()
+        except urllib.error.HTTPError as response:
+            if response.code != 401:
+                raise Error('Cloudflared Web protected API denied with HTTP ' + str(response.code) + ' instead of 401.') from None
+        else:
+            raise Error('Cloudflared Web protected API allowed unauthenticated access.')
+    request = urllib.request.Request(url, headers={'Authorization': 'Basic ' + credentials} if credentials else {})
+    try:
+        with opener.open(request, timeout=5) as response:
+            if response.status != 200 or not isinstance(json.load(response), dict):
+                raise Error('Cloudflared Web configuration API is unavailable in the selected authentication mode.')
+    except urllib.error.HTTPError as response:
+        raise Error('Cloudflared Web configuration API returned HTTP ' + str(response.code) + ' in the selected authentication mode.') from None
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('package', choices=[*PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
     parser.add_argument('--bigbear-revision', type=bigbear_revision, metavar='SHA',
         help='Use one verified BigBear commit without anonymous GitHub API branch lookup.')
+    parser.add_argument('--cloudflared-auth', choices=['disabled', 'password'],
+        help='Cloudflared administration login mode; the default installation leaves it disabled.')
+    parser.add_argument('--app-backup-smoke', action='store_true',
+        help='Exercise a real external cold backup and Nextcloud database restore through the HTTP APIs.')
     args = parser.parse_args()
     if args.bigbear_revision is not None and not args.package.startswith('bigbear:'):
         parser.error('--bigbear-revision requires a BigBear package.')
+    cloudflared_web = args.package == 'bigbear:cloudflared-web'
+    if args.cloudflared_auth is not None and not cloudflared_web:
+        parser.error('--cloudflared-auth requires bigbear:cloudflared-web.')
+    if args.app_backup_smoke and args.package != 'bigbear:nextcloud':
+        parser.error('--app-backup-smoke requires bigbear:nextcloud.')
+    cloudflared_auth = args.cloudflared_auth or 'disabled'
     if not args.confirm_disposable_runner or os.environ.get('GITHUB_ACTIONS') != 'true':
         parser.error('This test is restricted to an explicitly confirmed disposable GitHub runner.')
     if args.package.startswith('bigbear:'):
@@ -86,16 +239,21 @@ def main():
     else:
         app, recipe = args.package, PACKAGES[args.package]
     user_options = {f['key']: 'Test-' + os.urandom(16).hex() for f in recipe['install_schema'] if f['type'] == 'password' and not f.get('generated')}
+    if cloudflared_web and cloudflared_auth == 'disabled':
+        environment = recipe['stack']['services'][recipe['stack']['primary']].get('environment', {})
+        password_option = environment.get('BASIC_AUTH_PASS', '')
+        if not password_option.startswith('@option:'):
+            raise Error('Cloudflared Web optional administration password field is missing.')
+        user_options.pop(password_option[8:], None)
     if app == 'titan-nextcloud-office':
         user_options['office_mode'] = 'enabled'  # exercise the complete optional Office stack
     options = validate_options(app, prepare_options(app, user_options))
-    cloudflared_web = args.package == 'bigbear:cloudflared-web'
     app_port = recipe['port'] if recipe.get('default_network') == 'host' else 18080
     for key in options:
         if key.startswith('stack_port_') and '_53_' in key: options[key] = 15053
     if 'nas_host' in options: options['nas_host'] = '127.0.0.1'
     if 'stack_nas_host' in options: options['stack_nas_host'] = 'nas.test'
-    secrets = [str(options[f['key']]) for f in recipe['install_schema'] if f['type'] == 'password' and f['key'] in options]
+    secrets = [str(options[f['key']]) for f in recipe['install_schema'] if f['type'] == 'password' and options.get(f['key'])]
     def run(command, input=None, timeout=600):
         result = subprocess.run(command, input=input, text=True, capture_output=True, timeout=timeout)
         if result.returncode:
@@ -206,7 +364,7 @@ def main():
             # Generated secrets on the real install are retained across retries;
             # use these exact private values for the separate Office roundtrip.
             options = actual_options
-            secrets.extend(str(options[f['key']]) for f in recipe['install_schema'] if f['type'] == 'password' and f['key'] in options)
+            secrets.extend(str(options[f['key']]) for f in recipe['install_schema'] if f['type'] == 'password' and options.get(f['key']))
             endpoint = '/api/server/ping' if app == 'titan-immich' else '/admin/' if app == 'titan-pihole' else '/status.php' if app == 'titan-nextcloud-office' else '/'
             bigbear_nextcloud = args.package == 'bigbear:nextcloud'
             if bigbear_nextcloud: endpoint = '/index.php/login'
@@ -237,44 +395,39 @@ def main():
                 else:
                     raise Error('Nextcloud must reject an unconfigured hostname.')
             if cloudflared_web:
+                service = definition['services'][app]
+                if (recipe.get('default_network') != 'host' or installed.get('network', {}).get('mode') != 'host'
+                        or service.get('network_mode') != 'host' or service.get('ports') or service.get('networks')):
+                    raise Error('Cloudflared Web did not retain the upstream host network.')
                 environment = recipe['stack']['services'][recipe['stack']['primary']].get('environment', {})
                 def private_value(key):
                     value = environment.get(key, '')
                     return str(actual_options[value[8:]]) if isinstance(value, str) and value.startswith('@option:') else str(value)
                 username, password = private_value('BASIC_AUTH_USER'), private_value('BASIC_AUTH_PASS')
-                if not username or len(password) < 12:
+                if cloudflared_auth == 'password' and (not username or len(password) < 12):
                     raise Error('Cloudflared Web credentials were not securely configured.')
-                class NoRedirect(urllib.request.HTTPRedirectHandler):
-                    def redirect_request(self, request, response, code, message, headers, location):
-                        return None
-                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-                credentials = base64.b64encode((username + ':' + password).encode()).decode()
-                secrets.append(credentials)
-                # Upstream serves static HTML before auth middleware. Check
-                # the protected configuration API rather than assuming the
-                # public landing page itself challenges for credentials.
+                if cloudflared_auth == 'disabled' and (password != '' or service['environment'].get('BASIC_AUTH_PASS') != ''):
+                    raise Error('Cloudflared Web disabled authentication requires an actual empty password.')
+                credentials = base64.b64encode((username + ':' + password).encode()).decode() if password else None
+                if credentials: secrets.append(credentials)
                 protected_url = 'http://127.0.0.1:' + str(app_port) + '/config'
-                try:
-                    opener.open(protected_url, timeout=5).close()
-                except urllib.error.HTTPError as response:
-                    if response.code != 401:
-                        raise Error('Cloudflared Web protected API denied with HTTP ' + str(response.code) + ' instead of 401.') from None
-                else:
-                    raise Error('Cloudflared Web protected API allowed unauthenticated access.')
-                authenticated = urllib.request.Request(protected_url, headers={'Authorization': 'Basic ' + credentials})
-                with opener.open(authenticated, timeout=5) as response:
-                    if response.status != 200 or not isinstance(json.load(response), dict):
-                        raise Error('Configured Cloudflared Web credentials cannot open the application.')
+                check_cloudflared_api(protected_url, credentials)
+                cloudflared_private_before = (host.directory / 'apps' / app / 'options.json').read_bytes()
             lan_url = 'http://10.254.254.1:' + str(app_port)
             def check_cloudflared_lan():
                 if not cloudflared_web:
                     return
-                for path, expected, auth in (('/', '200', None), ('/config', '401', None), ('/config', '200', credentials)):
+                checks = [('/', '200', None), ('/config', '401' if credentials else '200', None)]
+                if credentials: checks.append(('/config', '200', credentials))
+                for path, expected, auth in checks:
                     diagnostic = cloudflared_lan_probe(run, lan_url + path, auth)
                     if (diagnostic['http_status'] != expected or
                             expected == '401' and not diagnostic['www_authenticate'].lower().startswith('basic')):
                         raise Error('Cloudflared Web isolated LAN check failed for ' + path + '; expected HTTP ' + expected +
                                     '; received ' + json.dumps(diagnostic, sort_keys=True))
+                check_cloudflared_api(protected_url, credentials)
+                if (host.directory / 'apps' / app / 'options.json').read_bytes() != cloudflared_private_before:
+                    raise Error('Cloudflared Web lifecycle changed saved administration credentials.')
                 state = request('/api/apps')['installed'][0]
                 if not state.get('web_available') or state.get('web_state') != 'ready':
                     raise Error('App API did not report verified HTTP readiness.')
@@ -319,6 +472,8 @@ def main():
             keep.write_text('persistent-user-data')
             private = host.directory / 'apps' / app / 'options.json'
             private_before = private.read_bytes()
+            app_backup = (app_backup_restore_smoke(base, host, request, action, ready, app, installed, run, app_port)
+                          if args.app_backup_smoke else None)
             removed = action('app_action', app=app, action='remove')
             if not removed.get('data_retained') or removed.get('state') != 'removed':
                 raise Error('Unexpected package removal result.')
@@ -333,8 +488,11 @@ def main():
             print(json.dumps({'package': app, 'containers': len(definition['services']), 'ready': True,
                 'restart': True, 'host_http_lifecycle': True, 'single_container_stop': True,
                 'package_stop_start': True, 'uninstall_data_retained': True,
-                **({'isolated_lan_firewall_access': True, 'basic_auth_required': True, 'readiness_verified': True} if cloudflared_web else {}),
+                **({'isolated_lan_firewall_access': True, 'basic_auth_required': bool(credentials),
+                    'authentication_mode': cloudflared_auth, 'host_network_verified': True,
+                    'credentials_retained': True, 'readiness_verified': True} if cloudflared_web else {}),
                 'file_browse_during_install': True, 'file_browse_seconds': round(list_seconds, 3),
+                **({'app_backup_restore': app_backup} if app_backup else {}),
                 **({'office_gateway': office_gateway} if office_gateway else {})}))
         except Exception:
             if app == 'titan-nextcloud-office':

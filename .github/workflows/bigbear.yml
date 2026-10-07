@@ -29,6 +29,10 @@ jobs:
   cloudflared-web:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        auth: [disabled, password]
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -37,6 +41,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y python3-yaml firewalld caddy
       - name: Validate all generated Caddy protocol and port configurations
         run: python3 -m unittest discover -s tests -p test_web_access_caddy.py -v
+      - name: Real Caddy tunnel routing and Titan login acceptance
+        run: python3 -m unittest discover -s tests -p test_remote_access_proxy.py -v
       - name: Isolated LAN client and active firewalld
         run: |
           sudo systemctl start firewalld
@@ -48,8 +54,8 @@ jobs:
           sudo ip netns exec titan-ci-client ip link set lo up
           sudo ip netns exec titan-ci-client ip link set eth0 up
           sudo firewall-cmd --zone=home --add-interface=titan-ci0
-      - name: Cloudflared Web real HTTP, LAN access, stop, start, restart and uninstall
-        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py bigbear:cloudflared-web --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION"
+      - name: Cloudflared Web real HTTP, LAN access, stop, start, restart and uninstall (${{ matrix.auth }})
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py bigbear:cloudflared-web --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION" --cloudflared-auth '${{ matrix.auth }}'
       - name: Remove isolated test LAN
         if: always()
         run: |

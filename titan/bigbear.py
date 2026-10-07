@@ -48,6 +48,18 @@ def translate(document, metadata, label):
                 # The v3 server uses /data; the catalog still maps its v1 path.
                 service['volumes'] = [mapping.replace(':/usr/src/app/upload', ':/data') if isinstance(mapping, str) else mapping for mapping in service.get('volumes', [])]
     result = compose_translate(source, label, REPOSITORY)
+    if label == 'cloudflared-web':
+        # Upstream enables its optional administration login only when a real
+        # password is supplied. Privacy does not make this setting mandatory.
+        primary = result['stack']['services'][result['stack']['primary']]
+        password = primary.get('environment', {}).get('BASIC_AUTH_PASS', '')
+        if password.startswith('@option:'):
+            field = next(field for field in result['stack_fields'] if field['key'] == password[8:])
+            field.update(label='Passwort für Cloudflared-Verwaltung · optional',
+                required=False, min_length=0, default='')
+        result['login_note'] = ('Ein gesetztes Passwort schützt die Cloudflared-Verwaltung (Benutzername admin). '
+            'Bei leerem Feld entfällt diese Anmeldung. Den Cloudflare-Tunnel-Token anschließend in der App eintragen. '
+            'Das Host-Netz erlaubt dem Tunnel den Zugriff auf Dienste des NAS.')
     if label == 'nextcloud':
         primary = result['stack']['services'][result['stack']['primary']]
         primary['environment']['NEXTCLOUD_TRUSTED_DOMAINS'] = '@option:stack_nas_host'

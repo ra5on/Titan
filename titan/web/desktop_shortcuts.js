@@ -2,6 +2,7 @@
 (function(root,factory){const ui=factory();if(typeof module==='object'&&module.exports)module.exports=ui;if(root)root.TitanShortcuts=ui;})(typeof window==='undefined'?null:window,function(){
  const validKey=key=>typeof key==='string'&&/^(tool|app):[a-zA-Z0-9_-]{1,64}$/.test(key);
  const idOf=row=>typeof row==='string'?row:row.id;
+ const desktopPreferences=value=>({background_click:value?.background_click==='minimize'?'minimize':'none',transparency:Number.isInteger(value?.transparency)&&value.transparency>=0&&value.transparency<=100?value.transparency:40});
  const defaults=['tool:files','tool:docker','tool:settings','tool:apps','tool:storage'];
  function normalize(value={},allowed=[]){
   const seen=new Set(),folders=new Set(),tools=new Set(allowed),hidden=new Set(value.hidden||[]);
@@ -10,7 +11,7 @@
   const items=[];for(const row of Array.isArray(input)?input:[]){if(typeof row==='string'){if(take(row))items.push(row);}else if(row&&/^folder-[a-z0-9-]{1,40}$/.test(row.id)&&!folders.has(row.id)){folders.add(row.id);items.push({id:row.id,name:String(row.name||'Ordner').slice(0,40),items:(Array.isArray(row.items)?row.items:[]).filter(take)});}}
   const positions={};for(const row of items){const key=idOf(row),p=value.positions?.[key];if(p&&Number.isInteger(p.x)&&Number.isInteger(p.y)&&p.x>=0&&p.y>=0&&p.x<32&&p.y<128)positions[key]={x:p.x,y:p.y};}
   if(!value.docker_added&&items.length&&tools.has('tool:docker')&&!has(items,'tool:docker')&&!hidden.has('tool:docker'))items.push('tool:docker');
-  return {version:2,items,positions,docker_added:true,icon_size:['small','medium','large'].includes(value.icon_size)?value.icon_size:'medium',widgets:value.widgets||{visible:true,collapsed:false,items:['cpu','ram','health']}};
+  return {version:2,items,positions,desktop:desktopPreferences(value.desktop),docker_added:true,icon_size:['small','medium','large'].includes(value.icon_size)?value.icon_size:'medium',widgets:value.widgets||{visible:true,collapsed:false,items:['cpu','ram','health']}};
  }
  function place(items,positions,columns,rows){const used=new Set(),out={};columns=Math.max(1,columns);rows=Math.max(1,rows);for(const item of items){const key=idOf(item),preferred=positions[key];let x=preferred?Math.min(columns-1,preferred.x):0,y=preferred?Math.min(rows-1,preferred.y):0;while(used.has(x+','+y)){y++;if(y>=rows){y=0;x++;}if(x>=columns){x=0;rows++;y=rows-1;}}used.add(x+','+y);out[key]={x,y};}return out;}
  function remove(items,key){return items.filter(row=>idOf(row)!==key).map(row=>typeof row==='string'?row:{...row,items:row.items.filter(id=>id!==key)});}
@@ -62,7 +63,7 @@
   listeners.forEach(([node,event,fn])=>node.addEventListener(event,fn));folderDialog.addEventListener('close',()=>{opened=null;context.hidden=true;doc.body.append(context);});const observer=new win.ResizeObserver(position);observer.observe(surface);render();
   const liveTimer=setInterval(()=>{if(alive&&!gesture&&!doc.hidden&&context.hidden&&!pendingApps.size)void refreshApps();},15000);
   async function refreshApps(){if(user.role!=='admin'&&!user.permissions?.apps?.allowed)return;try{const result=await api('/api/apps');if(alive){updateApps(result);if(!gesture&&!folderDialog.open&&context.hidden)render();}}catch{}}
-  return {add,contains:key=>has(layout.items,key),entries:()=>[...entries.entries()],open:openItem,refreshApps,widgets:()=>layout.widgets,setWidgets:value=>{layout.widgets=value;change();},destroy(){alive=false;actionController.abort();clearInterval(liveTimer);gesture?.preview?.remove();observer.disconnect();listeners.forEach(([node,event,fn])=>node.removeEventListener(event,fn));context.remove();folderDialog.remove();}};
+  return {desktop:()=>({...layout.desktop}),desktopWritable:()=>!readonly,setDesktop:value=>{if(readonly||!alive)return false;layout.desktop=desktopPreferences(value);revision++;void persist();return true;},backgroundClickAllowed:()=>!gesture&&Date.now()>=blockClick,add,contains:key=>has(layout.items,key),entries:()=>[...entries.entries()],open:openItem,refreshApps,widgets:()=>layout.widgets,setWidgets:value=>{layout.widgets=value;change();},destroy(){alive=false;actionController.abort();clearInterval(liveTimer);gesture?.preview?.remove();observer.disconnect();listeners.forEach(([node,event,fn])=>node.removeEventListener(event,fn));context.remove();folderDialog.remove();}};
  }
  return {normalize,place,remove,group,safeUrl,mount};
 });

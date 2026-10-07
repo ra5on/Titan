@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.5.4 with automatic catalog loading and confirmed HTTPS web access.
+# Build Titan 0.5.5 with scoped tunnel access, app backups and compact resizable managers.
 on:
   workflow_dispatch:
   push:

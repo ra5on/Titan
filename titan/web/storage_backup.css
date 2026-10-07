@@ -105,3 +105,12 @@ html[data-desktop-embedded=true] #shell[data-page] .nas-window-content:has(.stor
 @media(max-width:760px){.storage-toolbar{flex-wrap:wrap}.storage-toolbar h2{flex:1 1 110px}.storage-toolbar .form-actions{flex:1 1 190px;min-width:0}.storage-toolbar .button{white-space:normal;text-align:center}.storage-workspace .storage-snapshot .form-actions{width:100%;gap:6px}.storage-workspace .storage-snapshot .button{flex:1 1 110px}.storage-workspace .system-disk-panel .app-details{grid-template-columns:minmax(0,1fr)}}
 .storage-workspace .form-actions{position:static;bottom:auto;padding:0;background:transparent;z-index:auto}
 .storage-smart-details .code{max-height:min(45dvh,360px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+
+.backup-app-selection{min-width:0;margin:16px 0;padding:12px;border:1px solid #dce5ee;border-radius:6px}
+.backup-app-choice{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid #e8edf4;min-width:0}
+.backup-app-choice .check-label{min-width:0;overflow-wrap:anywhere;align-items:flex-start}
+.backup-app-choice .check-label:nth-child(2){margin-left:24px;font-size:12px}
+.backup-app-choice input{flex:none;margin-top:3px}
+.backup-version .form-actions{flex-wrap:wrap}
+.backup-version .form-actions .button{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:600px){.backup-stepper{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.backup-stepper span{font-size:10px;padding:8px 3px;text-align:center;white-space:nowrap}}

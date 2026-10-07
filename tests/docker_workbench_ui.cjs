@@ -9,7 +9,7 @@ assert.match(ui.metric({cpu_percent:0,memory_bytes:0},String),/RAM gesamt <stron
 assert.match(ui.metric({},String),/RAM gesamt <strong>—/);
 const live=require('../titan/web/vm_live.js');const render=vm=>live.render(vm,{bytes:v=>String(v),esc:String});
 const stopped=render({state:'shut off',cpus:2,memory_mb:4096,metrics:{cpu_percent:97,memory_resident_bytes:9999999,memory_guest_used_bytes:9999999}});
-assert.match(stopped,/CPU live[^]*?<strong>0 %/);assert.match(stopped,/RAM-Verbrauch auf dem NAS<\/small><strong>0<\/strong>/);assert(!stopped.includes('9999999'));assert(!stopped.includes('zugewiesen'));
+assert.match(stopped,/CPU live[^]*?<strong>0 %/);assert.match(stopped,/RAM auf NAS \(RSS\)<\/small><strong>0<\/strong>/);assert(!stopped.includes('9999999'));assert(!stopped.includes('zugewiesen'));
 assert.match(render({state:'running',cpus:2,memory_mb:4096,metrics:{memory_resident_bytes:12345,memory_guest_used_bytes:1}}),/strong>12345/);
 console.log('Docker workbench parser and stopped VM resource regressions passed.');
 const containers=[{id:'a',name:'Alpha',image:'nginx',state:'running',project:'web',health:'healthy',networks:[]},{id:'b',name:'Beta',image:'redis',state:'exited',project:'web',networks:[]},{id:'c',name:'Gamma',image:'busybox',state:'running',health:'unhealthy',networks:[]}];

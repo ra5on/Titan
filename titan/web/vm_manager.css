@@ -1,153 +1,128 @@
-/* The VM application owns one scrollable content pane; the console fills it. */
+/* VM tiles and details share the available window; only the active pane scrolls. */
 #shell[data-page=vms] .nas-window-content{display:flex!important;flex-direction:column!important;overflow:hidden!important;padding:0!important;height:100%!important;min-height:0!important;container:vm-pane / inline-size!important}
-#shell[data-page=vms] .nas-window-content>.page-heading{flex:none;padding:10px 14px;margin:0;border-bottom:1px solid #dde5ee}
-#shell[data-page=vms] .mv-manager[data-manager=vms]{flex:1;min-height:0;height:100%;overflow:hidden;grid-template-columns:148px minmax(0,1fr);border-radius:0;box-shadow:none;max-width:100%}
-#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-workspace{min-height:0;overflow:hidden}
-#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:16px;background:#fff}
+#shell[data-page=vms] .nas-window-content>.page-heading{display:none}
+#shell[data-page=vms] .mv-manager[data-manager=vms]{display:flex;flex-direction:column;flex:1;min-height:0;height:100%;overflow:hidden;border:0;border-radius:0;box-shadow:none;max-width:100%}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-sidebar{display:flex;flex-direction:row;align-items:center;gap:8px;flex:none;min-height:0;overflow-x:auto;overflow-y:hidden;padding:4px 10px;border-right:0;border-bottom:1px solid #dce5ee;scrollbar-width:thin}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-brand,#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-side-foot{display:none}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-tabs{display:flex;flex-direction:row;flex-wrap:nowrap;gap:2px;padding:0;flex-shrink:0}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-tabs>button{width:auto;min-height:36px;padding:7px 10px;font-size:12px;gap:6px;border-left:0;border-radius:5px;white-space:nowrap}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-side-actions{flex-shrink:0;margin:0 0 0 auto;padding:0;border:0}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-side-button{width:auto;min-height:36px;padding:7px 10px;font-size:12px;white-space:nowrap}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-workspace{flex:1;min-height:0;overflow:hidden}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-toolbar{min-height:44px;padding:6px 14px;flex:none}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px;background:#fff}
 #shell[data-page=vms] .mv-manager[data-manager=vms][data-manager-view=machines] .mv-content{padding:0;overflow:hidden;display:flex;flex-direction:column}
-#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-sidebar{min-height:0;overflow:auto;padding:10px 6px}
-#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-brand{padding:10px;font-size:12px}
-#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-brand-icon{width:38px;height:38px}
-#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-brand-icon svg{width:25px;height:25px}
-#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-toolbar{min-height:48px;padding:8px 14px;flex:none}
-#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-notice,#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-warning{flex:none;margin:10px 14px}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-notice,#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-warning{flex:none;margin:8px 14px}
 #shell[data-page=vms] .mv-manager[data-manager=vms] [data-manager-panel=machines]{flex:1;min-height:0;display:flex}
-#shell[data-page=vms] .vm-machine-workspace{display:grid;grid-template-columns:minmax(0,1fr);width:100%;height:100%;min-height:0;min-width:0}
-#shell[data-page=vms] .vm-master-pane{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:12px 14px}
-#shell[data-page=vms] .vm-master-pane .mv-filter-bar{margin-bottom:10px}
+#shell[data-page=vms] .vm-machine-workspace{width:100%;height:100%;min-height:0;min-width:0}
+#shell[data-page=vms] .vm-master-pane{height:100%;box-sizing:border-box;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:12px 14px}
+#shell[data-page=vms] .vm-master-pane .mv-filter-bar{margin-bottom:6px;gap:8px}
 #shell[data-page=vms] .vm-master-pane .mv-search{max-width:420px}
-#shell[data-page=vms] .vm-list-heading,#shell[data-page=vms] .vm-list-row{display:grid;grid-template-columns:minmax(170px,1.1fr) minmax(150px,1fr) minmax(230px,1.35fr) minmax(220px,auto);align-items:center;gap:12px}
-#shell[data-page=vms] .vm-list-heading{font-size:11px;color:#7d8fa1;padding:8px 10px;border-bottom:1px solid #dce5ee;background:#f7f9fb}
-#shell[data-page=vms] .vm-master-list{min-width:0}
-#shell[data-page=vms] .vm-list-row{padding:12px 10px;border-bottom:1px solid #e3e9f0;background:#fff;min-width:0;border-left:3px solid transparent;transition:background-color .15s ease,border-color .15s ease}
-#shell[data-page=vms] .vm-list-row:hover{background:#f7faff}
-#shell[data-page=vms] .vm-list-row.is-selected{background:#eef6ff;border-left-color:#2784c5}
-#shell[data-page=vms] .vm-list-row[hidden],#shell[data-page=vms] .vm-selected-pane[hidden]{display:none!important}
-#shell[data-page=vms] .vm-row-select{display:flex;align-items:center;gap:10px;padding:0;border:0;background:transparent;font:inherit;color:#334b62;text-align:left;min-width:0;cursor:pointer;box-shadow:none;white-space:normal}
-#shell[data-page=vms] .vm-row-select:focus-visible{outline:2px solid #559cfa;outline-offset:4px;border-radius:3px}
-#shell[data-page=vms] .vm-row-icon{width:32px;height:32px;display:grid;place-items:center;border-radius:6px;background:#eaf3fd;color:#3d88c2;flex:none}
+#shell[data-page=vms] .vm-live-caption{font-size:11px;line-height:1.4;color:#70869a;margin:0 0 10px}
+#shell[data-page=vms] .vm-master-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:10px;min-width:0;align-items:start}
+#shell[data-page=vms] .vm-list-row{position:relative;display:flex;flex-direction:column;gap:12px;padding:12px;min-width:0;border:1px solid #dce5ee;border-radius:7px;background:#fff;transition:background-color .15s ease,border-color .15s ease}
+#shell[data-page=vms] .vm-list-row:hover{background:#f8fbff;border-color:#a7c9e8}
+#shell[data-page=vms] .vm-list-row:has(.vm-row-more[open]){z-index:5}
+#shell[data-page=vms] .vm-list-row.is-selected{background:#eef6ff;border-color:#2784c5}
+#shell[data-page=vms] .vm-list-row[hidden],#shell[data-page=vms] .vm-master-pane[hidden],#shell[data-page=vms] .vm-selected-pane[hidden]{display:none!important}
+#shell[data-page=vms] .vm-row-select{display:flex;align-items:center;gap:9px;padding:0;border:0;background:transparent;font:inherit;color:#334b62;text-align:left;min-width:0;cursor:pointer;box-shadow:none;white-space:normal}
+#shell[data-page=vms] .vm-row-select::after{content:"";position:absolute;inset:0;border-radius:7px;z-index:1}
+#shell[data-page=vms] .vm-row-select:focus-visible{outline:none}
+#shell[data-page=vms] .vm-row-select:focus-visible::after{outline:2px solid #2784c5;outline-offset:2px}
+#shell[data-page=vms] .vm-row-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:6px;background:#eaf3fd;color:#3d88c2;flex:none}
 #shell[data-page=vms] .vm-row-icon svg{width:23px;height:23px}
-#shell[data-page=vms] .vm-row-name{display:flex;align-items:flex-start;gap:6px;flex-direction:column;min-width:0}
-#shell[data-page=vms] .vm-row-name strong{font-size:13px;font-weight:600;overflow-wrap:anywhere}
-#shell[data-page=vms] .vm-row-configuration{font-size:11px;color:#667f96;display:flex;flex-direction:column;gap:5px;min-width:0;line-height:1.5}
-#shell[data-page=vms] .vm-row-configuration span{overflow-wrap:anywhere}
-#shell[data-page=vms] .vm-row-configuration .vm-row-path{font-size:10px;color:#7d90a4;max-width:100%;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
-#shell[data-page=vms] .vm-row-pinning{font-size:10px;color:#7d90a4}
-#shell[data-page=vms] .vm-row-live{min-width:0}
-#shell[data-page=vms] .vm-row-live .vm-live-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border:0;padding:0;margin:0}
-#shell[data-page=vms] .vm-row-live .vm-live-grid>div{min-width:0;display:flex;flex-direction:column;gap:5px;border:0;padding:0;background:transparent;box-shadow:none}
-#shell[data-page=vms] .vm-row-live .vm-live-grid>div:nth-child(4),#shell[data-page=vms] .vm-row-live .vm-live-grid span,#shell[data-page=vms] .vm-row-live .vm-sparkline{display:none}
-#shell[data-page=vms] .vm-row-live .vm-live-grid small{font-size:10px;line-height:1.35;color:#7e91a4;overflow-wrap:anywhere}
-#shell[data-page=vms] .vm-row-live .vm-live-grid strong{font-size:13px;color:#344f6b;line-height:1.4;overflow-wrap:anywhere}
-#shell[data-page=vms] .vm-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap}
-#shell[data-page=vms] .vm-row-more{position:relative;min-width:0}
-#shell[data-page=vms] .vm-row-more>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;white-space:nowrap}
+#shell[data-page=vms] .vm-row-name{display:flex;align-items:flex-start;gap:5px;flex-direction:column;min-width:0;flex:1}
+#shell[data-page=vms] .vm-row-name strong{font-size:14px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+#shell[data-page=vms] .vm-card-open{color:#7f98ae;font-size:15px;flex:none}
+#shell[data-page=vms] .vm-row-live{min-width:0;pointer-events:none}
+#shell[data-page=vms] .vm-row-live .vm-live-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;border:0;padding:0;margin:0}
+#shell[data-page=vms] .vm-row-live .vm-live-grid>div{min-width:0;display:flex;flex-direction:column;gap:4px;border:0;padding:0;background:transparent;box-shadow:none}
+#shell[data-page=vms] .vm-row-live .vm-live-grid small{font-size:10px;line-height:1.35;color:#70869a;overflow-wrap:anywhere}
+#shell[data-page=vms] .vm-row-live .vm-live-grid strong{font-size:18px;color:#344f6b;line-height:1.4;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+#shell[data-page=vms] .vm-live-unavailable{font-size:12px;color:#8a6a32;margin:0;min-height:44px;display:flex;align-items:center}
+#shell[data-page=vms] .vm-row-actions{position:relative;z-index:2;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:auto}
+#shell[data-page=vms] .mv-manager[data-manager=vms] .vm-row-actions>.button{flex:1;min-height:34px;padding:7px 8px;font-size:12px;justify-content:center}
+#shell[data-page=vms] .vm-row-more{position:static;min-width:0}
+#shell[data-page=vms] .vm-row-more>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;width:34px;min-height:34px;padding:4px;font-size:19px;line-height:1;box-sizing:border-box}
 #shell[data-page=vms] .vm-row-more>summary::-webkit-details-marker{display:none}
 #shell[data-page=vms] .vm-row-more>summary:focus-visible{outline:2px solid #559cfa;outline-offset:2px}
-#shell[data-page=vms] .vm-row-menu{display:flex;flex-wrap:wrap;gap:6px;padding:10px;border:1px solid #cbdbea;border-radius:6px;background:#fff;box-shadow:0 6px 20px #223c5520;position:absolute;right:0;top:calc(100% + 5px);z-index:6;width:min(360px,75vw)}
+#shell[data-page=vms] .vm-row-menu{display:flex;flex-wrap:wrap;gap:5px;padding:8px;border:1px solid #cbdbea;border-radius:6px;background:#fff;box-shadow:0 6px 20px #223c5520;position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:6}
 #shell[data-page=vms] .vm-row-menu .button{flex:1 1 145px;justify-content:flex-start}
-#shell[data-page=vms] .vm-master-hint{font-size:11px;line-height:1.6;color:#7b8fa3;margin:14px 2px}
-#shell[data-page=vms] .vm-selected-pane{min-width:0;min-height:0;overflow:hidden;background:#fff;border-left:1px solid #dce5ee}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-machine-workspace{grid-template-columns:260px minmax(0,1fr)}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-master-pane{padding:10px 8px;background:#fbfcfe}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-list-heading,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-row-configuration,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-row-more,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-master-hint{display:none}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-list-row{grid-template-columns:minmax(0,1fr);gap:11px;padding:12px 8px}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-row-actions{justify-content:flex-start}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-filter-bar{flex-wrap:wrap;gap:7px}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-search{flex-basis:100%}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-filter-count{margin-left:auto}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail[data-vm-detail-tab=console]{grid-template-columns:minmax(0,1fr)}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail[data-vm-detail-tab=console] .mv-sidebar,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail[data-vm-detail-tab=console] .mv-toolbar,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail[data-vm-detail-tab=console] .vm-master-pane{display:none}
-#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail[data-vm-detail-tab=console] .vm-machine-workspace{grid-template-columns:minmax(0,1fr)}
+#shell[data-page=vms] .vm-selected-pane{width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;background:#fff}
+#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-sidebar,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-toolbar,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-master-pane{display:none}
 #shell[data-page=vms] .vm-extension-detail{display:flex;flex-direction:column;height:100%;min-height:0;min-width:0;overflow:hidden;background:#fff;container:vm-detail / inline-size}
-#shell[data-page=vms] .vm-detail-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:none;padding:10px 14px;border-bottom:1px solid #dce5ef;background:#f8fafc}
-#shell[data-page=vms] .vm-detail-title{display:flex;align-items:center;gap:9px;flex:1;min-width:0}
+#shell[data-page=vms] .vm-detail-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:none;padding:8px 12px;border-bottom:1px solid #dce5ef;background:#f8fafc}
+#shell[data-page=vms] .vm-detail-title{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
 #shell[data-page=vms] .vm-detail-title h2{font-size:16px;margin:0;overflow-wrap:anywhere}
 #shell[data-page=vms] .vm-detail-title .pill{font-size:11px;flex:none}
-#shell[data-page=vms] .vm-detail-header>.button,#shell[data-page=vms] .vm-detail-quick-actions .button{min-height:34px;font-size:12px;padding:7px 10px}
-#shell[data-page=vms] .vm-detail-quick-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+#shell[data-page=vms] .vm-detail-header>.button,#shell[data-page=vms] .vm-detail-quick-actions .button{min-height:34px;font-size:12px;padding:7px 9px}
+#shell[data-page=vms] .vm-detail-quick-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 #shell[data-page=vms] .vm-header-more{position:relative}
 #shell[data-page=vms] .vm-header-more>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
 #shell[data-page=vms] .vm-header-more>summary::-webkit-details-marker{display:none}
-#shell[data-page=vms] .vm-header-more>div{position:absolute;right:0;z-index:8;background:#fff;padding:8px;border:1px solid #d5dfed;border-radius:6px;box-shadow:0 8px 26px #1d355322;width:220px;max-width:75vw;display:grid;gap:5px}
+#shell[data-page=vms] .vm-header-more>div{position:absolute;right:0;z-index:8;background:#fff;padding:8px;border:1px solid #d5dfed;border-radius:6px;box-shadow:0 8px 26px #1d355322;width:220px;max-width:75vw;display:grid;gap:5px;max-height:60dvh;overflow:auto}
 #shell[data-page=vms] .vm-header-more>div .button{justify-content:flex-start;white-space:normal}
-#shell[data-page=vms] .vm-extension-detail>.manager-tabs{flex:none;display:flex;flex-wrap:wrap;gap:0;padding:0 10px;margin:0;border-bottom:1px solid #dce5ef;background:#fff}
-#shell[data-page=vms] .vm-extension-detail>.manager-tabs .button{flex:1 1 80px;min-width:0;border:0;border-bottom:3px solid transparent;border-radius:0;min-height:42px;font-size:12px;background:transparent;padding:10px 8px;color:#657a90;white-space:normal}
+#shell[data-page=vms] .vm-extension-detail>.manager-tabs{flex:none;display:flex;flex-wrap:nowrap;gap:0;padding:0 8px;margin:0;border-bottom:1px solid #dce5ef;background:#fff;overflow-x:auto;scrollbar-width:thin}
+#shell[data-page=vms] .vm-extension-detail>.manager-tabs .button{flex:1 0 auto;min-width:0;border:0;border-bottom:3px solid transparent;border-radius:0;min-height:40px;font-size:12px;background:transparent;padding:9px 12px;color:#657a90;white-space:nowrap}
 #shell[data-page=vms] .vm-extension-detail>.manager-tabs .button[aria-selected=true]{border-bottom-color:#2685cc;color:#176dad;font-weight:600;background:#f4f9ff}
-#shell[data-page=vms] .vm-detail-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:16px;overflow-wrap:anywhere;scrollbar-gutter:stable}
-#shell[data-page=vms] .vm-detail-content.is-console{display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:8px;scrollbar-gutter:auto}
+#shell[data-page=vms] .vm-detail-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px;overflow-wrap:anywhere;scrollbar-gutter:stable}
+#shell[data-page=vms] .vm-detail-content.is-console{display:flex;flex-direction:column;gap:6px;overflow:hidden;padding:6px;scrollbar-gutter:auto}
 #shell[data-page=vms] .vm-detail-content.is-console .vm-console-frame{width:100%;height:auto!important;min-height:0!important;flex:1;border:1px solid #c7d6e8;border-radius:4px;display:block;background:#111827}
 #shell[data-page=vms] .vm-detail-content.is-console>.hint{flex:none;margin:0;font-size:11px}
-#shell[data-page=vms] .vm-detail-content .vm-live-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}
-#shell[data-page=vms] .vm-detail-content .vm-live-grid>div{padding:12px;border:1px solid #dce6f1;border-radius:6px;background:#f8fbff;min-width:0}
+#shell[data-page=vms] .vm-detail-content .vm-live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));gap:10px;margin-bottom:12px}
+#shell[data-page=vms] .vm-detail-content .vm-live-grid>div{padding:11px;border:1px solid #dce6f1;border-radius:6px;background:#f8fbff;min-width:0}
 #shell[data-page=vms] .vm-detail-content .vm-live-grid strong{font-size:20px;overflow-wrap:anywhere}
-#shell[data-page=vms] .vm-overview-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px}
-#shell[data-page=vms] .vm-overview-facts article{display:flex;flex-direction:column;gap:7px;padding:12px;border:1px solid #e0e7ef;border-radius:6px;min-width:0}
+#shell[data-page=vms] .vm-overview-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr));gap:8px;margin-bottom:14px}
+#shell[data-page=vms] .vm-overview-facts article{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid #e0e7ef;border-radius:6px;min-width:0}
 #shell[data-page=vms] .vm-overview-facts small,#shell[data-page=vms] .vm-overview-facts span{color:#75899e;font-size:11px;line-height:1.5}
 #shell[data-page=vms] .vm-overview-facts strong{font-size:14px}
-#shell[data-page=vms] .vm-detail-content>section{padding-top:12px;border-top:1px solid #e1e7ef}
+#shell[data-page=vms] .vm-detail-content>section{padding-top:10px;border-top:1px solid #e1e7ef}
 #shell[data-page=vms] .vm-detail-content h3{font-size:14px}
-#shell[data-page=vms] .vm-extension-detail .vm-extension-actions{gap:7px;margin-top:12px}
+#shell[data-page=vms] .vm-extension-detail .vm-extension-actions{gap:7px;margin-top:10px}
 #shell[data-page=vms] .vm-extension-detail .vm-extension-list{gap:0;border:1px solid #dce5ef;border-radius:6px;overflow:hidden}
 #shell[data-page=vms] .vm-extension-detail .vm-extension-row{border:0;border-bottom:1px solid #e2e9f1;border-radius:0}
 #shell[data-page=vms] .vm-extension-detail .vm-extension-row:last-child{border-bottom:0}
 #shell[data-page=vms] .vm-extension-detail .button{transition:background-color 160ms ease,border-color 160ms ease}
-#shell[data-page=vms] .vm-operation-status{flex:none;padding:8px 14px;background:#edf6ff;color:#28649b;font-size:12px;overflow-wrap:anywhere}
+#shell[data-page=vms] .vm-operation-status{flex:none;padding:8px 12px;background:#edf6ff;color:#28649b;font-size:12px;overflow-wrap:anywhere}
 #shell[data-page=vms] .vm-operation-status[hidden]{display:none}
-@container vm-pane (max-width:1120px){
- #shell[data-page=vms] .vm-list-heading,#shell[data-page=vms] .vm-list-row{grid-template-columns:minmax(145px,1fr) minmax(125px,.8fr) minmax(175px,1fr)}
- #shell[data-page=vms] .vm-list-heading>span:last-child{display:none}
- #shell[data-page=vms] .vm-row-actions{grid-column:1 / -1;justify-content:flex-start}
- #shell[data-page=vms] .vm-row-live .vm-live-grid small{font-size:9px}
-}
-@container vm-pane (max-width:1000px){
- #shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-master-pane,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-sidebar,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-toolbar{display:none}
- #shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-machine-workspace{grid-template-columns:minmax(0,1fr)}
- #shell[data-page=vms] .vm-selected-pane{border-left:0}
-}
 @container vm-pane (max-width:700px){
- #shell[data-page=vms] .mv-manager[data-manager=vms]{display:flex;flex-direction:column}
- #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-sidebar{flex:none;overflow:visible;padding:6px 10px;border-right:0;border-bottom:1px solid #dce5ef}
- #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-brand,#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-side-foot{display:none}
- #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-tabs{flex-direction:row;flex-wrap:wrap}
- #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-tabs>button{flex:1;min-width:75px;width:auto;font-size:11px;padding:8px 5px;gap:4px}
- #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-side-actions{margin-top:4px;padding-top:4px}
- #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-workspace{flex:1;min-height:0}
+ #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-sidebar{padding:4px 8px;gap:4px}
+ #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-tabs>button,#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-side-button{min-height:44px;padding:8px;font-size:12px}
+ #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-toolbar{padding:6px 10px;gap:6px}
+ #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-toolbar-title{display:none}
+ #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-toolbar-actions{width:100%;flex-wrap:nowrap}
+ #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-toolbar-actions>.button{flex:1;min-height:40px;justify-content:center}
+ #shell[data-page=vms] .vm-master-pane{padding:10px}
+ #shell[data-page=vms] .vm-master-pane .mv-filter-bar{flex-wrap:wrap;gap:6px}
+ #shell[data-page=vms] .vm-master-pane .mv-search{flex-basis:100%;max-width:none}
+ #shell[data-page=vms] .vm-master-pane .mv-search input,#shell[data-page=vms] .vm-master-pane .mv-filter-bar>select{min-height:40px;height:40px;font-size:14px}
+ #shell[data-page=vms] .vm-live-caption{font-size:10px}
+ #shell[data-page=vms] .mv-manager[data-manager=vms] .vm-row-actions>.button,#shell[data-page=vms] .mv-manager[data-manager=vms] .vm-row-more>summary{min-height:42px}
+ #shell[data-page=vms] .vm-row-more>summary{width:42px}
  #shell[data-page=vms] .mv-manager[data-manager=vms] .mv-content{padding:12px}
  #shell[data-page=vms] .mv-manager[data-manager=vms][data-manager-view=machines] .mv-content{padding:0}
- #shell[data-page=vms] .vm-master-pane{padding:10px}
- #shell[data-page=vms] .vm-list-heading{display:none}
- #shell[data-page=vms] .vm-list-row{grid-template-columns:minmax(0,1fr);gap:12px;padding:12px 9px}
- #shell[data-page=vms] .vm-row-configuration{display:flex;flex-direction:row;flex-wrap:wrap;gap:5px 12px}
- #shell[data-page=vms] .vm-row-configuration .vm-row-path,#shell[data-page=vms] .vm-row-pinning{display:none}
- #shell[data-page=vms] .vm-row-live .vm-live-grid small{font-size:10px}
- #shell[data-page=vms] .vm-row-live .vm-live-grid strong{font-size:14px}
- #shell[data-page=vms] .vm-row-actions{grid-column:auto;justify-content:flex-start}
- #shell[data-page=vms] .mv-manager[data-manager=vms] .vm-row-actions>.button,#shell[data-page=vms] .mv-manager[data-manager=vms] .vm-row-more>summary{min-height:38px;font-size:12px;padding:7px 11px}
- #shell[data-page=vms] .vm-row-menu{position:static;width:100%;box-shadow:none;margin-top:8px}
- #shell[data-page=vms] .vm-row-more[open]{flex-basis:100%}
- #shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-sidebar,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .mv-toolbar,#shell[data-page=vms] .mv-manager[data-manager=vms].has-vm-detail .vm-master-pane{display:none}
 }
 @container vm-detail (max-width:620px){
- #shell[data-page=vms] .vm-detail-header{padding:10px;gap:8px}
+ #shell[data-page=vms] .vm-detail-header{padding:6px 8px;gap:6px}
+ #shell[data-page=vms] .vm-detail-title{flex-wrap:wrap;gap:3px 6px}
  #shell[data-page=vms] .vm-detail-title h2{font-size:14px}
- #shell[data-page=vms] .vm-detail-quick-actions{width:100%;gap:6px}
- #shell[data-page=vms] .vm-detail-quick-actions>.button,#shell[data-page=vms] .vm-header-more{flex:1 1 80px;min-width:0}
- #shell[data-page=vms] .vm-detail-header>.button[data-vmx-command=refresh]{flex:0 0 34px}
- #shell[data-page=vms] .vm-detail-quick-actions>.button,#shell[data-page=vms] .vm-header-more>summary{padding:7px;font-size:11px;min-height:40px;justify-content:center}
+ #shell[data-page=vms] .vm-detail-header>.button{min-height:40px;padding:7px;font-size:11px}
+ #shell[data-page=vms] .vm-detail-header>.button[data-vmx-command=refresh]{flex:0 0 36px}
+ #shell[data-page=vms] .vm-detail-quick-actions{width:100%;gap:6px;justify-content:flex-end}
+ #shell[data-page=vms] .vm-detail-quick-actions .button{min-height:40px;padding:7px 10px;font-size:12px}
  #shell[data-page=vms] .vm-extension-detail>.manager-tabs{padding:0}
- #shell[data-page=vms] .vm-extension-detail>.manager-tabs .button{font-size:11px;padding:9px 5px;min-height:40px;flex-basis:70px}
- #shell[data-page=vms] .vm-detail-content{padding:12px}
- #shell[data-page=vms] .vm-detail-content .vm-live-grid{gap:8px}
+ #shell[data-page=vms] .vm-extension-detail>.manager-tabs .button{font-size:11px;padding:10px;min-height:44px}
+ #shell[data-page=vms] .vm-detail-content{padding:10px}
+ #shell[data-page=vms] .vm-detail-content .vm-live-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
  #shell[data-page=vms] .vm-detail-content .vm-live-grid>div{padding:10px}
  #shell[data-page=vms] .vm-detail-content .vm-live-grid strong{font-size:16px}
  #shell[data-page=vms] .vm-detail-content .vm-live-grid small{font-size:10px}
- #shell[data-page=vms] .vm-overview-facts{gap:8px}
- #shell[data-page=vms] .vm-overview-facts article{padding:10px}
+ #shell[data-page=vms] .vm-overview-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
  #shell[data-page=vms] .vm-extension-actions .button{min-height:42px;flex:1 1 135px}
  #shell[data-page=vms] .vm-extension-row{padding:10px}
  #shell[data-page=vms] .vm-extension-row>.button{min-height:40px}
- #shell[data-page=vms] .vm-detail-content.is-console{padding:6px}
+ #shell[data-page=vms] .vm-detail-content.is-console{padding:4px}
+ #shell[data-page=vms] .vm-detail-content.is-console>.hint{display:none}
 }
-@container vm-detail (min-width:1000px){#shell[data-page=vms] .vm-detail-content .vm-live-grid,#shell[data-page=vms] .vm-overview-facts{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@container vm-detail (max-width:340px){#shell[data-page=vms] .vm-detail-content .vm-live-grid,#shell[data-page=vms] .vm-overview-facts{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){#shell[data-page=vms] .vm-list-row,#shell[data-page=vms] .vm-extension-detail .button{transition:none}}

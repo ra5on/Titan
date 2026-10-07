@@ -33,6 +33,11 @@ class CaddyConfigurationTests(unittest.TestCase):
             upgrade['settings'].update(http_port=8081, https_port=8443)
             upgrade['pending'] = {'previous': copy.deepcopy(http), 'deadline': 1234}
             cases.append(upgrade)
+            from test_remote_access import remote_settings
+            for bridge in (False, True):
+                remote = copy.deepcopy(base)
+                remote['remote'] = remote_settings(bridge=bridge)
+                cases.append(remote)
         with tempfile.TemporaryDirectory(prefix='titan-caddy-validation-') as folder:
             root = Path(folder)
             environment = {**os.environ, 'XDG_DATA_HOME': str(root / 'data'), 'XDG_CONFIG_HOME': str(root / 'config')}

@@ -73,6 +73,40 @@ class WebAccessHTTPTests(unittest.TestCase):
         self.agent.call.assert_called_once_with('web_access_confirm', expected_revision='new',request_origin='http://nas.test:8080')
         self.assertEqual(self.request('/api/web-access/cancel', {})[0],200)
 
+    def test_remote_settings_require_admin_csrf_exact_arguments_and_trusted_origin(self):
+        body = {'enabled': True, 'public_origin': 'https://nas.example.com', 'connector': '',
+                'app_urls': {}, 'expected_revision': 'old'}
+        for options, expected in (({'actor':None},401),({'actor':'reader'},403),
+                ({'X-CSRF-Token':'wrong'},403),({'Host':'evil.test'},403),({'Origin':'https://evil.test'},403)):
+            with self.subTest(options=options):
+                self.assertEqual(self.request('/api/remote-access', body, **options)[0], expected)
+        self.assertEqual(self.request('/api/remote-access', {**body, 'sources':['0.0.0.0/0']})[0],400)
+        self.assertEqual(self.request('/api/remote-access', actor='reader')[0],403)
+        self.agent.call.assert_not_called()
+        self.assertEqual(self.request('/api/remote-access', body)[0],200)
+        self.agent.call.assert_called_once_with('remote_access_apply', **body)
+        self.assertEqual(self.request('/api/remote-access/diagnose', {'url':'https://evil.test'})[0],400)
+        self.assertEqual(self.request('/api/remote-access/diagnose', {})[0],200)
+        self.agent.call.assert_called_with('remote_access_diagnose')
+
+    def test_health_is_bounded_challenge_only_and_absent_when_disabled(self):
+        from pathlib import Path
+        from titan.remote_access import proof, validate_remote
+        path = Path(self.temp.name)/'web-access.json'
+        config = initial_config('nas.test')
+        config['remote'] = {**validate_remote(None), 'enabled':True,
+            'public_origin':'https://nas.example.com', 'service_url':'http://127.0.0.1:5102'}
+        atomic_json(path,config)
+        with patch('titan.web_access.CONFIG',path):
+            for query in ('', '?challenge=short', '?challenge='+'a'*32+'&extra=1'):
+                self.assertEqual(self.request('/api/tunnel-health'+query, actor=None)[0],400)
+            status, value, _ = self.request('/api/tunnel-health?challenge='+'a'*32, actor=None)
+            self.assertEqual(status,200)
+            self.assertEqual(value,{'service':'Titan','challenge':'a'*32,'proof':proof(config)})
+            config['remote']['enabled']=False
+            atomic_json(path,config)
+            self.assertEqual(self.request('/api/tunnel-health?challenge='+'a'*32, actor=None)[0],404)
+
     def test_http_and_https_logins_and_logout_have_correct_cookie_flags(self):
         for address, secure in (('https://nas.test', True), ('http://nas.test:8080',False)):
             with self.subTest(address=address):

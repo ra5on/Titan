@@ -382,8 +382,18 @@ class AppNetworkMixin:
                              "scope": address.get("scope", "lan"), "source": "host" if selected == "host" else "published"}
                     if entry not in endpoints:
                         endpoints.append(entry)
+        public_origin = ''
+        try:
+            from .remote_access import validate_remote
+            remote = validate_remote(self.web_access.config().get('remote'))
+            public_origin = remote['public_origin'] if remote['enabled'] else ''
+            public_address = remote['app_urls'].get(record['id'])
+            if public_address:
+                endpoints.append({'url': public_address, 'scope': 'public', 'source': 'configured'})
+        except (AttributeError, OSError, Error):
+            pass
         return {"network_mode": selected, "networks": infos, "host_addresses": addresses,
-                "endpoints": endpoints, "public_ip": None, "network_warnings": warnings}
+                "endpoints": endpoints, "titan_public_origin": public_origin, "public_ip": None, "network_warnings": warnings}
 
 
 # A bounded background pool keeps slow app startup out of bulk list requests.

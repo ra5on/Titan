@@ -15,7 +15,7 @@ from .catalog import APPS, catalog
 from .store_sources import PRESETS, LINUXSERVER, BIGBEAR, fetch_document
 from .store_recipes import text, recipes
 
-ADAPTER_REVISION = 4
+ADAPTER_REVISION = 5
 
 def store_url(value):
     value = text(value, 1000)

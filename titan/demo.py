@@ -76,7 +76,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         (self._system_path / "etc/hostname").write_text("titan-demo\n")
         (self._system_path / "home/demo/Notizen.txt").write_text("Isolierte Systemdatei der Titan-Demo.\n")
         self.backup_settings = {"target": "", "auto_backup": False, "interval": "daily", "window_day": 6,
-                                "window_hour": 3, "retention": 7, "shares": ["dokumente"], "include_config": True}
+                                "window_hour": 3, "retention": 7, "shares": ["dokumente"], "include_config": True,
+                                "apps": [], "app_data": []}
         self.backup_records = []
         self.last_backup = None
         self.alerts = [{"id": "demo-backup", "severity": "warning", "level": "warning",
@@ -978,6 +979,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         allowed = set(self.backup_settings)
         if set(value) - allowed: raise Error("Unbekannte Sicherungseinstellung.")
         settings = {**self.backup_settings, **value}
+        if settings["apps"] != [] or settings["app_data"] != []:
+            raise Error("App-Sicherungen benötigen eine echte Titan-Installation.")
         if settings["target"]: self.demo_target(settings["target"])
         if not isinstance(settings["auto_backup"], bool) or not isinstance(settings["include_config"], bool):
             raise Error("Ungültiger Schalter.")
@@ -1003,7 +1006,9 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             if item.is_file(): result[str(item.relative_to(directory))] = hashlib.sha256(item.read_bytes()).hexdigest()
         return result
 
-    def create_backup(self, shares=None, include_config=None):
+    def create_backup(self, shares=None, include_config=None, apps=None, app_data=None):
+        if apps or app_data:
+            raise Error("App-Sicherungen benötigen eine echte Titan-Installation. Die Demo verändert keine Containerdaten.")
         self.demo_target(self.backup_settings["target"])
         shares = self.backup_settings["shares"] if shares is None else shares
         include_config = self.backup_settings["include_config"] if include_config is None else include_config

@@ -32,7 +32,43 @@ def document(version='1'):
     return {'schema': 1, 'name': 'BigBear', 'apps': [translate(source, meta, 'example')]}
 
 
+def cloudflared_document(password='""'):
+    source = {'services': {'cloudflared': {'image': 'wisdomsky/cloudflared-web:2026.9.3',
+        'network_mode': 'host', 'environment': ['WEBUI_PORT=14333', 'BASIC_AUTH_USER=admin',
+            'BASIC_AUTH_PASS=' + password], 'volumes': ['cloudflared-config:/config']}}}
+    meta = {'name': 'Cloudflared Web', 'description': 'Manage the Cloudflare tunnel', 'port': '14333'}
+    return {'schema': 1, 'name': 'BigBear', 'apps': [translate(source, meta, 'cloudflared-web')]}
+
+
 class BigBearTests(unittest.TestCase):
+    def test_cloudflared_optional_password_is_private_and_empty_disables_auth(self):
+        for upstream in ('', '""', "''", 'PUBLIC_DEFAULT_MUST_NOT_LEAK'):
+            with self.subTest(upstream=upstream):
+                _, values = recipes(cloudflared_document(upstream), URL)
+                key, recipe = next(iter(values.items()))
+                APPS[key] = recipe
+                self.addCleanup(APPS.pop, key, None)
+                field = recipe['install_schema'][0]
+                self.assertEqual(field['type'], 'password')
+                self.assertFalse(field['required'])
+                self.assertEqual(field['min_length'], 0)
+                self.assertEqual(field['default'], '')
+                self.assertIn('optional', field['label'])
+                self.assertNotIn('PUBLIC_DEFAULT_MUST_NOT_LEAK', json.dumps(recipe))
+                for supplied in (None, {}, {field['key']: ''}, {field['key']: 'private$Password'}):
+                    options = validate_options(key, supplied)
+                    built = compose(key, '/control', 1000, 1000, 14333, '/data', options,
+                        network={'mode': recipe['default_network']})['services'][key]
+                    self.assertEqual(built['environment']['BASIC_AUTH_PASS'],
+                        'private$$Password' if supplied and supplied.get(field['key']) else '')
+                    self.assertEqual(built['environment']['BASIC_AUTH_USER'], 'admin')
+                    self.assertEqual(built['network_mode'], 'host')
+                    self.assertNotIn('networks', built)
+                    self.assertNotIn('ports', built)
+                public = next(row for row in catalog()['apps'] if row['id'] == key)
+                self.assertEqual(public['default_network'], 'host')
+                self.assertFalse(public['install_schema'][0]['required'])
+
     def test_metadata_ports_dependencies_and_shared_secrets(self):
         _, values = recipes(document(), URL)
         key, recipe = next(iter(values.items()))
@@ -170,6 +206,41 @@ class BigBearLifecycleTests(unittest.TestCase):
     tearDown = fixture.AppManagementTests.tearDown
     command = fixture.AppManagementTests.command
     make_container = fixture.AppManagementTests.make_container
+
+    def test_cloudflared_default_install_preserves_host_network_and_empty_password(self):
+        _, values = recipes(cloudflared_document(), URL)
+        key, recipe = next(iter(values.items()))
+        APPS[key] = recipe
+        self.addCleanup(APPS.pop, key, None)
+        self.host._prepare_app_install(key, 14333)
+        record = self.host.managed_app(key)
+        self.assertEqual(record['network'], {'mode': 'host'})
+        definition = json.loads((self.host.directory / 'apps' / key / 'compose.json').read_text())
+        service = definition['services'][key]
+        self.assertEqual(service['network_mode'], 'host')
+        self.assertNotIn('ports', service)
+        self.assertEqual(service['environment']['BASIC_AUTH_PASS'], '')
+
+    def test_cloudflared_catalog_refresh_preserves_installed_password_and_recipe(self):
+        previous = cloudflared_document()
+        previous['apps'][0]['stack_fields'][0].update(required=True, min_length=1, label='BASIC_AUTH_PASS · cloudflared')
+        with patch.object(self.host, 'store_document', return_value=(previous, [])):
+            self.host.op_app_store_add(URL, trusted=True)
+        key = next(iter(recipes(previous, URL)[1]))
+        self.addCleanup(APPS.pop, key, None)
+        field = APPS[key]['install_schema'][0]
+        self.host._prepare_app_install(key, 14333, options={field['key']: 'Keep$PrivatePassword'})
+        directory = self.host.directory / 'apps' / key
+        options_before = (directory / 'options.json').read_bytes()
+        compose_before = (directory / 'compose.json').read_bytes()
+        snapshot_before = copy.deepcopy(self.host.load('installed-app-recipes-v1', {})[key])
+        with patch.object(self.host, 'store_document', return_value=(cloudflared_document(), [])):
+            self.host.op_app_store_refresh('bigbear')
+        self.assertEqual((directory / 'options.json').read_bytes(), options_before)
+        self.assertEqual((directory / 'compose.json').read_bytes(), compose_before)
+        self.assertEqual(self.host._app_options(key)[field['key']], 'Keep$PrivatePassword')
+        self.assertEqual(self.host.load('installed-app-recipes-v1', {})[key], snapshot_before)
+        self.assertTrue(APPS[key]['install_schema'][0]['required'])
 
     def install(self):
         key, recipe = next(iter(recipes(document(), URL)[1].items()))

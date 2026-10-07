@@ -40,6 +40,7 @@ from .office_gateway import OfficeHostMixin
 from .identity_host import IdentityHostMixin
 from .storage_services import StorageServicesMixin
 from .web_access import WebAccessMixin
+from .remote_access import RemoteAccessMixin
 
 
 def run(arguments, input=None, timeout=120, pass_fds=(), include_stderr=False):
@@ -61,7 +62,7 @@ from .docker_engine import DockerEngineMixin
 from .core import OperationCoordinator, job_resources
 
 
-class Host(WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -122,7 +123,7 @@ class Host(WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMi
                 if isinstance(app, str):
                     keys.add("app:" + app)
             independent = tuple(keys)
-        if operation in {"app_memory_preflight", "catalog", "app_stores", "web_access", "web_access_confirm", "web_access_cancel"}:
+        if operation in {"app_memory_preflight", "catalog", "app_stores", "web_access", "remote_access", "web_access_confirm", "web_access_cancel"}:
             read_ops.add(operation)
         fast_lane = operation in read_ops or file_read or operation in account_ops or operation in share_ops
         resources = () if fast_lane else independent

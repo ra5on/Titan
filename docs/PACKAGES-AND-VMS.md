@@ -43,6 +43,18 @@ in das ursprüngliche Format konvertiert.
 
 ## VM-Register
 
+Die Maschinenübersicht verwendet kompakte Kacheln mit Name, Status, CPU live und
+**RAM auf NAS (RSS)**. RSS ist der gemessene residente Speicher des VM-Prozesses
+einschließlich Verwaltungsaufwand; er unterscheidet sich vom konfigurierten
+Gast-RAM und der Belegung im Gast. Die Werte aktualisieren sich alle fünf
+Sekunden. Fehlende Messungen werden als unbekannt angezeigt; ausgeschaltete VMs
+zeigen keine veraltete CPU-/RAM-Auslastung.
+
+Ein Klick auf eine Kachel öffnet die Details in der nutzbaren Fensterfläche.
+Eine zusätzliche dauerhaft sichtbare Maschinenliste entfällt. **Zurück** erhält
+Suchbegriff und Filter und stellt den Fokus auf die ausgewählte VM wieder her.
+Kachelraster und Details passen sich an die tatsächliche Fensterbreite an.
+
 Die Detailansicht trennt Konsole, Hardware, Netzwerk und Sicherungen. Die
 Browserkonsole verbindet sich direkt; sie öffnet keinen separaten Tab.
 Gastagent, zusätzliche Festplatten und Netzwerkkarten werden im ausgeschalteten

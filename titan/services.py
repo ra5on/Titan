@@ -33,10 +33,14 @@ class ServicesMixin:
 
     def op_backups(self):
         return {"items": self.backups.list(), "last": self.backups.state().get("last"),
+                "available_apps": self.backups.apps.available(),
                 "config_restore": self.load("config-restore-result", {})}
 
-    def op_backup_create(self, shares=None, include_config=None):
-        return self.backups.create(shares, include_config)
+    def op_backup_create(self, shares=None, include_config=None, apps=None, app_data=None):
+        return self.backups.create(shares, include_config, apps, app_data)
+
+    def op_backup_app_restore(self, backup, app, confirmation, include_data=False):
+        return self.backups.apps.restore(backup, app, confirmation, include_data)
 
     def op_backup_verify(self, backup):
         return self.backups.verify(backup)

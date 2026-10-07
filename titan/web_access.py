@@ -20,7 +20,7 @@ from .core import Error, atomic_json
 
 CONFIG = Path('/etc/titan/web-access.json')
 DEFAULTS = {'mode': 'https', 'http_port': 80, 'https_port': 443}
-INTERNAL_PORTS = {5001, 5101}
+INTERNAL_PORTS = {5001, 5101, 5102}
 CONFIRM_SECONDS = 120
 
 
@@ -67,6 +67,8 @@ def read_config(path=CONFIG):
     value = json.loads(Path(path).read_text())
     if not isinstance(value, dict) or value.get('schema') != 1:
         raise Error('Ungültige Webzugriffskonfiguration.', 503)
+    from .remote_access import validate_remote
+    validate_remote(value.get('remote'))
     hostname(value.get('host'))
     validate_settings(value.get('settings'))
     pending = value.get('pending')
@@ -83,6 +85,10 @@ def allowed_origins(value):
     if value.get('pending'):
         old = value['pending']['previous']
         result.add(origin(old['host'], old['settings']))
+    from .remote_access import validate_remote
+    remote = validate_remote(value.get('remote'))
+    if remote['enabled']:
+        result.add(remote['public_origin'])
     return result
 
 
@@ -123,6 +129,8 @@ def caddy_config(value):
     result += ('http://:5101 {\n    @office path /office/internal/*\n    handle @office {\n'
                '        reverse_proxy 127.0.0.1:5001 {\n            header_up Host ' + urllib.parse.urlsplit(main).netloc + '\n'
                '        }\n    }\n    handle {\n        respond 404\n    }\n}\n')
+    from .remote_access import tunnel_caddy
+    result += tunnel_caddy(value)
     return result
 
 
@@ -144,7 +152,7 @@ def initial_config(host, previous_origin=None):
 
 
 class WebAccess:
-    def __init__(self, directory='/etc/titan', run=None, host='titan.local', clock=time.time, schedule=None, firewall=None, previous_origin=None):
+    def __init__(self, directory='/etc/titan', run=None, host='titan.local', clock=time.time, schedule=None, firewall=None, previous_origin=None, remote_firewall=None):
         self.directory = Path(directory)
         self.path = self.directory / 'web-access.json'
         self.run = run
@@ -155,6 +163,7 @@ class WebAccess:
         self.schedule = schedule or self._schedule
         self.firewall = firewall
         self.previous_origin = previous_origin
+        self.remote_firewall = remote_firewall
 
     @staticmethod
     def _schedule(delay, callback):
@@ -218,6 +227,8 @@ class WebAccess:
             self.run(['systemctl', 'restart', 'titan-proxy.service'], timeout=30)
 
     def _firewall(self, config):
+        if self.remote_firewall:
+            self.remote_firewall(config.get('remote'))
         ports = listen_ports(config['settings'])
         if config.get('pending'):
             ports |= listen_ports(config['pending']['previous']['settings'])
@@ -282,6 +293,46 @@ class WebAccess:
             self._watch(new)
             return self.status()
 
+    def save_remote(self, remote, expected_revision):
+        from .remote_access import TUNNEL_PORT, validate_remote
+        with self.lock:
+            old = self.config()
+            if old['revision'] != expected_revision or old.get('pending'):
+                raise Error('Webeinstellungen geändert oder Adresswechsel aktiv. Ansicht aktualisieren.', 409)
+            remote = validate_remote(remote)
+            if remote['enabled'] and not old.get('remote', {}).get('enabled') and self.run:
+                if self.run(['ss', '-H', '-ltn', 'sport = :' + str(TUNNEL_PORT)], timeout=5).strip():
+                    raise Error('Der interne Tunnel-Port ist bereits belegt.', 409)
+            new = {**old, 'remote': remote, 'revision': secrets.token_hex(16)}
+            new.pop('last_error', None)
+            try:
+                self._write_runtime(new)
+                self._validate()
+                self._firewall(new)
+                atomic_json(self.path, new, mode=0o644)
+            except Exception:
+                self._write_runtime(old)
+                self._firewall(old)
+                raise
+            def activate():
+                with self.lock:
+                    if self.config()['revision'] != new['revision']:
+                        return
+                    try:
+                        self._restart()
+                    except Exception:
+                        restored = {**old, 'revision': secrets.token_hex(16), 'last_error': 'Fernzugriff konnte nicht aktiviert werden. Bisherige Konfiguration wiederhergestellt.'}
+                        self._write_runtime(restored)
+                        atomic_json(self.path, restored, mode=0o644)
+                        try:
+                            self._firewall(restored)
+                        except Exception:
+                            restored['last_error'] += ' Firewallbereinigung fehlgeschlagen; lokalen Zugriff prüfen.'
+                            atomic_json(self.path, restored, mode=0o644)
+                        self._restart()
+            self.schedule(0.8, activate)
+            return self.status()
+
     def _activate(self, revision):
         with self.lock:
             current = self.config()
@@ -303,6 +354,8 @@ class WebAccess:
         with self.lock:
             config = self.config()
             self._watch(config)
+            if self.remote_firewall:
+                self.remote_firewall(config.get('remote'))
             if config.get('pending', {}).get('confirmed'):
                 self.schedule(0.8, lambda: self._activate_confirmed(config['revision']))
 
@@ -437,7 +490,7 @@ class WebAccessMixin:
             host = urllib.parse.urlsplit(previous_origin).hostname or socket.gethostname()
             from .app_firewall import reconcile
             self._web_access = WebAccess(directory, run=run, host=host, previous_origin=previous_origin,
-                                         firewall=lambda ports: reconcile(self, 'web', ports))
+                                         firewall=lambda ports: reconcile(self, 'web', ports), remote_firewall=getattr(self, '_remote_firewall', None))
             self._web_access.resume()
         return self._web_access
 

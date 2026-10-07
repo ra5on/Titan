@@ -37,7 +37,7 @@ WEB = Path(__file__).parent / "web"
 MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
              "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
-             "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
+             "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "backup_app_restore", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
 FILE_ACTIONS = {"mkdir", "upload", "rename", "trash", "trash_list", "restore", "copy", "move", "read", "write", "create", "create_document", "delete"}
 
 
@@ -402,6 +402,17 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         parts = urllib.parse.urlsplit(self.path)
         path = urllib.parse.unquote(parts.path)
         query = dict(urllib.parse.parse_qsl(parts.query))
+        if path == '/api/tunnel-health':
+            if set(query) != {'challenge'} or not re.fullmatch(r'[a-f0-9]{32}', query['challenge']):
+                raise Error('Ungültige Tunnelprüfung.')
+            from .remote_access import proof
+            from .web_access import CONFIG, read_config
+            if not CONFIG.exists() or self.app.demo:
+                raise Error('Fernzugriff nicht eingerichtet.', 404)
+            config = read_config(CONFIG)
+            if not config.get('remote', {}).get('enabled'):
+                raise Error('Fernzugriff deaktiviert.', 404)
+            return self.reply({'service': 'Titan', 'challenge': query['challenge'], 'proof': proof(config)})
         if path == "/api/session":
             setup_required = not self.app.store.users() and not self.app.demo
             user = self.user()
@@ -456,6 +467,13 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                     raise Error('Ungültige Diagnoseoption.')
                 return self.reply(diagnostics_report(self.app.agent, self.app.demo), extra={
                     'Content-Disposition': 'attachment; filename="titan-diagnostics.json"'} if query else None)
+            if path == '/api/remote-access':
+                if query:
+                    raise Error('Fernzugriff unterstützt keine zusätzlichen Parameter.')
+                if self.app.demo:
+                    from .remote_access import validate_remote
+                    return self.reply({'remote': validate_remote(None), 'revision': 'demo', 'connectors': [], 'apps': [], 'diagnosis': {}, 'demo': True})
+                return self.reply(self.app.agent.call('remote_access'))
             if path == '/api/web-access':
                 if query:
                     raise Error('Webzugriff unterstützt keine zusätzlichen Parameter.')
@@ -677,6 +695,19 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             require_application(self.app.store, user, application)
         else:
             self.require_user(admin=True)
+        if path in ('/api/remote-access', '/api/remote-access/diagnose'):
+            if self.app.demo:
+                raise Error('Fernzugriff benötigt eine echte Titan-Installation.', 409)
+            if path.endswith('/diagnose'):
+                if body:
+                    raise Error('Verbindungsprüfung benötigt keine zusätzlichen Parameter.')
+                result = self.app.agent.call('remote_access_diagnose')
+            else:
+                if set(body) != {'enabled', 'public_origin', 'connector', 'app_urls', 'expected_revision'}:
+                    raise Error('Fernzugriffseinstellungen vollständig angeben.')
+                result = self.app.agent.call('remote_access_apply', **body)
+            self.app.store.audit(user['name'], 'remote_access_diagnose' if path.endswith('/diagnose') else 'remote_access_apply')
+            return self.reply(result)
         if path == '/api/terminal':
             return self.terminal_post(user, body)
         if path in ('/api/web-access', '/api/web-access/confirm', '/api/web-access/cancel'):

@@ -115,7 +115,7 @@ def _valid_rule(row):
             all(type(row.get(name, row['owned'])) is bool for name in ('runtime_owned', 'permanent_owned')))
 
 
-def reconcile(host, owner_key, ports):
+def reconcile(host, owner_key, ports, scopes_override=None):
     """Set one owner's desired access; keep all other owners and external rules.
 
     Returns diagnostics when firewalld is inactive. An active firewall command
@@ -132,7 +132,16 @@ def reconcile(host, owner_key, ports):
         if not active:
             return {'available': False, 'managed_rules': 0,
                     'warnings': ['firewalld ist nicht aktiv. Titan verändert keine andere Host-Firewall.']}
-        scopes = lan_scopes() if ports else []
+        scopes = (lan_scopes() if scopes_override is None else scopes_override) if ports else []
+        if scopes_override is not None:
+            for scope in scopes:
+                try:
+                    network = ipaddress.IPv4Network(scope['source'], strict=True)
+                    if (scope.get('family') != 4 or not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}', scope['zone']) or
+                            not any(network.subnet_of(ipaddress.ip_network(block)) for block in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'))):
+                        raise ValueError()
+                except (KeyError, TypeError, ValueError):
+                    raise Error('Ungültige explizite Connector-Firewallfreigabe.') from None
         desired = _requested(ports, scopes)
         ledger = host.load(_LEDGER, {})
         if not isinstance(ledger, dict) or len(ledger) > 8192 or any(not _valid_rule(row) for row in ledger.values()):

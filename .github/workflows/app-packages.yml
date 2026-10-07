@@ -27,6 +27,43 @@ jobs:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
       - name: Install YAML parser
-        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml e2fsprogs util-linux
       - name: Complete package startup, connection and restart
-        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py '${{ matrix.package }}' --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION"
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py '${{ matrix.package }}' --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION" ${{ matrix.package == 'bigbear:nextcloud' && '--app-backup-smoke' || '' }}
+
+  cloudflared-web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        auth: [disabled, password]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Disposable LAN, firewall and Caddy dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml firewalld caddy
+      - name: Generated Caddy configurations and real Titan tunnel proxy acceptance
+        run: |
+          python3 -m unittest discover -s tests -p test_web_access_caddy.py -v
+          python3 -m unittest discover -s tests -p 'test_remote_access*.py' -v
+      - name: Isolated LAN client and active firewalld
+        run: |
+          sudo systemctl start firewalld
+          sudo ip netns add titan-ci-client
+          sudo ip link add titan-ci0 type veth peer name eth0 netns titan-ci-client
+          sudo ip addr add 10.254.254.1/30 dev titan-ci0
+          sudo ip link set titan-ci0 up
+          sudo ip netns exec titan-ci-client ip addr add 10.254.254.2/30 dev eth0
+          sudo ip netns exec titan-ci-client ip link set lo up
+          sudo ip netns exec titan-ci-client ip link set eth0 up
+          sudo firewall-cmd --zone=home --add-interface=titan-ci0
+      - name: Cloudflared Host network, HTTP, LAN firewall and lifecycle (${{ matrix.auth }})
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py bigbear:cloudflared-web --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION" --cloudflared-auth '${{ matrix.auth }}'
+      - name: Remove isolated test LAN
+        if: always()
+        run: |
+          sudo ip netns del titan-ci-client || true
+          sudo ip link del titan-ci0 || true

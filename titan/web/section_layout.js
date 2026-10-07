@@ -10,7 +10,11 @@
   const panels=[...holder.querySelectorAll(':scope > .app-installed-section,:scope > .app-discover-section')];
   if(!panels.length)return;
   const shell=doc.createElement('section');shell.className='sl-manager';shell.dataset.sectionLayout=page;
+  shell.setAttribute('aria-label','App Store');
   const nav=doc.createElement('nav');nav.className='sl-nav';nav.setAttribute('aria-label','App-Ansichten');
+  const toolbar=doc.createElement('div');toolbar.className='sl-toolbar';toolbar.append(nav);
+  const heading=holder.querySelector(':scope > .page-heading'),actions=heading?.querySelector('.catalog-window-actions');
+  if(actions){toolbar.append(actions);heading.remove();}
   const main=doc.createElement('div');main.className='sl-content';
   const buttons=[];
   panels.forEach((panel,index)=>{
@@ -23,7 +27,9 @@
   });
   function select(index){panels.forEach((panel,i)=>{panel.hidden=i!==index;buttons[i].setAttribute('aria-current',i===index?'page':'false');});views.set(page,index);}
   buttons.forEach((button,index)=>button.addEventListener('click',()=>select(index)));
-  shell.append(nav,main);
+  // Search, navigation and catalog notices scroll together with the apps.
+  // Keeping them outside the scroll pane used most of a small window's height.
+  shell.append(toolbar,...holder.querySelectorAll(':scope > .catalog-status,:scope > .notice'),main);
   content.append(shell);
   const remembered=views.get(page);select(Number.isInteger(remembered)&&remembered<panels.length?remembered:page==='apps'?1:0);
  }

@@ -91,3 +91,16 @@ Dateiorte lassen sich links/rechts platzieren und per Trennlinie auf 160–360 P
 Docker gliedert sich in Übersicht, Projekte, Container, Images, Netzwerke und Volumes. Speicher gliedert sich in Übersicht, Speicherbereiche, HDD/SSD und Wartung, mit Systemkapazität und verschachtelten ZFS-Datenbereichen. Die Anwendung verwendet einen eigenen Inhaltsklassennamen, damit frühere Dashboard-Stile ihre Geometrie nicht überlagern. Historische allgemeine VM-Manager-Regeln sind auf den alten Docker-Fallback beschränkt.
 
 Tatsächliche Browserprüfung bei 1366 Pixel Desktop sowie 320/390 Pixel Mobil, Controller-Regressionen und getrennte Release-Prüfungen: [QA 0.5.2](QA-0.5.2.md). Eigene Symbole, Styles und Code; Herstellerassets werden nicht übernommen.
+
+
+## Platz und Desktop-Einstellungen ab 0.5.5
+
+Die VM-Übersicht verwendet ein anpassbares Kachelraster mit Name, Status, gemessener CPU und **RAM auf NAS (RSS)**. Die Werte werden bei sichtbarer Ansicht alle fünf Sekunden abgefragt. Ein Klick öffnet die Details über die nutzbare Fensterfläche; eine dauerhafte zweite Maschinenliste entfällt. Zurück erhält Suche, Filter und Tastaturfokus. Die Konsole bekommt die große Inhaltsfläche. Fehlende Messungen erscheinen als solche, nicht als erfundene Gast-Auslastung.
+
+Im App Store scrollen die kompakte Ansichtsleiste, Katalogaktionen, Hinweise, Suche und Apps zusammen. Der obere Bereich bleibt nicht über der App-Liste stehen. Die gewählte Ansicht und Filter bleiben erhalten.
+
+Die internen Seitenleisten von Systemsteuerung, Speicher, Docker und VM-Verwaltung lassen sich an ihrer Trennlinie schmaler oder breiter ziehen. Die Breite wird im Browser pro Konto und Arbeitsbereich gespeichert. Pfeiltasten verändern sie um 16 Pixel, mit Umschalt um 32 Pixel; Pos1/Ende wählen die verfügbare Mindest-/Maximalbreite, Doppelklick den Standard. Die Navigation liegt normalerweise zwischen 128 und 360 Pixeln; der verbleibende Inhalt begrenzt die tatsächliche Breite. Docker-Details und der rechte Detailbereich der Benutzerverwaltung lassen sich bei genügend Platz zwischen 240 und 520 Pixeln einstellen. Bis 760 Pixeln entfällt der Griff; die kompakte mobile Navigation bleibt erhalten. Der Dateimanager behält seine eigene verstellbare Ortsleiste. In VM-Details wird die Seitenleiste ausgeblendet.
+
+Das Benutzermenü mit Abmelden, Neustart und Herunterfahren enthält außerdem **Transparenz** und **Klick auf freien Desktop**. Dieselben Einstellungen sind unter **Persönlich** erreichbar. Die Auswahl gilt für das jeweilige Konto und wird auf dem NAS zusammen mit der Desktop-Anordnung gespeichert. Standardmäßig bewirkt ein freier Desktopklick nichts; **Alle Fenster minimieren** blendet die offenen Fenster aus und erhält ihre laufenden Inhalte. Klicks auf App-Symbole, Fenster, Menüs oder Bedienelemente lösen dies nicht aus.
+
+Der Transparenzregler reicht von 0 % (undurchsichtig) bis 100 % (höchste Transparenz), Standard 40 %. Er verändert die Hintergründe der Desktop-Oberflächen und Fensterköpfe, nicht die Deckkraft von Text oder App-Inhalten. Betriebssystemwünsche für reduzierte Transparenz oder stärkeren Kontrast erhalten eine undurchsichtige Darstellung. Bei fehlgeschlagenem Laden der Desktop-Einstellungen bleiben die Änderungen gesperrt, damit der gespeicherte Stand erhalten bleibt.
