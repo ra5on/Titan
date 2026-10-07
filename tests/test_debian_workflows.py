@@ -17,8 +17,10 @@ class DebianWorkflowTests(unittest.TestCase):
 
     def test_dispatchers_serialize_and_keep_maintenance_update_only(self):
         feature=self.load('debian-image.yml');maintenance=self.load('debian-security.yml')
-        self.assertEqual(feature['concurrency'],maintenance['concurrency'])
-        self.assertEqual(feature['concurrency']['cancel-in-progress'],'false')
+        self.assertEqual(feature['concurrency']['group'],maintenance['concurrency']['group'])
+        self.assertEqual(maintenance['concurrency']['cancel-in-progress'],'false')
+        self.assertEqual(feature['concurrency']['cancel-in-progress'],
+                         "${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[supersede-unpublished-release]') }}")
         for document in (feature,maintenance):
             self.assertEqual(document['jobs']['build']['uses'],'./.github/workflows/debian-system-build.yml')
         reusable=self.load('debian-system-build.yml')

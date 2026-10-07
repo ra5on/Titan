@@ -695,9 +695,18 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             require_application(self.app.store, user, application)
         else:
             self.require_user(admin=True)
-        if path in ('/api/remote-access', '/api/remote-access/diagnose', '/api/remote-access/tunnel'):
+        if path in ('/api/remote-access', '/api/remote-access/diagnose', '/api/remote-access/tunnel', '/api/remote-access/tunnel-address'):
             if self.app.demo:
                 raise Error('Fernzugriff benötigt eine echte Titan-Installation.', 409)
+            if path.endswith('/tunnel-address'):
+                if set(body) != {'public_origin', 'expected_revision'}:
+                    raise Error('Öffentliche Adresse und aktuellen Stand angeben.')
+                from .remote_access import public_url
+                public_url(body['public_origin'])
+                if not isinstance(body['expected_revision'], str):
+                    raise Error('Aktuellen Stand als Text angeben.')
+                return self.reply(self.app.jobs.submit(user['name'], 'remote_access_tunnel_address',
+                    lambda: self.app.admin_action(user['name'], 'remote_access_tunnel_address', body)), 202)
             if path.endswith('/tunnel'):
                 if set(body) != {'token', 'public_origin', 'expected_revision'}:
                     raise Error('Tunnel-Token, öffentliche Adresse und aktuellen Stand angeben.')

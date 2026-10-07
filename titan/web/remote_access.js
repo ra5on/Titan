@@ -55,13 +55,16 @@
    if(busy||data.demo||data.setup?.running&&kind!=='refresh')return;busy=true;query('[data-remote-error]').hidden=true;
    try{
     let body,path='/api/remote-access';if(kind==='diagnose'){body={};path+='/diagnose';}
-    else if(kind==='domain'){const form=query('[data-tunnel-domain-form]');body={enabled:true,public_origin:form.elements.public_origin.value.trim(),connector:data.setup?.connector||data.remote.connector,app_urls:data.remote.app_urls||{},expected_revision:data.revision};}
+    else if(kind==='domain'){const form=query('[data-tunnel-domain-form]');path+='/tunnel-address';body={public_origin:form.elements.public_origin.value.trim(),expected_revision:data.revision};}
     else if(kind==='save'){const form=query('[data-remote-form]');body={enabled:form.elements.enabled.checked,public_origin:form.elements.public_origin.value.trim(),connector:form.elements.connector.value,app_urls:{},expected_revision:data.revision};for(const input of panel.querySelectorAll('[data-remote-app]'))if(input.value.trim())body.app_urls[input.dataset.remoteApp]=input.value.trim();}
     query('[data-remote-status]').textContent=kind==='diagnose'?'Öffentliche Verbindung wird geprüft …':kind==='refresh'?'Status wird aktualisiert …':'Fernzugriff wird gespeichert …';locked(true);
-    const value=await ctx.api(path,body,{signal:controller.signal});if(!alive)return;if(kind==='diagnose'){const fresh=await ctx.api('/api/remote-access',undefined,{signal:controller.signal});if(!alive)return;replace({...fresh,diagnosis:value});}else replace(value);
-    if(kind==='domain'){const result=await ctx.api('/api/remote-access/diagnose',{}, {signal:controller.signal});if(!alive)return;const fresh=await ctx.api('/api/remote-access',undefined,{signal:controller.signal});if(!alive)return;replace({...fresh,diagnosis:result});}
-    ctx.toast?.(kind==='diagnose'?value.message:kind==='refresh'?'Status aktualisiert.':'Fernzugriff gespeichert.');
-   }catch(error){if(alive&&error.name!=='AbortError')showError(error);}
+    const value=await ctx.api(path,body,{signal:controller.signal});if(!alive)return;
+    if(kind==='domain'){
+     await refreshProgress();if(!alive)return;const wait=ctx.waitForJob||((accepted,options)=>view.TitanJobs.wait(ctx.api,accepted.job,options));await wait(value,{signal:controller.signal,onProgress:()=>void refreshProgress()});if(!alive)return;
+     revision++;const fresh=await ctx.api('/api/remote-access',undefined,{signal:controller.signal});if(!alive)return;replace(fresh);ctx.toast?.(fresh.setup?.phase==='ready'?'Adresse gespeichert und öffentlicher Zugang geprüft.':'Adresse gespeichert. Prüfe die öffentliche Route in Cloudflare.');
+    }else if(kind==='diagnose'){const fresh=await ctx.api('/api/remote-access',undefined,{signal:controller.signal});if(!alive)return;replace({...fresh,diagnosis:value});ctx.toast?.(value.message);}
+    else{replace(value);ctx.toast?.(kind==='refresh'?'Status aktualisiert.':'Fernzugriff gespeichert.');}
+   }catch(error){if(alive&&error.name!=='AbortError'){if(kind==='domain'){revision++;try{const fresh=await ctx.api('/api/remote-access',undefined,{signal:controller.signal});if(alive)replace(fresh);}catch{}}if(alive)showError(error);}}
    finally{busy=false;if(alive){locked(false);scheduleResume();}}
   }
   const submit=event=>{if(event.target.matches?.('[data-tunnel-form]')){event.preventDefault();void connect();}else if(event.target.matches?.('[data-tunnel-domain-form]')){event.preventDefault();void perform('domain');}else if(event.target.matches?.('[data-remote-form]')){event.preventDefault();void perform('save');}};

@@ -1,5 +1,5 @@
 /* Original Titan palette. App contents stay opaque; glass belongs to desktop chrome. */
-:root,html[data-color-theme=light]{--bg:#f1f2f6;--panel:#fff;--panel-soft:#e9ebf2;--surface-0:#f1f2f6;--text:#272b3b;--muted:#686d80;--line:#d5d8e3;--border:#d5d8e3;--accent:#6257d8;--purple:#6257d8;--green:#147451;--red:#b22c4d;--focus:#6257d8;--theme-hover:#e6e4f6;--theme-selected:#dedbf5;--theme-glass:247 247 253;--theme-shadow:#1a163629;--theme-top:245 245 252;--theme-strong:#443995;--primary-bg:#6257d8;--primary-text:#fff;--success:#147451;--success-bg:#e4f4ed;--warning:#8b550c;--warning-bg:#fff1d7;--danger:#b22c4d;--danger-bg:#fbe5eb;--info:#365eb5;--info-bg:#e6edfb;color-scheme:light}
+:root,html[data-color-theme=light]{--bg:#f1f2f6;--panel:#fff;--panel-soft:#e9ebf2;--surface-0:#f1f2f6;--text:#272b3b;--muted:#64697c;--line:#d5d8e3;--border:#d5d8e3;--accent:#6257d8;--purple:#6257d8;--green:#147451;--red:#b22c4d;--focus:#6257d8;--theme-hover:#e6e4f6;--theme-selected:#dedbf5;--theme-glass:247 247 253;--theme-shadow:#1a163629;--theme-top:245 245 252;--theme-strong:#443995;--primary-bg:#6257d8;--primary-text:#fff;--success:#147451;--success-bg:#e4f4ed;--warning:#8b550c;--warning-bg:#fff1d7;--danger:#b22c4d;--danger-bg:#fbe5eb;--info:#365eb5;--info-bg:#e6edfb;color-scheme:light}
 html[data-color-theme=dark]{--bg:#181a24;--panel:#232633;--panel-soft:#1e212d;--surface-0:#181a24;--text:#edeef8;--muted:#a4a8bd;--line:#363a4d;--border:#363a4d;--accent:#b5adff;--purple:#b5adff;--green:#a0dfc8;--red:#ffa8b8;--focus:#b5adff;--theme-hover:#303344;--theme-selected:#3e365b;--theme-glass:25 27 40;--theme-shadow:#03040c65;--theme-top:22 24 36;--theme-strong:#ded8ff;--primary-bg:#7362c6;--primary-text:#fff;--success:#a0dfc8;--success-bg:#213c36;--warning:#f2c47e;--warning-bg:#3d3427;--danger:#ffa8b8;--danger-bg:#422d38;--info:#a9c3ff;--info-bg:#29364c;color-scheme:dark}
 html[data-color-theme] body{background:var(--bg);color:var(--text)}
 html[data-color-theme] #shell[data-desktop=true]{background:radial-gradient(ellipse at 80% 10%,#bbd9fb 0,transparent 56%),radial-gradient(ellipse at 5% 95%,#c6c8ed 0,transparent 55%),linear-gradient(125deg,#d8e3f5,#b8cae5)}
@@ -37,50 +37,16 @@ html[data-color-theme] .desktop-account{width:292px;padding:8px}.desktop-account
 html[data-color-theme] :is(.desktop-search input,.desktop-preferences select,.desktop-folder-dialog input){background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:9px}
 html[data-color-theme] .desktop-menu-dialog::backdrop{background:#09182f40;backdrop-filter:blur(5px)}
 html[data-color-theme=dark] .desktop-menu-dialog::backdrop{background:#02071270}
-/* Temporary palette bridges for VM and file components that still own legacy colors.
-   Settings, Docker, packages, storage and account components consume semantic variables directly. */
-html[data-color-theme] #shell[data-page] :is(.mv-manager,.mv-workspace,.mv-content,.fb-workspace,.fb-table-wrap){background:var(--bg);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.vm-card,.vm-tile,.vm-details-card,.mv-vm-card,.mv-card,.mv-empty,.fb-row,.fb-grid-item){background:var(--panel);color:var(--text);border-color:var(--line);border-radius:9px}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-sidebar,.fb-places,.fb-splitter,.fb-toolbar,.fb-status,.fb-table thead,.mv-toolbar,.vm-detail-header){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-brand,.mv-toolbar-title,.mv-section-title h2,.vm-tile-name,.vm-name,.fb-name){color:var(--text)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-section-title p,.mv-toolbar-title>span,.mv-side-foot,.fb-places h3,.fb-place-note,.fb-folder-tree>summary,.fb-status){color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-tabs>button,.mv-side-button,.mv-side-link,.fb-place){background:transparent;color:var(--muted);border-color:transparent}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-tabs>button,.mv-side-button,.mv-side-link,.fb-place):hover{background:var(--theme-hover);color:var(--text)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-tabs>button[aria-selected=true],.fb-place.active){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
-html[data-color-theme] #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout]>.mv-sidebar{background:var(--panel-soft);border-color:var(--line)}
-html[data-color-theme] #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-tabs>button[aria-selected=true]{background:var(--theme-selected);color:var(--theme-strong);border-left-color:var(--accent)}
-html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.mv-content,.vm-machine-workspace,.vm-master-pane,.vm-selected-pane,.vm-extension-detail,.vm-detail-content){background:var(--bg);color:var(--text)}
-html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.vm-list-row,.vm-row-menu,.vm-header-more>div,.vm-overview-facts article,.vm-live-grid>div){background:var(--panel);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.mv-search,.vm-detail-header,.manager-tabs,.vm-operation-status){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.vm-row-select,.vm-row-name,.vm-live-grid strong,.vm-detail-title h2){color:var(--text)}
-html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.vm-live-grid small,.vm-live-caption,.vm-overview-facts small,.vm-overview-facts span){color:var(--muted)}
-html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-list-row:hover{background:var(--theme-hover);border-color:var(--accent)}
-html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-extension-detail>.manager-tabs .button{background:transparent;color:var(--muted)}
-html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-extension-detail>.manager-tabs .button[aria-selected=true]{background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-side-actions,.mv-tabs,.fb-toolbar,.fb-status){border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.file-row):hover{background:var(--theme-hover)}
-html[data-color-theme] #shell[data-page] .nas-window-content .fb-row[aria-selected=true]{background:var(--theme-selected)}
 html[data-color-theme] .desktop-search{color:var(--muted)}
 html[data-color-theme][data-desktop-embedded=true] #shell>.workspace{background:var(--bg)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-address,.fb-selection,.fb-inspector,.fb-inline-preview,.fb-new-menu,.fb-layout-menu){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-entry.selected,.fb-side-choice button[aria-pressed=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-entry):hover{background:var(--theme-hover);color:var(--text)}
 html[data-color-theme]{--surface-soft:var(--panel-soft);--surface-alt:var(--panel-soft);--surface-muted:var(--panel-soft)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-system-note,.fb-inline-preview pre){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-name-button,.fb-view-controls button){color:var(--text)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-inspector dt,.fb-size,.fb-type,.fb-modified){color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-view-controls button[aria-pressed=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-filter-row,.fb-filters,.fb-view-controls){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-side-actions,.fb-table td){border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content .fb-view-controls button:not([aria-pressed=true]){background:var(--panel);color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-empty p){color:var(--muted)}
 /* Long management dialogs scroll as one document, including heading and actions. */
 #dialog:not(:has([data-file-editor-form])) .dialog-title{position:static;top:auto;padding:0 0 12px;margin-bottom:14px;background:transparent}
 #dialog:not(:has([data-file-editor-form])) .form-actions{position:static;bottom:auto;z-index:auto;padding:8px 0 0;background:transparent}
 #dialog:not(:has([data-file-editor-form])) .app-login-panel{padding:14px;margin-block:12px}
 #dialog:not(:has([data-file-editor-form])) .code{max-height:none;overflow:visible;white-space:pre-wrap}
-html[data-color-theme=dark] .nas-window-content :is(.badge,.status-badge,.mv-status){background:#24354c;color:var(--text);border-color:var(--line)}
-html[data-color-theme=dark] .nas-window-content :is(.badge.success,.status-badge.running,.mv-status.running){color:var(--green)}
+html[data-color-theme=dark] .nas-window-content :is(.badge,.status-badge){background:#24354c;color:var(--text);border-color:var(--line)}
+html[data-color-theme=dark] .nas-window-content :is(.badge.success,.status-badge.running){color:var(--green)}
 html[data-color-theme] :is(.terminal-screen,.xterm-screen,.vm-console,.vm-console-frame){color-scheme:dark}
 html[data-color-theme] *{scrollbar-color:var(--line) transparent}
 @media(hover:hover){html[data-color-theme] .desktop-menu-more{opacity:0}html[data-color-theme] .desktop-menu-entry:hover .desktop-menu-more,html[data-color-theme] .desktop-menu-entry:focus-within .desktop-menu-more{opacity:1}}

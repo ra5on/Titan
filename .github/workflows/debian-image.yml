@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.5.7 with coherent themes, individual widget gallery and direct-token Cloudflare setup.
+# Build Titan 0.5.7 with complete dark surfaces and activation-bound token/domain jobs.
 on:
   workflow_dispatch:
   push:
@@ -10,7 +10,9 @@ permissions:
 # Both dispatchers use this queue so version allocation cannot race publication.
 concurrency:
   group: titan-debian-release-queue
-  cancel-in-progress: false
+  # Use this explicit flag only after confirming the superseded run has not
+  # reached publication. Ordinary pushes and scheduled maintenance stay queued.
+  cancel-in-progress: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[supersede-unpublished-release]') }}
 jobs:
   identity:
     runs-on: ubuntu-24.04

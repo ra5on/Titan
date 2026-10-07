@@ -6,10 +6,15 @@ function value(name,selector,property){const matches=rules(name).filter(rule=>ru
 
 // These complete components must work with either palette without a late
 // selector blanket rescuing literal light surfaces or dark text descendants.
-const components=['settings_center.css','identity_security.css','user_manager.css','docker_workbench.css','storage_backup.css','package_center.css','application_shell.css'];
+const components=['settings_center.css','identity_security.css','user_manager.css','docker_workbench.css','storage_backup.css','package_center.css','application_shell.css','manager_views.css','vm_manager.css'];
 const colorProperty=/^(?:color|background(?:-color)?|border(?:-[\w]+)?|outline(?:-[\w]+)?|box-shadow|accent-color)$/;
-for(const file of components)for(const rule of rules(file))for(const [property,entry]of Object.entries(rule.properties))if(colorProperty.test(property))assert.doesNotMatch(entry,/#(?:[a-f\d]{3,8})\b|\b(?:white|black)\b/i,`${file} ${rule.selector} ${property} must follow the palette`);
+for(const file of components)for(const rule of rules(file))for(const [property,entry]of Object.entries(rule.properties))if(colorProperty.test(property)){
+ // A VM console has its own always-dark canvas; app chrome still follows the palette.
+ if(file==='vm_manager.css'&&rule.selector.endsWith('.vm-console-frame')&&property==='background'){assert.equal(entry,'var(--vm-console-bg,#111827)');continue;}
+ assert.doesNotMatch(entry,/#(?:[a-f\d]{3,8})\b|\b(?:white|black)\b/i,`${file} ${rule.selector} ${property} must follow the palette`);
+}
 for(const rule of rules('responsive.css').filter(rule=>/\.(?:engine-|app-live-grid|device-picker|device-option)/.test(rule.selector)))for(const [property,entry]of Object.entries(rule.properties))if(colorProperty.test(property))assert.doesNotMatch(entry,/#(?:[a-f\d]{3,8})\b|\b(?:white|black)\b/i,`Responsive Docker/device styling ${rule.selector} ${property} must follow the palette`);
+for(const file of ['style.css','nas_desktop.css','responsive.css','sidebar_layout.css'])for(const rule of rules(file).filter(rule=>/\.(?:vm-|cpu-option)|#shell\[data-page=vms\]/.test(rule.selector)))for(const [property,entry]of Object.entries(rule.properties))if(colorProperty.test(property))assert.doesNotMatch(entry,/#(?:[a-f\d]{3,8})\b|\b(?:white|black)\b/i,`Shared VM styling ${file} ${rule.selector} ${property} must follow the palette`);
 
 for(const [file,selector,property,expected]of [
  ['application_design.css','.cp-window','background','var(--bg)'],
@@ -33,6 +38,25 @@ for(const [file,selector,property,expected]of [
  ['docker_workbench.css','.network-table tr.is-selected','background','var(--selected)'],
  ['responsive.css','.app-live-grid strong','color','var(--text)'],
  ['responsive.css','.app-live-grid span','color','var(--muted)'],
+ ['manager_views.css','.mv-filter-bar>select','background','var(--panel)'],
+ ['manager_views.css','.mv-filter-bar>select','color','var(--text)'],
+ ['manager_views.css','.mv-filter-bar>select','border','1px solid var(--line)'],
+ ['manager_views.css','.mv-warning','background','var(--warning-bg)'],
+ ['manager_views.css','.mv-warning','color','var(--warning)'],
+ ['manager_views.css','.mv-status-dot','background','var(--success)'],
+ ['manager_views.css','.mv-status-warning','background','var(--warning)'],
+ ['manager_views.css','.mv-cpu-performance','background','var(--info-bg)'],
+ ['manager_views.css','.mv-cpu-efficiency','background','var(--success-bg)'],
+ ['responsive.css','.vm-live-grid small','color','var(--muted)'],
+ ['responsive.css','.vm-sparkline','color','var(--accent)'],
+ ['vm_manager.css','#shell[data-page=vms] .vm-list-row.is-selected','background','var(--selected)'],
+ ['vm_manager.css','#shell[data-page=vms] .vm-row-live .vm-live-grid strong','color','var(--text)'],
+ ['vm_manager.css','#shell[data-page=vms] .vm-live-unavailable','color','var(--warning)'],
+ ['vm_manager.css','#shell[data-page=vms] .vm-operation-status','background','var(--info-bg)'],
+ ['nas_desktop.css','.cpu-option:has(input:checked)','background','var(--selected)'],
+ ['nas_desktop.css','.cpu-option:has(input:checked)','border-color','var(--accent)'],
+ ['nas_desktop.css','.cpu-option-efficiency','border-left','3px solid var(--success)'],
+ ['sidebar_layout.css','#shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-tabs>button[aria-selected=true]','color','var(--selected-text)'],
  ['storage_backup.css','.storage-navigation','background','var(--panel-soft)'],
  ['storage_backup.css','.storage-health-summary.warning','background','var(--warning-bg)'],
  ['compact_ui.css','.sl-toolbar','background','var(--panel-soft)'],
@@ -55,7 +79,7 @@ assert(actionSurfaces.length,'Responsive form action surfaces are explicitly def
 for(const rule of actionSurfaces)assert.equal(rule.properties.background,'transparent','Responsive form actions never reintroduce a white strip');
 
 const theme=rules('desktop_theme.css'),required=['--bg','--panel','--panel-soft','--text','--muted','--line','--accent','--focus','--focus-ring','--hover','--selected','--selected-text','--primary-bg','--primary-text','--success','--success-bg','--warning','--warning-bg','--danger','--danger-bg','--info','--info-bg'];
-for(const rule of theme)assert.doesNotMatch(rule.selector,/\.(?:cp-|sc-|um-|engine-|network-|security-|catalog-|sl-|package-|storage-(?:navigation|health|toolbar|volume|dataset|properties))/,'The desktop theme must not override semantic application component states');
+for(const rule of theme)assert.doesNotMatch(rule.selector,/\.(?:cp-|sc-|um-|engine-|network-|security-|catalog-|sl-|package-|mv-|vm-(?!console\b)|storage-(?:navigation|health|toolbar|volume|dataset|properties))/,'The desktop theme must not override semantic application component states');
 for(const mode of ['light','dark']){
  const modeSelector=`html[data-color-theme=${mode}]`,palettes=theme.filter(rule=>rule.selector.split(',').some(selector=>[':root',modeSelector].includes(selector.trim())));
  const modePalette=palettes.find(rule=>rule.selector.split(',').some(selector=>selector.trim()===modeSelector));assert(modePalette,`${mode} palette exists`);

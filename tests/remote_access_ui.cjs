@@ -2,8 +2,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const ui=require('../titan/web/remote_access.js');
 const {fixture:domFixture}=require('./desktop_test_dom.cjs');
-const data={revision:'revision-one',remote:{enabled:true,public_origin:'https://nas.example.de',connector:'cloudflare',service_url:'http://172.30.0.1:5102',sources:['172.30.0.0/24'],app_urls:{}},connectors:[{id:'cloudflare',name:'Cloudflare <Web>'}],apps:[{id:'photos',name:'Photos <private>'}]};
-const state=(phase,extra={})=>({...data,...extra,setup:{phase,running:false,connector:'cloudflare',cloudflare_connected:true,...extra.setup}});
+const data={revision:'revision-one',remote:{enabled:true,public_origin:'https://nas.example.de',connector:'titan-cloudflared',service_url:'http://172.30.0.1:5102',sources:['172.30.0.0/24'],app_urls:{}},connectors:[{id:'titan-cloudflared',name:'Cloudflare <Web>'}],apps:[{id:'photos',name:'Photos <private>'}]};
+const state=(phase,extra={})=>({...data,...extra,setup:{phase,running:false,connector:'titan-cloudflared',cloudflare_connected:true,...extra.setup}});
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const settle=async()=>{for(let i=0;i<16;i++)await Promise.resolve();};
 
@@ -61,7 +61,7 @@ async function advancedSave(){
  const unused=f.doc.createElement('input');unused.setAttribute('data-remote-app','unused');unused.value=' ';form.append(unused);
  assert(f.submit('[data-remote-form]').defaultPrevented);f.submit('[data-remote-form]');
  assert.equal(f.calls.length,1,'Saving twice must not race firewall and proxy changes');
- request(f,0,'/api/remote-access',{enabled:true,public_origin:'https://nas.example.de',connector:'cloudflare',app_urls:{photos:'https://photos.example.de/'},expected_revision:'revision-one'});
+ request(f,0,'/api/remote-access',{enabled:true,public_origin:'https://nas.example.de',connector:'titan-cloudflared',app_urls:{photos:'https://photos.example.de/'},expected_revision:'revision-one'});
  assert(f.controls.every(node=>node.disabled));
  ui.dispose();assert.equal(f.scope.events.get('submit').length,0);assert.equal(f.scope.events.get('click').length,0);assert(f.calls[0].options.signal.aborted);
  await reply(f,0,data);assert.equal(f.replacements.length,0,'An obsolete save response must not repaint another settings view');
@@ -92,10 +92,10 @@ async function connectThenAddDomain(){
  assert.match(f.toasts.at(-1),/Ergänze jetzt die öffentliche Adresse/);
  const domain=f.query('[data-tunnel-domain-form]');domain.elements.public_origin.value=' https://nas.example.de ';
  f.submit('[data-tunnel-domain-form]');f.submit('[data-tunnel-domain-form]');
- request(f,4,'/api/remote-access',{enabled:true,public_origin:'https://nas.example.de',connector:'cloudflare',app_urls:{},expected_revision:'revision-two'});assert.equal(f.calls.length,5);
- await reply(f,4,state('needs_route',{revision:'revision-three'}));request(f,5,'/api/remote-access/diagnose',{});
- const diagnosis={checked_at:1,message:'Zugang geprüft',checks:[{name:'<route>',ok:true,message:'<reachable>'}]};await reply(f,5,diagnosis);request(f,6,'/api/remote-access',undefined);
- await reply(f,6,state('ready',{revision:'revision-three'}));
+ request(f,4,'/api/remote-access/tunnel-address',{public_origin:'https://nas.example.de',expected_revision:'revision-two'});assert.equal(f.calls.length,5);
+ const addressJob={job:{id:'tunnel-address-job'}};await reply(f,4,addressJob);request(f,5,'/api/remote-access',undefined);await reply(f,5,state('checking',{revision:'revision-three',setup:{running:true}}));
+ assert.equal(f.waits.length,2);assert.deepEqual(f.waits[1].accepted,addressJob);assert(f.controls.every(node=>node.disabled),'Address activation remains locked while its background job runs');f.waits[1].resolve({state:'succeeded'});await settle();request(f,6,'/api/remote-access',undefined);
+ const diagnosis={checked_at:1,message:'Zugang geprüft',checks:[{name:'<route>',ok:true,message:'<reachable>'}]};await reply(f,6,state('ready',{revision:'revision-three',diagnosis}));
  assert(f.query('[data-tunnel-progress]').classList.contains('is-ready'));assert.match(f.markup,/&lt;reachable&gt;/);assert.equal(f.query('a.button').getAttribute('href'),'https://nas.example.de/');assert(f.controls.every(node=>!node.disabled));assert(!f.markup.includes(token));ui.dispose();
 }
 
@@ -107,12 +107,19 @@ async function directReadyAndDiagnosis(){
  f.query('[name="token"]').value='renewed-private-token';f.submit('[data-tunnel-form]');
  request(f,0,'/api/remote-access/tunnel',{token:'renewed-private-token',public_origin:'https://nas.example.de',expected_revision:'revision-one'});
  await reply(f,0,{job:{id:'job-ready'}});await reply(f,1,state('checking',{setup:{running:true}}));assert.deepEqual(defaultWait.job,{id:'job-ready'});
- defaultWait.resolve({state:'succeeded'});await settle();await reply(f,2,state('ready',{revision:'ready-revision'}));
+ defaultWait.options.onProgress({state:'running'});request(f,2,'/api/remote-access',undefined);
+ defaultWait.resolve({state:'succeeded'});await settle();await reply(f,3,state('ready',{revision:'ready-revision'}));await reply(f,2,state('checking',{setup:{running:true}}));
  assert(f.query('[data-tunnel-progress]').classList.contains('is-ready'));assert.match(f.toasts.at(-1),/öffentlicher Zugang geprüft/);
- f.click('[data-remote-diagnose]');request(f,3,'/api/remote-access/diagnose',{});await reply(f,3,{checked_at:1,message:'Noch einmal geprüft',checks:[]});request(f,4,'/api/remote-access',undefined);
- await reply(f,4,state('ready',{revision:'diagnosed-revision'}));assert.match(f.query('[data-tunnel-progress]').textContent,/Öffentlicher Zugang geprüft/);
+ f.click('[data-remote-diagnose]');request(f,4,'/api/remote-access/diagnose',{});await reply(f,4,{checked_at:1,message:'Noch einmal geprüft',checks:[]});request(f,5,'/api/remote-access',undefined);
+ await reply(f,5,state('ready',{revision:'diagnosed-revision'}));assert.match(f.query('[data-tunnel-progress]').textContent,/Öffentlicher Zugang geprüft/);
  // The saved revision must come from the latest refresh, not the initial mount.
- f.submit('[data-remote-form]');assert.equal(f.calls[5].body.expected_revision,'diagnosed-revision');ui.dispose();f.calls[5].resolve(data);await settle();
+ f.submit('[data-remote-form]');assert.equal(f.calls[6].body.expected_revision,'diagnosed-revision');ui.dispose();f.calls[6].resolve(data);await settle();
+}
+
+async function addressFailureAndDisposal(){
+ let f=fixture(state('needs_domain'));f.mount();f.query('[data-tunnel-domain-form]').elements.public_origin.value=' https://nas.example.de ';f.submit('[data-tunnel-domain-form]');request(f,0,'/api/remote-access/tunnel-address',{public_origin:'https://nas.example.de',expected_revision:'revision-one'});
+ await reply(f,0,{job:{id:'address-failure'}});await reply(f,1,state('checking',{setup:{running:true}}));f.waits[0].reject(Error('Öffentliche Route noch nicht erreichbar'));await settle();request(f,2,'/api/remote-access',undefined);await reply(f,2,state('needs_route',{revision:'address-retry'}));assert.equal(f.query('[data-remote-error]').textContent,'Öffentliche Route noch nicht erreichbar');assert.equal(f.query('[data-remote-error]').hidden,false);assert(f.controls.every(node=>!node.disabled));assert.equal(f.query('[name="token"]').value,'');ui.dispose();
+ f=fixture(state('needs_domain'));f.mount();f.submit('[data-tunnel-domain-form]');await reply(f,0,{job:{id:'obsolete-address'}});ui.dispose();await reply(f,1,state('checking',{setup:{running:true}}));assert.equal(f.waits.length,0,'Disposal during address progress must not start a waiter');assert.equal(f.replacements.length,0);assert(f.calls[1].options.signal.aborted);
 }
 
 async function tokenErrors(){
@@ -142,4 +149,4 @@ function explicitLinks(){
  assert.equal(context.window.TitanNetworks.connection({...app,endpoints:app.endpoints.slice(0,1)}),'','Remote clients must not receive an unusable private fallback');assert.equal(context.window.TitanNetworks.connection({...app,web_state:'stopped'}),'');
 }
 
-(async()=>{await renderSafety();await advancedSave();await connectThenAddDomain();await directReadyAndDiagnosis();await tokenErrors();await disposalAndResume();explicitLinks();console.log('Remote access UI: mounted token jobs, synchronous token clearing/redaction, duplicate protection, progress/domain/ready transitions, revision-bound Advanced save, polling/disposal and explicit LAN/public links passed.');})().catch(error=>{ui.dispose();console.error(error);process.exitCode=1;});
+(async()=>{await renderSafety();await advancedSave();await connectThenAddDomain();await directReadyAndDiagnosis();await addressFailureAndDisposal();await tokenErrors();await disposalAndResume();explicitLinks();console.log('Remote access UI: mounted token/address jobs, synchronous token clearing/redaction, duplicate protection, progress/domain/ready transitions, revision-bound Advanced save, polling/disposal and explicit LAN/public links passed.');})().catch(error=>{ui.dispose();console.error(error);process.exitCode=1;});

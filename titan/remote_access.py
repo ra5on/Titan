@@ -323,6 +323,58 @@ class RemoteAccessMixin:
             finally:
                 self._remote_setup_active = False
 
+    def op_remote_access_tunnel_address(self, public_origin, expected_revision):
+        """Activate a managed runner's address in a background job, then probe."""
+        from .cloudflare_tunnel import CONNECTOR, connector_ready
+        address = public_url(public_origin)
+        with self.app_config_lock:
+            config = self.web_access.config()
+            if not isinstance(expected_revision, str) or config['revision'] != expected_revision or config.get('pending'):
+                raise Error('Webeinstellungen geändert oder Adresswechsel aktiv. Ansicht aktualisieren.', 409)
+            if not any(row['id'] == CONNECTOR for row in self.load('apps', [])):
+                raise Error('Zuerst den verwalteten Cloudflare-Tunnel mit einem Token einrichten.', 409)
+            record = self.managed_app(CONNECTOR)
+            container = self._app_container(CONNECTOR, record)
+            if (not container or not container.get('State', {}).get('Running') or
+                    container.get('State', {}).get('Status') == 'paused' or not connector_ready(container)):
+                raise Error('Der verwaltete Connector muss mit Cloudflare verbunden sein. Token und Connector-Status prüfen.', 409)
+            previous = validate_remote(config.get('remote'))
+            desired = validate_remote({**previous, 'enabled': True, 'public_origin': address,
+                'connector': CONNECTOR, **self._connector_settings(CONNECTOR)})
+            saved = False
+            self._remote_setup_active = True
+            phase = 'configuring'
+            try:
+                self._remote_setup_update(phase, 'Lokaler Tunnel-Zugang, Proxy und begrenzte Firewallregeln werden eingerichtet.', running=True)
+                self.web_access.save_remote(desired, expected_revision, wait=True)
+                saved = True
+                self.save('remote-diagnosis', {})
+                if validate_remote(self.web_access.config().get('remote')) != desired:
+                    raise Error('Der lokale Tunnel-Zugang konnte nicht aktiviert werden.', 503)
+                phase = 'checking'
+                self._remote_setup_update(phase, 'Öffentliche HTTPS-Adresse wird mit diesem Titan abgeglichen.', running=True)
+                diagnosis = self.op_remote_access_diagnose()
+                self._remote_setup_update('ready' if diagnosis['connected'] else 'needs_route',
+                    'Tunnel und öffentlicher Titan-Zugang sind geprüft.' if diagnosis['connected'] else
+                    'Lokaler Tunnel-Zugang eingerichtet. Die öffentliche Cloudflare-Route ist noch nicht bestätigt; Hostname und HTTP-Ziel im Cloudflare-Konto prüfen.')
+                return {'ok': True, **self.op_remote_access()}
+            except Exception:
+                restored = True
+                try:
+                    current = self.web_access.config()
+                    if saved and validate_remote(current.get('remote')) == desired:
+                        self.web_access.save_remote(previous, current['revision'], wait=True)
+                except Exception:
+                    restored = False
+                message = ('Der lokale Tunnel-Zugang konnte nicht aktiviert werden. Proxy und Firewall prüfen.' if phase == 'configuring' else
+                    'Die abschließende Verbindungsprüfung konnte nicht ausgeführt werden.')
+                if not restored:
+                    message += ' Wiederherstellung der Tunnel-Einstellungen unvollständig; Proxy- und Firewallstatus prüfen.'
+                self._remote_setup_update('failed', message)
+                raise Error(message, 503) from None
+            finally:
+                self._remote_setup_active = False
+
     def _connector_settings(self, connector):
         if not connector:
             return {'sources': [], 'interface': '', 'service_url': f'http://127.0.0.1:{TUNNEL_PORT}'}

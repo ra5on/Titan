@@ -243,19 +243,19 @@ circle.chart-cpu{fill:#4b8ee1}circle.chart-memory{fill:#59b39f}
 .folder-picker-breadcrumbs .button{background:var(--panel-soft)}/* Virtualization, networking and system services retain functional controls. */
 
 
-.vm-card{background:#fff}
-.vm-hardware .stat-card{background:#f5f8fc}
-.vm-hardware .stat-card strong{color:#557597;font-size:16px}
-.vm-form-section{background:#f7fafd;border-color:#dce6f3}
-.vm-form-section legend{color:#6b88a9}
-.vm-detail-list dt{color:#7186a0}
-.vm-detail-list dd{color:#5e7895}
-.cpu-option{background:#fff;border-color:#dce6f3;color:#5d7793}
-.cpu-option:has(input:checked){background:#edf5ff;border-color:#88b5ed}
-.cpu-option small{color:#7489a3}
-.cpu-option-performance{border-left:3px solid #71a8ea}
-.cpu-option-efficiency{border-left:3px solid #69b9a2}
-.cpu-option-standard,.cpu-option-unknown{border-left:3px solid #a5b5c8}
+.vm-card{background:var(--panel)}
+.vm-hardware .stat-card{background:var(--panel-soft)}
+.vm-hardware .stat-card strong{color:var(--text);font-size:16px}
+.vm-form-section{background:var(--panel-soft);border-color:var(--line)}
+.vm-form-section legend{color:var(--muted)}
+.vm-detail-list dt{color:var(--muted)}
+.vm-detail-list dd{color:var(--text)}
+.cpu-option{background:var(--panel);border-color:var(--line);color:var(--text)}
+.cpu-option:has(input:checked){background:var(--selected);border-color:var(--accent)}
+.cpu-option small{color:var(--muted)}
+.cpu-option-performance{border-left:3px solid var(--accent)}
+.cpu-option-efficiency{border-left:3px solid var(--success)}
+.cpu-option-standard,.cpu-option-unknown{border-left:3px solid var(--muted)}
 .service-list{border-color:var(--line);background:var(--panel)}
 .service-card{background:var(--panel);border-color:var(--line)}
 .service-card:hover{background:var(--hover)}
@@ -267,9 +267,9 @@ circle.chart-cpu{fill:#4b8ee1}circle.chart-memory{fill:#59b39f}
 .network-advanced summary small,.network-check{color:var(--muted)}
 .app-network-details,.app-network-summary{color:var(--muted)}
 .deployment-card{background:var(--panel-soft)}
-.file-editor-heading code{color:#5f83ad}
-.file-editor-close-guard{color:#967839;background:#fff8e9;border-color:#ead8ab}
-.file-editor-workspace .file-editor{background:#fbfdff;color:#49617f;caret-color:#2477dd}
+.file-editor-heading code{color:var(--text)}
+.file-editor-close-guard{color:var(--warning);background:var(--warning-bg);border-color:var(--line)}
+.file-editor-workspace .file-editor{background:var(--panel);color:var(--text);caret-color:var(--accent)}
 .terminal-panel{background:var(--panel)}
 #terminal-screen{background:#0d1117;border:1px solid #cdd8e6}
 

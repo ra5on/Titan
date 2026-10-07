@@ -394,6 +394,156 @@ class TunnelSetupTests(unittest.TestCase):
             RemoteAccessMixin.op_remote_access_diagnose(self.host)
         self.assertEqual(self.host.op_remote_access()['setup']['phase'], 'ready')
 
+    def test_domain_job_activates_and_checks_without_touching_token_runner_lan_or_app_urls(self):
+        self.setup('')
+        config = self.host.web_access.config()
+        config['remote'] = {**validate_remote(config.get('remote')), 'app_urls': {CONNECTOR: 'https://app.example.com/path'}}
+        atomic_json(self.host.web_access.path, config, mode=0o644)
+        before_token = self.token_file().read_bytes()
+        before_options = (self.host.directory / 'apps' / CONNECTOR / 'options.json').read_bytes()
+        before_actions = copy.deepcopy(self.host.actions)
+        self.host.web_access.schedule = Mock(side_effect=AssertionError('address jobs must await activation'))
+        value = self.host.op_remote_access_tunnel_address('https://nas.example.com', config['revision'])
+        self.assertEqual(value['setup']['phase'], 'ready')
+        self.assertFalse(value['setup']['needs_domain'])
+        self.assertEqual(value['remote']['app_urls'], config['remote']['app_urls'])
+        self.assertEqual(value['remote']['service_url'], 'http://127.0.0.1:5102')
+        self.assertEqual(self.host.web_access.config()['settings'], self.initial['settings'])
+        self.assertEqual(self.host.web_access.config()['host'], self.initial['host'])
+        self.assertEqual(self.token_file().read_bytes(), before_token)
+        self.assertEqual((self.host.directory / 'apps' / CONNECTOR / 'options.json').read_bytes(), before_options)
+        self.assertEqual(self.host.actions, before_actions)
+        self.assertEqual([row['phase'] for row in self.host.phases][-3:], ['configuring', 'checking', 'ready'])
+        self.assert_no_public_token(value)
+
+    def test_domain_job_public_failure_keeps_local_route_and_reports_needs_route(self):
+        self.setup('')
+        self.host.op_remote_access_diagnose.return_value = {'connected': False}
+        value = self.host.op_remote_access_tunnel_address('https://nas.example.com', self.host.web_access.config()['revision'])
+        self.assertTrue(value['ok'])
+        self.assertEqual(value['setup']['phase'], 'needs_route')
+        self.assertFalse(value['setup']['needs_domain'])
+        self.assertTrue(value['remote']['enabled'])
+        self.assertTrue(self.host.container['State']['Running'])
+
+    def test_domain_job_requires_valid_revision_address_and_connected_owned_runner_before_any_changes(self):
+        revision = self.host.web_access.config()['revision']
+        with self.assertRaisesRegex(Error, 'Zuerst'):
+            self.host.op_remote_access_tunnel_address('https://nas.example.com', revision)
+        self.assertEqual(self.host.phases, [])
+        self.setup('')
+        config = self.host.web_access.config()
+        before = self.host.web_access.path.read_bytes()
+        phases = copy.deepcopy(self.host.phases)
+        for address, revision in (('', config['revision']), ('http://nas.example.com', config['revision']),
+                ('https://user:secret@nas.example.com', config['revision']), ('https://nas.example.com', 'stale')):
+            with self.subTest(address=address), self.assertRaises(Error):
+                self.host.op_remote_access_tunnel_address(address, revision)
+        for state in ({'Running': False, 'Status': 'exited'}, {'Running': True, 'Status': 'paused'}):
+            self.host.container['State'].update(state)
+            with self.assertRaisesRegex(Error, 'verbunden'):
+                self.host.op_remote_access_tunnel_address('https://nas.example.com', config['revision'])
+        self.host.container['State'].update(Running=True, Status='running')
+        self.ready.return_value = False
+        with self.assertRaisesRegex(Error, 'verbunden'):
+            self.host.op_remote_access_tunnel_address('https://nas.example.com', config['revision'])
+        self.ready.return_value = True
+        self.assertEqual(self.host.web_access.path.read_bytes(), before)
+        self.assertEqual(self.host.phases, phases)
+        config['pending'] = {'previous': copy.deepcopy(config), 'deadline': 1234}
+        atomic_json(self.host.web_access.path, config, mode=0o644)
+        with self.assertRaises(Error):
+            self.host.op_remote_access_tunnel_address('https://nas.example.com', config['revision'])
+        self.assertEqual(self.host.phases, phases)
+
+    def test_domain_job_waits_for_activation_and_late_failure_never_runs_public_check(self):
+        self.setup('')
+        before_remote = self.host.web_access.config().get('remote')
+        before_token = self.token_file().read_bytes()
+        before_actions = copy.deepcopy(self.host.actions)
+        started, release = threading.Event(), threading.Event()
+        failures, calls = [], []
+        def restart():
+            calls.append(True)
+            if len(calls) == 1:
+                started.set()
+                if not release.wait(3):
+                    raise Error('test activation release missing')
+                raise Error('late disposable address activation failure')
+        self.host.web_access._restart = restart
+        self.host.op_remote_access_diagnose.reset_mock()
+        def apply():
+            try:
+                self.host.op_remote_access_tunnel_address('https://nas.example.com', self.host.web_access.config()['revision'])
+            except Error as error:
+                failures.append(error)
+        thread = threading.Thread(target=apply, daemon=True)
+        thread.start()
+        try:
+            self.assertTrue(started.wait(2))
+            self.assertTrue(thread.is_alive())
+            self.assertEqual(self.host.load('remote-tunnel-setup', {})['phase'], 'configuring')
+            self.assertTrue(self.host.load('remote-tunnel-setup', {})['running'])
+            self.host.op_remote_access_diagnose.assert_not_called()
+        finally:
+            release.set()
+            thread.join(3)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(self.host.phases[-1]['phase'], 'failed')
+        self.assertFalse(self.host._remote_setup_active)
+        self.host.op_remote_access_diagnose.assert_not_called()
+        self.assertEqual(self.host.web_access.config().get('remote'), before_remote)
+        self.assertEqual(self.host.web_access.config()['settings'], self.initial['settings'])
+        self.assertEqual(self.token_file().read_bytes(), before_token)
+        self.assertEqual(self.host.actions, before_actions)
+        self.assertTrue(self.host.container['State']['Running'])
+
+    def test_domain_job_same_address_activation_failure_is_not_hidden_by_equal_config(self):
+        self.setup()
+        before_remote = self.host.web_access.config()['remote']
+        self.host.op_remote_access_diagnose.reset_mock()
+        self.host.fail_proxy = True
+        with self.assertRaisesRegex(Error, 'Proxy'):
+            self.host.op_remote_access_tunnel_address('https://nas.example.com', self.host.web_access.config()['revision'])
+        self.host.op_remote_access_diagnose.assert_not_called()
+        self.assertEqual(self.host.web_access.config()['remote'], before_remote)
+        self.assertEqual(self.host.phases[-1]['phase'], 'failed')
+        self.assertTrue(self.host.container['State']['Running'])
+
+    def test_domain_job_diagnosis_exception_restores_previous_route_without_rotating_credentials(self):
+        self.setup()
+        before_remote = self.host.web_access.config()['remote']
+        before_token = self.token_file().read_bytes()
+        before_actions = copy.deepcopy(self.host.actions)
+        self.host.op_remote_access_diagnose.side_effect = Error('upstream ' + self.credential)
+        with self.assertRaisesRegex(Error, 'abschließende') as error:
+            self.host.op_remote_access_tunnel_address('https://new.example.com', self.host.web_access.config()['revision'])
+        self.assertNotIn(self.credential, str(error.exception))
+        self.assertEqual(self.host.web_access.config()['remote'], before_remote)
+        self.assertEqual(self.token_file().read_bytes(), before_token)
+        self.assertEqual(self.host.actions, before_actions)
+        self.assertEqual(self.host.phases[-1]['phase'], 'failed')
+        self.assertFalse(self.host._remote_setup_active)
+
+    def test_domain_job_failed_rollback_activation_reports_incomplete_restoration(self):
+        self.setup()
+        save = self.host.web_access.save_remote
+        calls = []
+        def fail_second_activation(*args, **kwargs):
+            calls.append(True)
+            if len(calls) == 2:
+                self.host.fail_proxy = True
+            return save(*args, **kwargs)
+        self.host.web_access.save_remote = fail_second_activation
+        self.host.op_remote_access_diagnose.side_effect = Error('disposable diagnosis failure')
+        with self.assertRaisesRegex(Error, 'unvollständig'):
+            self.host.op_remote_access_tunnel_address('https://new.example.com', self.host.web_access.config()['revision'])
+        self.assertEqual(self.host.web_access.config()['remote']['public_origin'], 'https://new.example.com')
+        self.assertEqual(self.host.phases[-1]['phase'], 'failed')
+        self.assertTrue(self.host.container['State']['Running'])
+        self.assertFalse(self.host._remote_setup_active)
+
     def test_ready_state_tracks_connection_disable_other_connector_and_fresh_revision(self):
         self.setup()
         self.ready.return_value = False

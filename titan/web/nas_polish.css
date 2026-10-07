@@ -20,7 +20,7 @@ body:has(dialog[open]) :is(#main,.nas-window-content,.mv-content,.sl-content,.fb
 .desktop-shortcut{will-change:transform;contain:layout style}
 .shortcut-dragging{transition:none!important;cursor:grabbing;filter:drop-shadow(0 12px 12px #17345f33)}
 .desktop-drop-preview{position:absolute;pointer-events:none;width:100px;height:100px;border:2px dashed #3385d8;border-radius:14px;background:#ffffff35;z-index:1;transition:left .1s,top .1s}
-.fb-favorites h3,.fb-folder-tree summary{font-size:12px;font-weight:600;color:#607792;margin:12px 0 6px}
+.fb-favorites h3,.fb-folder-tree summary{font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 6px}
 .fb-favorites .hint,.fb-folder-tree .hint{font-size:11px;margin:6px}
 .fb-folder-tree>.fb-place{padding-left:20px}
 .fb-favorite{flex:0 0 38px;font-size:21px;padding:4px!important}
@@ -32,9 +32,9 @@ body:has(dialog[open]) :is(#main,.nas-window-content,.mv-content,.sl-content,.fb
 .fb-search-warning{flex-basis:100%;margin:0}
 .fb-name-button>span small{display:block;color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .fb-places-toggle{display:none}
-.fb-browser .fb-toolbar{background:#f8fbff}
-.fb-browser .fb-selection{background:#edf5ff;border-bottom:1px solid #cbdff7}
-.fb-browser .fb-filter-row{background:#fff}
+.fb-browser .fb-toolbar{background:var(--panel-soft)}
+.fb-browser .fb-selection{background:var(--panel-soft);border-bottom:1px solid var(--line)}
+.fb-browser .fb-filter-row{background:var(--panel)}
 @media(prefers-reduced-motion:no-preference){
  .desktop-shortcut:not(.shortcut-dragging){transition:left .15s ease,top .15s ease,background .12s}
  .button,.fb-place{transition:background .12s,border-color .12s,box-shadow .12s}
@@ -50,12 +50,12 @@ body:has(dialog[open]) :is(#main,.nas-window-content,.mv-content,.sl-content,.fb
  #shell[data-desktop=true] .topbar{min-height:96px;align-content:center}
  .desktop-window-layer{top:96px}
  #shell .fb-browser.panel{position:relative;overflow:auto;display:block}
- #shell .fb-places{display:none;overflow:visible;padding:12px;background:#f7faff;border-bottom:1px solid #dbe5ef;flex-wrap:wrap}
+ #shell .fb-places{display:none;overflow:visible;padding:12px;background:var(--panel-soft);border-bottom:1px solid var(--line);flex-wrap:wrap}
  #shell .fb-browser[data-places=true] .fb-places{display:block}
  #shell .fb-places h2,#shell .fb-places h3,#shell .fb-place-note{display:block}
  #shell .fb-places .fb-place{display:flex;width:100%;max-width:none}
  #shell .fb-places-toggle{display:inline-flex}
- #shell .fb-toolbar{position:sticky;top:0;z-index:5;gap:4px;padding:6px;background:#f8fbfff5;box-shadow:0 1px 4px #35567815}
+ #shell .fb-toolbar{position:sticky;top:0;z-index:5;gap:4px;padding:6px;background:var(--panel-soft);box-shadow:0 1px 4px var(--theme-shadow)}
  #shell .fb-navigation [data-fb-history],#shell .fb-create [data-action=trash-view]{display:none}
  #shell .fb-navigation{gap:3px}
  #shell .fb-navigation .button{width:36px;min-width:36px;padding:5px}
@@ -83,5 +83,5 @@ body:has(dialog[open]) :is(#main,.nas-window-content,.mv-content,.sl-content,.fb
 }
 
 .fb-search-advanced{flex-basis:100%;min-width:0;grid-column:1/-1}
-.fb-search-advanced summary{cursor:pointer;font-size:12px;color:#466583;padding:6px 0}
+.fb-search-advanced summary{cursor:pointer;font-size:12px;color:var(--muted);padding:6px 0}
 .fb-search-advanced[open] .fb-search-options{padding:6px 0}
