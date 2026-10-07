@@ -4,7 +4,11 @@
 
 Titan ist eine eigenständige NAS-Oberfläche auf Debian mit persönlichem Desktop, Dateimanager, Freigaben, virtuellen Maschinen und Docker-Verwaltung.
 
-**Entwicklungsstand: 0.5.3 · Alpha.** Dieser Quellstand ist noch keine neue Image-Veröffentlichung und keine Freigabe für produktive Daten.
+**Version: 0.5.3-alpha.1 · Alpha.** Zunächst mit Testdaten verwenden.
+
+[**Image herunterladen · AMD64 (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.5.3-alpha.1/titan-0.5.3-alpha.1-amd64.img.xz) · [Release, Checksummen und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.3-alpha.1)
+
+Für den VM-Test: **UEFI/OVMF**, **Secure Boot aus**, **8 GiB RAM** und mindestens **64 GiB Festplatte**. Die `.img.xz` entpacken; das enthaltene Image ist 48 GiB groß. Die virtuelle Festplatte vor dem ersten Start auf die gewünschte Größe erweitern. Danach Titan unter `https://NAS-IP:5000` öffnen.
 
 ![Titan Desktop · Demoansicht](docs/images/titan-desktop-bigbear.jpg)
 
