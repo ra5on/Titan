@@ -22,29 +22,10 @@ def translate(document, metadata, label):
         raise Error('Compose-Datei oder App-Metadaten fehlen.')
     if set(document) - {'services', 'networks', 'volumes', 'name', 'version', 'x-casaos'}:
         raise Error('Zusätzliche Compose-Funktionen benötigen eine eigene Vorlage.')
-    # All services must share one private network. Never silently collapse
-    # external networks, host namespaces or isolated network segments.
-    networks = document.get('networks', {}) or {}
-    if not isinstance(networks, dict) or len(networks) > 1:
-        raise Error('Mehrere getrennte Netze benötigen eine eigene Vorlage.')
-    for definition in networks.values():
-        if definition and (not isinstance(definition, dict) or set(definition) - {'driver'} or definition.get('driver', 'bridge') != 'bridge'):
-            raise Error('Externes oder besonderes Netzwerk nicht unterstützt.')
-    used_networks = set()
-    for service in (document.get('services') or {}).values():
-        if not isinstance(service, dict):
-            raise Error('Ungültiger Stack-Dienst.')
-        value = service.get('networks', [])
-        if isinstance(value, dict):
-            if any(options for options in value.values()):
-                raise Error('Statische Netzwerkoptionen benötigen eine eigene Vorlage.')
-        elif not isinstance(value, list):
-            raise Error('Ungültige Netzwerkzuordnung.')
-        used_networks.update(value)
-    if len(used_networks) > 1:
-        raise Error('Getrennte Dienstnetze nicht unterstützt.')
-    if used_networks and any(not service.get('networks') for service in document['services'].values()):
-        raise Error('Gemischte Dienstnetze nicht unterstützt.')
+    # Preserve separate private networks and aliases. External/IPAM networks
+    # are requirements needing deliberate host setup, never silently collapsed.
+    from .compose_templates import private_networks
+    private_networks(document)
     for definition in (document.get('volumes') or {}).values():
         if definition and (not isinstance(definition, dict) or set(definition) - {'name', 'driver'} or definition.get('driver', 'local') != 'local'):
             raise Error('Externe oder besondere Volumes nicht unterstützt.')
@@ -122,7 +103,9 @@ def archive_document(raw):
                     raise Error('YAML-Verweise nicht unterstützt.')
                 apps.append(translate(yaml.safe_load(source), json.loads(archive.read(entries[metadata_path])), label))
             except (Error, ValueError, KeyError, TypeError, AttributeError, yaml.YAMLError) as exc:
-                skipped.append({'name': label, 'reason': line(str(exc), 200)})
+                skipped.append({'name': label, 'reason': line(str(exc), 300),
+                    'code': getattr(exc, 'code', 'template_format'),
+                    'requirements': getattr(exc, 'requirements', [])})
     if not apps:
         raise Error('Keine unterstützten BigBear-Stacks gefunden.')
     return {'schema': 1, 'name': 'BigBear', 'apps': apps}, skipped

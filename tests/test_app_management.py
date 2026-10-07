@@ -29,6 +29,12 @@ class AppManagementTests(unittest.TestCase):
         self.owner_patch = patch("titan.host.pwd.getpwnam", return_value=self.owner).start()
         self.calls = []
         self.containers = {}
+        # HTTP liveness has a dedicated real-socket/caching suite. This Docker
+        # fixture explicitly provides the independent ready/non-ready answer.
+        patch("titan.app_management.app_readiness", side_effect=lambda host, container, record, summary:
+            {"web_state": "ready" if container and container.get("State", {}).get("Status") == "running" else "stopped",
+             "web_available": bool(container and container.get("State", {}).get("Status") == "running"),
+             "web_message": "Fixture HTTP endpoint", "web_checked_at": 123}).start()
         self.label_sequence = 0
         self.config_label = ""
         self.pulled = set()
@@ -463,8 +469,10 @@ class AppManagementTests(unittest.TestCase):
         self.host.save("apps", [])
         self.containers.clear()
         self.host.op_app_install("syncthing", 8384)
-        for port in (22000, 21027, 5000, 5001, 8384):
+        for port in (22000, 5000, 5001, 8384):
             with self.assertRaises(Error): self.host.op_app_install("heimdall", port)
+        # Syncthing discovery uses UDP 21027; TCP on that number is independent.
+        self.host.op_app_install("heimdall", 21027)
 
     def test_symlink_default_data_and_config_are_rejected(self):
         (self.host.share_root / "apps").mkdir()

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Real Docker acceptance checks, exclusively on a disposable CI runner."""
 import argparse
+import base64
 import importlib.util
 import json
 import os
@@ -25,7 +26,7 @@ from titan.core import Error
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('package', choices=[*PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich'])
+    parser.add_argument('package', choices=[*PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
     args = parser.parse_args()
     if not args.confirm_disposable_runner or os.environ.get('GITHUB_ACTIONS') != 'true':
@@ -46,6 +47,8 @@ def main():
     if app == 'titan-nextcloud-office':
         user_options['office_mode'] = 'enabled'  # exercise the complete optional Office stack
     options = validate_options(app, prepare_options(app, user_options))
+    cloudflared_web = args.package == 'bigbear:cloudflared-web'
+    app_port = recipe['port'] if recipe.get('default_network') == 'host' else 18080
     for key in options:
         if key.startswith('stack_port_') and '_53_' in key: options[key] = 15053
     if 'nas_host' in options: options['nas_host'] = '127.0.0.1'
@@ -137,7 +140,7 @@ def main():
         config = host.directory / 'apps' / app / 'compose.json'
         command = ['docker', 'compose', '--project-name', 'titan-' + app, '-f', str(config)]
         try:
-            installed_job = submit('app_install', {'app': app, 'port': 18080, 'options': options})
+            installed_job = submit('app_install', {'app': app, 'port': app_port, 'options': options})
             # The HTTP file request runs while the production Host is pulling,
             # initializing databases and waiting for health, not after it ends.
             deadline = time.monotonic() + 15
@@ -165,7 +168,7 @@ def main():
             endpoint = '/api/server/ping' if app == 'titan-immich' else '/admin/' if app == 'titan-pihole' else '/status.php' if app == 'titan-nextcloud-office' else '/'
             bigbear_nextcloud = args.package == 'bigbear:nextcloud'
             if bigbear_nextcloud: endpoint = '/index.php/login'
-            app_request = urllib.request.Request('http://127.0.0.1:18080' + endpoint,
+            app_request = urllib.request.Request('http://127.0.0.1:' + str(app_port) + endpoint,
                 headers={'Host': 'nas.test:18080'} if bigbear_nextcloud else {})
             for attempt in range(45):
                 try:
@@ -174,6 +177,11 @@ def main():
                         if bigbear_nextcloud and b'nextcloud' not in response.read(1024 * 1024).lower():
                             raise Error('Nextcloud login page is unavailable under the configured NAS hostname.')
                     break
+                except urllib.error.HTTPError as response:
+                    if cloudflared_web and response.code == 401:
+                        break  # Credentials configured; unauthenticated access denied.
+                    if attempt == 44: raise Error('App HTTP readiness failed') from None
+                    time.sleep(2)
                 except (OSError, Error):
                     if attempt == 44: raise Error('App HTTP readiness failed') from None
                     time.sleep(2)
@@ -186,6 +194,38 @@ def main():
                     if error.code != 400: raise Error('Unexpected untrusted-host response.') from None
                 else:
                     raise Error('Nextcloud must reject an unconfigured hostname.')
+            if cloudflared_web:
+                environment = recipe['stack']['services'][recipe['stack']['primary']].get('environment', {})
+                def private_value(key):
+                    value = environment.get(key, '')
+                    return str(actual_options[value[8:]]) if isinstance(value, str) and value.startswith('@option:') else str(value)
+                username, password = private_value('BASIC_AUTH_USER'), private_value('BASIC_AUTH_PASS')
+                if not username or len(password) < 12:
+                    raise Error('Cloudflared Web credentials were not securely configured.')
+                class NoRedirect(urllib.request.HTTPRedirectHandler):
+                    def redirect_request(self, request, response, code, message, headers, location):
+                        return None
+                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+                credentials = base64.b64encode((username + ':' + password).encode()).decode()
+                authenticated = urllib.request.Request('http://127.0.0.1:' + str(app_port) + '/', headers={'Authorization': 'Basic ' + credentials})
+                with opener.open(authenticated, timeout=5) as response:
+                    if response.status != 200:
+                        raise Error('Configured Cloudflared Web credentials cannot open the application.')
+            lan_url = 'http://10.254.254.1:' + str(app_port)
+            def check_cloudflared_lan(expected=401):
+                if not cloudflared_web:
+                    return
+                response = run(['ip', 'netns', 'exec', 'titan-ci-client', 'curl', '--noproxy', '*',
+                    '--connect-timeout', '2', '--max-time', '5', '-s', '-o', '/dev/null', '-w', '%{http_code}', lan_url], timeout=10).strip()
+                if response != str(expected):
+                    raise Error('Cloudflared Web must be reachable with authentication from the isolated LAN client.')
+                state = request('/api/apps')['installed'][0]
+                if not state.get('web_available') or state.get('web_state') != 'ready':
+                    raise Error('App API did not report verified HTTP readiness.')
+                rules = host.load('managed-firewall-v1', {})
+                if not any('10.254.254.0/30' in row['rule'] and 'app:' + app in row['owners'] for row in rules.values()):
+                    raise Error('No scoped LAN firewall rule was managed for Cloudflared Web.')
+            check_cloudflared_lan()
             # A restart must preserve initialized databases and account settings.
             office_gateway = None
             if app == 'titan-nextcloud-office':
@@ -207,10 +247,18 @@ def main():
             action('app_action', app=app, action='stop')
             if any(host._app_container_active(item) for item in host._app_lifecycle_snapshot(app)):
                 raise Error('Package still has running services after HTTP stop.')
+            if cloudflared_web:
+                state = next(row for row in request('/api/apps')['installed'] if row['id'] == app)
+                if state.get('web_available') or state.get('web_state') != 'stopped':
+                    raise Error('Stopped Cloudflared Web still has a launchable status.')
+                if any('app:' + app in row['owners'] for row in host.load('managed-firewall-v1', {}).values()):
+                    raise Error('Stopped Cloudflared Web retained a managed firewall rule.')
             action('app_action', app=app, action='start')
             ready()
+            check_cloudflared_lan()
             action('app_action', app=app, action='restart')
             ready()
+            check_cloudflared_lan()
             keep = Path(installed['data']) / 'titan-smoke-retained.txt'
             keep.write_text('persistent-user-data')
             private = host.directory / 'apps' / app / 'options.json'
@@ -224,9 +272,12 @@ def main():
                 raise Error('Managed containers remain after uninstall.')
             if any(row['id'] == app for row in host.load('apps', [])):
                 raise Error('Uninstall left the application registered.')
+            if cloudflared_web and any('app:' + app in row['owners'] for row in host.load('managed-firewall-v1', {}).values()):
+                raise Error('Uninstall retained app firewall access.')
             print(json.dumps({'package': app, 'containers': len(definition['services']), 'ready': True,
                 'restart': True, 'host_http_lifecycle': True, 'single_container_stop': True,
                 'package_stop_start': True, 'uninstall_data_retained': True,
+                **({'isolated_lan_firewall_access': True, 'basic_auth_required': True, 'readiness_verified': True} if cloudflared_web else {}),
                 'file_browse_during_install': True, 'file_browse_seconds': round(list_seconds, 3),
                 **({'office_gateway': office_gateway} if office_gateway else {})}))
         except Exception:

@@ -12,7 +12,7 @@ import contextlib
 
 from .catalog import APPS, compose, published_ports, validate_options
 from .core import Error, atomic_json, integer
-from .app_networks import AppNetworkMixin, selection
+from .app_networks import AppNetworkMixin, selection, app_readiness
 
 
 def _run(*args, **kwargs):
@@ -29,6 +29,45 @@ from .package_center import PackageCenterMixin, definition_digest
 
 
 class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkMixin):
+    @staticmethod
+    def _app_valid_port(app, port, network):
+        if APPS[app].get("web_available") is False:
+            return integer(port, 0, 0)
+        return integer(port, 1 if network["mode"] == "host" else 1024, 65535)
+
+    def _app_firewall(self, app, enabled=True):
+        from .app_firewall import reconcile
+        record = next((item for item in self.load("apps", []) if item["id"] == app), None)
+        if not record:
+            return reconcile(self, "app:" + app, [])
+        mode = selection(record.get("network"))["mode"]
+        ports = published_ports(app, record["port"], self._app_options(app), host_mode=True) if enabled and mode == "host" else []
+        # Bridge/NAT access belongs to Docker. Only reconcile this owner when
+        # it has a rule to add, or retained rules to withdraw.
+        ledger = self.load("managed-firewall-v1", {})
+        if not ports and not any("app:" + app in value.get("owners", []) for value in ledger.values()):
+            return {"available": True, "managed_rules": 0, "warnings": []}
+        status = reconcile(self, "app:" + app, ports)
+        self._app_patch_record(app, {"firewall_warnings": status["warnings"]})
+        return status
+
+    def _app_firewall_observed(self, app):
+        # Used after individual Docker actions and recovery: dependencies alone
+        # must not retain the primary service's network exposure.
+        containers = self._app_lifecycle_snapshot(app)
+        primary = next((item for item in containers if item.get("Name") == "/titan-" + app), None)
+        return self._app_firewall(app, enabled=bool(primary and self._app_container_active(primary)))
+
+    def reconcile_app_firewall(self):
+        """Boot/network-change hook; reconcile only recorded Titan app owners."""
+        warnings = []
+        for record in self.load("apps", [])[:128]:
+            try:
+                warnings.extend(self._app_firewall_observed(record["id"])["warnings"])
+            except (Error, ValueError, KeyError, TypeError) as exc:
+                warnings.append(str(exc))
+        return warnings
+
     def _app_config_path(self, app, record=None):
         record = record or next((item for item in self.load("apps", []) if item["id"] == app), {})
         path = Path(record.get("config_path") or self.directory / "apps" / app / "config")
@@ -126,6 +165,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         original_ids = {row["Id"] for row in containers}
         if any(row["Id"] not in original_ids or self._app_container_active(row) for row in stopped):
             raise Error("Paketdienste sind noch aktiv oder wurden ersetzt. Keine Daten wurden entfernt.", 409)
+        self._app_firewall(app, enabled=False)
         if action == "remove":
             if stopped:
                 output.append(_run(["docker", "rm", *[row["Id"] for row in stopped]], timeout=120))
@@ -284,7 +324,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             owner = pwd.getpwnam("titan-files")
             network = selection(record.get("network"))
             expected = compose(app, str(directory), owner.pw_uid, owner.pw_gid,
-                               integer(record["port"], 1 if network["mode"] == "host" else 1024, 65535),
+                               self._app_valid_port(app, record["port"], network),
                                str(record["data"]), self._app_options(app), network, record.get("hardware"), config_path=record.get("config_path"))
             # Read recipes from older releases, but prevent Docker from silently
             # creating missing bind directories on an unavailable NAS volume.
@@ -378,26 +418,32 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             owner = pwd.getpwnam("titan-files")
             options = self._app_options(app) if options is None else options
             network = selection(record.get("network"))
-            definition = compose(app, str(self.directory / "apps" / app), owner.pw_uid, owner.pw_gid,
-                                 record["port"], record["data"], options, network, record.get("hardware"), config_path=record.get("config_path"))["services"][service_key]
+            document = compose(app, str(self.directory / "apps" / app), owner.pw_uid, owner.pw_gid,
+                               record["port"], record["data"], options, network, record.get("hardware"), config_path=record.get("config_path"))
             stored_path = self.directory / "apps" / app / "compose.json"
             if record.get("definition_digest") and stored_path.is_file():
                 stored = json.loads(stored_path.read_text())
                 if record["definition_digest"] == definition_digest(stored):
-                    definition = stored["services"][service_key]
+                    document = stored
+            definition = document["services"][service_key]
             expected_bindings = {binding["target"]: binding["source"] for binding in definition["volumes"]}
             host = container.get("HostConfig", {})
             from .app_memory import limit_bytes
             expected_memory = limit_bytes(definition.get('mem_limit'))
             if expected_memory is None or type(host.get('Memory')) is not int or host['Memory'] != expected_memory:
                 raise Error("Das RAM-Limit des Containers stimmt nicht mit der App-Vorlage überein. App stoppen und die Einstellungen prüfen.", 409)
-            expected_ports = {f"{item['target']}/{item['protocol']}": {str(item["host"])}
-                              for item in published_ports(app, record["port"], options, host_mode=network["mode"] == "host") if "service" not in item or (app if item["service"] == APPS[app]["stack"]["primary"] else app+"-"+item["service"].lower()) == service_key} if network["mode"] != "host" else {}
+            def address(value):
+                # Docker may represent an all-interface bind as both IPv4 and
+                # IPv6 entries; specific addresses must match exactly.
+                return "*" if value in ("", "0.0.0.0", "::") else value
+            expected_ports = {}
+            for publication in published_ports(app, record["port"], options, host_mode=network["mode"] == "host") if network["mode"] != "host" else []:
+                if "service" in publication and (app if publication["service"] == APPS[app]["stack"]["primary"] else app+"-"+publication["service"].lower()) != service_key:
+                    continue
+                expected_ports.setdefault(f"{publication['target']}/{publication['protocol']}", set()).add((address(publication.get("host_ip", "")), str(publication["host"])))
             actual_ports = {}
             for target, publications in (host.get("PortBindings") or {}).items():
-                if any(binding.get("HostIp", "") not in ("", "0.0.0.0", "::") for binding in publications or []):
-                    raise Error("Container veröffentlicht Ports außerhalb der verwalteten Vorlage.", 409)
-                actual_ports[target] = {str(binding["HostPort"]) for binding in publications or []}
+                actual_ports[target] = {(address(binding.get("HostIp", "")), str(binding["HostPort"])) for binding in publications or []}
             if (container.get("Name") != "/titan-" + service_key or container.get("Id") != identifier or
                     container.get("Config", {}).get("Image") != definition["image"] or
                     bindings != expected_bindings or actual_ports != expected_ports or
@@ -446,10 +492,26 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                     if actual_static != network["ipv4_address"] or (container.get("State", {}).get("Status") in ("running", "restarting") and endpoint.get("IPAddress") != network["ipv4_address"]):
                         raise Error("Container verwendet nicht die konfigurierte feste IPv4-Adresse.", 409)
             else:
-                expected_name = "titan-" + app + "_default"
+                # Imported stacks can deliberately isolate front-end and
+                # database traffic in different private Compose networks.
+                # Derive this service's exact attachments from its pinned
+                # definition rather than widening all services to _default.
+                declared = definition.get("networks") or {"default": {}}
+                expected_names = {"titan-" + app + "_" + name for name in declared}
                 attached = container.get("NetworkSettings", {}).get("Networks")
-                if mode != expected_name or (attached is not None and set(attached) != {expected_name}):
+                if attached is None and expected_names == {"titan-" + app + "_default"}:
+                    # Older single-network inspect snapshots omit Networks.
+                    attached = {}
+                elif not isinstance(attached, dict) or set(attached) != expected_names:
                     raise Error("Container-Netzwerk weicht von der verwalteten Standardvorlage ab.", 409)
+                if mode not in expected_names:
+                    # Some Engine/Compose versions store the primary network
+                    # ID. Verify that ID against the actual named network;
+                    # an arbitrary endpoint ID is never sufficient evidence.
+                    matched = next((name for name, endpoint in attached.items()
+                                    if endpoint.get("NetworkID") == mode and mode), None)
+                    if matched is None or self._docker_network(matched)["Id"] != mode:
+                        raise Error("Container-Netzwerk weicht von der verwalteten Standardvorlage ab.", 409)
             return container
         except (KeyError, IndexError, TypeError, ValueError):
             raise Error("Docker liefert ungültige App-Details.", 503)
@@ -471,7 +533,9 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 "error": state.get("Error", ""), "started": state.get("StartedAt", ""),
                 "finished": state.get("FinishedAt", ""), "ports": ports}
         if record is not None:
+            summary["error"] = self._package_redact(record["id"], str(summary["error"]))
             summary.update(self._app_address_summary(container, record, networks, addresses))
+            summary.update(app_readiness(self, container, record, summary))
         return summary
 
     @staticmethod
@@ -539,11 +603,16 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 from .app_memory import check_start_memory
                 check_start_memory(app, self._app_options(app), definition,
                     self._app_inspected_containers(), telemetry=self.telemetry)
+                self._app_firewall(app, enabled=True)
                 if APPS[app].get('stack') and command == 'up':
                     return invoke('up', '-d', '--no-recreate', '--wait', '--wait-timeout', '300')
                 return invoke("restart" if command == "restart" else "start")
             return invoke(*arguments)
         except Error as exc:
+            try:
+                self._app_firewall_observed(app)
+            except Error:
+                pass
             message = str(exc)
             options = self._app_options(app)
             for field in APPS[app].get("install_schema", []):
@@ -635,20 +704,23 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
 
     def _app_record_result(self, app, error=None):
         self._app_patch_record(app, {"phase": "failed" if error else "ready",
-            "last_error": str(error)[-4000:] if error else "", "changed": time.time()})
+            "last_error": self._package_redact(app, str(error))[-4000:] if error else "", "changed": time.time()})
 
     def op_apps(self):
         records = [dict(record) for record in self.load("apps", [])]
+        for record in records:
+            if record.get("last_error"):
+                record["last_error"] = self._package_redact(record["id"], str(record["last_error"]))
         if not shutil.which("docker", path="/usr/sbin:/usr/bin:/sbin:/bin"):
             for record in records:
-                record.update(state="unavailable", status="Docker ist nicht installiert.")
+                record.update(state="unavailable", status="Docker ist nicht installiert.", web_state="unavailable", web_available=False, web_message="Docker ist nicht installiert.")
             return {"installed": records, "available": False, "error": "Docker ist nicht installiert."}
         try:
             _run(["docker", "compose", "version"], timeout=15)
             rows = self._app_container_rows()
         except Error as exc:
             for record in records:
-                record.update(state="unavailable", status=str(exc))
+                record.update(state="unavailable", status=str(exc), web_state="unavailable", web_available=False, web_message=str(exc))
             return {"installed": records, "available": False, "error": str(exc)}
         addresses = self._host_addresses()
         try:
@@ -661,25 +733,28 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 container = self._app_container(record["id"], checked, rows)
                 summary = self._app_container_summary(container, checked, networks, addresses)
                 record.update(state=summary["state"] if summary else "missing", container=summary)
-                record["web_state"] = summary["state"] if summary else "missing"
-                record["web_available"] = bool(summary and summary["state"] == "running")
+                record.update({key: value for key, value in (summary or app_readiness(self, None, checked, None)).items()
+                               if key.startswith("web_")})
                 record["status"] = (summary["health"] or summary["state"]) if summary else "Container fehlt · Starten erneut versuchen"
                 if record.get("last_error"):
                     record["status"] += " · Letzte Aktion fehlgeschlagen"
                 if APPS[record['id']].get('titan_package') or APPS[record['id']].get('imported_stack'):
                     services = self._package_services(record['id'], checked, rows)
                     record['services'] = [{key: item[key] for key in ('id','name','state','health','ready','one_shot','warning')} for item in services]
-                    record['warnings'] = [item['warning'] for item in services if item.get('warning')]
+                    record['warnings'] = [item['warning'] for item in services if item.get('warning')] + list(record.get('firewall_warnings', []))
                     record['package_ready'] = all(item['ready'] for item in services)
                     record['status'] = ("Alle Paketdienste bereit" if record['package_ready'] else str(sum(item['ready'] for item in services)) + " von " + str(len(services)) + " Paketdiensten bereit") + (" · Letzte Aktion fehlgeschlagen" if record.get('last_error') else "")
             except Error as exc:
-                record.update(state="blocked", status=str(exc), last_error=str(exc))
+                message = self._package_redact(record["id"], str(exc))
+                record.update(state="blocked", status=message, last_error=message, web_state="blocked", web_available=False, web_message=message)
         return {"installed": records, "available": True}
 
     def op_app_details(self, app, tail=150):
         tail = integer(tail, 1, 500)
         record = self.managed_app(app)
-        warnings = [record["last_error"]] if record.get("last_error") else []
+        if record.get("last_error"):
+            record["last_error"] = self._package_redact(app, str(record["last_error"]))
+        warnings = ([record["last_error"]] if record.get("last_error") else []) + list(record.get("firewall_warnings", []))
         container = None
         logs = ""
         try:
@@ -687,16 +762,18 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             summary = self._app_container_summary(container, record)
             if container:
                 try:
-                    logs = self._app_logs(container, tail)
+                    logs = self._package_redact(app, self._app_logs(container, tail))
                 except Error as exc:
-                    warnings.append(str(exc))
+                    warnings.append(self._package_redact(app, str(exc)))
             else:
                 warnings.append("Container fehlt. Mit Starten kann die Installation erneut versucht werden.")
             record.update(state=summary["state"] if summary else "missing", status=summary["state"] if summary else "Container fehlt")
+            record.update({key: value for key, value in (summary or app_readiness(self, None, record, None)).items() if key.startswith("web_")})
         except Error as exc:
             summary = None
-            record.update(state="blocked", status=str(exc))
-            warnings.append(str(exc))
+            message = self._package_redact(app, str(exc))
+            record.update(state="blocked", status=message, web_state="blocked", web_available=False, web_message=message)
+            warnings.append(message)
         return {"app": record, "container": summary, "logs": logs, "warnings": warnings,
                 "config_path": str(self._app_config_path(app, record)), "data_path": record["data"]}
 
@@ -758,7 +835,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         hardware_ids=validate_devices(hardware,available_devices)
         hardware=[item for item in available_devices if item["id"] in hardware_ids]
         network = selection(network if network is not None else {"mode": APPS[app].get("default_network","default")})
-        port = integer(port, 1 if network["mode"] == "host" else 1024, 65535)
+        port = self._app_valid_port(app, port, network)
         from .app_packages import prepare_options
         previous = self._app_options(app) if (self.directory / "apps" / app / "options.json").exists() else None
         options = validate_options(app, prepare_options(app, options, previous))
@@ -769,10 +846,11 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         if any(item["id"] == app for item in records):
             raise Error("App ist bereits angelegt. In der App-Verwaltung Starten erneut versuchen.", 409)
         publications = published_ports(app, port, options, host_mode=network["mode"] == "host")
-        requested = {item["host"] for item in publications}
-        reserved = {5000, 5001, 5101}
+        requested = {(item["host"], item["protocol"]) for item in publications}
+        from .web_access import reserved_ports
+        reserved = {(value, "tcp") for value in reserved_ports()}
         for item in records:
-            reserved.update(publication["host"] for publication in published_ports(item["id"], item["port"], self._app_options(item["id"]), host_mode=selection(item.get("network"))["mode"] == "host"))
+            reserved.update((publication["host"], publication["protocol"]) for publication in published_ports(item["id"], item["port"], self._app_options(item["id"]), host_mode=selection(item.get("network"))["mode"] == "host"))
         if requested & reserved:
             raise Error("Port ist bereits für Titan oder eine andere App reserviert. AdGuard und Pi-hole benötigen beide DNS-Port 53; nur einen DNS-Dienst pro NAS-IP verwenden oder einen anderen Port wählen.", 409)
         _run(["docker", "compose", "version"], timeout=30)

@@ -20,6 +20,8 @@ def definition_digest(value):
 
 class PackageCenterMixin:
     def _package_redact(self, app, value):
+        if app not in APPS:
+            return "Details können ohne gültige private App-Vorlage nicht angezeigt werden."
         try:
             options = self._app_options(app)
         except Error:
@@ -71,10 +73,13 @@ class PackageCenterMixin:
         except (Error, OSError, ValueError, KeyError) as exc:
             warnings.append(str(exc) if isinstance(exc, Error) else "Paketkonfiguration konnte nicht gelesen werden.")
         if installed.get("last_error"):
-            warnings.append(self._package_redact(app, str(installed["last_error"])))
+            installed["last_error"] = self._package_redact(app, str(installed["last_error"]))
+            warnings.append(installed["last_error"])
         ready = bool(services and all(item["ready"] for item in services) and not warnings)
         running = sum(item["state"] == "running" for item in services)
         primary = next((item for item in services if item["id"] == app), None)
+        primary_web = {key: value for key, value in ((primary or {}).get("container") or {}).items() if key.startswith("web_")}
+        installed.update(primary_web)
         options = self._app_options(app)
         settings = [{"key": field["key"], "label": field["label"], "value": options.get(field["key"]), "type": field["type"], "min": field.get("min"), "max": field.get("max"), "choices": field.get("choices"), "editable": field["type"] != "password" and field["key"] != "username"}
                     for field in APPS[app].get("install_schema", []) if field["type"] != "password"]
@@ -84,7 +89,7 @@ class PackageCenterMixin:
         target = compose(app, str(self.directory / "apps" / app), owner.pw_uid, owner.pw_gid, installed["port"], installed["data"], options, installed.get("network"), installed.get("hardware"), config_path=installed.get("config_path"))
         return {"installed": True, "app": installed, "services": services, "ready": ready,
                 "primary_state": primary["state"] if primary else "missing",
-                "primary_available": bool(primary and primary["state"] == "running"),
+                "primary_available": primary_web.get("web_available") is True, **primary_web,
                 "primary_ready": bool(primary and primary["ready"]),
                 "phase": "ready" if ready else "blocked" if warnings else "stopped" if not running else "attention",
                 "warnings": warnings, "running_services": running, "total_services": len(services),
@@ -136,6 +141,10 @@ class PackageCenterMixin:
         return {**result, "message": "Paketdienste gestartet und erforderliche Verbindungen erneut eingerichtet."}
 
     def op_package_settings(self, app, port, options=None):
+        with self.app_config_lock:
+            return self._package_settings(app, port, options)
+
+    def _package_settings(self, app, port, options=None):
         """Change published ports/Office address on a stopped package safely."""
         if app not in APPS or not (app in PACKAGES or APPS[app].get('imported_stack')):
             raise Error("Paket nicht gefunden.", 404)
@@ -143,7 +152,7 @@ class PackageCenterMixin:
         services = self._package_services(app, record)
         if any(item['state'] in ('running', 'paused', 'restarting') for item in services):
             raise Error("Das gesamte Paket vor dem Ändern der Einstellungen stoppen.", 409)
-        port = integer(port, 1 if record.get("network", {}).get("mode") == "host" else 1024, 65535)
+        port = self._app_valid_port(app, port, {"mode": record.get("network", {}).get("mode", "default")})
         options = {} if options is None else options
         editable = {field['key'] for field in APPS[app]['install_schema'] if field['type'] != 'password' and field['key'] != 'username'}
         if not isinstance(options, dict) or set(options) - editable:
@@ -155,7 +164,8 @@ class PackageCenterMixin:
             validate_host(proposed_options['nas_host'])
         publications = published_ports(app, port, proposed_options, host_mode=record.get("network", {}).get("mode") == "host")
         requested = {(item['host'], item['protocol']) for item in publications}
-        reserved = {(5000, 'tcp'), (5001, 'tcp'), (5101, 'tcp')}
+        from .web_access import reserved_ports
+        reserved = {(value, 'tcp') for value in reserved_ports()}
         for item in self.load('apps', []):
             if item['id'] == app: continue
             reserved.update((value['host'], value['protocol']) for value in published_ports(item['id'], item['port'], self._app_options(item['id'])))

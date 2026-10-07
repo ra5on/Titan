@@ -1,5 +1,5 @@
 [Unit]
-Description=Titan HTTPS endpoint on port 5000
+Description=Titan HTTP and HTTPS endpoint
 After=network.target titan-web.service
 Wants=titan-web.service
 
@@ -20,6 +20,8 @@ StateDirectoryMode=0700
 StandardOutput=journal+console
 StandardError=journal+console
 NoNewPrivileges=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true

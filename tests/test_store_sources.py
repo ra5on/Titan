@@ -80,7 +80,8 @@ class SourcesTests(unittest.TestCase):
         host=MemoryHost()
         host.op_app_store_toggle('linuxserver',False)
         self.assertEqual(host.rows['app-stores'],[])
-        self.assertEqual(host.rows['app-store-sources-v3'][0]['url'],LINUXSERVER)
+        self.assertEqual(host.rows['app-store-sources-v4'][0]['url'],LINUXSERVER)
+        self.assertNotIn('app-store-sources-v3',host.rows)
         host.op_app_store_toggle('linuxserver',True)
         self.assertEqual(host.rows['app-stores'],[])
 

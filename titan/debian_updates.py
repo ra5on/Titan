@@ -513,15 +513,21 @@ def confirm_boot():
     run(['docker', 'info', '--format', '{{.ServerVersion}}'], timeout=30)
     run(['virsh', '-c', 'qemu:///system', 'list', '--all', '--name'], timeout=30)
     run(['testparm', '-s'], timeout=30)
-    origin = urllib.parse.urlsplit(os.environ.get('TITAN_ORIGIN', ''))
-    if (origin.scheme != 'https' or not origin.hostname or origin.port != 5000 or
+    from .web_access import CONFIG, read_config, origin as web_origin
+    address = os.environ.get('TITAN_ORIGIN', '')
+    if CONFIG.exists():
+        access = read_config(CONFIG)
+        address = web_origin(access['host'], access['settings'])
+    origin = urllib.parse.urlsplit(address)
+    if (origin.scheme not in ('http', 'https') or not origin.hostname or
             origin.username or origin.password or origin.path or origin.query or origin.fragment):
         raise Error('Startprüfung: Ungültige NAS-Adresse.', 503)
     connection = []
     try:
         ipaddress.ip_address(origin.hostname)
     except ValueError:
-        connection = ['--connect-to', origin.netloc + ':127.0.0.1:5000']
+        port = origin.port or (443 if origin.scheme == 'https' else 80)
+        connection = ['--connect-to', origin.hostname + ':' + str(port) + ':127.0.0.1:' + str(port)]
     # TLS clients do not send SNI for literal IPs. In that case Caddy selects
     # the certificate by the socket's local IP, so keep the real NAS address.
     run(['curl', '--fail', '--silent', '--insecure', '--noproxy', '*', '--max-time', '15',

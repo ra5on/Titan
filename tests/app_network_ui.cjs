@@ -23,3 +23,14 @@ node('[data-network-mode]').value='network:my-apps';callbacks['[data-network-mod
 console.log('App network UI: optional defaults, host actual port, custom bridge/static-IP selection, observed addresses, safe links, escaping and disposal passed.');
 
 assert.equal(ui.summary({state:'running',container:{state:'running',networks:[{ipv4:'172.30.50.10'}]}}),'172.30.50.10');assert.equal(ui.connection({container:{endpoints:[{scope:'lan',url:'http://192.168.1.8:8080/'}]}}),'http://192.168.1.8:8080/');
+// Headless templates omit the port input but retain optional network controls.
+widget.closest=()=>({querySelector:key=>key==='[name="port"]'?null:node(key)});
+ui.mountInstall(root,{port:0,web_available:false,default_network:'host'},inventory,{api:async()=>{throw Error('No request expected');}});
+assert.match(node('[data-network-description]').textContent,/Hintergrunddienst/);
+ui.disposeWithin(root);
+const endpoint={scope:'lan',url:'http://192.168.1.8:8080/'};
+assert.equal(ui.connection({web_available:false,web_state:'initializing',endpoints:[endpoint]}),'');
+assert.equal(ui.connection({web_available:false,web_state:'background',endpoints:[endpoint]}),'');
+assert.equal(ui.connection({web_available:true,web_state:'ready',endpoints:[endpoint]}),'http://192.168.1.8:8080/');
+assert.doesNotMatch(ui.details({web_available:false,web_state:'initializing',web_message:'Wird geprüft',endpoints:[endpoint]}),/href="http/);
+console.log('Headless network form and verified-only browser links passed.');

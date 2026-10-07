@@ -156,6 +156,57 @@ class AppLifecycleSafetyTests(unittest.TestCase):
         self.host._app_patch_record('second', {'phase': 'failed'})
         self.assertEqual({row['id']: row['phase'] for row in self.host.load('apps', [])}, {'first': 'ready', 'second': 'failed'})
 
+    def test_segmented_private_networks_preserve_each_services_exact_topology(self):
+        app, redis, _ = self.legacy_redis()
+        path = self.host.directory / 'apps' / app / 'compose.json'
+        definition = json.loads(path.read_text())
+        definition['networks'] = {'front': {'driver': 'bridge'}, 'back': {'driver': 'bridge', 'internal': True}}
+        definition['services'][app]['networks'] = {'front': {}, 'back': {}}
+        definition['services'][app + '-redis']['networks'] = {'back': {}}
+        path.write_text(json.dumps(definition))
+        self.host._app_patch_record(app, {'definition_digest': definition_digest(definition)})
+        front, back = 'titan-' + app + '_front', 'titan-' + app + '_back'
+        primary = self.containers[app]
+        primary['HostConfig']['NetworkMode'] = front
+        primary['NetworkSettings']['Networks'] = {front: {'NetworkID': 'f' * 64}, back: {'NetworkID': 'b' * 64}}
+        redis['HostConfig']['NetworkMode'] = back
+        redis['NetworkSettings']['Networks'] = {back: {'NetworkID': 'b' * 64}}
+        record = self.host.managed_app(app)
+        self.assertEqual(self.host._app_container(app, record)['Id'], primary['Id'])
+        self.assertEqual(self.host._app_container(app, record, service_key=app + '-redis')['Id'], redis['Id'])
+        # Both expected attachments may be the primary Engine network.
+        primary['HostConfig']['NetworkMode'] = back
+        self.assertIsNotNone(self.host._app_container(app, record))
+        with patch.object(self.host, '_docker_network', return_value={'Id': 'b' * 64}) as inspect:
+            primary['HostConfig']['NetworkMode'] = 'b' * 64
+            self.assertIsNotNone(self.host._app_container(app, record))
+            inspect.assert_called_once_with(back)
+        with patch.object(self.host, '_docker_network', return_value={'Id': 'c' * 64}):
+            with self.assertRaises(Error): self.host._app_container(app, record)
+        primary['HostConfig']['NetworkMode'] = front
+        for attached in ({front: {}}, {front: {}, back: {}, 'foreign': {}}, {}):
+            primary['NetworkSettings']['Networks'] = attached
+            with self.assertRaises(Error): self.host._app_container(app, record)
+        primary['NetworkSettings']['Networks'] = {front: {}, back: {}}
+        primary['HostConfig']['NetworkMode'] = 'foreign'
+        with self.assertRaises(Error): self.host._app_container(app, record)
+
+    def test_app_details_and_saved_failure_never_expose_private_passwords(self):
+        app, _, _ = self.legacy_redis()
+        secret = self.host._app_options(app)['password']
+        self.logs.return_value = 'public log; password=' + secret
+        self.containers[app]['State']['Error'] = 'backend rejected ' + secret
+        self.host._app_patch_record(app, {'last_error': 'old failure ' + secret})
+        details = self.host.op_app_details(app)
+        self.assertNotIn(secret, json.dumps(details))
+        self.assertIn('[ausgeblendet]', details['logs'])
+        self.assertNotIn(secret, json.dumps(self.host.op_apps()))
+        self.assertNotIn(secret, json.dumps(self.host.op_package_details(app)))
+        self.logs.side_effect = Error('failed reading ' + secret)
+        self.assertNotIn(secret, json.dumps(self.host.op_app_details(app)))
+        self.host._app_record_result(app, Error('pull failed ' + secret))
+        self.assertNotIn(secret, self.host.load('apps', [])[0]['last_error'])
+
     def test_single_dependency_stop_remove_keeps_primary_running_and_package_registered(self):
         app, redis, _ = self.legacy_redis()
         primary = self.containers[app]['Id']

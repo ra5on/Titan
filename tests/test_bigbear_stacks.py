@@ -116,15 +116,12 @@ class BigBearTests(unittest.TestCase):
         self.assertFalse(any('POSTGRES_USER' in row['label'] for row in result['stack_fields']))
 
     def test_unsafe_host_options_and_external_networks_are_rejected(self):
-        for kind in ('privileged', 'host-mount', 'external-net', 'separate-nets', 'docker-socket'):
+        for kind in ('privileged', 'host-mount', 'external-net', 'docker-socket'):
             source, meta = example()
             if kind == 'privileged': source['services']['web']['privileged'] = True
             if kind == 'host-mount': source['services']['web']['volumes'] = ['/etc:/host']
             if kind == 'docker-socket': source['services']['web']['volumes'] = ['/var/run/docker.sock:/socket']
             if kind == 'external-net': source['networks'] = {'lan': {'external': True}}
-            if kind == 'separate-nets':
-                source['services']['web']['networks'] = ['front']
-                source['services']['db']['networks'] = ['back']
             with self.subTest(kind=kind), self.assertRaises(Error): translate(source, meta, 'example')
 
     def test_dns_defaults_preserve_tcp_and_udp_port_53(self):

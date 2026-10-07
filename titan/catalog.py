@@ -309,18 +309,19 @@ def validate_options(app_id, options=None):
 def published_ports(app_id, port, options=None, host_mode=False):
     """Return trusted publications, including configurable TCP/UDP peer ports."""
     options = validate_options(app_id, options)
-    port = integer(port, 1 if host_mode else 1024, 65535)
     app = APPS[app_id]
     from .app_packages import selected_recipe
     app = selected_recipe(app_id, app, options)
-    if host_mode and not app.get("dynamic_web_port") and port != app["port"]:
+    web_available = app.get('web_available', True)
+    port = integer(port, 1 if host_mode else 1024, 65535) if web_available else integer(port, 0, 0)
+    if web_available and host_mode and not app.get("dynamic_web_port") and port != app["port"]:
         raise Error(f"Im Host-Netzwerk verwendet diese App direkt Port {app['port']}; Portumleitung ist nur in Bridge-Netzwerken möglich.")
-    result = [{"host": port, "target": port if app.get("dynamic_web_port") else app["port"], "protocol": "tcp", **({"service":app["stack"]["primary"]} if app.get("stack") else {})}]
+    result = [{"host": port, "target": port if app.get("dynamic_web_port") else app["port"], "protocol": "tcp", **({"host_ip":app['web_host_ip']} if app.get('web_host_ip') else {}), **({"service":app["stack"]["primary"]} if app.get("stack") else {})}] if web_available else []
     for extra in app.get("extra_ports", []):
         peer = options[extra["option"]] if "option" in extra else extra["port"]
-        if peer == port:
+        if web_available and peer == port:
             raise Error("Webport und Verbindungsport müssen verschieden sein.", 409)
-        result.append({"host": peer, "target": extra.get("target", peer), "protocol": extra["protocol"], **({"service":extra["service"]} if "service" in extra else {})})
+        result.append({"host": peer, "target": extra.get("target", peer), "protocol": extra["protocol"], **({'host_ip':extra['host_ip']} if extra.get('host_ip') else {}), **({"service":extra["service"]} if "service" in extra else {})})
     if host_mode and any(item["host"] != item["target"] for item in result):
         raise Error("Im Host-Netzwerk müssen alle Verbindungsports den internen App-Ports entsprechen.")
     return result

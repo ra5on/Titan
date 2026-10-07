@@ -22,10 +22,22 @@ assert.equal(ui.totals(containers,{a:{memory_bytes:100}}).memory,null);
 assert.equal(ui.totals([containers[1]],{}).memory,0);
 console.log('Docker filters, Compose grouping and actual RAM totals passed.');
 
-const web={state:'running',managed_app:'syncthing',web_port:8384,ports:{'22000/tcp':[{HostPort:'22000',HostIp:'0.0.0.0'}],'8384/tcp':[{HostPort:'18084',HostIp:'0.0.0.0'}]}};
-assert.equal(ui.webLink(web,'nas.local'),'http://nas.local:18084');
-assert.equal(ui.webLink({...web,network_mode:'host',ports:{}},'nas.local'),'http://nas.local:8384');
-assert.equal(ui.webLink({...web,network_mode:'host',ports:{},web_port:9090},'::1'),'http://[::1]:9090');
+const web={state:'running',managed_app:'syncthing',web_port:8384,web_available:true,web_state:'ready',endpoints:[{scope:'lan',url:'http://192.168.10.18:18084'}],ports:{'22000/tcp':[{HostPort:'22000',HostIp:'0.0.0.0'}],'8384/tcp':[{HostPort:'18084',HostIp:'0.0.0.0'}]}};
+assert.equal(ui.webLink(web,'tunnel.example'),'http://192.168.10.18:18084/');
+assert.equal(ui.webLink({...web,network_mode:'host',ports:{},endpoints:[{scope:'lan',url:'http://192.168.10.18:8384'}]},'tunnel.example'),'http://192.168.10.18:8384/');
+assert.equal(ui.webLink({...web,network_mode:'host',ports:{},endpoints:[{scope:'lan',url:'http://[fd00::18]:9090'}]},'tunnel.example'),'http://[fd00::18]:9090/');
 assert.equal(ui.webLink({...web,state:'exited'},'nas.local'),'');
-assert.equal(ui.webLink({...web,ports:{'8384/tcp':[{HostPort:'8384',HostIp:'127.0.0.1'}]}},'nas.local'),'');
-assert.equal(ui.webLink({...web,web_port:null},'nas.local'),'');
+assert.equal(ui.webLink({...web,web_available:false,web_state:'initializing'},'nas.local'),'');
+assert.equal(ui.webLink({...web,endpoints:[{scope:'loopback',url:'http://127.0.0.1:8384'}]},'nas.local'),'');
+assert.equal(ui.webLink({...web,web_port:null,web_available:false,web_state:'background'},'nas.local'),'');
+assert.equal(ui.webLink({...web,endpoints:[{scope:'lan',url:'javascript:alert(1)'}]},'nas.local'),'');
+assert.equal(ui.webLink({state:'running',ports:{'80/tcp':[{HostPort:'8080',HostIp:'0.0.0.0'}]}},'tunnel.example'),'');
+console.log('Docker confirmed endpoints, headless/initializing states and no guessed tunnel links passed.');
+// Reveal only the navigation's selected tab; never scroll the page/window.
+let tabBounds={left:450,right:540};
+const nav={scrollWidth:600,clientWidth:300,scrollLeft:0,getBoundingClientRect:()=>({left:0,right:300}),querySelector:()=>({getBoundingClientRect:()=>tabBounds})};
+ui.revealSelectedTab(nav);assert.equal(nav.scrollLeft,240);
+tabBounds={left:-90,right:0};ui.revealSelectedTab(nav);assert.equal(nav.scrollLeft,150);
+tabBounds={left:30,right:120};ui.revealSelectedTab(nav);assert.equal(nav.scrollLeft,150);
+nav.clientWidth=600;ui.revealSelectedTab(nav);assert.equal(nav.scrollLeft,150);
+console.log('Selected mobile Docker tab remains visible without global page scrolling.');

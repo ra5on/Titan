@@ -31,6 +31,7 @@ from .dashboard_layout import load_layout, save_layout
 from . import launcher_layout
 from .diagnostics import report as diagnostics_report
 from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal_owner
+from .root_access import RootAccessApplicationMixin, RootAccessHTTPMixin
 
 WEB = Path(__file__).parent / "web"
 MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
@@ -60,10 +61,10 @@ def validate_system_disk_growth(arguments):
         raise Error("Bitte ERWEITERN zur Bestätigung eingeben.")
 
 
-class Application(OfficeApplicationMixin, TerminalApplicationMixin):
+class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalApplicationMixin):
     def __init__(self, directory, demo=False, origin=None):
         self.demo = demo
-        self.origin = origin
+        self._origin = origin
         self.store = Store(directory)
         self.jobs = Jobs(self.store)
         self.agent = Demo(Path(directory) / "demo-files") if demo else AgentClient()
@@ -83,7 +84,26 @@ class Application(OfficeApplicationMixin, TerminalApplicationMixin):
         self.update_lock = threading.Lock()
         self.stop = threading.Event()
         self.initialize_terminals()
+        self.initialize_root_access()
         self.initialize_office()
+
+    def trusted_origins(self):
+        from .web_access import CONFIG, allowed_origins, read_config
+        if not self.demo and CONFIG.exists():
+            return allowed_origins(read_config(CONFIG))
+        return {self._origin} if self._origin else set()
+
+    @property
+    def origin(self):
+        from .web_access import CONFIG, origin, read_config
+        if not self.demo and CONFIG.exists():
+            config = read_config(CONFIG)
+            return origin(config['host'], config['settings'])
+        return self._origin
+
+    @origin.setter
+    def origin(self, value):
+        self._origin = value
 
     def admin_action(self, actor, operation, arguments):
         if operation == "update_install":
@@ -237,7 +257,7 @@ class Application(OfficeApplicationMixin, TerminalApplicationMixin):
                 self.store.audit("system", "update_check", str(exc))
 
 
-class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
+class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def setup(self):
@@ -288,11 +308,33 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
             pass
         return address
 
+    def trusted_origins(self):
+        getter = getattr(self.app, 'trusted_origins', None)
+        return getter() if getter else ({self.app.origin} if self.app.origin else set())
+
+    def request_origin(self):
+        candidate = self.headers.get('Origin')
+        if candidate and candidate in self.trusted_origins():
+            return candidate
+        # Only the local reverse proxy can assert the protocol of an API
+        # request without an Origin header (for example a session refresh).
+        forwarded = self.headers.get('X-Forwarded-Proto')
+        if forwarded in ('http', 'https') and ipaddress.ip_address(self.client_address[0]).is_loopback:
+            candidate = forwarded + '://' + self.headers.get('Host', '')
+            if candidate in self.trusted_origins():
+                return candidate
+        return self.app.origin or 'http://' + self.headers.get('Host', '')
+
+    def session_cookie(self, token, *, secure=None, max_age=43200):
+        secure = self.request_origin().startswith('https://') if secure is None else secure
+        return (f'titan_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={max_age}'
+                + ('; Secure' if secure and not self.app.demo else ''))
+
     def origin_check(self):
         origin = self.headers.get("Origin")
         if origin:
-            expected = self.app.origin or "http://" + self.headers.get("Host", "")
-            if origin != expected:
+            expected = self.trusted_origins() or {"http://" + self.headers.get("Host", "")}
+            if origin not in expected:
                 raise Error("Anfrage von fremder Website abgelehnt.", 403)
         if self.headers.get("Sec-Fetch-Site") == "cross-site":
             raise Error("Anfrage von fremder Website abgelehnt.", 403)
@@ -332,8 +374,8 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
     def safe(self, function):
         try:
             if self.app.origin:
-                host = urllib.parse.urlsplit(self.app.origin).netloc
-                if self.headers.get("Host") != host:
+                hosts = {urllib.parse.urlsplit(value).netloc for value in self.trusted_origins()}
+                if self.headers.get("Host") not in hosts:
                     raise Error("Ungültiger Hostname.", 403)
             function()
         except Error as exc:
@@ -362,14 +404,23 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
         query = dict(urllib.parse.parse_qsl(parts.query))
         if path == "/api/session":
             setup_required = not self.app.store.users() and not self.app.demo
+            user = self.user()
+            extra = None
+            if user and self.request_origin().startswith('https://') and (self.app.origin or '').startswith('https://'):
+                # Promote a session used over HTTP as soon as the new HTTPS
+                # endpoint is visited, without waiting for another login.
+                cookies = SimpleCookie(self.headers.get('Cookie', ''))
+                extra = {'Set-Cookie': self.session_cookie(cookies['titan_session'].value)}
             return self.reply({"user": self.user(), "setup_required": setup_required,
                                **({"setup_csrf": self.app.setup_csrf} if setup_required else {}),
                                "demo": self.app.demo, "version": __version__, "stage": __release_stage__,
-                               "permissions": permissions(self.app.store, self.user()) if self.user() else {}})
+                               "permissions": permissions(self.app.store, user) if user else {}}, extra=extra)
         if self.office_get(path, query):
             return
         if path.startswith("/api/"):
             user = self.require_user()
+            if self.root_access_get(path, user, query):
+                return
             if self.identity_get(path, user, query):
                 return
             if path in ("/api/shares", "/api/files", "/api/file"):
@@ -405,6 +456,13 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
                     raise Error('Ungültige Diagnoseoption.')
                 return self.reply(diagnostics_report(self.app.agent, self.app.demo), extra={
                     'Content-Disposition': 'attachment; filename="titan-diagnostics.json"'} if query else None)
+            if path == '/api/web-access':
+                if query:
+                    raise Error('Webzugriff unterstützt keine zusätzlichen Parameter.')
+                if self.app.demo:
+                    from .web_access import WebAccess
+                    return self.reply({**WebAccess(self.app.store.directory / 'web-access').status(), 'demo': True})
+                return self.reply(self.app.agent.call('web_access'))
             if path == '/api/terminal/output':
                 self.origin_check()
                 pairs = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
@@ -556,8 +614,8 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
             self.app.rate_limit(self.authentication_address())
             if self.app.demo:
                 raise Error("Demo ist bereits eingerichtet.")
-            expected = self.app.origin or "http://" + self.headers.get("Host", "")
-            if self.headers.get("Origin") != expected or self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+            expected = self.trusted_origins() or {"http://" + self.headers.get("Host", "")}
+            if self.headers.get("Origin") not in expected or self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
                 raise Error("Ersteinrichtung nur über die Titan-Weboberfläche. Bitte die Seite öffnen.", 403)
             import hmac
             if not hmac.compare_digest(self.headers.get("X-CSRF-Token", ""), self.app.setup_csrf):
@@ -572,12 +630,12 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
                 raise Error("Benutzername, Passwort und optional Sicherheitscode angeben.")
             token, csrf = self.app.store.login(body["name"], body["password"], otp=body.get("otp"),
                 address=self.authentication_address(), user_agent=self.headers.get("User-Agent", ""))
-            cookie = f"titan_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200"
-            if not self.app.demo:
-                cookie += "; Secure"
+            cookie = self.session_cookie(token)
             self.app.store.audit(body["name"], "login")
             return self.reply({"ok": True, "csrf": csrf}, extra={"Set-Cookie": cookie})
         user = self.require_user(mutation=True)
+        if self.root_access_post(path, user, body):
+            return
         if self.identity_post(path, user, body):
             return
         if path == "/api/launcher-layout":
@@ -596,8 +654,10 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
             cookie = SimpleCookie(self.headers.get("Cookie", ""))
             if "titan_session" in cookie:
                 self.app.store.logout(cookie["titan_session"].value)
+            if hasattr(self.app, 'disable_root_access'):
+                self.app.disable_root_access(user, 'Abgemeldet')
             self.app.close_terminal_owner(terminal_owner(user))
-            return self.reply({"ok": True}, extra={"Set-Cookie": "titan_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0; Secure"})
+            return self.reply({"ok": True}, extra={"Set-Cookie": self.session_cookie('', max_age=0)})
         if path == "/api/files":
             if body.get("action") not in FILE_ACTIONS:
                 raise Error("Ungültige Dateiaktion.")
@@ -619,6 +679,32 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
             self.require_user(admin=True)
         if path == '/api/terminal':
             return self.terminal_post(user, body)
+        if path in ('/api/web-access', '/api/web-access/confirm', '/api/web-access/cancel'):
+            if self.app.demo:
+                raise Error('Webports können in der Demo nicht geändert werden.', 409)
+            if path == '/api/web-access':
+                if set(body) != {'settings', 'expected_revision'}:
+                    raise Error('Webeinstellungen und aktuellen Stand angeben.')
+                operation, arguments = 'web_access_apply', body
+            elif path.endswith('/confirm'):
+                if set(body) != {'expected_revision'}:
+                    raise Error('Den aktuellen Adresswechsel angeben.')
+                operation, arguments = 'web_access_confirm', {**body, 'request_origin': self.headers.get('Origin', '')}
+            else:
+                if body:
+                    raise Error('Zurücknehmen benötigt keine zusätzlichen Parameter.')
+                operation, arguments = 'web_access_cancel', {}
+            result = self.app.agent.call(operation, **arguments)
+            self.app.store.audit(user['name'], operation)
+            extra = None
+            if operation == 'web_access_apply' and result.get('pending') and result.get('settings', {}).get('mode') == 'http':
+                # Browsers cannot replace a Secure cookie from the new HTTP
+                # endpoint. The explicit protocol change must replace it on
+                # the existing HTTPS endpoint before opening the new address.
+                if self.request_origin().startswith('https://'):
+                    cookies = SimpleCookie(self.headers.get('Cookie', ''))
+                    extra = {'Set-Cookie': self.session_cookie(cookies['titan_session'].value, secure=False)}
+            return self.reply(result, extra=extra)
         if path == "/api/components/install":
             if set(body) != {"component"} or type(body["component"]) is not str or body["component"] not in ("all", "docker", "vms"):
                 raise Error("Docker, VMs oder alle Komponenten auswählen.")
@@ -739,6 +825,8 @@ class Handler(OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPReq
             if user["role"] != "admin":
                 raise Error("Systemdateizugriff erfordert Administratorrechte.", 403)
             arguments.pop("share")
+            if getattr(self.app, 'root_access_active', lambda _: False)(user):
+                return self.root_system_file_call(user, arguments)
             return self.app.agent.call("system_file", **arguments)
         if arguments.get("action") == "delete" and user["role"] != "admin":
             raise Error("Diese Dateiaktion erfordert Administratorrechte.", 403)
@@ -829,7 +917,7 @@ def main():
     parser.add_argument("--demo", action="store_true")
     args = parser.parse_args()
     if not args.demo and not args.origin:
-        parser.error("Produktivbetrieb benötigt --origin https://hostname:5000 und einen TLS-Reverse-Proxy.")
+        parser.error("Produktivbetrieb benötigt eine konfigurierte HTTP-/HTTPS-Webadresse und einen lokalen Reverse-Proxy.")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     app = Application(args.data, args.demo, args.origin)
     threading.Thread(target=app.updater, daemon=True).start()

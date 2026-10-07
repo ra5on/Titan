@@ -2,15 +2,18 @@
     admin off
     auto_https disable_redirects
 }
-https://titan.local:5000 {
+https://titan.local {
     tls internal
     reverse_proxy 127.0.0.1:5001
+}
+http://titan.local {
+    redir https://titan.local{uri} 308
 }
 http://:5101 {
     @office path /office/internal/*
     handle @office {
         reverse_proxy 127.0.0.1:5001 {
-            header_up Host titan.local:5000
+            header_up Host titan.local
         }
     }
     handle {

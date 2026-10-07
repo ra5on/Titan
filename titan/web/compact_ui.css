@@ -1,0 +1,159 @@
+/* Compact application chrome. Solid work surfaces remain readable over the desktop. */
+html,body{max-width:100%;overflow-x:clip}
+#shell[data-desktop=true] .topbar{display:flex;flex-wrap:nowrap;min-height:50px;height:50px;padding:4px 10px;gap:6px;background:#10334dcc;backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%)}
+#shell[data-desktop=true] .desktop-brand{display:none}
+#shell[data-desktop=true] .launcher-button{border:1px solid #ffffff30;border-radius:10px;background:#ffffff12;padding:7px 10px;min-height:38px}
+#shell[data-desktop=true] .launcher-button[aria-expanded=true]{background:#ffffff2b;border-color:#ffffff65}
+#shell[data-desktop=true] .desktop-reveal{padding:7px;min-width:38px;border:0;border-radius:10px}
+#shell[data-desktop=true] .desktop-reveal svg{display:block;width:20px;height:20px}
+#shell[data-desktop=true] #desktop-tasks{order:0;flex:1 1 0;flex-basis:0;min-width:0;height:42px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none}
+#desktop-tasks::-webkit-scrollbar{display:none}
+#shell[data-desktop=true] .desktop-task{border-radius:9px;min-height:36px;padding:6px 9px;flex-shrink:0;max-width:180px}
+#shell[data-desktop=true] .topbar-right{flex:0 0 auto;gap:4px;margin-left:0}
+#shell[data-desktop=true] .shell-icon{min-width:36px;width:36px;min-height:38px;height:38px;border-radius:10px}
+.desktop-window{border-radius:12px;border:1px solid #ffffff55;box-shadow:0 16px 54px #071f3e55}
+.desktop-window-titlebar{min-height:38px;padding:4px 8px;background:linear-gradient(125deg,#f2f7ffed,#e9f0f8e8);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.desktop-window-controls button{border-radius:6px;min-height:28px;min-width:30px}
+.desktop-menu-dialog{width:min(880px,calc(100vw - 32px));padding:18px;background:#f6faffeb;backdrop-filter:blur(28px) saturate(130%);-webkit-backdrop-filter:blur(28px) saturate(130%);border:1px solid #ffffffa8;border-radius:18px;scrollbar-width:thin}
+.desktop-menu-dialog::backdrop{background:#092d4c38;backdrop-filter:blur(3px)}
+.desktop-menu-heading h2{font-size:18px}.desktop-search{margin:12px 0}.desktop-search input{margin-top:4px}
+.desktop-menu-grid,[data-installed-apps]{gap:8px;grid-template-columns:repeat(auto-fill,minmax(105px,1fr))}
+.desktop-menu-app{padding:9px 5px}.desktop-installed{margin-top:12px;padding-top:10px}.desktop-appearance{margin-top:12px}
+.desktop-menu-dialog .desktop-menu-app strong{font-size:12px;line-height:1.4;hyphens:auto;max-width:100%}
+/* A single content scroll, dense controls and restrained spacing for all apps. */
+html[data-desktop-embedded=true] #shell[data-page] .nas-window-content{padding:12px}
+.nas-window-content>.page-heading{padding-bottom:8px;margin-bottom:10px;gap:8px}
+.nas-window-content>.page-heading .subtitle:empty{display:none}
+.nas-window-content .panel{padding:12px}.nas-window-content .panel-heading{margin-bottom:10px}
+.nas-window-content .section-heading{margin-top:12px;margin-bottom:10px}
+.nas-window-content .form-grid,.nas-window-content .two-columns{gap:12px}
+.nas-window-content .field{margin:8px 0}.nas-window-content .form-actions{margin-top:12px}
+.nas-window-content :is(th,td){padding:8px 10px}
+.nas-window-content :is(.notice,.inline-activity){margin-bottom:10px;padding:8px 10px}
+.nas-window-content .stat-card{padding:10px}
+.cp-layout{grid-template-columns:164px minmax(0,1fr)}.cp-content{padding:14px}.cp-overview-heading{margin-bottom:14px}.cp-category{margin-bottom:18px}
+.cp-sidebar section{margin:8px 0}.cp-sidebar h2{margin:10px 12px 4px}.cp-sidebar a{min-height:34px;padding:8px 11px}
+.cp-icon-grid{grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:5px}.cp-icon-grid>.cp-tile>a{padding:28px 6px 10px;gap:7px}.cp-color-icon{width:42px;height:42px}.cp-color-icon svg{width:27px;height:27px}
+.cp-content .sc-save-actions{bottom:-14px;padding:8px 0}.cp-content .sc-form-panel{margin-bottom:12px;padding:12px}
+/* Package center: horizontal views and only one scroll area for the catalog. */
+#shell[data-page=apps] .nas-window-content:has(.sl-manager){padding:0!important;display:flex;flex-direction:column;overflow:hidden}
+#shell[data-page=apps] .nas-window-content>.page-heading{flex:none;min-height:40px;padding:5px 12px;margin:0;background:#f9fbfd;border-bottom:1px solid #dce4ed}
+#shell[data-page=apps] .nas-window-content>.page-heading h1{font-size:15px}
+#shell[data-page=apps] .nas-window-content>.page-heading .form-actions{margin:0;gap:5px}
+.sl-manager{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden;gap:0}
+.sl-nav{display:flex;flex-direction:row;align-items:center;gap:4px;flex:0 0 auto;padding:5px 10px;background:#f5f8fc;border-right:0;border-bottom:1px solid #dce4ed}
+.sl-nav button{width:auto;min-height:32px;padding:6px 12px;border:0;border-radius:7px;text-align:center;background:transparent;color:#52677c;font:inherit;font-size:12px;cursor:pointer}
+.sl-nav button[aria-current=page]{background:#e1efff;color:#176cab;font-weight:600;border:0}
+.sl-content{padding:0;min-width:0;min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.sl-content>.app-discover-section,.sl-content>.app-installed-section{padding:0 12px 12px;min-width:0}
+.sl-content .app-installed-section>.section-heading{margin:12px 0}.sl-content .app-installed-section h2{font-size:14px}
+.catalog-commandbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:8px;background:#fff;padding:9px 0;border-bottom:1px solid #e5ebf2;margin-bottom:10px}
+.catalog-commandbar>.search{flex:1;min-width:min(170px,100%);max-width:none;margin:0;height:34px;border-radius:7px;background:#f7f9fc}
+.catalog-commandbar>.search input{min-height:32px;font-size:12px;padding:6px 7px;min-width:0}
+.catalog-commands{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.catalog-view-switch{display:flex;border:1px solid #d5e0ec;border-radius:7px;overflow:hidden}
+.nas-window-content .catalog-view-switch>.button{border:0;border-radius:0;min-height:30px;padding:5px 9px;background:#f7f9fc;color:#60768c}
+.nas-window-content .catalog-view-switch>.button[aria-pressed=true]{background:#ddecff;color:#176caf}
+#catalog-count{flex:0 0 100%;font-size:11px;line-height:1.3}
+.sl-content .catalog-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));position:static;padding:9px;background:#f5f8fc;border:1px solid #e0e8f0;border-radius:8px;margin:0 0 10px;gap:8px}
+.sl-content .catalog-filters[hidden]{display:none}.catalog-filters .field{margin:0}.catalog-filters .field select{min-height:32px;padding:6px 8px}
+.sl-content .catalog-grid{grid-template-columns:repeat(auto-fill,minmax(min(190px,100%),1fr));gap:9px}
+.sl-content .catalog-card{display:flex;flex-direction:column;gap:6px;padding:11px;min-height:0;border-radius:9px;background:#fff;overflow:hidden}
+.sl-content .catalog-card .app-top{margin:0;align-items:center;gap:8px}.sl-content .catalog-card .app-icon{width:36px;height:36px;border-radius:9px;font-size:18px}
+.sl-content .catalog-card h3{margin:0;font-size:13px;line-height:1.35}.sl-content .catalog-card p{margin:0;font-size:11px;line-height:1.45}
+.sl-content .catalog-card>p:not(.catalog-login-summary){display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.9em}
+.catalog-store{display:none}.sl-content .catalog-login-summary{font-size:10px;color:#758395}.sl-content .catalog-card .pill{font-size:9px;line-height:1.3;padding:3px 5px}
+.sl-content .catalog-card .app-bottom{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding-top:4px;margin-top:auto;border-top:0}
+.sl-content .catalog-card .app-bottom .button{flex:1 1 auto;font-size:11px;min-height:30px;padding:5px 6px;white-space:normal}
+.catalog-status{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;padding:6px 12px;color:#5b7084;font-size:11px;border-bottom:1px solid #e0e7ef;background:#f8fbfe;line-height:1.4}
+.catalog-status>span{flex:1;min-width:0}.catalog-status small{color:#75899a}.catalog-status>small{flex-basis:100%;overflow-wrap:anywhere}.catalog-status.is-error{background:#fff8ec;color:#94691e}
+.catalog-status details{max-width:100%;flex-basis:100%}.catalog-status summary{cursor:pointer}.catalog-status ul{margin:7px 0;padding-left:18px;overflow-wrap:anywhere;max-height:180px;overflow:auto}
+.sl-content .catalog-grid[data-catalog-view=list]{grid-template-columns:minmax(0,1fr);gap:0;border:1px solid #dce5ef;border-radius:8px;overflow:hidden}
+.sl-content .catalog-grid[data-catalog-view=list] .catalog-card{display:grid;grid-template-columns:40px minmax(0,1fr) auto;column-gap:10px;row-gap:3px;border:0;border-bottom:1px solid #e6ecf3;border-radius:0;padding:8px 10px;min-height:64px;align-items:center}
+.catalog-grid[data-catalog-view=list] .catalog-card:last-child{border-bottom:0}
+.catalog-grid[data-catalog-view=list] .app-top{grid-column:1;grid-row:1/3}.catalog-grid[data-catalog-view=list] .app-top .pill{display:none}
+.catalog-grid[data-catalog-view=list] h3{grid-column:2;grid-row:1}.sl-content .catalog-grid[data-catalog-view=list] .catalog-card>p:not(.catalog-login-summary){grid-column:2;grid-row:2;min-height:0;-webkit-line-clamp:1}
+.catalog-grid[data-catalog-view=list] .catalog-login-summary{display:none}.sl-content .catalog-grid[data-catalog-view=list] .app-bottom{grid-column:3;grid-row:1/3;margin:0;padding:0;flex-wrap:nowrap}
+/* Security settings keep forms mounted while changing tabs, preserving edits. */
+.security-center>header{gap:8px;margin:0 0 10px}.security-center>header h2{margin:0;font-size:15px}.security-all-users{display:flex;align-items:center;gap:6px;font-size:11px}
+.security-tabs{display:flex;flex-wrap:wrap;gap:3px;padding:3px;background:#f2f6fa;border-radius:9px;border:1px solid #dfe7ef;margin-bottom:12px}
+.security-tabs button{flex:1;min-width:80px;min-height:34px;padding:6px 9px;background:transparent;border:0;border-radius:6px;color:#5d7186;font:inherit;font-size:12px;cursor:pointer}
+.security-tabs button[aria-selected=true]{background:#fff;color:#166daf;box-shadow:0 1px 4px #18344e14;font-weight:600}.security-tabs button:focus-visible{outline:2px solid #1685d5;outline-offset:-2px}
+.security-center section.security-pane{margin-top:0}.security-pane>h3{font-size:14px;margin:4px 0 10px}.security-pane[hidden]{display:none!important}
+.security-center .security-checks{gap:8px;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))}.security-center .security-check{padding:10px;border-radius:8px;font-size:12px}.security-check p{font-size:11px;margin:5px 0 0}
+.security-overview-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:8px;margin-top:12px}.security-overview-summary button{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#f7faff;border:1px solid #dfe8f2;border-radius:8px;padding:12px;color:#3e5872;cursor:pointer;font:inherit;font-size:12px}.security-overview-summary strong{color:#216d9f;font-size:16px}
+.security-center .login-protection{margin-top:0}.security-center .login-protection>h3{display:none}.security-center .login-protection-modes{gap:10px}.security-center .login-protection fieldset{padding:10px}.security-center .login-protection-fields{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.security-center .login-protection-fields label{font-size:11px;margin:6px 0}.security-center .login-protection-fields input{width:100%}.security-center .login-block-heading{margin-top:16px}
+.security-center .security-session,.security-center .security-events article{padding:10px 0}.security-session small{font-size:11px;color:#74889a}
+/* Managers share a compact rhythm without shrinking touch targets. */
+#shell[data-page=vms] .mv-manager[data-manager=vms] .mv-brand{padding:8px}.mv-content .mv-stats{gap:8px;margin-bottom:12px}.mv-content .mv-stat{padding:11px;gap:6px}.mv-content .mv-stat strong{font-size:22px}
+.mv-content .mv-section-title{margin-bottom:12px}.mv-content .mv-section{padding:12px;margin-bottom:12px}.mv-content .mv-container-list{gap:8px}.mv-content .mv-container-summary{padding:12px;gap:10px}
+.storage-workspace{grid-template-columns:160px minmax(0,1fr)}.storage-brand{padding:12px}.storage-content{padding:12px}.storage-card-grid{gap:10px}.storage-tabs{gap:4px;margin-bottom:10px}.storage-disk-details{margin:8px 0}
+.package-center .manager-tabs{margin-bottom:12px;gap:5px}.package-center .manager-tabs .button{min-height:34px}.package-summary{padding:11px;margin-bottom:12px}.package-login,.package-update{margin-top:14px;padding-top:12px}
+@container app-content (max-width:700px){
+ .sl-content .catalog-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.catalog-filters>.field:last-child{grid-column:1/-1}
+ .catalog-commandbar>.search{flex-basis:100%;max-width:none}.catalog-commands{flex:1}.catalog-commandbar>#catalog-count{flex:0 0 auto;margin-left:auto;max-width:130px;text-align:right}
+ .security-center .login-protection-modes{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:760px){
+ #shell[data-desktop=true] .topbar{min-height:50px;height:50px;padding:4px 6px;gap:3px;flex-wrap:nowrap}
+ #shell[data-desktop=true] .launcher-button{min-height:42px;padding:7px 8px;font-size:12px}.launcher-button svg{display:block!important;width:18px;height:18px}
+ #shell[data-desktop=true] .desktop-reveal{min-height:42px;min-width:34px;padding:6px}
+ #shell[data-desktop=true] .topbar-right{gap:1px}#shell[data-desktop=true] .shell-icon{width:32px;min-width:32px;min-height:42px;height:42px}
+ #shell[data-desktop=true] #desktop-tasks{height:42px;flex-basis:0;order:0}
+ #shell[data-desktop=true] .desktop-task{min-height:42px;padding:6px;min-width:36px;max-width:42px}#shell[data-desktop=true] .desktop-task span{display:none}
+ .desktop-window-layer{top:50px}.desktop-window{border-radius:0}.desktop-window-titlebar{min-height:42px;padding:3px 7px}.desktop-window-controls button{min-height:36px;min-width:36px}
+ .desktop-menu-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:13px}.desktop-menu-grid,[data-installed-apps]{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+ .desktop-search input{min-height:42px;font-size:16px}.desktop-menu-app strong{font-size:12px}
+ html[data-desktop-embedded=true] #shell[data-page] .nas-window-content{padding:10px}
+ .nas-window-content>.page-heading{gap:7px;margin-bottom:8px}.nas-window-content>.page-heading h1{font-size:17px}.nas-window-content>.page-heading .subtitle{display:none}
+ .nas-window-content .panel{padding:10px}.nas-window-content :is(.button,.button.small){min-height:42px}.nas-window-content input,.nas-window-content select{font-size:16px}
+ .cp-layout{grid-template-columns:minmax(0,1fr)}.cp-content{padding:11px}.cp-content .sc-save-actions{bottom:-11px}.cp-icon-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .storage-workspace{display:flex;flex-direction:column}.storage-content{padding:10px}
+ #shell[data-page=apps] .nas-window-content>.page-heading{min-height:42px;padding:4px 10px;flex-wrap:nowrap}#shell[data-page=apps] .page-heading h1{font-size:14px}.sl-nav{padding:3px 8px}.sl-nav button{min-height:42px;flex:1}
+ .sl-content>.app-discover-section,.sl-content>.app-installed-section{padding:0 9px 9px}.catalog-commandbar{padding:8px 0;gap:6px}.catalog-commandbar>.search{height:42px}.catalog-commandbar>.search input{font-size:16px;min-height:40px}
+ .catalog-commandbar .button,.nas-window-content .catalog-view-switch>.button{min-height:40px;font-size:11px;padding:6px 8px}.catalog-commandbar>#catalog-count{font-size:10px;max-width:105px}
+ .sl-content .catalog-filters{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px;gap:6px}.catalog-filters>.field:last-child{grid-column:1/-1}.sl-content .catalog-filters select{font-size:16px;min-height:42px}
+ .sl-content .catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sl-content .catalog-card{padding:9px;gap:5px}.sl-content .catalog-card h3{font-size:12px}.sl-content .catalog-card .app-top .pill{display:none}.sl-content .catalog-card .app-icon{width:34px;height:34px}
+ .sl-content .catalog-card .app-bottom{display:flex;flex-direction:column;align-items:stretch;gap:4px}.sl-content .catalog-card .app-bottom .button{min-height:40px;width:100%;font-size:11px;padding:5px 4px}
+ .sl-content .catalog-grid[data-catalog-view=list] .catalog-card{grid-template-columns:36px minmax(0,1fr);padding:8px;min-height:0;gap:4px 8px}.sl-content .catalog-grid[data-catalog-view=list] .app-bottom{grid-column:2;grid-row:3;flex-direction:row;flex-wrap:wrap;padding-top:3px}.sl-content .catalog-grid[data-catalog-view=list] .app-bottom .button{width:auto;flex:1}
+ .catalog-status{padding:5px 10px;font-size:10px}.catalog-status>span small{display:block}
+ .security-tabs{gap:2px;margin-bottom:10px}.security-tabs button{min-height:42px;flex:1 1 auto;min-width:90px;padding:6px;font-size:12px}.security-center>header h2{font-size:14px}.security-center .login-protection-fields{grid-template-columns:minmax(0,1fr)}.security-center .security-checks{grid-template-columns:repeat(2,minmax(0,1fr))}.security-check strong{overflow-wrap:anywhere}.security-overview-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:359px){#shell[data-desktop=true] .launcher-button>span{display:none}.sl-content .catalog-grid{grid-template-columns:minmax(0,1fr)}.catalog-commandbar>#catalog-count{flex-basis:100%;max-width:none;text-align:left}}
+@media(prefers-reduced-motion:no-preference){.launcher-button,.desktop-reveal,.catalog-view-switch>.button,.security-tabs button{transition:background .16s ease,color .16s ease,box-shadow .16s ease}.desktop-window{animation:compact-window-enter .16s ease-out}@keyframes compact-window-enter{from{opacity:.65;transform:translateY(5px)}to{opacity:1;transform:none}}}
+@media(prefers-reduced-transparency:reduce){#shell[data-desktop=true] .topbar{background:#123654}.desktop-window-titlebar,.desktop-menu-dialog{background:#f6f9fd;backdrop-filter:none;-webkit-backdrop-filter:none}.desktop-menu-dialog::backdrop{backdrop-filter:none}}
+/* Override legacy card minimums and match the managers' actual scroll panes. */
+.sl-content .catalog-grid .catalog-card{min-height:0}
+.storage-manager-content{padding:12px}.storage-workspace .panel{padding:12px;margin-bottom:12px}.storage-toolbar{padding:7px 12px;min-height:44px}.storage-health-summary{padding:13px 14px;gap:12px;margin-bottom:12px}.storage-health-symbol{width:40px;height:40px}.storage-health-symbol svg{width:23px;height:23px}.storage-health-summary h3{font-size:16px}.storage-overview-grid{gap:12px;margin-bottom:12px}.storage-workspace .storage-usage-row{padding:11px 0;gap:9px}
+.um-toolbar,.um-filters{padding:10px 12px}.um-filters{gap:8px}.um-filters input,.um-filters select{min-height:34px}.um-detail{padding:14px}.um-detail-heading{margin-bottom:10px}.um-info{margin:12px 0}.um-info dt{margin-top:9px}.um-detail-section{padding-top:12px;margin-bottom:12px}.um-list-footer{padding:9px 12px}.um-manager .um-table th{padding:9px 12px}.um-manager .um-table td{padding:6px 12px}
+#shell .update-stream-grid{gap:12px}.update-stream-versions{margin:12px 0;gap:8px}.update-stream-versions>div{padding:9px}.update-stream-versions dd{font-size:14px}.update-stream .update-stream-actions{margin-top:10px}.deployment-grid{gap:10px}.deployment-card{padding:12px}.deployment-card p{margin:6px 0;font-size:11px}.sc-update-settings .sc-form-panel{margin:10px 0}.sc-update-schedule-grid{gap:10px}.sc-update-schedule{padding:10px}
+@media(max-width:760px){.storage-manager-content{padding:10px}.storage-workspace .panel{padding:11px}.storage-toolbar{min-height:48px;padding:5px 9px}.um-toolbar,.um-filters{padding:8px}.um-filters input,.um-filters select{min-height:42px}.um-detail{padding:12px}.um-manager .um-table th,.um-manager .um-table td{padding:8px}.nas-window-content .update-stream-versions{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}}
+.root-access-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 10px;flex:none;padding:6px 10px;margin:0 0 8px;background:#f3f7fb;border:1px solid #dce5ef;border-radius:7px;font-size:11px;color:#61768a}.root-access-bar.is-root{background:#fff4e4;border-color:#edcb91;color:#94651b}.root-access-bar>div{display:flex;flex-wrap:wrap;gap:5px}.root-access-bar .button.small{min-height:30px;padding:4px 8px;font-size:11px}
+#shell[data-page=files] .nas-window-content>.root-access-bar{margin:5px 8px}
+@media(max-width:760px){.root-access-bar{gap:5px;padding:5px 8px}.root-access-bar .button.small{min-height:40px}.root-access-bar>div{margin-left:auto}.root-access-bar.is-root>span{flex-basis:100%}}
+#shell[data-page=apps] .nas-window-content>.page-heading>div:first-child:not(.catalog-window-actions){display:none}
+.catalog-window-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-left:auto}
+.catalog-commandbar>.search{display:flex;align-items:center;position:relative;gap:5px;padding:0 9px}
+.catalog-commandbar>.search>span{position:static;flex:none;font-size:20px;line-height:1;color:#7890a5}
+.catalog-commandbar>.search>input{width:100%;flex:1;min-width:0;padding:6px 0;border:0;box-shadow:none;background:transparent}
+/* Embedded apps already have their name in the desktop window titlebar. */
+html[data-desktop-embedded=true] .nas-window-content>.page-heading>div:first-child:not(.catalog-window-actions){display:none}
+html[data-desktop-embedded=true] .nas-window-content>.page-heading:not(:has(button,a,input,select)){display:none}
+.security-center nav.security-tabs{flex-direction:row}
+@media(max-width:760px){.security-center nav.security-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.security-center nav.security-tabs button{min-width:0;width:auto;line-height:1.3}}
+/* Keep navigation orientation aligned with the manager's own grid breakpoint. */
+.engine-workbench .engine-navigation>[role=tablist]{display:flex;flex-direction:column;width:100%;flex-wrap:nowrap}
+.engine-workbench .engine-navigation>[role=tablist]>.button{flex:none;width:100%;text-align:left}
+@container docker-pane (max-width:620px){.engine-workbench .engine-navigation>[role=tablist]{flex-direction:row;width:max-content}.engine-workbench .engine-navigation>[role=tablist]>.button{width:auto}}
+/* Keep storage navigation and its summary readable in narrow app windows. */
+@media(max-width:760px){
+ .storage-workspace .storage-navigation{min-width:0;max-width:100%;overflow:hidden}
+ .storage-workspace .storage-tabs{display:flex;flex-direction:row;flex-wrap:nowrap;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin;padding:0;gap:0}
+ .storage-workspace .storage-tabs .button{flex:0 0 auto;width:auto;min-width:max-content;min-height:44px;flex-direction:row;gap:6px;padding:8px 10px;white-space:nowrap;font-size:11px}
+ .storage-workspace .storage-health-summary{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:8px 10px;padding:11px}
+ .storage-workspace .storage-health-symbol{width:36px;height:36px}
+ .storage-workspace .storage-health-summary>div{min-width:0;grid-column:2}
+ .storage-workspace .storage-health-summary h3{font-size:15px;line-height:1.4}
+ .storage-workspace .storage-health-summary p{font-size:12px;line-height:1.5;overflow-wrap:normal}
+ .storage-workspace .storage-health-summary>.button{grid-column:2;margin:0;justify-self:start;min-height:40px}
+}

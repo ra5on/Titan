@@ -39,6 +39,7 @@ from .locations import LocationsMixin
 from .office_gateway import OfficeHostMixin
 from .identity_host import IdentityHostMixin
 from .storage_services import StorageServicesMixin
+from .web_access import WebAccessMixin
 
 
 def run(arguments, input=None, timeout=120, pass_fds=(), include_stderr=False):
@@ -60,7 +61,7 @@ from .docker_engine import DockerEngineMixin
 from .core import OperationCoordinator, job_resources
 
 
-class Host(IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -84,25 +85,30 @@ class Host(IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngin
         if repair.get('running'):
             self.save('component-repair', {**repair, 'running': False, 'ok': False,
                 'finished': time.time(), 'error': 'Komponenteninstallation durch Dienstneustart unterbrochen. Status prüfen und bei Bedarf erneut einrichten.'})
+        if self.directory == Path('/var/lib/titan-agent'):
+            self.web_access.resume()
+            threading.Thread(target=self.reconcile_app_firewall, name='titan-app-firewall', daemon=True).start()
 
     def load(self, name, default):
-        path = self.directory / (name + ".json")
-        return json.loads(path.read_text()) if path.exists() else default
+        from .app_state import load_state
+        return load_state(self.directory, name, default)
 
     def save(self, name, value):
-        atomic_json(self.directory / (name + ".json"), value)
+        from .app_state import save_state
+        save_state(self.directory, name, value)
 
     def dispatch(self, operation, **args):
         method = getattr(self, "op_" + operation, None)
         if not method:
             raise Error("Unbekannte Verwaltungsaktion.")
-        if (self.directory / "config-restore.lock").exists() and operation not in ("status", "terminal_close"):
+        if (self.directory / "config-restore.lock").exists() and operation not in ("status", "terminal_close", "root_terminal_close"):
             raise Error("Titan-Konfiguration wird wiederhergestellt. Verwaltungsaktionen sind gesperrt.", 503)
         # Account revocation must remain responsive during large file/VM backups.
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove", "identity_apply", "identity_home", "user_quota"}
         read_ops = {"app_office_runtime", "identity_capabilities", "identity_baseline", "identity_homes", "user_quotas", "storage_maintenance", "backup_browse", "notification_settings", "vm_extensions", "package_details", "package_diagnose", "package_logs", "docker_engine", "docker_metrics", "docker_container_details","services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
                     "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "app_devices", "app_metrics", "shares_access"}
-        file_read = operation in {"file", "admin_file", "system_file"} and args.get("action") in {"list", "read", "trash_list"}
+        read_ops |= {'root_terminal_create', 'root_terminal_poll', 'root_terminal_write', 'root_terminal_resize', 'root_terminal_close'}
+        file_read = operation in {"file", "admin_file", "system_file", "root_system_file"} and args.get("action") in {"list", "read", "trash_list"}
         share_ops = {"share_create", "share_update", "share_user_permission", "share_remove", "identity_apply", "identity_home", "user_quota"}
         independent = job_resources(operation, args)
         if operation in {"docker_container_action", "docker_container_batch"} and independent is not None:
@@ -116,7 +122,7 @@ class Host(IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngin
                 if isinstance(app, str):
                     keys.add("app:" + app)
             independent = tuple(keys)
-        if operation == "app_memory_preflight":
+        if operation in {"app_memory_preflight", "catalog", "app_stores", "web_access", "web_access_confirm", "web_access_cancel"}:
             read_ops.add(operation)
         fast_lane = operation in read_ops or file_read or operation in account_ops or operation in share_ops
         resources = () if fast_lane else independent
@@ -127,7 +133,7 @@ class Host(IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngin
         # Restore is protected by its persistent marker and account_lock below.
         with contextlib.nullcontext() if fast_lane else self.operation_coordinator.hold(resources), selected_lock:
             with self.account_lock if operation in ("backup_config_restore", "share_create", "share_update", "share_user_permission", "share_remove", "identity_apply", "identity_home", "user_quota") else contextlib.nullcontext():
-                if (self.directory / "config-restore.lock").exists() and operation not in ("status", "terminal_close"):
+                if (self.directory / "config-restore.lock").exists() and operation not in ("status", "terminal_close", "root_terminal_close"):
                     raise Error("Titan-Konfiguration wird wiederhergestellt. Verwaltungsaktionen sind gesperrt.", 503)
                 if operation not in read_ops and operation not in account_ops and operation != "system_reboot":
                     from .updates import scheduled_reboot

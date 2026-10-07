@@ -1019,9 +1019,30 @@ class RuntimeSmokeTests(unittest.TestCase):
         args, kwargs = connection.call_args
         self.assertEqual(args, ("127.0.0.1", 15000))
         headers = connection.return_value.request.call_args.args[3]
-        self.assertEqual(headers["Host"], "10.0.2.15:5000")
-        self.assertEqual(headers["Origin"], "https://10.0.2.15:5000")
+        self.assertEqual(headers["Host"], "10.0.2.15")
+        self.assertEqual(headers["Origin"], "https://10.0.2.15")
         self.assertEqual(kwargs["timeout"], 30)
+
+    def test_legacy_transport_is_selected_before_sending_a_mutating_request(self):
+        unavailable, legacy = Mock(), Mock()
+        unavailable.connect.side_effect = ConnectionRefusedError()
+        response = Mock(status=200); response.read.return_value = b'{"ok":true}'; response.getheader.return_value = None
+        legacy.getresponse.return_value = response
+        with patch.object(smoke.http.client,'HTTPSConnection',side_effect=[unavailable,legacy]) as connections:
+            client = smoke.GuestClient()
+            self.assertEqual(client.request('/api/actions',{'operation':'test'}), {'ok':True})
+        unavailable.request.assert_not_called()
+        legacy.request.assert_called_once()
+        self.assertEqual(connections.call_args_list[1].args, ('127.0.0.1',15001))
+        self.assertEqual(legacy.request.call_args.args[3]['Origin'], 'https://10.0.2.15:5000')
+        self.assertEqual(client.forward_port,15001)
+
+    def test_post_is_never_retried_after_the_request_may_have_been_sent(self):
+        with patch.object(smoke.http.client,'HTTPSConnection') as connections:
+            connections.return_value.request.side_effect = ConnectionResetError()
+            with self.assertRaises(smoke.SmokeFailure): smoke.GuestClient().request('/api/actions',{'operation':'test'})
+            self.assertEqual(connections.call_count,1)
+            connections.return_value.request.assert_called_once()
 
     def test_expected_rejection_status_is_enforced_by_fixed_transport(self):
         for status in (400, 200, 409):
@@ -1607,7 +1628,7 @@ class RuntimeTransportTests(unittest.TestCase):
         self.assertEqual((result["display_width"], result["display_height"]), (640, 480))
         request = transport.sent[0].decode()
         self.assertIn("GET /api/vnc?vm=fixture-vm HTTP/1.1", request)
-        self.assertIn("Origin: https://10.0.2.15:5000", request)
+        self.assertIn("Origin: https://10.0.2.15\r\n", request)
         self.assertIn("Cookie: titan_session=private-fixture", request)
         self.assertEqual([client_frame_payload(frame) for frame in transport.sent[1:]], [b"RFB 003.008\n", b"\x01", b"\x01"])
         self.assertNotIn("private-fixture", json.dumps(result))
@@ -1669,7 +1690,9 @@ class RuntimeTransportTests(unittest.TestCase):
     def test_qemu_app_forward_is_fixed_loopback_in_disposable_overlay(self):
         source = (Path(__file__).resolve().parents[1] / "scripts/smoke-image.sh").read_text()
         self.assertIn("hostfwd=tcp:127.0.0.1:15080-:18080", source)
-        self.assertIn("hostfwd=tcp:127.0.0.1:15000-:5000", source)
+        self.assertIn("hostfwd=tcp:127.0.0.1:15000-:443", source)
+        self.assertIn("hostfwd=tcp:127.0.0.1:15001-:5000", source)
+        self.assertIn("hostfwd=tcp:127.0.0.1:15081-:80", source)
         self.assertIn('file="$task_dir/test.qcow2"', source)
 
 

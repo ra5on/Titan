@@ -15,10 +15,10 @@ spec.loader.exec_module(firstboot)
 
 
 class FirstBootTests(unittest.TestCase):
-    def test_endpoint_is_port_5000_and_has_one_origin(self):
+    def test_endpoint_uses_standard_ports_and_redirects_http(self):
         env,caddy=firstboot.endpoint('192.0.2.31')
-        self.assertEqual(env,'TITAN_ORIGIN=https://192.0.2.31:5000\n')
-        self.assertIn('https://192.0.2.31:5000 {',caddy)
+        self.assertEqual(env,'TITAN_ORIGIN=https://192.0.2.31\n')
+        self.assertIn('https://192.0.2.31 {',caddy)
         self.assertIn('reverse_proxy 127.0.0.1:5001',caddy)
         self.assertIn('tls internal',caddy)
 

@@ -462,8 +462,9 @@ print('TITAN_STORAGE_COMPONENTS:'+json.dumps(value,separators=(',',':')))
 
 
 class GuestClient:
-    HOST = "10.0.2.15:5000"
+    HOST = "10.0.2.15"
     ORIGIN = "https://" + HOST
+    ENDPOINTS = ((15000, '10.0.2.15'), (15001, '10.0.2.15:5000'))
 
     def __init__(self, qmp_socket=None):
         # The certificate is generated within the throwaway guest. Verification
@@ -474,6 +475,44 @@ class GuestClient:
         self.cookie, self.csrf = "", ""
         self.qmp_socket = qmp_socket
         self.last_retry_after = 0
+        self.forward_port = None
+
+    def _transport_candidates(self):
+        return sorted(self.ENDPOINTS, key=lambda endpoint: endpoint[0] != self.forward_port)
+
+    def _select_transport(self, endpoint):
+        self.forward_port, self.HOST = endpoint
+        self.ORIGIN = 'https://' + self.HOST
+
+    def _connect_transport(self, timeout=30):
+        """Choose a live fixed TLS forward before any HTTP mutation is sent.
+
+        A failed connect is safe to retry on the older image's fixed forward.
+        HTTP requests, including POST, are never retried after transmission.
+        """
+        for endpoint in self._transport_candidates():
+            connection = http.client.HTTPSConnection('127.0.0.1', endpoint[0], timeout=timeout, context=self.context)
+            try:
+                connection.connect()
+            except (OSError, http.client.HTTPException):
+                connection.close()
+                continue
+            self._select_transport(endpoint)
+            return connection
+        raise SmokeFailure('Disposable guest HTTPS is not reachable on the fixed current or legacy transport.')
+
+    def _connect_websocket_transport(self, timeout=10):
+        for endpoint in self._transport_candidates():
+            raw = None
+            try:
+                raw = socket.create_connection(('127.0.0.1', endpoint[0]), timeout=timeout)
+                connection = self.context.wrap_socket(raw, server_hostname='10.0.2.15')
+            except (OSError, http.client.HTTPException):
+                if raw is not None: raw.close()
+                continue
+            self._select_transport(endpoint)
+            return connection
+        raise SmokeFailure('Disposable guest WebSocket TLS transport is unavailable.')
 
     def unauthenticated_client(self):
         return GuestClient(self.qmp_socket)
@@ -484,7 +523,7 @@ class GuestClient:
     def request(self, path, body=None, expected_status=None):
         if not path.startswith("/api/") or "\r" in path or "\n" in path:
             raise SmokeFailure("Invalid test API route.")
-        connection = http.client.HTTPSConnection("127.0.0.1", 15000, timeout=30, context=self.context)
+        connection = self._connect_transport(timeout=30)
         headers = {"Host": self.HOST, "Origin": self.ORIGIN, "Content-Type": "application/json"}
         if self.cookie:
             headers["Cookie"] = self.cookie
@@ -733,7 +772,7 @@ class GuestClient:
             self.request("/api/terminal", {"action": "write", "id": identifier,
                          "data": base64.b64encode(command.encode()).decode()})
             deadline = time.monotonic() + 25
-            connection = http.client.HTTPSConnection("127.0.0.1", 15000, timeout=25, context=self.context)
+            connection = self._connect_transport(timeout=25)
             connection.request("GET", "/api/terminal/output?id=" + identifier,
                                headers={"Host": self.HOST, "Origin": self.ORIGIN, "Cookie": self.cookie})
             response = connection.getresponse()
@@ -776,7 +815,7 @@ class GuestClient:
             command = 'python3 -c ' + shlex.quote(GUEST_STORAGE_COMPONENTS) + '\n'
             self.request('/api/terminal', {'action':'write','id':identifier,
                          'data':base64.b64encode(command.encode()).decode()})
-            connection = http.client.HTTPSConnection('127.0.0.1', 15000, timeout=25, context=self.context)
+            connection = self._connect_transport(timeout=25)
             connection.request('GET', '/api/terminal/output?id=' + identifier,
                                headers={'Host':self.HOST,'Origin':self.ORIGIN,'Cookie':self.cookie})
             response = connection.getresponse()
@@ -808,7 +847,7 @@ class GuestClient:
                     ("/console.js", b'/novnc/core/rfb.js'),
                     ("/novnc/core/rfb.js", b'RFB'))
         for path, marker in expected:
-            connection = http.client.HTTPSConnection("127.0.0.1", 15000, timeout=10, context=self.context)
+            connection = self._connect_transport(timeout=10)
             try:
                 connection.request("GET", path, headers={"Host": self.HOST, "Cookie": self.cookie, "Origin": self.ORIGIN})
                 response = connection.getresponse()
@@ -828,67 +867,66 @@ class GuestClient:
         key = base64.b64encode(secrets.token_bytes(16)).decode()
         expected_accept = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
         try:
-            with socket.create_connection(("127.0.0.1", 15000), timeout=10) as raw:
-                with self.context.wrap_socket(raw, server_hostname="10.0.2.15") as connection:
-                    request = (f"GET /api/vnc?vm={quote(identifier, safe='')} HTTP/1.1\r\n"
-                               f"Host: {self.HOST}\r\nOrigin: {self.ORIGIN}\r\nCookie: {self.cookie}\r\n"
-                               f"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
-                               "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: binary\r\n\r\n")
-                    connection.sendall(request.encode())
-                    header = bytearray()
-                    while b"\r\n\r\n" not in header:
-                        remaining = deadline - time.monotonic()
-                        if remaining <= 0 or len(header) > 16384:
-                            raise SmokeFailure("VM console WebSocket headers exceeded the bounded handshake.")
-                        connection.settimeout(min(10, remaining))
-                        chunk = connection.recv(4096)
-                        if not chunk:
-                            raise SmokeFailure("VM console WebSocket upgrade closed prematurely.")
-                        header.extend(chunk)
-                    head, pending = bytes(header).split(b"\r\n\r\n", 1)
-                    if len(head) > 16384:
+            with self._connect_websocket_transport(timeout=10) as connection:
+                request = (f"GET /api/vnc?vm={quote(identifier, safe='')} HTTP/1.1\r\n"
+                           f"Host: {self.HOST}\r\nOrigin: {self.ORIGIN}\r\nCookie: {self.cookie}\r\n"
+                           f"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
+                           "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: binary\r\n\r\n")
+                connection.sendall(request.encode())
+                header = bytearray()
+                while b"\r\n\r\n" not in header:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0 or len(header) > 16384:
                         raise SmokeFailure("VM console WebSocket headers exceeded the bounded handshake.")
-                    lines = head.decode("iso-8859-1").split("\r\n")
-                    headers = {}
-                    for line in lines[1:]:
-                        if ":" not in line:
-                            raise SmokeFailure("VM console returned invalid WebSocket headers.")
-                        name, value = line.split(":", 1)
-                        headers[name.lower()] = value.strip()
-                    if (lines[0].split(" ")[1:2] != ["101"] or
-                            headers.get("upgrade", "").lower() != "websocket" or
-                            "upgrade" not in [item.strip() for item in headers.get("connection", "").lower().split(",")] or
-                            headers.get("sec-websocket-accept") != expected_accept or
-                            headers.get("sec-websocket-protocol") != "binary"):
-                        # Report only fixed diagnostic categories, never response bodies,
-                        # cookies or headers from the authenticated connection.
-                        detail = "invalid WebSocket handshake"
-                        status = lines[0].split(" ")[1:2]
-                        if status and status[0].isdigit() and len(status[0]) == 3:
-                            detail = "HTTP " + status[0]
-                        known_errors = {
-                            "VNC-Proxy konnte nicht starten.": "proxy process exited",
-                            "VNC-Proxy ist nicht erreichbar.": "proxy startup timed out",
-                            "VM muss laufen und eine VNC-Konsole besitzen.": "guest VNC endpoint unavailable",
-                            "Die VM-Konsole muss an 127.0.0.1 gebunden sein.": "guest VNC binding rejected",
-                        }
-                        try:
-                            size = int(headers.get("content-length", "0"))
-                            if 0 < size <= 4096 and status != ["101"]:
-                                payload = bytearray(pending)
-                                while len(payload) < size:
-                                    chunk = connection.recv(min(4096, size - len(payload)))
-                                    if not chunk:
-                                        break
-                                    payload.extend(chunk)
-                                error = json.loads(bytes(payload[:size])).get("error")
-                                if isinstance(error, str) and error in known_errors:
-                                    detail += ": " + known_errors[error]
-                        except (ValueError, TypeError, AttributeError, OSError):
-                            pass
-                        raise SmokeFailure("Authenticated VM console WebSocket upgrade failed (" + detail + ").")
-                    result = VNCWebSocket(connection, deadline, pending).handshake()
-                    return {"authenticated_websocket": True, **result}
+                    connection.settimeout(min(10, remaining))
+                    chunk = connection.recv(4096)
+                    if not chunk:
+                        raise SmokeFailure("VM console WebSocket upgrade closed prematurely.")
+                    header.extend(chunk)
+                head, pending = bytes(header).split(b"\r\n\r\n", 1)
+                if len(head) > 16384:
+                    raise SmokeFailure("VM console WebSocket headers exceeded the bounded handshake.")
+                lines = head.decode("iso-8859-1").split("\r\n")
+                headers = {}
+                for line in lines[1:]:
+                    if ":" not in line:
+                        raise SmokeFailure("VM console returned invalid WebSocket headers.")
+                    name, value = line.split(":", 1)
+                    headers[name.lower()] = value.strip()
+                if (lines[0].split(" ")[1:2] != ["101"] or
+                        headers.get("upgrade", "").lower() != "websocket" or
+                        "upgrade" not in [item.strip() for item in headers.get("connection", "").lower().split(",")] or
+                        headers.get("sec-websocket-accept") != expected_accept or
+                        headers.get("sec-websocket-protocol") != "binary"):
+                    # Report only fixed diagnostic categories, never response bodies,
+                    # cookies or headers from the authenticated connection.
+                    detail = "invalid WebSocket handshake"
+                    status = lines[0].split(" ")[1:2]
+                    if status and status[0].isdigit() and len(status[0]) == 3:
+                        detail = "HTTP " + status[0]
+                    known_errors = {
+                        "VNC-Proxy konnte nicht starten.": "proxy process exited",
+                        "VNC-Proxy ist nicht erreichbar.": "proxy startup timed out",
+                        "VM muss laufen und eine VNC-Konsole besitzen.": "guest VNC endpoint unavailable",
+                        "Die VM-Konsole muss an 127.0.0.1 gebunden sein.": "guest VNC binding rejected",
+                    }
+                    try:
+                        size = int(headers.get("content-length", "0"))
+                        if 0 < size <= 4096 and status != ["101"]:
+                            payload = bytearray(pending)
+                            while len(payload) < size:
+                                chunk = connection.recv(min(4096, size - len(payload)))
+                                if not chunk:
+                                    break
+                                payload.extend(chunk)
+                            error = json.loads(bytes(payload[:size])).get("error")
+                            if isinstance(error, str) and error in known_errors:
+                                detail += ": " + known_errors[error]
+                    except (ValueError, TypeError, AttributeError, OSError):
+                        pass
+                    raise SmokeFailure("Authenticated VM console WebSocket upgrade failed (" + detail + ").")
+                result = VNCWebSocket(connection, deadline, pending).handshake()
+                return {"authenticated_websocket": True, **result}
         except (OSError, http.client.HTTPException):
             raise SmokeFailure("VM console WebSocket/RFB transport is not reachable.") from None
 

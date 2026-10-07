@@ -37,7 +37,7 @@ for(const section of ['general','updates']){
    assert(html.includes('id="settings-form"'));assert(html.includes(`data-settings-section="${section}"`));assert(html.includes('href="#settings"'));
    assert(html.includes(`href="${section==='updates'?'#updates':'#settings?section='+section}" class="active" aria-current="page"`));
    assert(!html.includes('name="allow_reboot"'));
-   if(section==='general'){assert.match(html,/<input[^>]+name="hostname" type="text"/);assert.match(html,/<input type="checkbox" name="auto_check" hidden/);assert(html.includes('HTTPS · Port 5000'));assert(html.includes('href="#users"'));}
+   if(section==='general'){assert.match(html,/<input[^>]+name="hostname" type="text"/);assert.match(html,/<input type="checkbox" name="auto_check" hidden/);assert(html.includes('Wird geladen …'));assert(!html.includes('HTTPS · Port 5000'));assert(html.includes('href="#users"'));}
    else{assert.match(html,/<input type="hidden" name="hostname"/);assert.match(html,/<select[^>]+name="channel"/);assert(html.includes('id="channel-notice"'));assert(html.includes('Kanal: &lt;alpha&gt;'));assert(html.includes('href="#updates"'));}
   }
  }
@@ -83,3 +83,5 @@ const other=fixture();other.mount();assert.equal(f.input.events.size,0);assert.e
 const subMain=new Element(),subCenter=new Element();subMain.nodes.set('[data-settings-center]',subCenter);assert(ui.mount(subMain));ui.dispose();assert.equal(ui.mount(new Element()),null);
 assert.equal(ui.normalize('GRÖẞE / Kapazität'),'grosse / kapazitat');
 console.log('Settings center: linked category hub, section routes, unchanged complete settings payloads, checked/unchecked preservation, zero-value windows, escaping, existing component actions, accent-aware search and lifecycle disposal passed.');
+
+const access=ui.render({section:'general',settings,session,webAccess:{origin:'https://192.168.10.18:8443'}});assert(access.includes('https://192.168.10.18:8443'));assert(!access.includes('Port 5000'));

@@ -26,18 +26,19 @@
   let data=inventory,disposed=false,creating=false;
   const query=selector=>widget.querySelector(selector),select=query('[data-network-mode]'),ip=query('[data-network-ip]'),ipField=query('[data-network-ip-field]'),description=query('[data-network-description]');
   const form=widget.closest('form'),port=form.querySelector('[name="port"]'),create=query('[data-network-create]'),status=query('[data-network-create-status]');
-  let mappedPort=port.value;
+  let mappedPort=port?.value||'';
   function reflect(){
    const host=select.value==='host',network=choices(data).find(item=>select.value==='network:'+item.name),staticAddress=Boolean(network?.static_ipv4);
-   const wasReadOnly=port.readOnly;
-   if(!wasReadOnly)mappedPort=port.value;
-   port.readOnly=host&&!app.dynamic_web_port;port.min=host?'1':'1024';
-   if(port.readOnly)port.value=String(app.port);else if(!host&&(wasReadOnly||Number(port.value)<1024))port.value=mappedPort;
+   if(port){const wasReadOnly=port.readOnly;
+    if(!wasReadOnly)mappedPort=port.value;
+    port.readOnly=host&&!app.dynamic_web_port;port.min=host?'1':'1024';
+    if(port.readOnly)port.value=String(app.port);else if(!host&&(wasReadOnly||Number(port.value)<1024))port.value=mappedPort;
+   }
    ip.disabled=!staticAddress;ipField.hidden=!staticAddress;
    const subnets=network?.subnets?.map(item=>item.subnet+(item.gateway?' · Gateway '+item.gateway:'')).join(', ');
-   description.textContent=host?`Die App verwendet direkt das NAS-Netz. Sie besitzt keine eigene Container-IP; Portweiterleitungen entfallen. Webport: ${port.value}. Benötigte Ports müssen auf dem NAS frei sein.`:network?`Netz: ${network.name}. ${subnets||'Kein IPv4-Subnetz bekannt.'}${network.internal?' Internes Netz: Internetzugriff ist eingeschränkt.':''}`:select.value==='bridge'?'Docker vergibt die Container-IP automatisch im eingebauten Bridge-Netz. Apps werden über den veröffentlichten NAS-Port geöffnet.':'Titan erstellt das übliche eigene App-Netz. Docker vergibt die Container-IP automatisch; du öffnest die App über den NAS-Port.';
+   description.textContent=host?`Die App verwendet direkt das NAS-Netz. Sie besitzt keine eigene Container-IP; Portweiterleitungen entfallen. Webport: ${port?.value||'Keiner · Hintergrunddienst'}. Benötigte Ports müssen auf dem NAS frei sein.`:network?`Netz: ${network.name}. ${subnets||'Kein IPv4-Subnetz bekannt.'}${network.internal?' Internes Netz: Internetzugriff ist eingeschränkt.':''}`:select.value==='bridge'?'Docker vergibt die Container-IP automatisch im eingebauten Bridge-Netz. Apps werden über den veröffentlichten NAS-Port geöffnet.':'Titan erstellt das übliche eigene App-Netz. Docker vergibt die Container-IP automatisch; du öffnest die App über den NAS-Port.';
   }
-  const onChange=()=>reflect();select.addEventListener('change',onChange);port.addEventListener('input',onChange);select.value=app.default_network||'default';reflect();
+  const onChange=()=>reflect();select.addEventListener('change',onChange);port?.addEventListener('input',onChange);select.value=app.default_network||'default';reflect();
   const onCreate=async()=>{
    if(creating)return;
    const name=query('[data-network-name]').value.trim(),subnet=query('[data-network-subnet]').value.trim(),gateway=query('[data-network-gateway]').value.trim();
@@ -62,10 +63,10 @@
    finally{creating=false;if(!disposed){create.disabled=false;if(submit)submit.disabled=false;}}
   };
   create.addEventListener('click',onCreate);
-  states.set(widget,{dispose(){disposed=true;select.removeEventListener('change',onChange);port.removeEventListener('input',onChange);create.removeEventListener('click',onCreate);}});
+  states.set(widget,{dispose(){disposed=true;select.removeEventListener('change',onChange);port?.removeEventListener('input',onChange);create.removeEventListener('click',onCreate);}});
  }
  function safeUrl(value){try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
- function connection(app){app=app.container||app;const endpoint=(app.endpoints||[]).find(item=>item.scope==='lan'&&safeUrl(item.url));return endpoint?safeUrl(endpoint.url):'';}
+ function connection(app){app=app.container||app;if(app.web_available===false||app.web_state&&app.web_state!=='ready')return '';const endpoint=(app.endpoints||[]).find(item=>item.scope==='lan'&&safeUrl(item.url));return endpoint?safeUrl(endpoint.url):'';}
  function summary(app){
   app=app.container||app;
   const nets=app.networks||[],ips=nets.flatMap(item=>[item.ipv4,item.ipv6].filter(Boolean));
@@ -74,7 +75,7 @@
  }
  function details(app){
   const networks=app.networks||[],addresses=app.host_addresses||[],endpoints=app.endpoints||[];
-  return `<section class="app-network-details"><div class="panel-heading"><h3>Netzwerk und Erreichbarkeit</h3><span class="pill gray">${esc(app.network_mode||'Docker')}</span></div><div class="network-address-grid"><article><h4>Container-Adressen</h4>${app.network_mode==='host'?'<p>Host-Netz · die App verwendet die Adressen des NAS.</p>':networks.length?networks.map(item=>`<div class="network-address"><strong>${esc(item.name)}</strong><small>${esc(item.driver||'Docker-Netz')}${item.internal?' · intern':''}</small><code>${esc(item.ipv4||'IPv4 noch nicht vergeben')}</code>${item.ipv6?`<code>${esc(item.ipv6)}</code>`:''}${item.gateway?`<small>Gateway ${esc(item.gateway)}</small>`:''}</div>`).join(''):'<p>Aktuell keine Container-Adresse verfügbar.</p>'}</article><article><h4>NAS-Adressen</h4>${addresses.length?addresses.map(item=>`<div class="network-address"><code>${esc(item.address)}</code><small>${esc(item.interface||'Netzwerkschnittstelle')} · ${esc(item.family||'IP')}</small></div>`).join(''):'<p>Keine NAS-Adresse gemeldet.</p>'}</article></div><h4>App öffnen</h4><div class="network-endpoints">${endpoints.map(item=>{const url=safeUrl(item.url);return url?`<a class="button small" href="${esc(url)}" target="_blank" rel="noopener">${esc(url)} ↗${item.scope==='loopback'?' · nur auf dem NAS':''}</a>`:'';}).join('')||'<p class="hint">Kein erreichbarer Webzugang gemeldet. Bei internen Netzen oder gestoppten Apps ist das normal.</p>'}</div><p class="hint">Öffentliche Internet-IP: ${app.public_ip?esc(app.public_ip):'Nicht ermittelt'}. NAS- und Container-Adressen bedeuten keine automatische Erreichbarkeit aus dem Internet.</p></section>`;
+  return `<section class="app-network-details"><div class="panel-heading"><h3>Netzwerk und Erreichbarkeit</h3><span class="pill gray">${esc(app.network_mode||'Docker')}</span></div><div class="network-address-grid"><article><h4>Container-Adressen</h4>${app.network_mode==='host'?'<p>Host-Netz · die App verwendet die Adressen des NAS.</p>':networks.length?networks.map(item=>`<div class="network-address"><strong>${esc(item.name)}</strong><small>${esc(item.driver||'Docker-Netz')}${item.internal?' · intern':''}</small><code>${esc(item.ipv4||'IPv4 noch nicht vergeben')}</code>${item.ipv6?`<code>${esc(item.ipv6)}</code>`:''}${item.gateway?`<small>Gateway ${esc(item.gateway)}</small>`:''}</div>`).join(''):'<p>Aktuell keine Container-Adresse verfügbar.</p>'}</article><article><h4>NAS-Adressen</h4>${addresses.length?addresses.map(item=>`<div class="network-address"><code>${esc(item.address)}</code><small>${esc(item.interface||'Netzwerkschnittstelle')} · ${esc(item.family||'IP')}</small></div>`).join(''):'<p>Keine NAS-Adresse gemeldet.</p>'}</article></div><h4>App öffnen</h4>${app.web_message?`<p class="hint" role="status">${esc(app.web_message)}</p>`:''}<div class="network-endpoints">${endpoints.filter(item=>item.scope==='lan').map(item=>{const url=connection({...app,endpoints:[item]});return url?`<a class="button small" href="${esc(url)}" target="_blank" rel="noopener">${esc(url)} ↗${item.scope==='loopback'?' · nur auf dem NAS':''}</a>`:'';}).join('')||'<p class="hint">Kein erreichbarer Webzugang gemeldet. Bei internen Netzen oder gestoppten Apps ist das normal.</p>'}</div><p class="hint">Öffentliche Internet-IP: ${app.public_ip?esc(app.public_ip):'Nicht ermittelt'}. NAS- und Container-Adressen bedeuten keine automatische Erreichbarkeit aus dem Internet.</p></section>`;
  }
  function removable(item){return item.removable===true||(item.removable===undefined&&item.managed&&item.driver==='bridge'&&!['bridge','host','none','ingress','docker_gwbridge'].includes(item.name)&&!(item.containers||[]).length&&!(item.used_by||[]).length);}
  function deletionReason(item){return item.deletion_reason||(!item.managed?'System- oder App-Netzwerk':(item.containers||[]).length||(item.used_by||[]).length?'Wird noch von Containern oder einem App-Paket verwendet':'');}

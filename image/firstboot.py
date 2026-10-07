@@ -11,6 +11,11 @@ import sys
 import tempfile
 import time
 
+# The firstboot entrypoint lives in /usr/share; the installed application lives
+# in a root-owned /usr/lib tree rather than the current working directory.
+sys.path.insert(0, '/usr/lib/titan')
+from titan.web_access import caddy_config, initial_config, origin, read_config, listen_ports
+
 
 def run(args, *, check=True):
     try:
@@ -74,16 +79,12 @@ def atomic(path, content, mode=0o644):
             os.unlink(name)
 
 
-def endpoint(host):
+def endpoint(host, settings=None):
     host = address(host)
-    return ('TITAN_ORIGIN=https://' + host + ':5000\n',
-            '{\n    admin off\n    auto_https disable_redirects\n    skip_install_trust\n}\n'
-            'https://' + host + ':5000 {\n    tls internal\n'
-            '    reverse_proxy 127.0.0.1:5001\n}\n'
-            'http://:5101 {\n    @office path /office/internal/*\n'
-            '    handle @office {\n        reverse_proxy 127.0.0.1:5001 {\n'
-            '            header_up Host ' + host + ':5000\n        }\n    }\n'
-            '    handle {\n        respond 404\n    }\n}\n')
+    config = initial_config(host)
+    if settings is not None:
+        config['settings'] = settings
+    return 'TITAN_ORIGIN=' + origin(host, config['settings']) + '\n', caddy_config(config)
 
 
 def main():
@@ -112,7 +113,19 @@ def main():
     run(['systemd-tmpfiles', '--create', '/usr/lib/tmpfiles.d/titan.conf'])
     configured = Path('/etc/titan/address')
     host = address(configured.read_text()) if configured.exists() else detect_address()
-    env, caddy = endpoint(host)
+    access_path = Path('/etc/titan/web-access.json')
+    if access_path.exists():
+        access = read_config(access_path)
+        if access.get('pending'):
+            access = access['pending']['previous']
+            access['last_error'] = 'Unbestätigter Webadresswechsel beim Neustart zurückgenommen.'
+        access['host'] = host
+    else:
+        previous_env = Path('/etc/titan/web.env')
+        previous_origin = next((line.split('=', 1)[1] for line in previous_env.read_text().splitlines() if line.startswith('TITAN_ORIGIN=')), None) if previous_env.exists() else None
+        access = initial_config(host, previous_origin)
+    atomic(access_path, json.dumps(access, ensure_ascii=False, indent=2) + '\n')
+    env, caddy = endpoint(host, access['settings'])
     atomic('/etc/titan/web.env', env)
     atomic('/etc/titan/Caddyfile', caddy)
     atomic('/etc/titan/release-public.pem', Path('/usr/share/titan/release-public.pem').read_text())
@@ -145,11 +158,15 @@ def main():
              '/etc/titan/release-public.pem', '/etc/samba/titan-shares.conf',
              '/var/srv/titan', '/var/lib/libvirt/images/titan',
              '/var/lib/libvirt/images/titan/iso'])
+    ports = ''.join('<port protocol="tcp" port="' + str(port) + '"/>' for port in sorted(listen_ports(access['settings'])))
+    atomic('/etc/firewalld/services/titan.xml', '<service><short>Titan</short>' + ports + '</service>\n')
+    # At boot Docker and the Titan services are still ordered behind firstboot.
+    run(['firewall-cmd', '--reload'])
     for service in ('titan', 'samba'):
         run(['firewall-cmd', '--permanent', '--add-service=' + service])
         run(['firewall-cmd', '--add-service=' + service])
     # Host services have socket activation. A missing KVM device only disables VMs.
-    print('Titan persistent state initialized for https://' + host + ':5000; web services start next.', flush=True)
+    print('Titan persistent state initialized for ' + origin(host, access['settings']) + '; web services start next.', flush=True)
 
 
 if __name__ == '__main__':

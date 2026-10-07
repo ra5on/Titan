@@ -186,7 +186,7 @@ class SetupHTTPTests(unittest.TestCase):
         self.assert_no_account()
         self.assertEqual(self.setup(**{"X-CSRF-Token": new_nonce})[0], 200)
 
-    def test_login_creates_a_fresh_secure_session_with_csrf_and_logout(self):
+    def test_http_login_creates_fresh_session_with_csrf_and_logout(self):
         self.assertEqual(self.setup()[0], 200)
         status, login, headers = self.request("/api/login", {
             "name": "admin", "password": self.password}, {
@@ -195,7 +195,7 @@ class SetupHTTPTests(unittest.TestCase):
         self.assertEqual(status, 200)
         cookie = SimpleCookie(headers["Set-Cookie"])["titan_session"]
         self.assertNotEqual(cookie.value, "attacker-supplied-session")
-        self.assertTrue(cookie["secure"])
+        self.assertFalse(cookie["secure"])
         self.assertTrue(cookie["httponly"])
         self.assertEqual(cookie["samesite"], "Strict")
         self.assertEqual(cookie["path"], "/")

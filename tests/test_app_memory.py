@@ -26,6 +26,15 @@ def options(office='disabled', profile='balanced'):
 
 
 class AppMemoryTests(unittest.TestCase):
+    def test_imported_fractional_gib_limits_are_budgeted_and_bounded(self):
+        from titan.compose_templates import memory_size
+        value = memory_size('10.5gb')
+        self.assertEqual(value, '10752m')
+        self.assertEqual(limit_bytes(value), int(10.5 * GIB))
+        self.assertEqual(limit_bytes('65536m'), 64 * GIB)
+        self.assertIsNone(limit_bytes('65537m'))
+        self.assertIsNone(limit_bytes('65g'))
+
     def setUp(self):
         # Unit tests never consult a developer/CI host's actual hypervisor.
         hypervisor = patch('titan.app_memory.vm_memory_reservations', return_value=[])

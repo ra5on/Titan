@@ -28,12 +28,12 @@ import threading
 import time
 
 
-def _worker():
+def _worker(root=False):
     """Run only in the fresh, single-threaded session-leader subprocess."""
     os.umask(0o077)
-    # A NAS web administrator is not a Unix root login. Even setuid programs
-    # cannot elevate this data terminal after the trusted launcher drops UID.
-    if ctypes.CDLL(None, use_errno=True).prctl(38, 1, 0, 0, 0) != 0:
+    # Normal data terminals cannot elevate through setuid programs after the
+    # trusted launcher drops UID. Root is a separate, explicit leased worker.
+    if not root and ctypes.CDLL(None, use_errno=True).prctl(38, 1, 0, 0, 0) != 0:
         raise SystemExit("Terminal privilege protection could not be enabled")
     fcntl.ioctl(0, termios.TIOCSCTTY, 0)
     os.tcsetpgrp(0, os.getpgrp())
@@ -44,9 +44,9 @@ def _worker():
 # worker needs no package search path, imports no local modules and never uses
 # preexec_fn in the multithreaded agent.
 if __name__ == "__main__":
-    if sys.argv[1:] != ["--worker"]:
+    if sys.argv[1:] not in (["--worker"], ["--root-worker"]):
         raise SystemExit("This module is an internal terminal worker.")
-    _worker()
+    _worker(root=sys.argv[1:] == ["--root-worker"])
     raise SystemExit(1)
 
 
@@ -69,6 +69,7 @@ class _Session:
     rows: int
     created: float
     activity: float
+    deadline: float | None = None
     lock: threading.RLock = field(default_factory=threading.RLock)
     pending: bytearray = field(default_factory=bytearray)
     eof: bool = False
@@ -88,10 +89,15 @@ class TerminalManager:
     """
 
     def __init__(self, cwd=None, idle_ttl=15 * 60, max_ttl=8 * 60 * 60,
-                 sweep_interval=30, max_sessions=4, max_sessions_per_owner=2, user=None):
+                 sweep_interval=30, max_sessions=4, max_sessions_per_owner=2, user=None, allow_root=False):
         self.unix_user = pwd.getpwnam(user) if user is not None else None
-        if self.unix_user is not None and self.unix_user.pw_uid == 0:
+        if type(allow_root) is not bool:
+            raise ValueError("Root terminal authorization must be explicit")
+        self.root_mode = bool(self.unix_user is not None and self.unix_user.pw_uid == 0)
+        if self.root_mode and not allow_root or self.unix_user is None and os.geteuid() == 0:
             raise ValueError("A data terminal cannot run as root")
+        if allow_root and (not self.root_mode or os.geteuid() != 0):
+            raise ValueError("Trusted root terminals require the root agent and explicit root identity")
         self.cwd = str(Path(cwd or "/").resolve())
         self.idle_ttl = self._duration(idle_ttl, "idle_ttl")
         self.max_ttl = self._duration(max_ttl, "max_ttl")
@@ -137,7 +143,8 @@ class TerminalManager:
 
     def _expired(self, session):
         now = time.monotonic()
-        return now - session.activity >= self.idle_ttl or now - session.created >= self.max_ttl
+        return (now - session.activity >= self.idle_ttl or now - session.created >= self.max_ttl
+                or session.deadline is not None and now >= session.deadline)
 
     def _lookup(self, owner, session_id):
         self._owner(owner)
@@ -178,9 +185,14 @@ class TerminalManager:
                 # larger than a single output chunk.
                 "exited": code is not None and session.eof, "exit_code": code}
 
-    def create(self, owner, cols=100, rows=30):
+    def create(self, owner, cols=100, rows=30, deadline=None):
         owner = self._owner(owner)
         cols, rows = self._dimensions(cols, rows)
+        if deadline is not None and (not self.root_mode or type(deadline) not in (int, float)
+                or not math.isfinite(deadline) or not time.monotonic() < deadline <= time.monotonic() + self.max_ttl):
+            raise Error('Ungültige oder abgelaufene Root-Terminalfreigabe.', 403)
+        if self.root_mode and deadline is None:
+            raise Error('Zeitlich begrenzte Root-Terminalfreigabe erforderlich.', 403)
         self._sweep()
         with self._lock:
             if self._closed:
@@ -214,11 +226,11 @@ class TerminalManager:
                                "extra_groups": os.getgrouplist(self.unix_user.pw_name, self.unix_user.pw_gid)}
                               if self.unix_user is not None else {})
                 process = subprocess.Popen(
-                    [sys.executable, "-I", str(Path(__file__).resolve()), "--worker"],
+                    [sys.executable, "-I", str(Path(__file__).resolve()), "--root-worker" if self.root_mode else "--worker"],
                     stdin=slave, stdout=slave, stderr=slave, cwd=self.cwd,
                     env=environment, close_fds=True, start_new_session=True, **privileges)
                 now = time.monotonic()
-                session = _Session(session_id, owner, process, master, cols, rows, now, now)
+                session = _Session(session_id, owner, process, master, cols, rows, now, now, deadline=deadline)
                 self._sessions[session_id] = session
                 return self._state(session)
             except OSError as exc:

@@ -84,8 +84,11 @@ def _vm_limit_total(vms):
 def limit_bytes(value):
     if type(value) is int:
         return value if 0 < value <= 2 ** 63 - 1 else None
-    match = re.fullmatch(r'([1-9][0-9]{0,3})([mg])', str(value))
-    return int(match[1]) * (MIB if match[2] == 'm' else GIB) if match else None
+    match = re.fullmatch(r'([1-9][0-9]{0,4})([mg])', str(value))
+    if not match:
+        return None
+    amount = int(match[1]) * (MIB if match[2] == 'm' else GIB)
+    return amount if amount <= 64 * GIB else None
 
 
 def system_reserve(total):

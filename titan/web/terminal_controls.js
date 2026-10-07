@@ -31,6 +31,7 @@
   const screen = main.querySelector('#terminal-screen'), stateNode = main.querySelector('#terminal-state');
   if (!screen || !stateNode) return null;
   const doc = main.ownerDocument, view = doc?.defaultView || env, esc = ctx.esc || escape;
+  const endpoint=ctx.rootMode?'/api/root-terminal':'/api/terminal';
   const notice = (text, error = false) => ctx.toast?.(text, error);
   const buttons = Array.from(main.querySelectorAll('[data-terminal-action]'));
   let term, fit, stream = null, id = null, generation = 0, destroyed = false, creating = false, phase = 'closed';
@@ -57,8 +58,8 @@
    try {
     if (keepalive && typeof view.fetch === 'function') {
      const csrf = typeof ctx.csrf === 'function' ? ctx.csrf() : ctx.csrf;
-     Promise.resolve(view.fetch('/api/terminal', {method:'POST', credentials:'same-origin', keepalive:true, headers:{'Content-Type':'application/json','X-CSRF-Token':csrf || ''}, body:JSON.stringify(body)})).catch(() => {});
-    } else Promise.resolve(ctx.api('/api/terminal', body)).catch(() => {});
+     Promise.resolve(view.fetch(endpoint, {method:'POST', credentials:'same-origin', keepalive:true, headers:{'Content-Type':'application/json','X-CSRF-Token':csrf || ''}, body:JSON.stringify(body)})).catch(() => {});
+    } else Promise.resolve(ctx.api(endpoint, body)).catch(() => {});
    } catch (_) { /* The server also expires orphaned terminal sessions. */ }
   }
   function disconnect(message, error = false, keepalive = false) {
@@ -81,7 +82,7 @@
      const item = inputs.shift();
      if (!live(item.session, item.token)) continue;
      try {
-      await ctx.api('/api/terminal', {action:'write', id:item.session, data:bytesToBase64(item.bytes)});
+      await ctx.api(endpoint, {action:'write', id:item.session, data:bytesToBase64(item.bytes)});
       if (live(item.session, item.token)) pendingBytes -= item.bytes.length;
      } catch (error) {
       if (live(item.session, item.token)) disconnect(error?.message || 'Terminal-Eingabe fehlgeschlagen. Bitte neu verbinden.', true);
@@ -138,7 +139,7 @@
      wantedSize = null;
      if (lastSize?.cols === size.cols && lastSize?.rows === size.rows) continue;
      try {
-      await ctx.api('/api/terminal', {action:'resize', id:session, ...size});
+      await ctx.api(endpoint, {action:'resize', id:session, ...size});
       if (live(session, token)) lastSize = size;
      } catch (error) { if (live(session, token)) disconnect(error?.message || 'Terminal-Größe konnte nicht angepasst werden.', true); }
     }
@@ -158,13 +159,13 @@
    const token = ++generation, size = fitScreen();
    creating = true; phase = 'connecting'; update('Terminal wird verbunden …');
    try {
-    const result = await ctx.api('/api/terminal', {action:'create', ...size});
+    const result = await ctx.api(endpoint, {action:'create', ...size});
     if (typeof result?.id !== 'string' || !result.id || result.id.length > 256) throw new Error('Der Server lieferte keine gültige Terminal-Sitzung.');
     if (destroyed || token !== generation) { closeBackend(result.id); return; }
     id = result.id; lastSize = dimensions(result.cols, result.rows);
     term.resize(lastSize.cols, lastSize.rows); phase = 'connected';
     const EventStream = ctx.EventSource || view.EventSource;
-    stream = new EventStream('/api/terminal/output?id=' + encodeURIComponent(id));
+    stream = new EventStream(endpoint+'/output?id=' + encodeURIComponent(id));
     const session = id;
     stream.addEventListener('output', event => output(event, session, token));
     stream.addEventListener('exit', event => {

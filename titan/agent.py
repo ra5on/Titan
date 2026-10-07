@@ -52,6 +52,7 @@ def main():
         finally:
             if hasattr(server.host, '_terminals'):
                 server.host._terminals.close_all()
+            server.host.shutdown_root_terminals()
 
 
 if __name__ == "__main__":

@@ -386,14 +386,29 @@ class AppNetworkTests(unittest.TestCase):
         with self.assertRaises(Error): self.host.op_app_network_remove("titan-test", "titan-test")
 
     def test_host_mode_uses_actual_internal_port_without_published_ports(self):
-        self.host.op_app_install("heimdall", 80, network={"mode": "host"})
-        value = json.loads((self.host.directory / "apps/heimdall/compose.json").read_text())["services"]["heimdall"]
+        self.host.op_app_install("jellyfin", 8096, network={"mode": "host"})
+        value = json.loads((self.host.directory / "apps/jellyfin/compose.json").read_text())["services"]["jellyfin"]
         self.assertNotIn("ports", value)
         self.assertEqual(value["network_mode"], "host")
-        details = self.host.op_app_details("heimdall")["container"]
+        details = self.host.op_app_details("jellyfin")["container"]
         self.assertEqual(details["ports"], [])
         self.assertEqual(details["networks"][0]["ipv4"], "")
-        self.assertIn("http://192.168.1.50:80", [item["url"] for item in details["endpoints"]])
+        self.assertIn("http://192.168.1.50:8096", [item["url"] for item in details["endpoints"]])
+
+    def test_host_mode_firewall_is_enabled_before_start_and_withdrawn_after_stop_remove(self):
+        with patch('titan.app_firewall.reconcile', return_value={'available': True, 'managed_rules': 1, 'warnings': []}) as firewall:
+            self.host.op_app_install("jellyfin", 8096, network={"mode": "host"})
+            self.assertEqual(firewall.call_args.args[1], "app:jellyfin")
+            self.assertEqual(firewall.call_args.args[2], published_ports("jellyfin", 8096, host_mode=True))
+            # Model the persistent ledger created by the real helper.
+            self.host.save('managed-firewall-v1', {'rule': {'owners': ['app:jellyfin']}})
+            self.host.op_app_action("jellyfin", "stop")
+            self.assertEqual(firewall.call_args.args[2], [])
+            self.host.op_app_action("jellyfin", "start")
+            self.assertTrue(firewall.call_args.args[2])
+            self.host.op_app_action("jellyfin", "remove")
+            self.assertEqual(firewall.call_args.args[2], [])
+            self.assertEqual(self.host.load('apps', []), [])
 
     def test_host_mode_rejects_remapping_and_conflicting_local_service(self):
         with self.assertRaises(Error): self.host.op_app_install("heimdall", 18080, network={"mode": "host"})

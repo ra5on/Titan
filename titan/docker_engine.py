@@ -39,8 +39,8 @@ class DockerEngineMixin:
         labels=cfg.get('Labels') or {}
         from .catalog import APPS
         recipe=APPS.get(labels.get('io.titan.app'),{}) if labels.get('io.titan.managed')=='true' else {}
-        web_port=recipe.get('port')
-        if recipe.get('dynamic_web_port'):
+        web_port=recipe.get('port') if recipe.get('web_available') is not False and labels.get('com.docker.compose.service', labels.get('io.titan.app')) == labels.get('io.titan.app') else None
+        if web_port and recipe.get('dynamic_web_port'):
             values=[value.split('=',1)[1] for value in cfg.get('Env') or [] if isinstance(value,str) and value.startswith('WEBUI_PORT=')]
             web_port=int(values[0]) if len(values)==1 and re.fullmatch(r'[0-9]{1,5}',values[0]) and 1<=int(values[0])<=65535 else None
         return {'id':row['Id'],'name':row.get('Name','').lstrip('/'),'image':labels.get('io.titan.original_image') or cfg.get('Image',''),
@@ -53,6 +53,25 @@ class DockerEngineMixin:
                 'networks':[{'name':key,'ipv4':value.get('IPAddress'),'ipv6':value.get('GlobalIPv6Address')} for key,value in net.get('Networks',{}).items()],
                 'ports':net.get('Ports') or {},'mounts':[{'type':v.get('Type'),'source':v.get('Source'),'target':v.get('Destination'),'writable':v.get('RW')} for v in row.get('Mounts',[])]}
 
+    def _engine_web_summary(self, row):
+        summary = self.engine_summary(row)
+        app = summary.get('managed_app')
+        if not app:
+            return summary
+        if summary.get('service') != app:
+            summary.update(web_available=False, web_state='background', web_message='Paketdienst ohne eigene Weboberfläche.')
+            return summary
+        try:
+            record = self.managed_app(app)
+            checked = self._app_container(app, record, rows=[{'ID': row['Id'], 'Names': row.get('Name', '').lstrip('/')}])
+            if not checked or checked['Id'] != row['Id']:
+                raise Error('App-Container wurde ersetzt.', 409)
+            details = self._app_container_summary(checked, record)
+            summary.update({key: value for key, value in details.items() if key.startswith('web_') or key == 'endpoints'})
+        except (Error, ValueError, KeyError, TypeError) as exc:
+            summary.update(web_available=False, web_state='blocked', web_message=self._package_redact(app, str(exc)), endpoints=[])
+        return summary
+
     def op_docker_engine(self):
         try:
             ids=self.engine_docker(['ps','-aq','--no-trunc']).splitlines()
@@ -60,7 +79,7 @@ class DockerEngineMixin:
             rows=json.loads(self.engine_docker(['inspect','--type','container',*[identifier(v) for v in ids]])) if ids else []
             def listing(args):
                 return [json.loads(line) for line in self.engine_docker(args+['--format','{{json .}}']).splitlines()[:512]]
-            return {'available':True,'containers':[self.engine_summary(row) for row in rows],
+            return {'available':True,'containers':[self._engine_web_summary(row) for row in rows],
                     'images':listing(['image','ls','--no-trunc']), 'volumes':listing(['volume','ls']),
                     'networks':listing(['network','ls','--no-trunc']), 'devices':self.op_app_devices()['devices']}
         except (Error,ValueError,KeyError,TypeError) as exc:
@@ -69,7 +88,10 @@ class DockerEngineMixin:
     def op_docker_container_details(self, container):
         row=self.engine_container(container)
         logs=self.engine_docker(['logs','--tail','150','--timestamps',identifier(container)],timeout=15,include_stderr=True)
-        return {'container':self.engine_summary(row),'logs':logs[-65536:]}
+        labels = row.get('Config', {}).get('Labels') or {}
+        if labels.get('io.titan.managed') == 'true' and labels.get('io.titan.app'):
+            logs = self._package_redact(labels['io.titan.app'], logs)
+        return {'container':self._engine_web_summary(row),'logs':logs[-65536:]}
 
     @staticmethod
     def engine_active(row):
@@ -157,11 +179,15 @@ class DockerEngineMixin:
                 state = 'removed'
             else:
                 if action in ('start', 'restart'):
+                    if managed:
+                        self._app_firewall(managed, enabled=True)
                     output.append(self.engine_docker([action, container], timeout=120))
                     row = self.engine_container(container)
                     if not self.engine_active(row):
                         raise Error('Container ist nach der Aktion nicht gestartet. Logs prüfen.', 503)
                 state = row.get('State', {}).get('Status', 'unknown')
+            if managed:
+                self._app_firewall_observed(managed)
             return {'ok': True, 'scope': 'container', 'container': container, 'app': managed,
                     'action': action, 'state': state, 'data_retained': True,
                     'output': '\n'.join(value for value in output if value),
@@ -216,11 +242,12 @@ class DockerEngineMixin:
         ports=config.get('ports',[])
         if not isinstance(ports,list) or len(ports)>32: raise Error('Maximal 32 Ports.')
         if network in ('host','none') and ports: raise Error('Host/Ohne Netzwerk benötigt keine Portzuordnungen.')
+        from .web_access import reserved_ports
         used=set()
         for row in ports:
             if not isinstance(row,dict) or set(row)!={'published','target','protocol'} or row['protocol'] not in ('tcp','udp'): raise Error('Ungültige Portzuordnung.')
             external=integer(row['published'],1024,65535);target=integer(row['target'],1,65535)
-            if external in (5000,5001,5101) or (external,row['protocol']) in used: raise Error('Port reserviert oder doppelt.')
+            if (row['protocol']=='tcp' and external in reserved_ports()) or (external,row['protocol']) in used: raise Error('Port reserviert oder doppelt.')
             used.add((external,row['protocol']));args+=['--publish',f'{external}:{target}/{row["protocol"]}']
         env=config.get('environment',{})
         if not isinstance(env,dict) or len(env)>64: raise Error('Maximal 64 Umgebungsvariablen.')

@@ -83,7 +83,7 @@ class TerminalApplicationMixin:
                 target=self._terminal_reaper_loop, name='titan-terminal-logins', daemon=True)
             self._terminal_reaper.start()
 
-    def track_terminal(self, user, session_id):
+    def track_terminal(self, user, session_id, root_mode=False):
         if type(session_id) is not str or not re.fullmatch(r'[a-f0-9]{64}', session_id):
             raise Error('Terminaldienst hat eine ungültige Sitzung geliefert.', 503)
         owner = terminal_owner(user)
@@ -97,11 +97,13 @@ class TerminalApplicationMixin:
                 now = time.monotonic()
                 entry = self.terminal_sessions[key] = {
                     'name': user['name'], 'csrf': user['csrf'],
-                    'created': now, 'activity': now, 'closing': False}
+                    'created': now, 'activity': now, 'closing': False, 'root': root_mode}
             if self._terminal_shutdown or self.stop.is_set():
                 failure = Error('Terminaldienst wird beendet.', 503)
             elif not self._terminal_user_active(user):
                 failure = Error('Administratoranmeldung ist nicht mehr gültig.', 403)
+            elif root_mode and not self.root_access_active(user):
+                failure = Error('Root-Modus ist nicht mehr aktiv.', 403)
             elif entry is not None and entry['closing']:
                 failure = Error('Terminalsitzung wird beendet.', 410)
             if failure is not None and entry is not None:
@@ -121,13 +123,14 @@ class TerminalApplicationMixin:
         with self.terminal_sessions_lock:
             self.terminal_sessions.pop((owner, session_id), None)
 
-    def close_terminal_session(self, owner, session_id):
+    def close_terminal_session(self, owner, session_id, root_mode=False):
         with self.terminal_sessions_lock:
             entry = self.terminal_sessions.get((owner, session_id))
             if entry is not None:
                 entry['closing'] = True
+                root_mode = entry.get('root', False)
         try:
-            self.agent.call('terminal_close', owner=owner, id=session_id)
+            self.agent.call('root_terminal_close' if root_mode and not self.demo else 'terminal_close', owner=owner, id=session_id)
         except Error as exc:
             if exc.status not in (404, 410):
                 return False
@@ -145,13 +148,18 @@ class TerminalApplicationMixin:
             self.close_terminal_session(session_owner, session_id)
 
     def reap_terminals(self):
+        # Revoke grants before closing PTYs, including when a caller invokes a
+        # single reap after logout or an account change rather than the loop.
+        if hasattr(self, 'reap_root_access'):
+            self.reap_root_access()
         with self.terminal_sessions_lock:
             now = time.monotonic()
             keys = []
-            for key, entry in self.terminal_sessions.items():
+            for key, entry in list(self.terminal_sessions.items()):
                 if (entry['closing'] or now - entry['activity'] >= 15 * 60 or
                         now - entry['created'] >= 8 * 60 * 60 or
-                        not self._terminal_user_active(entry)):
+                        not self._terminal_user_active(entry) or
+                        entry.get('root') and not self.root_access_active(entry)):
                     entry['closing'] = True
                     keys.append(key)
         for owner, session_id in keys:
@@ -181,31 +189,41 @@ class TerminalApplicationMixin:
 
 
 class TerminalHTTPMixin:
-    def terminal_post(self, user, body):
+    def terminal_post(self, user, body, root_mode=False):
         operation, arguments = terminal_body(user, body)
+        create = operation == 'terminal_create'
+        if root_mode and not self.app.demo:
+            operation = 'root_' + operation
+            if create:
+                # The agent expires root processes even if this web service
+                # crashes before its own session/grant reaper can run.
+                arguments['deadline'] = self.app.root_access_deadline(user)
         result = self.app.agent.call(operation, **arguments)
-        if operation == 'terminal_create':
+        if create:
             session_id = result.get('id') if isinstance(result, dict) else None
             try:
-                self.app.track_terminal(user, session_id)
+                self.app.track_terminal(user, session_id, root_mode=root_mode)
                 self.app.store.audit(user['name'], operation, 'Terminalsitzung geöffnet')
                 return self.reply(result)
             except Exception:
                 if type(session_id) is str and re.fullmatch(r'[a-f0-9]{64}', session_id):
-                    self.app.close_terminal_session(arguments['owner'], session_id)
+                    self.app.close_terminal_session(arguments['owner'], session_id, root_mode=root_mode)
                 raise
-        if operation == 'terminal_close':
+        if operation in ('terminal_close', 'root_terminal_close'):
             self.app.forget_terminal(arguments['owner'], arguments['id'])
-        elif operation == 'terminal_write' and arguments['data']:
+        elif operation in ('terminal_write', 'root_terminal_write') and arguments['data']:
             self.app.touch_terminal(arguments['owner'], arguments['id'])
-        if operation in ('terminal_create', 'terminal_close'):
-            self.app.store.audit(user['name'], operation, 'Terminalsitzung geöffnet' if operation == 'terminal_create' else 'Terminalsitzung geschlossen')
+        if operation in ('terminal_create', 'terminal_close', 'root_terminal_create', 'root_terminal_close'):
+            self.app.store.audit(user['name'], operation, 'Terminalsitzung geöffnet' if create else 'Terminalsitzung geschlossen')
         return self.reply(result)
 
-    def terminal_stream(self, user, query):
+    def terminal_stream(self, user, query, root_mode=False):
         if set(query) != {'id'}:
             raise Error('Terminalsitzung angeben.')
         _, arguments = terminal_body(user, {'action': 'close', 'id': query['id']})
+        poll_operation = 'root_terminal_poll' if root_mode and not self.app.demo else 'terminal_poll'
+        if root_mode:
+            self.app.require_root_access(user)
         key = (arguments['owner'], arguments['id'])
         with self.app.terminal_stream_lock:
             if key in self.app.terminal_streams:
@@ -214,9 +232,9 @@ class TerminalHTTPMixin:
         accepted = False
         owned = False
         try:
-            pending = self.app.agent.call('terminal_poll', **arguments, timeout=0)
+            pending = self.app.agent.call(poll_operation, **arguments, timeout=0)
             owned = True
-            self.app.track_terminal(user, arguments['id'])
+            self.app.track_terminal(user, arguments['id'], root_mode=root_mode)
             self.send_response(200)
             self.send_header('Content-Type', 'text/event-stream; charset=utf-8')
             self.send_header('Cache-Control', 'no-store')
@@ -232,12 +250,16 @@ class TerminalHTTPMixin:
                 if not current or current['role'] != 'admin' or terminal_owner(current) != arguments['owner']:
                     self.terminal_event('exit', {'error': 'Terminalsitzung beendet: Anmeldung oder Administratorrechte nicht mehr gültig.'})
                     return
-                result = pending if pending is not None else self.app.agent.call('terminal_poll', **arguments, timeout=0.5)
+                if root_mode:
+                    self.app.require_root_access(current)
+                result = pending if pending is not None else self.app.agent.call(poll_operation, **arguments, timeout=0.5)
                 pending = None
                 current = self.user()
                 if not current or current['role'] != 'admin' or terminal_owner(current) != arguments['owner']:
                     self.terminal_event('exit', {'error': 'Terminalsitzung beendet: Anmeldung oder Administratorrechte nicht mehr gültig.'})
                     return
+                if root_mode:
+                    self.app.require_root_access(current)
                 if result.get('data'):
                     self.terminal_event('output', {'data': result['data']})
                 if result.get('eof'):
@@ -262,7 +284,7 @@ class TerminalHTTPMixin:
             with self.app.terminal_stream_lock:
                 self.app.terminal_streams.discard(key)
             if owned:
-                self.app.close_terminal_session(arguments['owner'], arguments['id'])
+                self.app.close_terminal_session(arguments['owner'], arguments['id'], root_mode=root_mode)
 
     def terminal_event(self, name, value):
         self.wfile.write(('event: ' + name + '\ndata: ' + json.dumps(value, ensure_ascii=True) + '\n\n').encode())

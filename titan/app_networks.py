@@ -357,8 +357,8 @@ class AppNetworkMixin:
                           "gateway": attached.get("Gateway", ""), "ipv6_gateway": attached.get("IPv6Gateway", ""),
                           "internal": info.get("Internal") is True})
         endpoints = []
-        if container.get("State", {}).get("Status") in ("running", "restarting"):
-            from .catalog import APPS
+        from .catalog import APPS
+        if APPS[record["id"]].get("web_available") is not False and container.get("State", {}).get("Status") in ("running", "restarting"):
             target = record["port"] if APPS[record["id"]].get("dynamic_web_port") else APPS[record["id"]]["port"]
             bindings = actual.get("Ports", {}).get(f"{target}/tcp") or [] if actual.get("Ports") else []
             if selected == "host":
@@ -374,10 +374,178 @@ class AppNetworkMixin:
                     candidates = [item for item in addresses if item["family"] == 6]
                 for address in candidates:
                     host = "[" + address["address"] + "]" if address["family"] == 6 else address["address"]
-                    entry = {"url": f"{record.get('scheme', 'http')}://{host}:{binding['HostPort']}",
+                    configured_host = app_web_host(self, record)
+                    if configured_host and address.get("scope", "lan") == "lan":
+                        host = configured_host
+                    entry = {"url": f"{record.get('scheme', 'http')}://{host}:{binding['HostPort']}" + APPS[record['id']].get('web_path', ''),
                              "address": address["address"], "port": int(binding["HostPort"]),
                              "scope": address.get("scope", "lan"), "source": "host" if selected == "host" else "published"}
                     if entry not in endpoints:
                         endpoints.append(entry)
         return {"network_mode": selected, "networks": infos, "host_addresses": addresses,
                 "endpoints": endpoints, "public_ip": None, "network_warnings": warnings}
+
+
+# A bounded background pool keeps slow app startup out of bulk list requests.
+# Only verified locally published/host ports reach this code; never user URLs,
+# remote addresses, DNS, redirects, environment proxies or forwarded headers.
+import concurrent.futures
+import datetime
+import socket
+import ssl
+import threading
+import time
+
+_PROBES = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix='titan-app-ready')
+_PROBE_SLOTS = threading.BoundedSemaphore(128)
+_PROBE_LOCK = threading.RLock()
+_PROBE_CACHE = {}
+_PROBE_TTL = 15
+
+
+def _http_probe(address, port, scheme, path='/', host_header=None):
+    parsed = ipaddress.ip_address(address)
+    if parsed.is_unspecified or parsed.is_multicast or not 1 <= port <= 65535 or scheme not in ('http', 'https'):
+        return {'ok': False, 'message': 'Ungültiger lokaler Webzugang.'}
+    if not isinstance(path, str) or not path.startswith('/') or len(path) > 1024 or any(ord(c) < 32 or ord(c) > 126 for c in path):
+        return {'ok': False, 'message': 'Ungültiger Webpfad in der App-Vorlage.'}
+    deadline = time.monotonic() + 1
+    connection = None
+    try:
+        connection = socket.create_connection((str(parsed), port), timeout=.35)
+        if scheme == 'https':
+            # Several locally installed apps ship a self-signed certificate.
+            # This liveness request carries no credentials and is never routed
+            # to an external peer. The user's browser retains normal TLS checks.
+            context = ssl._create_unverified_context()
+            connection.settimeout(max(.01, deadline - time.monotonic()))
+            connection = context.wrap_socket(connection, server_hostname=str(parsed))
+        host = host_header or ('[' + str(parsed) + ']' if parsed.version == 6 else str(parsed))
+        if not re.fullmatch(r'(?:[a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?|\[[a-fA-F0-9:]+\])', host):
+            return {'ok': False, 'message': 'Ungültige lokale App-Adresse.'}
+        connection.settimeout(max(.01, deadline - time.monotonic()))
+        connection.sendall((f'GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\nConnection: close\r\nUser-Agent: Titan-Readiness/1\r\n\r\n').encode('ascii'))
+        line = b''
+        while b'\r\n' not in line and len(line) < 4096:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError()
+            connection.settimeout(remaining)
+            piece = connection.recv(min(512, 4096 - len(line)))
+            if not piece:
+                break
+            line += piece
+        match = re.match(rb'HTTP/1\.[01] ([0-9]{3})(?: |\r\n)', line)
+        if not match:
+            return {'ok': False, 'message': 'Der App-Port antwortet noch nicht mit HTTP.'}
+        status = int(match[1])
+        if 200 <= status < 400 or status in (401, 403):
+            return {'ok': True, 'http_status': status, 'message': 'Weboberfläche ist erreichbar.'}
+        return {'ok': False, 'http_status': status, 'message': f'Die Weboberfläche meldet HTTP {status}. App-Protokoll und Einrichtung prüfen.'}
+    except (OSError, ValueError, TimeoutError):
+        return {'ok': False, 'message': 'Die Weboberfläche antwortet noch nicht. App-Protokoll und Port prüfen.'}
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def _probe_cached(key, arguments):
+    now = time.monotonic()
+    with _PROBE_LOCK:
+        previous = _PROBE_CACHE.get(key)
+        if previous and (previous.get('pending') or now - previous['at'] < _PROBE_TTL):
+            return dict(previous)
+        if not _PROBE_SLOTS.acquire(blocking=False):
+            return previous or {'pending': True, 'at': now}
+        if len(_PROBE_CACHE) >= 256:
+            for old in sorted(_PROBE_CACHE, key=lambda item: _PROBE_CACHE[item]['at'])[:64]:
+                if not _PROBE_CACHE[old].get('pending'):
+                    _PROBE_CACHE.pop(old, None)
+        _PROBE_CACHE[key] = {'pending': True, 'at': now}
+        def work():
+            try:
+                try:
+                    result = _http_probe(*arguments)
+                except Exception:
+                    result = {'ok': False, 'message': 'Webzugang konnte momentan nicht geprüft werden.'}
+                with _PROBE_LOCK:
+                    _PROBE_CACHE[key] = {**result, 'pending': False, 'at': time.monotonic(), 'checked_at': time.time()}
+            finally:
+                _PROBE_SLOTS.release()
+        try:
+            _PROBES.submit(work)
+        except RuntimeError:
+            _PROBE_SLOTS.release()
+            _PROBE_CACHE.pop(key, None)
+        return dict(_PROBE_CACHE.get(key, {'pending': True, 'at': now}))
+
+
+def app_web_host(host, record):
+    """A recipe's explicit trusted hostname is an HTTP Host, never a dial target."""
+    from .catalog import APPS
+    fields = {field['key'] for field in APPS.get(record['id'], {}).get('install_schema', [])}
+    if not fields.intersection({'nas_host', 'stack_nas_host'}):
+        return None
+    try:
+        options = host._app_options(record['id'])
+        value = str(options.get('nas_host') or options.get('stack_nas_host') or '')
+        if re.fullmatch(r'[a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?', value):
+            return value
+        address = ipaddress.ip_address(value)
+        return '[' + str(address) + ']' if address.version == 6 else str(address)
+    except (Error, ValueError, TypeError, AttributeError):
+        return None
+
+
+def app_readiness(host, container, record, summary):
+    """Report running and HTTP readiness separately, including headless apps."""
+    from .catalog import APPS
+    recipe = APPS.get(record['id'], {})
+    state = (container or {}).get('State') or {}
+    running = state.get('Status') == 'running' and state.get('Running', True) is not False
+    def result(value, message, **extra):
+        return {'web_state': value, 'web_available': value == 'ready', 'web_message': message,
+                'web_checked_at': None, **extra}
+    if not container:
+        return result('missing', 'Container fehlt. Starten erneut versuchen.')
+    if not running:
+        if state.get('Status') in ('created', 'restarting'):
+            return result('initializing', 'App wird gestartet. Der Webzugang wird anschließend geprüft.')
+        return result('stopped', 'App ist gestoppt.')
+    if recipe.get('web_available') is False or recipe.get('port') == 0:
+        return result('background', 'Hintergrunddienst ohne eigene Weboberfläche.')
+    health = (state.get('Health') or {}).get('Status', '')
+    if health == 'unhealthy':
+        return result('error', 'Der App-Gesundheitstest ist fehlgeschlagen. Protokoll prüfen.')
+    if health == 'starting':
+        return result('initializing', 'App richtet sich noch ein. Gesundheitstest läuft.')
+    endpoints = (summary or {}).get('endpoints') or []
+    lan = next((item for item in endpoints if item.get('scope') == 'lan'), None)
+    endpoint = lan or next((item for item in endpoints if item.get('scope') == 'loopback'), None)
+    if not endpoint:
+        return result('error', 'Kein Webport veröffentlicht. Netzwerkeinstellungen der App prüfen.')
+    # Probe loopback whenever Docker accepts all addresses; explicitly bound
+    # LAN ports are checked only at that actual local interface address.
+    address = endpoint['address']
+    target = recipe.get('port') if not recipe.get('dynamic_web_port') else record['port']
+    bindings = ((container.get('NetworkSettings') or {}).get('Ports') or {}).get(f'{target}/tcp') or []
+    mode = (container.get('HostConfig') or {}).get('NetworkMode')
+    if mode == 'host' or any(binding.get('HostIp', '') in ('', '0.0.0.0', '::') for binding in bindings):
+        address = '::1' if ipaddress.ip_address(address).version == 6 else '127.0.0.1'
+    path = recipe.get('web_path', '/')
+    scheme = record.get('scheme', recipe.get('scheme', 'http'))
+    host_header = app_web_host(host, record) or ('[' + endpoint['address'] + ']' if ipaddress.ip_address(endpoint['address']).version == 6 else endpoint['address'])
+    key = (str(host.directory), record['id'], container['Id'], state.get('StartedAt'), address, endpoint['port'], scheme, path)
+    probe = _probe_cached(key, (address, endpoint['port'], scheme, path, host_header))
+    if probe.get('pending'):
+        return result('initializing', 'Weboberfläche wird auf Erreichbarkeit geprüft.')
+    if probe.get('ok'):
+        message = probe.get('message', 'Weboberfläche ist erreichbar.') if lan else 'Weboberfläche ist nur lokal am NAS erreichbar; kein LAN-Port veröffentlicht.'
+        return result('ready' if lan else 'error', message, web_checked_at=probe.get('checked_at'), web_http_status=probe.get('http_status'))
+    try:
+        started = datetime.datetime.fromisoformat(state.get('StartedAt', '').replace('Z', '+00:00')).timestamp()
+    except (ValueError, TypeError):
+        started = record.get('changed', record.get('installed', 0))
+    initializing = isinstance(started, (int, float)) and time.time() - started < 180 and not record.get('last_error')
+    return result('initializing' if initializing else 'error', probe['message'],
+                  web_checked_at=probe.get('checked_at'), web_http_status=probe.get('http_status'))

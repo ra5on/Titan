@@ -160,7 +160,7 @@ def main():
                     '-drive','id=titan-system,if=virtio,format=qcow2,file='+str(work/'test.qcow2'),
                     '-device','virtio-serial-pci','-chardev','socket,path='+str(work/'qga.sock')+',server=on,wait=off,id=qga',
                     '-device','virtserialport,chardev=qga,name=org.qemu.guest_agent.0',
-                    '-netdev','user,id=net0,hostfwd=tcp:127.0.0.1:15000-:5000,hostfwd=tcp:127.0.0.1:15445-:445',
+                    '-netdev','user,id=net0,hostfwd=tcp:127.0.0.1:15000-:443,hostfwd=tcp:127.0.0.1:15001-:5000,hostfwd=tcp:127.0.0.1:15081-:80,hostfwd=tcp:127.0.0.1:15445-:445',
                     '-device','virtio-net-pci,netdev=net0'],stdout=console,stderr=console)
             boot,status=agent.ready('A',baseline);passed('baseline_boot_health')
             if args.baseline_image:passed('published_release_baseline')

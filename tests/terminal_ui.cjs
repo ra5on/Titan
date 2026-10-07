@@ -54,7 +54,7 @@ function fixture(overrides = {}) {
  main.ownerDocument = doc;
  const term = new FakeTerminal({cols:80,rows:24}), fit = {fit() { if (fit.size) term.resize(fit.size.cols,fit.size.rows); }};
  const api = async (path, body) => { requests.push({path,body}); return overrides.api ? overrides.api(path,body) : body.action === 'create' ? {id:'session-' + requests.filter(item => item.body.action === 'create').length,cols:body.cols,rows:body.rows} : {ok:true}; };
- const ctx = {api, csrf:'test-csrf', toast:(text,error) => notices.push({text,error}), dialog:(title,html,submit) => dialogs.push({title,html,submit}), terminalFactory:() => term, fitFactory:() => fit};
+ const ctx = {api, rootMode:overrides.rootMode===true, csrf:'test-csrf', toast:(text,error) => notices.push({text,error}), dialog:(title,html,submit) => dialogs.push({title,html,submit}), terminalFactory:() => term, fitFactory:() => fit};
  const controller = terminal.mount(main,ctx);
  const writes = () => requests.filter(item => item.body.action === 'write').map(item => Buffer.from(item.body.data,'base64'));
  const click = action => main.dispatch('click',{target:buttons[action]});
@@ -176,6 +176,16 @@ function fixture(overrides = {}) {
  assert.equal(v.view.fetches.length,1); assert.equal(v.view.fetches[0].keepalive,true); assert.equal(v.view.fetches[0].headers['X-CSRF-Token'],'test-csrf');
  assert.deepEqual(JSON.parse(v.view.fetches[0].body),{action:'close',id:'session-1'});
  assert(v.term.disposed); assert(v.streams[0].closed); v.term.data?.('should not write');
+
+ // Root mode has a separate fixed route for every operation, including unload.
+ v = fixture({rootMode:true}); await v.controller.open();
+ assert.equal(v.streams[0].url,'/api/root-terminal/output?id=session-1');
+ v.term.data('root-only-fixture'); await turns();v.view.flushTimers();await turns();
+ assert(v.requests.length>=2);assert(v.requests.every(item=>item.path==='/api/root-terminal'));
+ assert(v.requests.every(item=>!('root' in item.body)&&!('user' in item.body)&&!('owner' in item.body)));
+ v.view.dispatch('pagehide');await turns();
+ assert.equal(v.view.fetches[0].path,'/api/root-terminal');assert.equal(v.view.fetches[0].keepalive,true);
+ terminal.dispose();
 
  console.log('Terminal UI: explicit session lifecycle, ordered UTF-8/binary input, paste/copy fallbacks, SIGINT, safe SSE output, resize and cleanup passed.');
 })().catch(error => { terminal.dispose(); console.error(error); process.exitCode = 1; });

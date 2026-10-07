@@ -89,23 +89,26 @@ def data_scope(root, relative, allowed_roots=None):
 
 
 def operate_system(root, action, path="", system_path_root="/", destination_system=False,
-                   canonicalized=False, devices=None, allowed_roots=None, protected_paths=None, **arguments):
+                   canonicalized=False, devices=None, allowed_roots=None, protected_paths=None, root_access=False, **arguments):
     # Public APIs use verified DATA prefixes and no-follow descriptors.
     # New targets and removal retain the leaf itself.
-    scoped = allowed_roots is not None or str(Path(system_path_root)) == "/"
+    if type(root_access) is not bool:
+        raise Error("Ungültiger Administratormodus.", 403)
+    scoped = not root_access and (allowed_roots is not None or str(Path(system_path_root)) == "/")
     protected_paths = protected_paths or []
     if (not isinstance(protected_paths, list) or len(protected_paths) > 1300
             or any(not isinstance(item, str) or not item or not Path(item).parts or len(item) > 4096 or Path(item).is_absolute() or ".." in Path(item).parts for item in protected_paths)):
         raise Error("Ungültige geschützte NAS-Datenbereiche.", 403)
     destructive = action in ("delete", "rename", "move")
     relative = path if canonicalized else canonical_relative(system_path_root, path, parent_only=destructive or action in ("create", "create_document"))
-    data_scope(system_path_root, relative, allowed_roots)
+    if not root_access:
+        data_scope(system_path_root, relative, allowed_roots)
     if devices:
         root = DirectoryRoot(root, devices)
     if action not in ("list", "read") and virtual(relative):
         raise Error("Virtuelle Kernel- und Gerätedateien sind schreibgeschützt.", 403)
-    if action == "read" and virtual(relative):
-        raise Error("Virtuelle Kernel- und Gerätedateien können hier nicht geöffnet werden.", 403)
+    if action in ("read", "copy") and virtual(relative):
+        raise Error("Virtuelle Kernel- und Gerätedateien können hier nicht geöffnet oder kopiert werden.", 403)
     if action not in ("list", "read", "copy") and not writable_path(system_path_root, relative, parent_only=destructive or action in ("create", "create_document", "mkdir")):
         raise Error("Dieser Bereich gehört zum schreibgeschützten Titan-Systemimage. Systemsoftware wird über Image-Updates geändert; Daten und Konfigurationen in /var und /etc bleiben bearbeitbar.", 403)
     if destructive:
@@ -118,7 +121,8 @@ def operate_system(root, action, path="", system_path_root="/", destination_syst
     if "destination" in arguments and (action == "rename" or destination_system):
         if not canonicalized:
             arguments["destination"] = canonical_relative(system_path_root, arguments["destination"], parent_only=True)
-        data_scope(system_path_root, arguments['destination'], allowed_roots)
+        if not root_access:
+            data_scope(system_path_root, arguments['destination'], allowed_roots)
         if virtual(arguments["destination"]) or arguments["destination"] in PROTECTED:
             raise Error("Dieses Systemziel kann nicht ersetzt werden.", 403)
         if not writable_path(system_path_root, arguments["destination"], parent_only=True):
@@ -140,6 +144,7 @@ def operate_system(root, action, path="", system_path_root="/", destination_syst
     result = operate(root, action, relative, **({"include_trash": True} if action == "list" else {}), **arguments)
     if action == "list":
         result["path"] = relative
+        result["writable"] = writable_path(system_path_root, relative) and not virtual(relative)
         mounts = mount_paths(system_path_root)
         for entry in result["entries"]:
             child = entry.get("path") or "/".join(part for part in (relative, entry["name"]) if part)
@@ -222,6 +227,56 @@ class SystemFilesMixin:
                                       text=True, capture_output=True, timeout=300 if action in ("copy", "move", "delete") else 60,
                                       user=0, group=0, extra_groups=[], pass_fds=tuple(descriptors), cwd="/usr/lib/titan",
                                       env={"PATH": "/usr/bin:/bin", "PYTHONPATH": "/usr/lib/titan"})
+        try:
+            value = json.loads(response.stdout)
+        except ValueError:
+            raise Error("Systemdateizugriff fehlgeschlagen.")
+        if "error" in value:
+            raise Error(value["error"], value.get("status", 400))
+        return value["result"]
+
+    def op_root_system_file(self, action, path="", **arguments):
+        """Trusted RPC; HTTP grants are checked before this operation is sent."""
+        if action not in ALLOWED or set(arguments) - ALLOWED[action]:
+            raise Error("Ungültige Systemdateiaktion oder zusätzliche Parameter.")
+        destructive = action in ("delete", "rename", "move")
+        relative = canonical_relative(self.system_root, path, parent_only=destructive or action in ("create", "create_document"))
+        arguments = dict(arguments)
+        devices = {}
+        for name in mount_paths(self.system_root):
+            if name and not virtual(name):
+                try:
+                    devices[name] = os.stat(self.system_root / name).st_dev
+                except OSError:
+                    continue
+        with contextlib.ExitStack() as stack:
+            root = os.open(self.system_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            stack.callback(os.close, root)
+            descriptors = [root]
+            destination_system = action == "rename"
+            if action == "rename":
+                arguments["destination"] = canonical_relative(self.system_root, arguments["destination"], parent_only=True)
+            if action in ("copy", "move"):
+                target_share = arguments.pop("destination_share", None) or SYSTEM_SHARE
+                destination_system = target_share == SYSTEM_SHARE
+                if destination_system:
+                    arguments["destination"] = canonical_relative(self.system_root, arguments["destination"], parent_only=True)
+                else:
+                    target = next((item for item in self.op_shares() if item["name"] == target_share), None)
+                    if not target or target.get("blocked"):
+                        raise Error("Zielfreigabe ist nicht verfügbar.", 403)
+                    target_fd = self.open_share_root(target["path"])
+                    stack.callback(os.close, target_fd)
+                    descriptors.append(target_fd)
+                    arguments["destination_root"] = target_fd
+            request = {"root": root, "system": True, "system_path_root": str(self.system_root),
+                       "root_access": True, "protected_paths": self.storage_locations.protected_paths(),
+                       "canonicalized": True, "devices": devices, "destination_system": destination_system,
+                       "action": action, "path": relative, **arguments}
+            response = subprocess.run([sys.executable, "-m", "titan.files"], input=json.dumps(request),
+                text=True, capture_output=True, timeout=300 if action in ("copy", "move", "delete") else 60,
+                user=0, group=0, extra_groups=[], pass_fds=tuple(descriptors), cwd="/usr/lib/titan",
+                env={"PATH": "/usr/bin:/bin", "PYTHONPATH": "/usr/lib/titan"})
         try:
             value = json.loads(response.stdout)
         except ValueError:

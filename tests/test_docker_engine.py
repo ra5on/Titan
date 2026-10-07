@@ -20,6 +20,8 @@ class EngineTests(unittest.TestCase):
         self.engine=Engine();self.engine.engine_docker=Mock(return_value=ID)
         self.engine.app_memory_lock=threading.RLock()
         self.engine._app_inspected_containers=Mock(return_value=[])
+        self.engine._app_firewall=Mock()
+        self.engine._app_firewall_observed=Mock()
         self.engine.telemetry={}
         guard=patch('titan.app_memory.check_container_start_memory', return_value={'allowed':True})
         self.memory=guard.start();self.addCleanup(guard.stop)
@@ -122,6 +124,7 @@ class EngineTests(unittest.TestCase):
         self.engine.op_app_action.assert_not_called()
         self.engine.engine_docker.assert_called_once_with(['stop','--time','30',ID],timeout=120)
         self.assertEqual(result['scope'],'container');self.assertEqual(result['state'],'exited')
+        self.engine._app_firewall_observed.assert_called_once_with('heimdall')
     def test_summary_never_exposes_environment_secrets(self):
         summary=self.engine.engine_summary({'Id':ID,'Config':{'Image':'nginx','Env':['SECRET=private'],'Labels':{'PRIVATE':'hidden'}},'State':{'Status':'exited'}})
         self.assertNotIn('private',json.dumps(summary));self.assertNotIn('hidden',json.dumps(summary))

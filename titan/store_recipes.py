@@ -3,6 +3,7 @@ import hashlib
 import re
 import urllib.parse
 from .core import Error, integer
+from .app_credentials import private_recipe
 
 def text(value, limit=200):
     if not isinstance(value, str) or not value or len(value) > limit or any(ord(c) < 32 for c in value):
@@ -14,12 +15,12 @@ def recipes(document, source):
     if not isinstance(document, dict) or set(document) != {'schema', 'name', 'apps'} or document['schema'] != 1:
         raise Error('Titan-AppStore-Schema 1 benötigt: schema, name und apps. CasaOS-Archive sind noch nicht direkt kompatibel.')
     name = text(document['name'], 80)
-    if not isinstance(document['apps'], list) or not 1 <= len(document['apps']) <= 400:
-        raise Error('Ein Store benötigt 1 bis 400 Apps.')
+    if not isinstance(document['apps'], list) or not 1 <= len(document['apps']) <= 1000:
+        raise Error('Ein Store benötigt 1 bis 1000 Apps.')
     result = {}
     prefix = 's' + hashlib.sha256(source.encode()).hexdigest()[:10] + '-'
     for item in document['apps']:
-        allowed = {'id', 'name', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network'}
+        allowed = {'id', 'name', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip'}
         required = {'id', 'name', 'description', 'image', 'port', 'documentation', 'login_note'}
         if not isinstance(item, dict) or set(item) - allowed or required - set(item):
             raise Error('App enthält fehlende oder nicht unterstützte Felder.')
@@ -49,7 +50,12 @@ def recipes(document, source):
             raise Error('config_mount muss true oder false sein.')
         scheme = item.get('scheme', 'http')
         if scheme not in ('http', 'https'): raise Error('Web-Schema muss http oder https sein.')
-        port = integer(item['port'], 1, 65535)
+        web_available = item.get('web_available', True)
+        if type(web_available) is not bool or not web_available and not item.get('stack'): raise Error('Ungültiger Webzugang der App.')
+        port = integer(item['port'], 1 if web_available else 0, 65535 if web_available else 0)
+        if item.get('web_host_ip'):
+            from .compose_templates import host_ip
+            host_ip(item['web_host_ip'])
         fields, extra = [], []
         ports = item.get('ports', [])
         settings = item.get('settings', [])
@@ -86,7 +92,7 @@ def recipes(document, source):
             stack_extra['default_network']=item.get('default_network','default')
             # These fields are adapter-generated; validate all keys and limits.
             stack_fields=item.get('stack_fields',[])
-            if not isinstance(stack_fields,list) or len(stack_fields)>64: raise Error('Zu viele Container-Einstellungen.')
+            if not isinstance(stack_fields,list) or len(stack_fields)>256: raise Error('Zu viele Container-Einstellungen.')
             keys=set()
             for field in stack_fields:
                 if not isinstance(field,dict) or set(field)-{'key','label','type','default','required','min','max','min_length','max_length'} or not re.fullmatch(r'stack_[a-zA-Z0-9_-]{1,100}',field.get('key','')) or field['key'] in keys or field.get('type') not in ('text','password','number'): raise Error('Ungültige Container-Einstellung.')
@@ -97,19 +103,23 @@ def recipes(document, source):
                     integer(field.get('default'),field['min'],65535)
                 elif not isinstance(field.get('default'),str) or len(field['default'])>1000 or field.get('max_length')!=1000 or field.get('min_length') not in (0,1) or field['type']=='password' and field['default']: raise Error('Ungültige Container-Textvorgabe.')
             ports=item.get('stack_ports',[])
-            if not isinstance(ports,list) or len(ports)>32 or any(not isinstance(p,dict) or set(p)!={'option','target','protocol','service'} or p['option'] not in keys or p['protocol'] not in ('tcp','udp') or p['service'] not in item['stack']['services'] for p in ports): raise Error('Ungültige Container-Verbindungsports.')
+            if not isinstance(ports,list) or len(ports)>256 or any(not isinstance(p,dict) or set(p)-{'option','target','protocol','service','host_ip'} or not {'option','target','protocol','service'} <= set(p) or p['option'] not in keys or p['protocol'] not in ('tcp','udp') or p['service'] not in item['stack']['services'] for p in ports): raise Error('Ungültige Container-Verbindungsports.')
             for service in item['stack']['services'].values():
                 for value in service.get('environment',{}).values():
                     if value.startswith('@option:') and value[8:] not in keys: raise Error('Container-Einstellung fehlt.')
             for mapping in ports:
                 if not any(p['target']==mapping['target'] and p['protocol']==mapping['protocol'] for p in item['stack']['services'][mapping['service']].get('ports',[])): raise Error('Container-Port fehlt.')
+                if mapping.get('host_ip'):
+                    from .compose_templates import host_ip
+                    host_ip(mapping['host_ip'])
             fields.extend(stack_fields);extra.extend(ports)
         result[identifier] = {'name': text(item['name'], 80), 'description': text(item['description'], 500),
-            'image': image, 'port': port, 'scheme': scheme, 'default_port': integer(item.get('default_port', max(port, 8080)), 1024, 65535),
+            'image': image, 'port': port, 'scheme': scheme, 'default_port': integer(item.get('default_port', max(port, 8080) if web_available else 0), 1024 if web_available else 0, 65535 if web_available else 0),
+            'web_available':web_available, **({'web_host_ip':item['web_host_ip']} if item.get('web_host_ip') else {}),
             'mount': mount, 'memory': memory, 'environment': environment, 'config_mount': item.get('config_mount', True),
             'category': text(item.get('category', 'LinuxServer.io' if source.startswith('https://api.linuxserver.io/') else 'Eigene Stores'), 80), 'color': '#6478db', 'symbol': '▦', 'documentation': documentation,
             'first_login': {'mode': 'documentation' if source.startswith(('https://api.linuxserver.io/', 'https://github.com/', 'https://codeload.github.com/')) else 'setup', 'instructions': text(item['login_note'], 2000), 'documentation': documentation},
             **({'upstream_name': image.split('/')[-1].split(':')[0]} if image.startswith('lscr.io/linuxserver/') else {}),
             'note': text(item['login_note'], 2000), 'store_name': name, 'store_url': source,
             'install_schema': fields, 'extra_ports': extra, **stack_extra, **({'imported_stack': True, 'catalog_status': 'available', 'dependencies': list(item['stack']['services'])} if 'stack' in item else {})}
-    return name, result
+    return name, {key:private_recipe(value) for key,value in result.items()}

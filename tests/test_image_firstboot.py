@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -71,11 +72,11 @@ class DebianFirstBootTests(unittest.TestCase):
         self.assertEqual(self.commands[:2], [
             ['systemd-sysusers', '/usr/lib/sysusers.d/titan.conf'],
             ['systemd-tmpfiles', '--create', '/usr/lib/tmpfiles.d/titan.conf']])
-        self.assertIn('https://192.168.50.12:5000', message)
+        self.assertIn('https://192.168.50.12', message)
         env = self.path('/etc/titan/web.env')
-        self.assertEqual(env.read_text(), 'TITAN_ORIGIN=https://192.168.50.12:5000\n')
+        self.assertEqual(env.read_text(), 'TITAN_ORIGIN=https://192.168.50.12\n')
         caddy = self.path('/etc/titan/Caddyfile').read_text()
-        self.assertIn('https://192.168.50.12:5000 {', caddy)
+        self.assertIn('https://192.168.50.12 {', caddy)
         self.assertIn('reverse_proxy 127.0.0.1:5001', caddy)
         self.assertEqual(env.stat().st_mode & 0o777, 0o644)
         self.assertFalse(list(self.root.rglob('.titan-*')))
@@ -141,11 +142,46 @@ class DebianFirstBootTests(unittest.TestCase):
     def test_explicit_address_is_respected_without_route_query(self):
         self.write('/etc/titan/address', 'NAS.EXAMPLE\n')
         self.start()
-        self.assertEqual(self.path('/etc/titan/web.env').read_text(), 'TITAN_ORIGIN=https://nas.example:5000\n')
+        self.assertEqual(self.path('/etc/titan/web.env').read_text(), 'TITAN_ORIGIN=https://nas.example\n')
         self.assertFalse(any(command[0] == 'ip' for command in self.commands))
         for service in ('titan', 'samba'):
             self.assertIn(['firewall-cmd', '--permanent', '--add-service=' + service], self.commands)
             self.assertIn(['firewall-cmd', '--add-service=' + service], self.commands)
+
+    def test_existing_installation_preserves_working_legacy_port(self):
+        self.write('/etc/titan/web.env', 'TITAN_ORIGIN=https://192.168.50.10:5000\n')
+        self.start()
+        config = json.loads(self.path('/etc/titan/web-access.json').read_text())
+        self.assertEqual(config['settings'], {'mode':'https','http_port':80,'https_port':5000})
+        self.assertEqual(self.path('/etc/titan/web.env').read_text(), 'TITAN_ORIGIN=https://192.168.50.12:5000\n')
+        self.assertIn('redir https://192.168.50.12:5000{uri} 308',self.path('/etc/titan/Caddyfile').read_text())
+
+    def test_custom_protocol_and_ports_survive_reboot_and_ip_change(self):
+        from titan.web_access import initial_config
+        config = initial_config('192.168.50.10')
+        config['settings'] = {'mode':'http','http_port':8080,'https_port':8443}
+        self.write('/etc/titan/web-access.json',json.dumps(config))
+        self.start()
+        self.assertEqual(self.path('/etc/titan/web.env').read_text(),'TITAN_ORIGIN=http://192.168.50.12:8080\n')
+        caddy = self.path('/etc/titan/Caddyfile').read_text()
+        self.assertIn('http://192.168.50.12:8080 {',caddy)
+        self.assertNotIn('tls internal',caddy)
+        firewall = self.path('/etc/firewalld/services/titan.xml').read_text()
+        self.assertIn('port="8080"',firewall)
+        self.assertNotIn('8443',firewall)
+
+    def test_unconfirmed_change_rolls_back_before_proxy_starts(self):
+        from titan.web_access import initial_config
+        old = initial_config('192.168.50.10')
+        config = {**old, 'settings':{'mode':'http','http_port':8080,'https_port':8443},
+                  'pending':{'previous':old,'deadline':time.time()+120}}
+        self.write('/etc/titan/web-access.json',json.dumps(config))
+        self.start()
+        actual = json.loads(self.path('/etc/titan/web-access.json').read_text())
+        self.assertNotIn('pending',actual)
+        self.assertEqual(actual['settings'],old['settings'])
+        self.assertIn('zurückgenommen',actual['last_error'])
+        self.assertEqual(self.path('/etc/titan/web.env').read_text(),'TITAN_ORIGIN=https://192.168.50.12\n')
 
 
 if __name__ == '__main__':

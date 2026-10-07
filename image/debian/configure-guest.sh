@@ -158,7 +158,7 @@ UNIT
 cat > /usr/share/titan/preview-console.sh <<'CONSOLE'
 #!/bin/bash
 printf '\nTitan Debian PREVIEW - no system updates or A/B rollback yet\n'
-printf 'Open https://<NAS-IP>:5000 and create your administrator account.\n'
+printf 'Open https://<NAS-IP> and create your administrator account. HTTP port 80 redirects to HTTPS port 443.\n'
 ip -brief -4 addr show scope global
 systemctl --no-pager --full status titan-firstboot titan-runtime titan-agent titan-web titan-proxy || true
 CONSOLE

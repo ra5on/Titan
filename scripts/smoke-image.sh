@@ -93,7 +93,7 @@ qemu-system-x86_64 -accel "$task_accel" -machine q35 -cpu "$task_cpu" -m 8192 -s
     -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
     -drive if=pflash,format=raw,file="$task_dir/vars.fd" \
     -drive id=titan-system,if=virtio,format=qcow2,file="$task_dir/test.qcow2" \
-    -netdev user,id=net0,hostfwd=tcp:127.0.0.1:15000-:5000,hostfwd=tcp:127.0.0.1:15080-:18080,hostfwd=tcp:127.0.0.1:15445-:445 -device virtio-net-pci,netdev=net0 &
+    -netdev user,id=net0,hostfwd=tcp:127.0.0.1:15000-:443,hostfwd=tcp:127.0.0.1:15001-:5000,hostfwd=tcp:127.0.0.1:15081-:80,hostfwd=tcp:127.0.0.1:15080-:18080,hostfwd=tcp:127.0.0.1:15445-:445 -device virtio-net-pci,netdev=net0 &
 task_pid=$!
 task_deadline=$((SECONDS + 1200))
 if [[ "$task_accel" == kvm ]]; then task_deadline=$((SECONDS + 300)); fi
@@ -101,9 +101,9 @@ task_next_log=$((SECONDS + 60))
 while (( SECONDS < task_deadline )); do
     if ! kill -0 "$task_pid" 2>/dev/null; then break; fi
     if task_http="$(curl --insecure --fail --silent --show-error --noproxy '*' --connect-timeout 2 --max-time 4 \
-        --connect-to 10.0.2.15:5000:127.0.0.1:15000 \
+        --connect-to 10.0.2.15:443:127.0.0.1:15000 \
         --write-out '%{http_code}' --output "$task_dir/session.json" \
-        https://10.0.2.15:5000/api/session 2> "$task_dir/curl-error.txt")"; then
+        https://10.0.2.15/api/session 2> "$task_dir/curl-error.txt")"; then
         python3 - "$task_dir/session.json" <<'PY'
 import json,sys
 value=json.load(open(sys.argv[1]))
@@ -121,7 +121,20 @@ assert isinstance(expected,str) and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',expec
 assert value['version']==expected, 'Guest application differs from the validated source'
 assert value.get('setup_required') is True, value
 assert value.get('user') is None and value.get('demo') is False, value
-print('Clean raw image booted: HTTPS port 5000, initial administrator setup, no baked login.')
+print('Clean raw image booted: HTTPS port 443, initial administrator setup, no baked login.')
+PY
+        curl --silent --show-error --noproxy '*' --connect-timeout 2 --max-time 5 \
+            --connect-to 10.0.2.15:80:127.0.0.1:15081 --dump-header "$task_dir/redirect-headers.txt" \
+            --output /dev/null 'http://10.0.2.15/api/session?probe=titan'
+        python3 - "$task_dir/redirect-headers.txt" <<'PY'
+import sys
+from pathlib import Path
+lines=Path(sys.argv[1]).read_text().splitlines()
+assert lines and lines[0].split()[1]=='308', 'HTTP did not redirect permanently to HTTPS'
+headers=dict(line.split(':',1) for line in lines[1:] if ':' in line)
+location=next((value.strip() for name,value in headers.items() if name.lower()=='location'),None)
+assert location=='https://10.0.2.15/api/session?probe=titan', 'HTTP redirect lost the HTTPS port, path or query'
+print('HTTP port 80 redirects to HTTPS port 443, preserving path and query.')
 PY
         printf 'passed\n' > "$(dirname "$task_image")/boot-status"
         python3 scripts/smoke-runtime.py "${task_runtime_options[@]}" --confirm-disposable-guest --qmp-socket "$task_dir/qmp.sock" --report "$(dirname "$task_image")/runtime-test.json"
