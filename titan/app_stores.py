@@ -231,9 +231,14 @@ class StoreMixin:
         return {'ok': True, 'apps': len(parsed), 'skipped': len(skipped)}
 
     @staticmethod
-    def store_document(url):
+    def store_document(url, *, bigbear_revision=None):
         try:
-            document, skipped = fetch_document(url)
+            if bigbear_revision is not None:
+                if url != BIGBEAR: raise Error('Eine feste BigBear-Version ist nur für den BigBear-Katalog zulässig.')
+                from .bigbear import fetch
+                document, skipped = fetch(bigbear_revision)
+            else:
+                document, skipped = fetch_document(url)
             if url == LINUXSERVER or url.startswith(('https://codeload.github.com/', 'https://github.com/')):
                 valid = []
                 for app in document['apps']:

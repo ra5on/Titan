@@ -55,11 +55,21 @@ def cloudflared_lan_probe(run, url, credentials=None):
     return result
 
 
+def bigbear_revision(value):
+    if not re.fullmatch(r'[a-f0-9]{40}', value):
+        raise argparse.ArgumentTypeError('BigBear revision must be an exact lowercase 40-character Git commit SHA.')
+    return value
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('package', choices=[*PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
+    parser.add_argument('--bigbear-revision', type=bigbear_revision, metavar='SHA',
+        help='Use one verified BigBear commit without anonymous GitHub API branch lookup.')
     args = parser.parse_args()
+    if args.bigbear_revision is not None and not args.package.startswith('bigbear:'):
+        parser.error('--bigbear-revision requires a BigBear package.')
     if not args.confirm_disposable_runner or os.environ.get('GITHUB_ACTIONS') != 'true':
         parser.error('This test is restricted to an explicitly confirmed disposable GitHub runner.')
     if args.package.startswith('bigbear:'):
@@ -67,7 +77,8 @@ def main():
         from titan.store_sources import BIGBEAR
         from titan.store_recipes import recipes
         from titan.catalog import APPS
-        document, _ = StoreMixin.store_document(BIGBEAR)
+        document, _ = StoreMixin.store_document(BIGBEAR, bigbear_revision=args.bigbear_revision)
+        if args.bigbear_revision: print('BigBear catalog revision: ' + args.bigbear_revision)
         _, imported = recipes(document, BIGBEAR)
         suffix = args.package.split(':', 1)[1]
         app, recipe = next((key, value) for key, value in imported.items() if key.endswith('-' + suffix))

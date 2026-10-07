@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  # Pin acceptance checks; shared runner IPs can exhaust anonymous API limits.
+  BIGBEAR_REVISION: f5e7cb7e4c5e01180d44fc459c65ae1c37c2ac20
 jobs:
   stack:
     runs-on: ubuntu-24.04
@@ -21,7 +24,7 @@ jobs:
       - name: Install YAML parser
         run: sudo apt-get update && sudo apt-get install -y python3-yaml
       - name: Real Docker and HTTP lifecycle
-        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py 'bigbear:${{ matrix.app }}' --confirm-disposable-runner
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py 'bigbear:${{ matrix.app }}' --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION"
 
   cloudflared-web:
     runs-on: ubuntu-24.04
@@ -46,7 +49,7 @@ jobs:
           sudo ip netns exec titan-ci-client ip link set eth0 up
           sudo firewall-cmd --zone=home --add-interface=titan-ci0
       - name: Cloudflared Web real HTTP, LAN access, stop, start, restart and uninstall
-        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py bigbear:cloudflared-web --confirm-disposable-runner
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py bigbear:cloudflared-web --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION"
       - name: Remove isolated test LAN
         if: always()
         run: |

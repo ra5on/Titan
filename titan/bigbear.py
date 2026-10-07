@@ -111,11 +111,15 @@ def archive_document(raw):
     return {'schema': 1, 'name': 'BigBear', 'apps': apps}, skipped
 
 
-def fetch():
+def fetch(revision=None):
+    """Fetch main normally, or a strictly pinned revision for reproducible CI."""
     from .store_sources import download
-    reference = json.loads(download('https://api.github.com/repos/' + REPOSITORY + '/git/ref/heads/main', 128 * 1024))
-    commit = reference.get('object', {}).get('sha', '')
-    if not re.fullmatch('[a-f0-9]{40}', commit):
+    if revision is None:
+        reference = json.loads(download('https://api.github.com/repos/' + REPOSITORY + '/git/ref/heads/main', 128 * 1024))
+        commit = reference.get('object', {}).get('sha', '')
+    else:
+        commit = revision
+    if not isinstance(commit, str) or not re.fullmatch('[a-f0-9]{40}', commit):
         raise Error('BigBear-Version ist nicht eindeutig.')
     # One bounded archive avoids hundreds of requests and mixed revisions.
     raw = download('https://codeload.github.com/' + REPOSITORY + '/zip/' + commit, 16 * 1024 ** 2)
