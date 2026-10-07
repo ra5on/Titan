@@ -2,9 +2,11 @@
 from http.client import HTTPConnection
 from http.cookies import SimpleCookie
 from http.server import ThreadingHTTPServer
+import base64
 import json
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import Mock, patch
 
@@ -88,6 +90,77 @@ class WebAccessHTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/api/remote-access/diagnose', {'url':'https://evil.test'})[0],400)
         self.assertEqual(self.request('/api/remote-access/diagnose', {})[0],200)
         self.agent.call.assert_called_with('remote_access_diagnose')
+
+    def tunnel_body(self):
+        token = base64.b64encode(json.dumps({'a': 'a' * 32, 't': '2c9069cd-5cf1-470f-9ddd-df156d3f2c57',
+            's': base64.b64encode(b'disposable-test-secret-with-entropy').decode()}).encode()).decode()
+        return {'token': token, 'public_origin': '', 'expected_revision': 'current-revision'}
+
+    def wait_job(self, identifier):
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            job = next(row for row in self.app.store.jobs() if row['id'] == identifier)
+            if job['status'] not in ('running', 'queued'):
+                return job
+            time.sleep(.01)
+        self.fail('job did not complete')
+
+    def test_tunnel_setup_requires_admin_csrf_trusted_origin_and_exact_safe_arguments(self):
+        body = self.tunnel_body()
+        for options, expected in (({'actor':None},401),({'actor':'reader'},403),
+                ({'X-CSRF-Token':'wrong'},403),({'Host':'evil.test'},403),({'Origin':'https://evil.test'},403),
+                ({'Sec-Fetch-Site':'cross-site'},403)):
+            with self.subTest(options=options):
+                self.assertEqual(self.request('/api/remote-access/tunnel', body, **options)[0], expected)
+        for invalid in ({**body, 'extra': True}, {**body, 'token': 'cloudflared run --token ' + body['token']},
+                {**body, 'public_origin': 'http://nas.example.com'}, {**body, 'expected_revision': []}):
+            self.assertEqual(self.request('/api/remote-access/tunnel', invalid)[0], 400)
+        self.agent.call.assert_not_called()
+        self.assertEqual(self.app.store.jobs(), [])
+
+    def test_tunnel_job_response_database_and_audit_never_contain_token(self):
+        body = self.tunnel_body()
+        entered, release = threading.Event(), threading.Event()
+        def execute(operation, **arguments):
+            self.assertEqual(operation, 'remote_access_tunnel')
+            self.assertEqual(arguments, body)
+            entered.set()
+            self.assertTrue(release.wait(3))
+            return {'ok': True, 'setup': {'phase': 'needs_domain', 'needs_domain': True}}
+        self.agent.call.side_effect = execute
+        status, response, _ = self.request('/api/remote-access/tunnel', body)
+        self.assertEqual(status, 202)
+        self.assertEqual(set(response), {'job'})
+        try:
+            self.assertTrue(entered.wait(2))
+            status, jobs, _ = self.request('/api/jobs')
+            self.assertEqual(status, 200)
+            self.assertNotIn(body['token'], json.dumps(jobs))
+        finally:
+            release.set()
+        job = self.wait_job(response['job'])
+        self.assertEqual(job['status'], 'completed')
+        self.assertEqual(job['action'], 'remote_access_tunnel')
+        self.assertNotIn(body['token'], json.dumps(job))
+        self.assertNotIn(body['token'].encode(), self.app.store.path.read_bytes())
+        with self.app.store.connection() as db:
+            audit = [tuple(row) for row in db.execute('SELECT action,detail FROM audit')]
+        self.assertNotIn(body['token'], json.dumps(audit))
+
+    def test_queued_tunnel_job_rechecks_revoked_admin_permissions(self):
+        captured = []
+        def submit(user, action, function, **kwargs):
+            captured.append(function)
+            return {'job': 'held-job'}
+        self.app.jobs.submit = submit
+        self.assertEqual(self.request('/api/remote-access/tunnel', self.tunnel_body())[0], 202)
+        with self.app.store.connection() as db:
+            db.execute('UPDATE users SET enabled=0 WHERE name=?', ('admin',))
+        from titan.core import Error
+        with self.assertRaises(Error) as error:
+            captured[0]()
+        self.assertEqual(error.exception.status, 403)
+        self.agent.call.assert_not_called()
 
     def test_health_is_bounded_challenge_only_and_absent_when_disabled(self):
         from pathlib import Path

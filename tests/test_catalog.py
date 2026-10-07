@@ -1,3 +1,4 @@
+import base64
 import json
 import re
 import time
@@ -30,7 +31,12 @@ class CatalogTests(unittest.TestCase):
         for name in APPS:
             options = {field["key"]: "ExamplePassword123" for field in APPS[name].get("install_schema", [])
                        if field["type"] == "password"}
-            service = compose(name, "/srv/app", 1000, 1000, 12345, "/srv/data", options)["services"][name]
+            if name == 'titan-cloudflared':
+                options['tunnel_token'] = base64.b64encode(json.dumps({'a': 'a' * 32,
+                    't': '2c9069cd-5cf1-470f-9ddd-df156d3f2c57',
+                    's': base64.b64encode(b'disposable-test-secret-with-entropy').decode()}).encode()).decode()
+            port = 0 if APPS[name].get('web_available') is False else 12345
+            service = compose(name, "/srv/app", 1000, 1000, port, "/srv/data", options)["services"][name]
             self.assertNotIn("privileged", service)
             self.assertNotIn("network_mode", service)
             self.assertNotIn("devices", service)

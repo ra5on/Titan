@@ -4,3 +4,9 @@
 @media(max-width:480px){.desktop-shortcut .shortcut-label{font-size:11px}.desktop-surface[data-icon-size=large] .desktop-shortcut{width:124px}.shortcut-context{max-width:calc(100vw - 16px)}}
 
 #desktop-surface .shortcut-label{word-break:normal;overflow-wrap:normal;hyphens:auto;font-size:11px;max-width:104px}#desktop-surface [aria-busy=true] .desktop-app-icon{opacity:.65}#desktop-surface [aria-busy=true] .shortcut-more{pointer-events:none}
+
+/* Artwork is the icon; legacy application_design.css must not frame it. */
+#desktop-surface .desktop-app-icon,.desktop-menu-entry .desktop-app-icon{border:0!important;outline:0;box-shadow:none!important;background:transparent!important}
+#desktop-surface .shortcut-open,.desktop-menu-entry .desktop-menu-app{border-color:transparent!important;box-shadow:none;outline:0}
+#desktop-surface .shortcut-open:hover,.desktop-menu-entry .desktop-menu-app:hover{border-color:transparent!important}
+#desktop-surface .shortcut-open:focus-visible,.desktop-menu-entry .desktop-menu-app:focus-visible{outline:2px solid var(--accent,#7563de);outline-offset:3px}

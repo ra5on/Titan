@@ -457,7 +457,7 @@ function bindPage() {
  window.TitanControlPanel?.mount($('#main'),{userName:session.user.name});
  if(page==='docker')window.TitanDocker?.mount($('#main').querySelector('[data-docker-workbench]'),{api,action,dialog,askYesNo,toast,bytes});
  if(page==='docker')window.TitanAppLive?.mount($('#main'),{api,bytes});if(page==='vms')window.TitanVMLive?.mount($('#main'),{api,bytes,esc,onStateChange:()=>{if(!$('#dialog').open)refreshVMWorkspace().catch(error=>toast(error.message,true));}});if(['docker','vms'].includes(page))window.TitanManagers?.mount($('#main'),{owner:session.user.name});
- if(page==='settings'){window.TitanSettingsCenter?.mount($('#main'));window.TitanWebAccess?.mount($('#main'),{api,toast,refresh:()=>navigate()});window.TitanRemoteAccess?.mount($('#main'),{api,toast});}
+ if(page==='settings'){window.TitanSettingsCenter?.mount($('#main'));window.TitanWebAccess?.mount($('#main'),{api,toast,refresh:()=>navigate()});window.TitanRemoteAccess?.mount($('#main'),{api,toast,waitForJob:async(result,options)=>{watched.add(result.job);foregroundJobs.add(result.job);void pollJobs();try{const job=await window.TitanJobs.wait(api,result.job,options);watched.delete(result.job);return job;}finally{foregroundJobs.delete(result.job);}}});}
  if(page==='users'&&usersView)window.TitanUsers.mount($('#main'),usersView.data,usersView.shares,{currentName:session.user.name,edit:name=>actions['user-edit']({dataset:{name}})});
  if(page==='updates')window.TitanUpdates?.mount($('#main'),{api});
  if(page==='groups'&&identityData)window.TitanIdentity.mount($('#main'),identityData,{api,toast,refresh:navigate,onJob:id=>watched.add(id),confirm:askYesNo});

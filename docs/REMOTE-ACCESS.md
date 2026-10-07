@@ -1,12 +1,25 @@
 # Fernzugriff mit Cloudflare Tunnel
 
-Unter **Systemsteuerung → Allgemein → Fernzugriff · Cloudflare Tunnel** lässt sich eine zusätzliche öffentliche HTTPS-Adresse für Titan einrichten. Die lokale NAS-Adresse bleibt erreichbar. Titan richtet den lokalen Zugang zum Connector ein; die Domain und Tunnelroute werden weiterhin in Cloudflare eingerichtet.
+Unter **Systemsteuerung → Allgemein → Cloudflare Tunnel** lässt sich eine zusätzliche öffentliche HTTPS-Adresse für Titan einrichten. Die lokale NAS-Adresse bleibt erreichbar.
 
-## Connector installieren
+## Direkt mit einem Tunnel-Token verbinden
 
-Cloudflared Web aus dem BigBear-Katalog installieren und den Tunnel dort einrichten. Das **Verwaltungspasswort** ist bei neuen Installationen optional. Ein leeres Passwort deaktiviert die Basic-Anmeldung der Cloudflared-Verwaltung. Es ist unabhängig vom Tunnel-Token und vom Titan-Konto; die Titan-Anmeldung bleibt erforderlich. Bestehende installierte Vorlagen und Zugangsdaten werden durch einen Katalog-Refresh erhalten.
+1. Im Cloudflare-Konto einen Tunnel anlegen oder einen vorhandenen Tunnel öffnen. Den **Tunnel-Token** aus der Connector-Einrichtung kopieren; nur den Token, keinen Installationsbefehl oder Verwaltungs-API-Token.
+2. Den Token in Titan einfügen. Eine bereits eingerichtete öffentliche Titan-Adresse kann optional angegeben werden.
+3. **Tunnel einrichten** wählen. Titan installiert Docker bei Bedarf, installiert den eigenen Connector **Cloudflare Tunnel**, startet ihn und prüft die Verbindung zu Cloudflare. Es gibt kein zusätzliches Cloudflared-Verwaltungspasswort.
+4. Falls die öffentliche Route fehlt, den Hostnamen im Cloudflare-Konto auf **HTTP → `http://127.0.0.1:5102`** richten. Die öffentliche HTTPS-Adresse in Titan ergänzen und prüfen. Erst eine erfolgreiche öffentliche Prüfung wird als **Geprüft** angezeigt.
 
-Ein verbundener Tunnel bestätigt zunächst die Verbindung des Connectors zu Cloudflare. Zusätzlich muss der Connector die Titan-Weboberfläche erreichen können.
+Der verwaltete Connector läuft im Host-Netz. Das vermeidet das Docker-Bridge-Problem bei der lokalen Titan-Verbindung; der Titan-Tunnelzugang und Cloudflared-Prüfport bleiben auf Loopback begrenzt. Portweiterleitungen am Router sind für diesen Connector nicht erforderlich. Ausgehende Cloudflare-Verbindungen müssen möglich sein.
+
+Der Token wird als privates App-Geheimnis und in einer atomar ersetzten Datei mit Modus **0600** gespeichert. Der Container bindet das geschützte Verzeichnis nur lesbar ein; Tokenwerte stehen weder in Compose-Befehlen noch Container-Umgebungsvariablen, Jobmeldungen oder HTTP-Statusantworten. Titan zeigt den gespeicherten Token nicht wieder an. Mit erneutem Einfügen lässt er sich ersetzen. Bei fehlgeschlagener Einrichtung bleiben die bisherigen lokalen Webeinstellungen erhalten; bei einer gescheiterten Token-Erneuerung wird der vorherige Connector-Zustand wiederhergestellt, soweit die beteiligten Dienste erreichbar sind.
+
+Die Einrichtung läuft als Hintergrundauftrag. Das Fenster darf geschlossen werden; beim erneuten Öffnen wird der aktuelle Fortschritt angezeigt. **Verbunden** bestätigt die Connector-Verbindung zu Cloudflare. Die öffentliche Route und Anmeldung sind eine weitere Prüfung. Ein Tunnel-Token kann die öffentliche Route nicht selbst anlegen; Titan zeigt deshalb genau den verbleibenden Schritt statt einen falschen Erfolg.
+
+## Vorhandene Connectoren
+
+Unter **Erweiterte Einstellungen und vorhandene Connectoren** können bestehende Cloudflared-Web- oder selbst verwaltete Connectoren weiterverwendet werden. Deren Token und Konten werden von der neuen Einrichtung nicht verändert. Bei neuen Cloudflared-Web-Installationen bleibt das dortige Verwaltungspasswort optional und unabhängig von Titan-Anmeldung und Tunnel-Token.
+
+Wenn ein bisheriger Connector denselben Cloudflare-Tunnel bedient, kann Cloudflare Anfragen auf beide Connectoren verteilen. Nach einer Umstellung auf den neuen Host-Connector den alten Connector in Docker stoppen oder dessen Service URL passend beibehalten. Titan stoppt vorhandene fremde Connectoren nicht automatisch; deren Netzwerk kann für das Loopback-Ziel ungeeignet sein.
 
 ## Titan-Adresse und Service URL
 
@@ -24,7 +37,7 @@ Das lokale Tunnelziel verwendet **HTTP auf Port 5102**. Die öffentliche Verbind
 
 Die Bridge-Adresse wird aus der tatsächlichen Container- und Docker-Netzkonfiguration ermittelt. Eine Container-IP wird deshalb nicht von Hand als Titan-Ziel eingetragen. Titan ergänzt die benötigte verwaltete Firewallregel für das erkannte Connector-Netz. Nach einem Wechsel des Docker-Netzes die Fernzugriffseinstellungen erneut speichern und prüfen. Interne Docker-Netze oder nicht bestätigte Netze werden nicht automatisch freigegeben.
 
-Die Funktion speichert keinen Cloudflare-API-Token und erstellt keine DNS-Einträge oder Tunnelrouten über die Cloudflare-API. Der Tunnel-Token bleibt Teil der Connector-Einrichtung.
+Titan speichert keinen Cloudflare-Verwaltungs-API-Token und erstellt keine DNS-Einträge oder Tunnelrouten über die Cloudflare-API. Ein Tunnel-Token berechtigt zum Betrieb eines Connectors; das Anlegen der öffentlichen Route benötigt andere Cloudflare-Rechte. [Offizielle Token-Dokumentation](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/).
 
 ## Diagnose
 

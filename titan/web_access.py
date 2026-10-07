@@ -20,7 +20,7 @@ from .core import Error, atomic_json
 
 CONFIG = Path('/etc/titan/web-access.json')
 DEFAULTS = {'mode': 'https', 'http_port': 80, 'https_port': 443}
-INTERNAL_PORTS = {5001, 5101, 5102}
+INTERNAL_PORTS = {5001, 5101, 5102, 5103}
 CONFIRM_SECONDS = 120
 
 
@@ -293,7 +293,7 @@ class WebAccess:
             self._watch(new)
             return self.status()
 
-    def save_remote(self, remote, expected_revision):
+    def save_remote(self, remote, expected_revision, *, wait=False):
         from .remote_access import TUNNEL_PORT, validate_remote
         with self.lock:
             old = self.config()
@@ -330,7 +330,17 @@ class WebAccess:
                             restored['last_error'] += ' Firewallbereinigung fehlgeschlagen; lokalen Zugriff prüfen.'
                             atomic_json(self.path, restored, mode=0o644)
                         self._restart()
-            self.schedule(0.8, activate)
+                        if wait:
+                            # Equal before/after remote values during token
+                            # rotation cannot prove that activation succeeded.
+                            raise Error('Fernzugriff konnte nicht aktiviert werden. Bisherige Konfiguration wiederhergestellt.', 503) from None
+            # HTTP settings return before restarting their proxy. A background
+            # setup job already returned 202 and must await activation/rollback
+            # before claiming completion, including a slow systemctl restart.
+            if wait:
+                activate()
+            else:
+                self.schedule(0.8, activate)
             return self.status()
 
     def _activate(self, revision):

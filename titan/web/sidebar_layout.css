@@ -3,8 +3,8 @@
 [data-sidebar-layout]>.titan-sidebar-resizer{position:absolute;inset-block:0;left:calc(var(--titan-sidebar-width,160px) - 4px);width:8px;z-index:7;cursor:col-resize;touch-action:none;user-select:none;outline:none}
 [data-sidebar-layout]>.titan-sidebar-resizer[data-sidebar-resize=right]{left:auto;right:calc(var(--titan-inspector-width,320px) - 4px)}
 [data-sidebar-layout]>.titan-sidebar-resizer::after{content:"";position:absolute;inset-block:0;left:3px;width:2px;background:transparent}
-[data-sidebar-layout]>.titan-sidebar-resizer:hover::after,[data-sidebar-layout]>.titan-sidebar-resizer:focus-visible::after,.titan-sidebar-resizing>.titan-sidebar-resizer::after{background:#2582c5}
-[data-sidebar-layout]>.titan-sidebar-resizer:focus-visible{box-shadow:inset 0 0 0 1px #2582c5}
+[data-sidebar-layout]>.titan-sidebar-resizer:hover::after,[data-sidebar-layout]>.titan-sidebar-resizer:focus-visible::after,.titan-sidebar-resizing>.titan-sidebar-resizer::after{background:var(--accent)}
+[data-sidebar-layout]>.titan-sidebar-resizer:focus-visible{box-shadow:inset 0 0 0 1px var(--accent)}
 [data-sidebar-layout].titan-sidebar-resizing,[data-sidebar-layout].titan-sidebar-resizing *{cursor:col-resize!important;user-select:none!important}
 @media(min-width:761px){
  .cp-layout[data-sidebar-layout=settings],.storage-workspace[data-sidebar-layout=storage]{grid-template-columns:var(--titan-sidebar-width,160px) minmax(0,1fr)}
@@ -16,7 +16,7 @@
  #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout]>.mv-sidebar{display:flex;flex-direction:column;align-items:stretch;gap:0;min-width:0;overflow-x:hidden;overflow-y:auto;padding:0;border-right:1px solid #dce5ee;border-bottom:0;background:#f3f5f8;grid-column:1;grid-row:1}
  #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-tabs{flex-direction:column;flex-shrink:0;gap:1px;padding:6px 0}
  #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-tabs>button{width:100%;min-width:0;min-height:36px;padding:8px 10px;border-left:3px solid transparent;border-radius:0;white-space:normal;justify-content:flex-start;text-align:left;line-height:1.4;font-size:12px}
- #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-tabs>button[aria-selected=true]{border-left-color:#2685cc;background:#dfedfc;color:#176dad}
+ #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-tabs>button[aria-selected=true]{border-left-color:var(--accent);background:#dfedfc;color:#176dad}
  #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-side-actions{margin:8px 0 0;padding:8px;border-top:1px solid #dce5ee;flex-shrink:0;display:grid;gap:6px}
  #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-side-button{width:100%;min-width:0;min-height:34px;white-space:normal;text-align:left}
  #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout]>.mv-workspace{min-width:0;grid-column:2;grid-row:1}
@@ -39,7 +39,7 @@
  .engine-workbench[data-sidebar-layout=docker] .engine-navigation>[role=tablist]{flex-direction:row;width:max-content}
  .engine-workbench[data-sidebar-layout=docker] .engine-navigation>[role=tablist]>.button{width:auto;min-width:max-content;min-height:44px;flex-direction:row;padding:8px 10px;font-size:11px}
  .engine-workbench[data-sidebar-layout=docker] .engine-navigation .button{border-left:0;border-bottom:3px solid transparent}
- .engine-workbench[data-sidebar-layout=docker] .engine-navigation .button[aria-selected=true]{border-bottom-color:#2685cc}
+ .engine-workbench[data-sidebar-layout=docker] .engine-navigation .button[aria-selected=true]{border-bottom-color:var(--accent)}
  .engine-workbench[data-sidebar-layout=docker]>.engine-main,.engine-workbench[data-sidebar-layout=docker].has-inspector>.engine-inspector{grid-column:1;grid-row:2}
 }
 @media(max-width:760px){[data-sidebar-layout]>.titan-sidebar-resizer{display:none}}

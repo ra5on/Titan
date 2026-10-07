@@ -695,9 +695,24 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             require_application(self.app.store, user, application)
         else:
             self.require_user(admin=True)
-        if path in ('/api/remote-access', '/api/remote-access/diagnose'):
+        if path in ('/api/remote-access', '/api/remote-access/diagnose', '/api/remote-access/tunnel'):
             if self.app.demo:
                 raise Error('Fernzugriff benötigt eine echte Titan-Installation.', 409)
+            if path.endswith('/tunnel'):
+                if set(body) != {'token', 'public_origin', 'expected_revision'}:
+                    raise Error('Tunnel-Token, öffentliche Adresse und aktuellen Stand angeben.')
+                from .cloudflare_tunnel import validate_token
+                from .remote_access import public_url
+                validate_token(body['token'])
+                if not isinstance(body['public_origin'], str) or not isinstance(body['expected_revision'], str):
+                    raise Error('Öffentliche Adresse und aktuellen Stand als Text angeben.')
+                if body['public_origin']:
+                    public_url(body['public_origin'])
+                # Jobs persist only action/status/result. The credential stays
+                # in this in-memory closure until the root agent saves it in
+                # protected app files; execution rechecks admin permissions.
+                return self.reply(self.app.jobs.submit(user['name'], 'remote_access_tunnel',
+                    lambda: self.app.admin_action(user['name'], 'remote_access_tunnel', body)), 202)
             if path.endswith('/diagnose'):
                 if body:
                     raise Error('Verbindungsprüfung benötigt keine zusätzlichen Parameter.')

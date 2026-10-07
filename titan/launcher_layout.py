@@ -34,12 +34,17 @@ def validate(value):
     for key,pos in positions.items():
         if key not in roots or not isinstance(pos,dict) or set(pos)!={'x','y'} or any(type(pos[k]) is not int or not 0<=pos[k]<limit for k,limit in [('x',32),('y',128)]): raise Error('Ungültige Desktop-Position.')
     widgets=value.get('widgets',{})
-    if not isinstance(widgets,dict) or set(widgets)-{'visible','collapsed','items','position'}: raise Error('Ungültige Widgets.')
+    if not isinstance(widgets,dict) or set(widgets)-{'visible','collapsed','items','position','positions'}: raise Error('Ungültige Widgets.')
     if any(type(widgets[k]) is not bool for k in ('visible','collapsed') if k in widgets): raise Error('Ungültiger Widget-Status.')
     position=widgets.get('position')
     if 'position' in widgets and (not isinstance(position,dict) or set(position)!={'x','y'} or any(type(position[k]) is not int or not 0<=position[k]<=1000 for k in ('x','y'))): raise Error('Ungültige Widget-Position.')
     choices=widgets.get('items',[])
-    if not isinstance(choices,list) or len(choices)>6 or any(not isinstance(k,str) or k not in {'cpu','ram','health','notifications','activity'} for k in choices) or len(set(choices))!=len(choices): raise Error('Ungültige Widget-Auswahl.')
+    allowed_widgets={'cpu','ram','health','notifications','activity','clock'}
+    if not isinstance(choices,list) or len(choices)>6 or any(not isinstance(k,str) or k not in allowed_widgets for k in choices) or len(set(choices))!=len(choices): raise Error('Ungültige Widget-Auswahl.')
+    widget_positions=widgets.get('positions',{})
+    if not isinstance(widget_positions,dict) or len(widget_positions)>6: raise Error('Ungültige Widget-Positionen.')
+    for key,point in widget_positions.items():
+        if key not in choices or not isinstance(point,dict) or set(point)!={'x','y'} or any(type(point[k]) is not int or not 0<=point[k]<=1000 for k in ('x','y')): raise Error('Ungültige Widget-Position.')
     return value
 
 def load(store,user):

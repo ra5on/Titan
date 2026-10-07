@@ -67,3 +67,17 @@ jobs:
         run: |
           sudo ip netns del titan-ci-client || true
           sudo ip link del titan-ci0 || true
+
+
+  cloudflared-token:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Install direct-token acceptance dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml iproute2 util-linux
+      - name: Private token file, official runner and failed setup recovery
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-cloudflare-token.py --confirm-disposable-runner

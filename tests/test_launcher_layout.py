@@ -41,3 +41,13 @@ class Tests(unittest.TestCase):
                 self.assertEqual(load(store,'bob'),{'items':[]})
         for extra in ({'desktop':{'color_mode':True}},{'desktop':{'color_mode':'unknown'}},{'widgets':{'position':None}},{'widgets':{'position':{'x':True,'y':0}}},{'widgets':{'position':{'x':1001,'y':0}}},{'widgets':{'position':{'x':1.5,'y':0}}},{'widgets':{'position':{'x':0}}},{'widgets':{'position':{'x':0,'y':0,'z':0}}}):
             with self.subTest(extra=extra),self.assertRaises(Error):validate({'items':[],**extra})
+
+    def test_individual_widgets_retain_positions_and_reject_unselected_or_invalid_positions(self):
+        store=Store()
+        value={'items':[],'widgets':{'items':['clock','cpu'],'positions':{'clock':{'x':0,'y':1000},'cpu':{'x':541,'y':72}}}}
+        save(store,'alice',value)
+        self.assertEqual(load(store,'alice'),value)
+        self.assertEqual(load(store,'bob'),{'items':[]})
+        for positions in (None,[],{'ram':{'x':0,'y':0}},{'clock':{'x':True,'y':0}},{'clock':{'x':0,'y':-1}},{'clock':{'x':0.5,'y':0}},{'clock':{'x':0,'y':1001}},{'clock':{'x':0}},{'clock':{'x':0,'y':0,'z':1}}):
+            with self.subTest(positions=positions),self.assertRaises(Error):
+                validate({'items':[],'widgets':{'items':['clock'],'positions':positions}})

@@ -152,6 +152,50 @@ def probe_public(config):
 
 
 class RemoteAccessMixin:
+    def _remote_setup_update(self, phase, message, *, running=False, needs_domain=False):
+        from .cloudflare_tunnel import CONNECTOR
+        state = {'phase': phase, 'message': message, 'running': running, 'needs_domain': needs_domain,
+                 'connector': CONNECTOR, 'service_url': f'http://127.0.0.1:{TUNNEL_PORT}', 'updated_at': time.time()}
+        self.save('remote-tunnel-setup', state)
+        return state
+
+    def _remote_setup_status(self):
+        from .cloudflare_tunnel import CONNECTOR, connector_ready
+        stored = self.load('remote-tunnel-setup', {})
+        if not stored:
+            return {}
+        # Explicit allowlist: private options, Docker inspect and tokens are
+        # never part of HTTP status, jobs, diagnostics or browser persistence.
+        result = {key: stored[key] for key in ('phase', 'message', 'running', 'needs_domain', 'connector', 'service_url', 'updated_at') if key in stored}
+        if stored.get('running') and not getattr(self, '_remote_setup_active', False):
+            result.update(running=False, phase='interrupted', message='Tunnel-Einrichtung durch Dienstneustart unterbrochen. Erneut einrichten oder vorhandene App starten.')
+        result.update(connector_running=False, cloudflare_connected=False)
+        if any(row['id'] == CONNECTOR for row in self.load('apps', [])):
+            try:
+                record = self.managed_app(CONNECTOR)
+                container = self._app_container(CONNECTOR, record)
+                result['service_url'] = self._connector_settings(CONNECTOR)['service_url']
+                result['connector_running'] = bool(container and container.get('State', {}).get('Running'))
+                result['cloudflare_connected'] = connector_ready(container)
+                if not result.get('running') and result.get('phase') in ('ready', 'needs_route', 'needs_domain', 'disconnected', 'disabled', 'stopped'):
+                    config = self.web_access.config()
+                    remote = validate_remote(config.get('remote'))
+                    diagnosis = self.load('remote-diagnosis', {})
+                    if not result['connector_running']:
+                        result.update(phase='stopped', message='Der verwaltete Tunnel-Connector ist gestoppt. In Docker oder der App-Verwaltung starten.')
+                    elif not result['cloudflare_connected']:
+                        result.update(phase='disconnected', message='Der Connector läuft, aber eine aktuelle Verbindung zu Cloudflare ist nicht bestätigt. Token, Internetzugang und Port 7844 prüfen.')
+                    elif not result.get('needs_domain') and (not remote['enabled'] or remote['connector'] != CONNECTOR):
+                        result.update(phase='disabled', message='Der lokale Zugang dieses Connectors ist deaktiviert oder ein anderer Connector ist ausgewählt. Gespeicherte Einstellungen bleiben erhalten.')
+                    elif result.get('phase') == 'ready' and (diagnosis.get('revision') != config['revision'] or not diagnosis.get('connected')):
+                        result.update(phase='needs_route', message='Connector verbunden. Öffentlichen Zugang nach der Einstellungsänderung erneut prüfen.')
+            except Error:
+                if not result.get('running'):
+                    result.update(phase='blocked', message='Der verwaltete Connector benötigt eine Prüfung in Docker oder der App-Verwaltung.')
+        elif not result.get('running') and result.get('phase') not in ('failed', 'interrupted'):
+            result.update(phase='removed', message='Der verwaltete Tunnel-Connector ist nicht installiert. Mit einem Tunnel-Token erneut einrichten.')
+        return result
+
     def _remote_connectors(self):
         from .catalog import APPS
         result = []
@@ -166,7 +210,118 @@ class RemoteAccessMixin:
         remote = validate_remote(config.get('remote'))
         return {'remote': remote, 'revision': config['revision'], 'connectors': self._remote_connectors(),
                 'apps': [{'id': row['id'], 'name': row.get('name', row['id'])} for row in self.load('apps', [])],
+                'setup': self._remote_setup_status(),
                 'diagnosis': self.load('remote-diagnosis', {}) if remote['enabled'] and self.load('remote-diagnosis', {}).get('revision') == config['revision'] else {}}
+
+    def op_remote_access_tunnel(self, token, public_origin, expected_revision):
+        """Install/rotate one owned runner; existing connectors stay untouched."""
+        from .cloudflare_tunnel import CONNECTOR, METRICS_PORT, connector_ready, prepare_runtime, validate_token
+        from .catalog import validate_options
+        from .core import atomic_json
+        from .host import run
+        token = validate_token(token)
+        if not isinstance(public_origin, str):
+            raise Error('Eine öffentliche HTTPS-Adresse angeben oder das Feld leer lassen.')
+        address = public_url(public_origin) if public_origin else ''
+        with self.app_config_lock:
+            config = self.web_access.config()
+            if not isinstance(expected_revision, str) or config['revision'] != expected_revision or config.get('pending'):
+                raise Error('Webeinstellungen geändert oder Adresswechsel aktiv. Ansicht aktualisieren.', 409)
+            previous_remote = validate_remote(config.get('remote'))
+            address = address or previous_remote['public_origin']
+            existing = next((row for row in self.load('apps', []) if row['id'] == CONNECTOR), None)
+            old_options, was_running, desired, changed, remote_saved = None, False, None, False, False
+            if existing:
+                existing = self.managed_app(CONNECTOR)
+                container = self._app_container(CONNECTOR, existing)
+                if container and container.get('State', {}).get('Status') == 'paused':
+                    raise Error('Pausierten Tunnel-Connector zuerst in Docker fortsetzen oder stoppen.', 409)
+                old_options = self._app_options(CONNECTOR)
+                was_running = bool(container and container.get('State', {}).get('Running'))
+            self._remote_setup_active = True
+            phase = 'preparing'
+            try:
+                self._remote_setup_update(phase, 'Docker und geschützte Tunnel-Einrichtung werden vorbereitet.', running=True)
+                if not self.docker_component().get('available'):
+                    self.op_component_install('docker')
+                if not was_running and (not existing or existing.get('network', {}).get('mode') == 'host'):
+                    if run(['ss', '-H', '-ltn', 'sport = :' + str(METRICS_PORT)], timeout=5).strip():
+                        raise Error('Der lokale Cloudflare-Prüfport ist bereits belegt.', 409)
+                phase = 'installing'
+                self._remote_setup_update(phase, 'Cloudflare-Connector wird installiert oder mit dem neuen Token gestartet.', running=True)
+                changed = True
+                if existing:
+                    options = validate_options(CONNECTOR, {**old_options, 'tunnel_token': token})
+                    atomic_json(self.directory / 'apps' / CONNECTOR / 'options.json', options)
+                    self.op_app_action(CONNECTOR, 'restart' if was_running else 'start')
+                else:
+                    self.op_app_install(CONNECTOR, 0, options={'tunnel_token': token}, network={'mode': 'host'}, storage_id='system')
+                phase = 'connecting'
+                self._remote_setup_update(phase, 'Connector gestartet. Verbindung zu Cloudflare wird geprüft.', running=True)
+                deadline = time.monotonic() + 25
+                while True:
+                    record = self.managed_app(CONNECTOR)
+                    container = self._app_container(CONNECTOR, record)
+                    if connector_ready(container):
+                        break
+                    if time.monotonic() >= deadline:
+                        raise Error('Cloudflare-Verbindung konnte nicht bestätigt werden.', 503)
+                    time.sleep(1)
+                if not address:
+                    self._remote_setup_update('needs_domain',
+                        'Connector mit Cloudflare verbunden. Öffentlichen Hostnamen im Cloudflare-Konto auf das angezeigte HTTP-Ziel richten und die HTTPS-Adresse in Titan speichern. Der lokale Tunnel-Zugang wird erst mit dieser Adresse aktiviert.',
+                        needs_domain=True)
+                    return {'ok': True, **self.op_remote_access()}
+                phase = 'configuring'
+                self._remote_setup_update(phase, 'Lokaler Tunnel-Zugang, Proxy und begrenzte Firewallregeln werden eingerichtet.', running=True)
+                desired = validate_remote({**previous_remote, 'enabled': True, 'public_origin': address,
+                    'connector': CONNECTOR, **self._connector_settings(CONNECTOR)})
+                self.web_access.save_remote(desired, expected_revision, wait=True)
+                remote_saved = True
+                self.save('remote-diagnosis', {})
+                if validate_remote(self.web_access.config().get('remote')) != desired:
+                    raise Error('Der lokale Tunnel-Zugang konnte nicht aktiviert werden.', 503)
+                phase = 'checking'
+                self._remote_setup_update(phase, 'Öffentliche HTTPS-Adresse wird mit diesem Titan abgeglichen.', running=True)
+                diagnosis = self.op_remote_access_diagnose()
+                self._remote_setup_update('ready' if diagnosis['connected'] else 'needs_route',
+                    'Tunnel und öffentlicher Titan-Zugang sind geprüft.' if diagnosis['connected'] else
+                    'Connector verbunden und lokales Ziel eingerichtet. Die öffentliche Cloudflare-Route ist noch nicht bestätigt; Hostname und HTTP-Ziel im Cloudflare-Konto prüfen, danach Verbindung erneut prüfen.')
+                return {'ok': True, **self.op_remote_access()}
+            except Exception:
+                # No upstream error string can carry a token into a job/audit.
+                # Restore a rotated credential and its previous lifecycle;
+                # fresh failed runners remain managed but safely stopped.
+                restored = True
+                try:
+                    current = self.web_access.config()
+                    if remote_saved and validate_remote(current.get('remote')) == desired:
+                        self.web_access.save_remote(previous_remote, current['revision'], wait=True)
+                except Exception:
+                    restored = False
+                try:
+                    if changed and any(row['id'] == CONNECTOR for row in self.load('apps', [])):
+                        self.op_app_action(CONNECTOR, 'stop')
+                        if old_options is not None:
+                            atomic_json(self.directory / 'apps' / CONNECTOR / 'options.json', old_options)
+                            if was_running:
+                                self.op_app_action(CONNECTOR, 'start')
+                            else:
+                                prepare_runtime(self, existing)
+                except Exception:
+                    restored = False
+                messages = {'preparing': 'Docker oder der lokale Prüfport ist nicht bereit. Komponentenstatus und Port 5103 prüfen.',
+                    'installing': 'Cloudflare-Connector konnte nicht gestartet werden. Docker, Speicher und Internetzugang prüfen.',
+                    'connecting': 'Keine Verbindung zu Cloudflare bestätigt. Tunnel-Token und ausgehenden TCP/UDP-Port 7844 prüfen.',
+                    'configuring': 'Der lokale Tunnel-Zugang konnte nicht aktiviert werden. Proxy und Firewall prüfen.',
+                    'checking': 'Die abschließende Verbindungsprüfung konnte nicht ausgeführt werden.'}
+                message = messages[phase] + (' Bisheriger Token und Connector-Zustand wurden wiederhergestellt.' if existing and restored else '')
+                if not restored:
+                    message += ' Wiederherstellung der Tunnel-Einstellungen unvollständig; App-, Proxy- und Firewallstatus prüfen.'
+                self._remote_setup_update('failed', message)
+                raise Error(message, 503) from None
+            finally:
+                self._remote_setup_active = False
 
     def _connector_settings(self, connector):
         if not connector:
@@ -225,6 +380,9 @@ class RemoteAccessMixin:
                                       **(self._connector_settings(connector) if enabled else {'sources': [], 'interface': '', 'service_url': ''})})
             self.web_access.save_remote(remote, expected_revision)
             self.save('remote-diagnosis', {})
+            from .cloudflare_tunnel import CONNECTOR
+            if connector == CONNECTOR and enabled and self.load('remote-tunnel-setup', {}):
+                self._remote_setup_update('needs_route', 'Lokaler Tunnel-Zugang gespeichert. Öffentliche Cloudflare-Route mit „Verbindung prüfen“ bestätigen.')
             return self.op_remote_access()
 
     def op_remote_access_diagnose(self):
@@ -265,4 +423,10 @@ class RemoteAccessMixin:
                   'connected': public['ok'], 'message': public['message']}
         if self.web_access.config()['revision'] == config['revision']:
             self.save('remote-diagnosis', result)
+            from .cloudflare_tunnel import CONNECTOR
+            if (remote['enabled'] and remote['connector'] == CONNECTOR and self.load('remote-tunnel-setup', {})
+                    and not getattr(self, '_remote_setup_active', False)):
+                self._remote_setup_update('ready' if public['ok'] else 'needs_route',
+                    'Tunnel und öffentlicher Titan-Zugang sind geprüft.' if public['ok'] else
+                    'Die öffentliche Cloudflare-Route ist noch nicht bestätigt. Hostname und HTTP-Ziel im Cloudflare-Konto prüfen.')
         return result

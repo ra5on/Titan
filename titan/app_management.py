@@ -592,6 +592,9 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             return _run(["docker", "compose", "--project-name", "titan-" + app, "-f", str(path), *options], timeout=timeout)
         try:
             command = arguments[0] if arguments else None
+            if command in ('up', 'restart', 'create') and app == 'titan-cloudflared':
+                from .cloudflare_tunnel import prepare_runtime
+                prepare_runtime(self, record)
             if command in ("up", "restart", "create"): invoke("config", "--quiet")
             if command in ("up", "restart", "create"):
                 # Compose's Mount API drops SELinux Z when create_host_path is

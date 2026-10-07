@@ -1,11 +1,11 @@
 /* Shared DSM-style administration rhythm; each application owns its panes. */
 :root{--app-radius:5px;--app-space:16px;--app-control:34px}
-.nas-window-content{color:#354454;font-size:13px;line-height:1.5;min-width:0;scrollbar-width:thin}
+.nas-window-content{color:var(--text);font-size:13px;line-height:1.5;min-width:0;scrollbar-width:thin}
 .nas-window-content :is(h1,h2,h3){letter-spacing:0;line-height:1.35}
 .nas-window-content>.page-heading{margin:0 0 14px;padding-bottom:12px;align-items:center;gap:10px}
 .nas-window-content>.page-heading h1{font-size:20px}.nas-window-content>.page-heading .subtitle{font-size:12px;max-width:none;margin:5px 0 0}
 .nas-window-content>.page-heading .eyebrow{display:none}
-.nas-window-content .panel{border-radius:5px;box-shadow:none;background:#fff;min-width:0;padding:16px}
+.nas-window-content .panel{border-radius:5px;box-shadow:none;background:var(--panel);min-width:0;padding:16px}
 .nas-window-content :is(.panel-heading,.section-heading){gap:10px;flex-wrap:wrap}.nas-window-content .panel-heading h2{font-size:15px;margin:0}
 .nas-window-content :is(.button,input:not([type=checkbox],[type=radio]),select,textarea){border-radius:4px;font-size:12px;min-height:34px}
 .nas-window-content .button{padding:6px 12px;box-shadow:none}.nas-window-content .button.small{padding:5px 10px}
@@ -17,9 +17,9 @@
 html[data-desktop-embedded=true] #shell[data-page] .nas-window-content:has(.fb-browser,.mv-manager,.engine-workbench,.storage-workspace){padding:0;display:flex;flex-direction:column;overflow:hidden}
 #shell .nas-window-content:has(.fb-browser,.mv-manager,.engine-workbench,.storage-workspace)>.page-heading{display:none}
 .cp-sidebar a{border-radius:0;font-size:13px;min-height:38px}.cp-sidebar .cp-nav-icon{width:19px;height:19px}.cp-content{min-width:0}.cp-content .cp-page-title{font-size:18px}
-.nas-window-content .service-card{background:#fff;border-color:#d9e2ec;border-radius:4px;color:#354454}.nas-window-content .service-list{border-color:#d9e2ec}.nas-window-content .service-card small{color:#7a899b}
+.nas-window-content .service-card{background:var(--panel);border-color:var(--line);border-radius:4px;color:var(--text)}.nas-window-content .service-list{border-color:var(--line)}.nas-window-content .service-card small{color:var(--muted)}
 #dialog .um-tabs{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}#dialog .um-tabs button{flex:1;min-width:0;white-space:normal;padding:7px 9px}
-.nas-window-content :is(button,a,input,select,textarea):focus-visible{outline:2px solid #1685d5;outline-offset:2px}
+.nas-window-content :is(button,a,input,select,textarea):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 @media(max-width:760px){
  :root{--app-space:12px;--app-control:42px}
  html[data-desktop-embedded=true] #shell .nas-window-content{padding:12px}

@@ -104,6 +104,21 @@ PACKAGES = {
   note='Mindestens 8 GB freier Arbeitsspeicher empfohlen. Nextcloud und Office werden lokal über HTTP angeboten; für Internetzugriff beide Dienste hinter einem HTTPS-Reverse-Proxy betreiben.', provision='nextcloud-office')
 }
 
+PACKAGES['titan-cloudflared'] = recipe('Cloudflare Tunnel', 'Netzwerk',
+    'Titan über einen vorhandenen Cloudflare Tunnel erreichen. Einrichtung unter Einstellungen → Fernzugriff.',
+    'cloudflared', {'cloudflared': {
+        'image': 'cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07',
+        'command': ['tunnel', '--no-autoupdate', '--metrics', '127.0.0.1:5103', 'run', '--token-file', '/etc/cloudflared/token'],
+        'mounts': [{'slot': 'credentials', 'target': '/etc/cloudflared', 'readonly': True}],
+        'user': '0:0', 'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true']
+    }}, 0, 0, '256m', [{'key': 'tunnel_token', 'label': 'Cloudflare Tunnel-Token', 'type': 'password',
+        'required': True, 'min_length': 80, 'max_length': 4096, 'pattern': '[A-Za-z0-9+/]+={0,2}',
+        'help': 'Nur den Tunnel-Token (eyJ…) einfügen. Wird ausschließlich in privaten App-Dateien gespeichert.'}],
+    'https://developers.cloudflare.com/tunnel/get-started/',
+    'Kein zusätzliches Passwort. Titan-Anmeldung und deren Sicherheitsregeln bleiben erhalten. Tunnel-Token unter Einstellungen → Fernzugriff einrichten oder ersetzen.',
+    web_available=False, default_network='host',
+    note='Kein eigener Webport. HTTP-Ziel für die öffentliche Titan-Route: http://127.0.0.1:5102. Die öffentliche Route im Cloudflare-Konto einrichten; ein Tunnel-Token kann DNS und Routen nicht bearbeiten.')
+
 # Every secondary publication is editable before installation and registered for
 # conflict checks. DNS TCP and UDP default to the same host port on separate protocols.
 for package in PACKAGES.values():
@@ -151,6 +166,7 @@ RESOURCE_LIMITS = {
     },
     'titan-adguard': {'balanced': {'adguard': '512m'}, 'performance': {'adguard': '512m'}},
     'titan-pihole': {'balanced': {'pihole': '512m'}, 'performance': {'pihole': '512m'}},
+    'titan-cloudflared': {'balanced': {'cloudflared': '256m'}, 'performance': {'cloudflared': '256m'}},
 }
 
 for package in PACKAGES.values():

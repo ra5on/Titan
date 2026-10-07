@@ -28,10 +28,10 @@ class Element {
 }
 function fixture(){
  const doc=new Element(null,'document');doc.ownerDocument=doc;doc.body=new Element(doc,'body');doc.append(doc.body);doc.activeElement=doc.body;doc.createElement=tag=>new Element(doc,tag);doc.hidden=false;
- const win=new Element(doc,'window');doc.defaultView=win;win.innerWidth=1000;win.innerHeight=800;win.opened=[];win.open=(...args)=>win.opened.push(args);win.ResizeObserver=class{observe(){}disconnect(){}};
+ const win=new Element(doc,'window');doc.defaultView=win;win.innerWidth=1000;win.innerHeight=800;win.opened=[];win.open=(...args)=>win.opened.push(args);win.ResizeObserver=class{observe(){}disconnect(){}};win.CustomEvent=class{constructor(type,options={}){this.type=type;Object.assign(this,options);}};
  let now=10000,next=0;const timers=new Map();win.setTimeout=(fn,delay)=>{const id=++next;timers.set(id,{fn,at:now+delay});return id;};win.clearTimeout=id=>timers.delete(id);win.setInterval=()=>++next;win.clearInterval=()=>{};
  const advance=ms=>{now+=ms;for(const [id,value]of [...timers])if(value.at<=now){timers.delete(id);value.fn();}};
  doc.dispatch=(target,type,data={})=>{const event={target,type,button:0,isPrimary:true,pointerId:1,pointerType:'mouse',clientX:30,clientY:90,detail:1,defaultPrevented:false,stopped:false,preventDefault(){this.defaultPrevented=true;},stopImmediatePropagation(){this.stopped=true;},...data};const path=[];for(let node=target;node;node=node.parentElement)path.push(node);if(!path.includes(doc))path.push(doc);path.push(win);for(const capture of [true,false])for(const node of capture?[...path].reverse():path){event.currentTarget=node;for(const {fn,capture:cap}of node.events.get(type)||[])if(cap===capture){fn(event);if(event.stopped)return event;}}return event;};
- doc.elementFromPoint=()=>null;const surface=new Element(doc);surface.setAttribute('id','desktop-surface');surface._rect={left:0,top:60,width:900,height:650,right:900,bottom:710};doc.body.append(surface);return {doc,win,surface,advance,now:()=>now,Element};
+ doc.dispatchEvent=event=>doc.dispatch(doc,event.type,{detail:event.detail});doc.elementFromPoint=()=>null;const surface=new Element(doc);surface.setAttribute('id','desktop-surface');surface._rect={left:0,top:60,width:900,height:650,right:900,bottom:710};doc.body.append(surface);return {doc,win,surface,advance,now:()=>now,Element};
 }
 module.exports={fixture,Element};

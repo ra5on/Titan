@@ -1,6 +1,6 @@
 /* Original Titan palette. App contents stay opaque; glass belongs to desktop chrome. */
-:root,html[data-color-theme=light]{--bg:#eef2f8;--panel:#fff;--panel-soft:#f4f6fb;--surface-0:#eef2f8;--text:#26344b;--muted:#61728a;--line:#dce3ed;--border:#dce3ed;--accent:#356bc7;--purple:#356bc7;--green:#16856b;--red:#ba334e;--focus:#356bc7;--theme-hover:#eaf0fa;--theme-selected:#dfebff;--theme-glass:246 249 255;--theme-shadow:#102b4c28;--theme-top:246 249 255;--theme-strong:#193c6b;color-scheme:light}
-html[data-color-theme=dark]{--bg:#151d2b;--panel:#1c2738;--panel-soft:#222f43;--surface-0:#151d2b;--text:#e4ebf8;--muted:#a1b1c7;--line:#35445c;--border:#35445c;--accent:#90baff;--purple:#90baff;--green:#6ed5b7;--red:#ff9bad;--focus:#90baff;--theme-hover:#2b3c56;--theme-selected:#314c75;--theme-glass:25 36 55;--theme-shadow:#03071165;--theme-top:20 30 48;--theme-strong:#c3d8ff;color-scheme:dark}
+:root,html[data-color-theme=light]{--bg:#f1f2f6;--panel:#fff;--panel-soft:#e9ebf2;--surface-0:#f1f2f6;--text:#272b3b;--muted:#686d80;--line:#d5d8e3;--border:#d5d8e3;--accent:#6257d8;--purple:#6257d8;--green:#147451;--red:#b22c4d;--focus:#6257d8;--theme-hover:#e6e4f6;--theme-selected:#dedbf5;--theme-glass:247 247 253;--theme-shadow:#1a163629;--theme-top:245 245 252;--theme-strong:#443995;--primary-bg:#6257d8;--primary-text:#fff;--success:#147451;--success-bg:#e4f4ed;--warning:#8b550c;--warning-bg:#fff1d7;--danger:#b22c4d;--danger-bg:#fbe5eb;--info:#365eb5;--info-bg:#e6edfb;color-scheme:light}
+html[data-color-theme=dark]{--bg:#181a24;--panel:#232633;--panel-soft:#1e212d;--surface-0:#181a24;--text:#edeef8;--muted:#a4a8bd;--line:#363a4d;--border:#363a4d;--accent:#b5adff;--purple:#b5adff;--green:#a0dfc8;--red:#ffa8b8;--focus:#b5adff;--theme-hover:#303344;--theme-selected:#3e365b;--theme-glass:25 27 40;--theme-shadow:#03040c65;--theme-top:22 24 36;--theme-strong:#ded8ff;--primary-bg:#7362c6;--primary-text:#fff;--success:#a0dfc8;--success-bg:#213c36;--warning:#f2c47e;--warning-bg:#3d3427;--danger:#ffa8b8;--danger-bg:#422d38;--info:#a9c3ff;--info-bg:#29364c;color-scheme:dark}
 html[data-color-theme] body{background:var(--bg);color:var(--text)}
 html[data-color-theme] #shell[data-desktop=true]{background:radial-gradient(ellipse at 80% 10%,#bbd9fb 0,transparent 56%),radial-gradient(ellipse at 5% 95%,#c6c8ed 0,transparent 55%),linear-gradient(125deg,#d8e3f5,#b8cae5)}
 html[data-color-theme=dark] #shell[data-desktop=true]{background:radial-gradient(ellipse at 85% 10%,#20466c 0,transparent 55%),radial-gradient(ellipse at 10% 90%,#3a335d 0,transparent 55%),linear-gradient(125deg,#101827,#142438)}
@@ -37,15 +37,16 @@ html[data-color-theme] .desktop-account{width:292px;padding:8px}.desktop-account
 html[data-color-theme] :is(.desktop-search input,.desktop-preferences select,.desktop-folder-dialog input){background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:9px}
 html[data-color-theme] .desktop-menu-dialog::backdrop{background:#09182f40;backdrop-filter:blur(5px)}
 html[data-color-theme=dark] .desktop-menu-dialog::backdrop{background:#02071270}
-/* Shared semantic surfaces also cover legacy application components. */
-html[data-color-theme] #shell[data-page] :is(.nas-window,.nas-window-content,.mv-manager,.mv-workspace,.mv-content,.engine-workbench,.engine-main,.storage-main,.cp-content,.package-center,.um-manager,.um-content,.fb-workspace,.fb-table-wrap){background:var(--bg);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.panel,.service-card,.app-card,.sc-category-tile,.vm-card,.vm-tile,.vm-details-card,.mv-vm-card,.mv-card,.mv-empty,.um-user-card,.um-inspector,.storage-card,.storage-details,.storage-pool,.storage-drive,.engine-group,.engine-service-row,.engine-inspector,.engine-summary article,.engine-metric,.engine-metrics article,.engine-stats article,.engine-table,.engine-log-empty,.package-card,.pc-card,.pc-details,.cp-panel,.fb-row,.fb-grid-item){background:var(--panel);color:var(--text);border-color:var(--line);border-radius:9px}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-sidebar,.mv-sidebar,.storage-sidebar,.engine-navigation,.um-sidebar,.um-navigation,.fb-places,.fb-splitter,.fb-toolbar,.fb-status,.fb-table thead,.um-toolbar,.mv-toolbar,.engine-group>summary,.engine-group-toolbar,.engine-standalone-title,.engine-inspector-header,.engine-footer,.service-list,.sc-search,.package-toolbar,.pc-toolbar,.pc-sidebar,.vm-detail-header){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(h1,h2,h3,h4,.mv-brand,.mv-toolbar-title,.mv-section-title h2,.engine-name,.engine-group>summary>strong,.vm-tile-name,.vm-name,.sc-category-tile strong,.storage-title,.um-name,.fb-name,.row-main strong){color:var(--text)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.hint,.subtitle,.mv-section-title p,.mv-toolbar-title>span,.mv-side-foot,.engine-scope-label,.engine-feedback,.engine-footer,.engine-group>summary>span:last-child,.engine-service-meta,.sc-result-count,.storage-hint,.um-subtitle,.um-meta,.fb-places h3,.fb-place-note,.fb-folder-tree>summary,.fb-status,.service-card small,.app-card p,.stat-card small){color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-sidebar a,.mv-tabs>button,.mv-side-button,.mv-side-link,.storage-sidebar button,.engine-navigation .button,.um-sidebar button,.fb-place){background:transparent;color:var(--muted);border-color:transparent}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-sidebar a,.mv-tabs>button,.mv-side-button,.mv-side-link,.storage-sidebar button,.engine-navigation .button,.um-sidebar button,.fb-place):hover{background:var(--theme-hover);color:var(--text)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-sidebar a.active,.cp-sidebar a[aria-current],.mv-tabs>button[aria-selected=true],.engine-navigation .button[aria-selected=true],.storage-sidebar button[aria-selected=true],.fb-place.active,.um-sidebar button[aria-selected=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
+/* Temporary palette bridges for VM and file components that still own legacy colors.
+   Settings, Docker, packages, storage and account components consume semantic variables directly. */
+html[data-color-theme] #shell[data-page] :is(.mv-manager,.mv-workspace,.mv-content,.fb-workspace,.fb-table-wrap){background:var(--bg);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.vm-card,.vm-tile,.vm-details-card,.mv-vm-card,.mv-card,.mv-empty,.fb-row,.fb-grid-item){background:var(--panel);color:var(--text);border-color:var(--line);border-radius:9px}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-sidebar,.fb-places,.fb-splitter,.fb-toolbar,.fb-status,.fb-table thead,.mv-toolbar,.vm-detail-header){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-brand,.mv-toolbar-title,.mv-section-title h2,.vm-tile-name,.vm-name,.fb-name){color:var(--text)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-section-title p,.mv-toolbar-title>span,.mv-side-foot,.fb-places h3,.fb-place-note,.fb-folder-tree>summary,.fb-status){color:var(--muted)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-tabs>button,.mv-side-button,.mv-side-link,.fb-place){background:transparent;color:var(--muted);border-color:transparent}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-tabs>button,.mv-side-button,.mv-side-link,.fb-place):hover{background:var(--theme-hover);color:var(--text)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-tabs>button[aria-selected=true],.fb-place.active){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
 html[data-color-theme] #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout]>.mv-sidebar{background:var(--panel-soft);border-color:var(--line)}
 html[data-color-theme] #shell[data-page=vms] .mv-manager[data-manager=vms][data-sidebar-layout] .mv-tabs>button[aria-selected=true]{background:var(--theme-selected);color:var(--theme-strong);border-left-color:var(--accent)}
 html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] :is(.mv-content,.vm-machine-workspace,.vm-master-pane,.vm-selected-pane,.vm-extension-detail,.vm-detail-content){background:var(--bg);color:var(--text)}
@@ -56,63 +57,23 @@ html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[dat
 html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-list-row:hover{background:var(--theme-hover);border-color:var(--accent)}
 html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-extension-detail>.manager-tabs .button{background:transparent;color:var(--muted)}
 html[data-color-theme] #shell[data-page=vms] .nas-window-content .mv-manager[data-manager=vms] .vm-extension-detail>.manager-tabs .button[aria-selected=true]{background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(input:not([type=checkbox],[type=radio],[type=range]),select,textarea),html[data-color-theme] :is(#dialog,.widget-settings,.desktop-account) :is(input:not([type=checkbox],[type=radio],[type=range]),select,textarea){background:var(--panel);color:var(--text);border-color:var(--line);border-radius:8px}
-html[data-color-theme] :is(input,textarea)::placeholder{color:var(--muted);opacity:.85}
-html[data-color-theme] :is(input[type=range],input[type=checkbox],progress){accent-color:var(--accent)}
-html[data-color-theme] #shell[data-page] .nas-window-content .button,html[data-color-theme] :is(#dialog,.widget-settings,.desktop-menu-dialog,.desktop-folder-dialog) .button{background:var(--panel);color:var(--text);border-color:var(--line);border-radius:8px}
-html[data-color-theme] #shell[data-page] .nas-window-content .button:hover,html[data-color-theme] :is(#dialog,.widget-settings,.desktop-menu-dialog,.desktop-folder-dialog) .button:hover{background:var(--theme-hover);color:var(--theme-strong)}
-html[data-color-theme] #shell[data-page] .nas-window-content .button.primary,html[data-color-theme] :is(#dialog,.widget-settings,.desktop-menu-dialog,.desktop-folder-dialog) .button.primary{background:#356bc7;color:white;border-color:#356bc7}
-html[data-color-theme] #shell[data-page] .nas-window-content .button.danger,html[data-color-theme] #dialog .button.danger{background:var(--panel);color:var(--red);border-color:var(--red)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(table,td,th,.health-row,.service-list,.service-card,.mv-side-actions,.mv-tabs,.engine-inspector-scroll,.engine-inspector-header,.engine-service-row,.engine-group-toolbar,.fb-toolbar,.fb-status,.um-tabs,.sc-save-actions){border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(th,thead){background:var(--panel-soft);color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.file-row,.engine-service-row,.um-user-row,.sc-category-tile):hover{background:var(--theme-hover)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-side-actions,.mv-tabs,.fb-toolbar,.fb-status){border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.file-row):hover{background:var(--theme-hover)}
 html[data-color-theme] #shell[data-page] .nas-window-content .fb-row[aria-selected=true]{background:var(--theme-selected)}
-html[data-color-theme] #dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;box-shadow:0 22px 65px var(--theme-shadow)}
-html[data-color-theme] #dialog :is(.dialog-header,.dialog-heading,.form-actions,.um-tabs,.app-details>div){border-color:var(--line);background:transparent;color:var(--text)}
-html[data-color-theme] #dialog :is(h1,h2,h3,label,.field,.check-label){color:var(--text)}
-html[data-color-theme] #dialog :is(.hint,small,.subtitle){color:var(--muted)}
-html[data-color-theme] :is(.toast,.auth-card){background:var(--panel);color:var(--text);border-color:var(--line)}
-html[data-color-theme] .nas-window-content :is(.notice,.inline-activity){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] .nas-window-content :is(.error-text,.engine-feedback.is-error){color:var(--red)}
 html[data-color-theme] .desktop-search{color:var(--muted)}
 html[data-color-theme][data-desktop-embedded=true] #shell>.workspace{background:var(--bg)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(h1,h2,h3,h4,strong,td,dd,label){color:var(--text)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(small,dt,.engine-nav-heading,.engine-summary article small,.engine-service-name small,.engine-name small,.catalog-status small,.catalog-card p,.catalog-card small,.catalog-commandbar #catalog-count,.um-description,.um-info dt,.um-list-footer,.um-footnote,.storage-navigation-note,.storage-area-help,.storage-properties dt){color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-toolbar,.engine-feedback,.engine-shortcuts>a,.engine-shortcuts>button,.engine-overview-links>a,.engine-overview-links>button,.engine-quick-links>a,.engine-quick-links>button,.sl-toolbar,.catalog-commandbar,.catalog-commandbar>.search,.catalog-filters,.catalog-status,.fb-address,.fb-selection,.fb-inspector,.fb-inline-preview,.fb-new-menu,.fb-layout-menu,.um-detail,.um-filters,.um-list-footer,.storage-navigation,.storage-toolbar,.storage-disk-details,.storage-partition-details,.storage-smart-details,.storage-volume,.storage-dataset,.storage-snapshot){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-overview-links,.engine-shortcuts,.engine-quick-links)>:is(button,a){background:var(--panel);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.sl-nav button,.storage-navigation button){background:transparent;color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.sl-nav button[aria-current=page],.storage-navigation button[aria-selected=true],.storage-navigation button.active,.um-table tr.is-selected td,.fb-entry.selected,.fb-side-choice button[aria-pressed=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.sl-nav button,.storage-navigation button,.fb-entry):hover{background:var(--theme-hover);color:var(--text)}
-html[data-color-theme=dark] #shell[data-page] .nas-window-content .catalog-status.is-error{background:#44351f;color:#f1c674}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-address,.fb-selection,.fb-inspector,.fb-inline-preview,.fb-new-menu,.fb-layout-menu){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-entry.selected,.fb-side-choice button[aria-pressed=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-entry):hover{background:var(--theme-hover);color:var(--text)}
 html[data-color-theme]{--surface-soft:var(--panel-soft);--surface-alt:var(--panel-soft);--surface-muted:var(--panel-soft)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.stat-card,.code,.package-summary,.backup-stepper,.metrics-io-panel,.cp-view-switch,.cp-favorite-link){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.field label,.switch-row strong,.cp-icon-grid a strong,.cp-page-title,.stat-card strong){color:var(--text)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.field small,.switch-row small,.cp-sidebar h2,.cp-icon-grid small,.engine-nav-heading strong){color:var(--muted)}
-html[data-color-theme=dark] :is(.nas-window-content,#dialog) .pill{background:#1e493f;color:#94e1ca;border-color:#35675a}
-html[data-color-theme=dark] :is(.nas-window-content,#dialog) .pill.gray{background:#304057;color:#c0cee1;border-color:#40516a}
-html[data-color-theme=dark] :is(.nas-window-content,#dialog) .pill.purple{background:#36365f;color:#c9c4ff;border-color:#535078}
-html[data-color-theme=dark] :is(.nas-window-content,#dialog) .pill.red{background:#552c3b;color:#ffb4c3;border-color:#784052}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-log,.engine-object-status,.network-selected-detail,.storage-health-summary,.storage-area-list,.storage-drive-list,.cp-window,.cp-toolbar,.cp-content .sc-save-actions,.update-stream-versions div,.update-package-summary,.remote-checks,.fb-system-note,.fb-inline-preview pre){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-service-network,.network-manager,.network-select,.storage-usage-row,.storage-drive-summary,.storage-capacity strong,.storage-properties dd,.storage-drive-capacity strong,.um-info dd,.fb-name-button,.fb-view-controls button){color:var(--text)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.engine-resource-list small,.engine-details dt,.catalog-login-summary,.um-role,.um-user small,.um-detail-heading p,.sc-category-copy>span,.update-stream-versions dt,.update-stream-versions small,.fb-inspector dt,.fb-size,.fb-type,.fb-modified){color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.network-table tr.is-selected td,.storage-area-choice[aria-pressed=true],.cp-view-switch button[aria-pressed=true],.fb-view-controls button[aria-pressed=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.network-table tr:hover td,.um-table tr:hover td,.cp-tile:hover){background:var(--theme-hover);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #dialog :is(.um-permission,.um-detail,.update-package-summary){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme=dark] :is(.nas-window-content,#dialog) :is(.storage-health-summary.warning,.security-check){background:#44351f;color:#f1c674}
-html[data-color-theme=dark] :is(.nas-window-content,#dialog) .security-check.is-good{background:#1e493f;color:#94e1ca}
-html[data-color-theme=dark] :is(.nas-window-content,#dialog) .um-status{background:#1e493f;color:#94e1ca}
-html[data-color-theme=dark] :is(.nas-window-content,#dialog) .um-status.is-blocked{background:#552c3b;color:#ffb4c3}
-html[data-color-theme] #shell[data-page] .engine-navigation .button small{background:var(--theme-selected);color:var(--theme-strong)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.root-access-bar,.fb-filter-row,.fb-filters,.fb-view-controls){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.cp-category h2,.mv-side-actions,.storage-navigation,.um-table td,.fb-table td){border-color:var(--line)}
-html[data-color-theme=dark] #shell[data-page] .nas-window-content .root-access-bar.is-root{background:#44351f;color:#f1c674}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-system-note,.fb-inline-preview pre){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-name-button,.fb-view-controls button){color:var(--text)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-inspector dt,.fb-size,.fb-type,.fb-modified){color:var(--muted)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-view-controls button[aria-pressed=true]){background:var(--theme-selected);color:var(--theme-strong);border-color:var(--accent)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.fb-filter-row,.fb-filters,.fb-view-controls){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-side-actions,.fb-table td){border-color:var(--line)}
 html[data-color-theme] #shell[data-page] .nas-window-content .fb-view-controls button:not([aria-pressed=true]){background:var(--panel);color:var(--muted)}
-html[data-color-theme] #shell[data-page] .nas-window-content :is(.storage-health-summary p,.storage-brand,.engine-overview-heading p,.mv-empty p,.um-detail-heading p){color:var(--muted)}
-html[data-color-theme] #dialog :is(.dialog-title,.app-login-panel,.code,.um-permission,.app-login-values>div){background:var(--panel-soft);color:var(--text);border-color:var(--line)}
-html[data-color-theme] #dialog :is(.app-login-panel p,.app-login-panel .hint,.app-details small,.field small){color:var(--muted)}
-html[data-color-theme] #dialog :is(.app-details p,.app-login-values dd,.field label){color:var(--text)}
-html[data-color-theme] #dialog :is(strong,legend){color:var(--text)}
-html[data-color-theme] :is(.nas-window-content,#dialog) .text-link{color:var(--accent)}
+html[data-color-theme] #shell[data-page] .nas-window-content :is(.mv-empty p){color:var(--muted)}
 /* Long management dialogs scroll as one document, including heading and actions. */
 #dialog:not(:has([data-file-editor-form])) .dialog-title{position:static;top:auto;padding:0 0 12px;margin-bottom:14px;background:transparent}
 #dialog:not(:has([data-file-editor-form])) .form-actions{position:static;bottom:auto;z-index:auto;padding:8px 0 0;background:transparent}
@@ -125,3 +86,30 @@ html[data-color-theme] *{scrollbar-color:var(--line) transparent}
 @media(hover:hover){html[data-color-theme] .desktop-menu-more{opacity:0}html[data-color-theme] .desktop-menu-entry:hover .desktop-menu-more,html[data-color-theme] .desktop-menu-entry:focus-within .desktop-menu-more{opacity:1}}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){html[data-color-theme] :is(.desktop-window,.desktop-window-titlebar,.desktop-menu-dialog,.desktop-account,.shortcut-context,.desktop-folder-dialog,.widget-settings,.desktop-widget){background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}html[data-color-theme] #shell[data-desktop=true] .topbar{background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html[data-color-theme] :is(.desktop-window-titlebar,.desktop-menu-dialog,.desktop-account,.shortcut-context,.desktop-folder-dialog,.widget-settings,.desktop-widget){background:var(--panel)}html[data-color-theme] #shell[data-desktop=true] .topbar{background:var(--panel)}}
+
+/* Shared semantic colors are consumed by components in both modes. */
+:root{--hover:var(--theme-hover);--selected:var(--theme-selected);--selected-text:var(--theme-strong);--focus-ring:color-mix(in srgb,var(--accent) 24%,transparent)}
+/* Personal controls are a compact panel, without native fieldset outlines. */
+html[data-color-theme] .desktop-account{width:310px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 65%,transparent);border-radius:20px;box-shadow:0 22px 70px var(--theme-shadow)}
+.desktop-account-header{display:flex;align-items:center;gap:11px;padding:10px 9px 15px;border-bottom:1px solid var(--line)}
+.desktop-account-avatar{display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:12px;background:var(--selected);color:var(--selected-text);font-size:16px;font-weight:700}
+.desktop-account-header strong{display:block;font-size:14px;color:var(--text)}
+.desktop-account-header small{display:block;margin-top:3px;color:var(--muted);font-size:11px}
+html[data-color-theme] .desktop-account .desktop-preferences{border:0;margin:0;padding:15px 9px 12px;min-width:0;background:transparent}
+.desktop-preferences-title{display:block;font-size:12px;margin-bottom:10px;color:var(--text)}
+.desktop-account .desktop-mode-choices{display:flex;gap:5px;padding:4px;border-radius:12px;background:var(--panel-soft);border:1px solid var(--line)}
+html[data-color-theme] .desktop-account .desktop-mode-choices button{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:auto;min-height:60px;padding:7px 4px;border:0;border-radius:9px;font-size:11px;text-align:center;color:var(--muted);background:transparent}
+.desktop-mode-choices button>span{font-size:21px;line-height:1.2}
+html[data-color-theme] .desktop-account .desktop-mode-choices button[aria-pressed=true]{color:var(--selected-text);background:var(--panel);box-shadow:0 2px 8px var(--theme-shadow);font-weight:650}
+html[data-color-theme] .desktop-account .desktop-mode-choices button:hover{color:var(--text);background:var(--hover)}
+.desktop-account .desktop-transparency-label{margin:17px 0 0}
+.desktop-account .desktop-transparency-label input{display:block;height:24px;min-height:24px;margin:6px 0 0}
+.desktop-range-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:17px}
+.desktop-account .desktop-account-actions{border-top:1px solid var(--line);padding:6px 0}
+.desktop-account .desktop-account-actions button{font-size:12px;min-height:39px;padding:9px;border-radius:9px}
+html[data-color-theme] .desktop-account .desktop-account-actions button:hover{background:var(--hover)}
+.desktop-menu-tools{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.desktop-menu-tools .button{font-size:12px;min-height:36px;padding:7px 10px;background:var(--panel-soft);color:var(--text);border:1px solid var(--line)}
+.desktop-menu-tools .desktop-menu-close{width:36px;padding:4px;font-size:24px;line-height:1}
+.desktop-menu-heading>div>p{margin:5px 0 0;color:var(--muted);font-size:12px}
+@media(max-width:540px){.desktop-menu-heading{align-items:flex-start;flex-wrap:wrap}.desktop-menu-tools{width:100%;justify-content:flex-start}.desktop-menu-tools .desktop-menu-close{margin-left:auto}.desktop-account{max-width:calc(100vw - 16px)}}

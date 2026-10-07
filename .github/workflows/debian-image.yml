@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.5.6 with personal light/dark themes, movable widgets and compact app workspaces.
+# Build Titan 0.5.7 with coherent themes, individual widget gallery and direct-token Cloudflare setup.
 on:
   workflow_dispatch:
   push:

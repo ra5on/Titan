@@ -18,6 +18,10 @@ class PackagesTests(unittest.TestCase):
 
     def options(self, name):
         user = {field['key']: 'UserPassword12345' for field in PACKAGES[name]['install_schema'] if field['type'] == 'password' and not field.get('generated')}
+        if name == 'titan-cloudflared':
+            import base64
+            user['tunnel_token'] = base64.b64encode(json.dumps({'a': 'a' * 32, 't': '2c9069cd-5cf1-470f-9ddd-df156d3f2c57',
+                's': base64.b64encode(b'example-secret-for-tests-only-123').decode()}).encode()).decode()
         if name == 'titan-nextcloud-office':
             user['office_mode'] = 'enabled'
         return validate_options(name, prepare_options(name, user))
@@ -26,7 +30,7 @@ class PackagesTests(unittest.TestCase):
         self.assertFalse(set(PACKAGES) & {item['id'] for item in catalog()['apps']})
         public = [item for item in catalog(include_legacy=True)['apps'] if item['id'] in PACKAGES]
         self.assertEqual({item['id'] for item in public}, set(PACKAGES))
-        self.assertEqual(len(public), 4)
+        self.assertEqual(len(public), len(PACKAGES))
         for item in public:
             self.assertNotIn('stack', item)
             self.assertNotIn('environment', item)

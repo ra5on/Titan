@@ -56,7 +56,7 @@ class WebAccessTests(unittest.TestCase):
         self.assertIn('http://192.168.10.18 {', text)
         self.assertIn('redir https://192.168.10.18{uri} 308', text)
         self.assertIn('header_up Host 192.168.10.18', text)
-        self.assertEqual(reserved_ports(self.manager.path), {80, 443, 5001, 5101, 5102})
+        self.assertEqual(reserved_ports(self.manager.path), {80, 443, 5001, 5101, 5102, 5103})
 
     def test_custom_ports_old_endpoint_survives_until_confirmation(self):
         result = self.apply(http_port=8080, https_port=8443)
@@ -102,7 +102,7 @@ class WebAccessTests(unittest.TestCase):
         self.occupied = {8080}
         with self.assertRaisesRegex(Error, 'bereits verwendet'):
             self.apply(http_port=8080)
-        for value in (True, 0, 65536, 5001, 5101, 5102, '443'):
+        for value in (True, 0, 65536, 5001, 5101, 5102, 5103, '443'):
             with self.assertRaises(Error):
                 self.apply(https_port=value)
         with self.assertRaises(Error):
