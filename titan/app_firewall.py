@@ -55,7 +55,15 @@ def lan_scopes():
                 scopes.append((str(value.network), value.version, str(value.ip)))
         if not scopes:
             continue
-        zone = _run(['firewall-cmd', '--get-zone-of-interface=' + interface], timeout=3).strip()
+        try:
+            zone = _run(['firewall-cmd', '--get-zone-of-interface=' + interface], timeout=3).strip()
+        except Error as exc:
+            # firewalld versions differ: an unassigned interface may print
+            # "no zone" with a nonzero exit status. It still uses the default
+            # zone; permission/DBus/other failures must not be mistaken for it.
+            if str(exc).strip() != 'no zone':
+                raise
+            zone = 'no zone'
         if zone in ('', 'no zone'):
             if default is None:
                 default = _run(['firewall-cmd', '--get-default-zone'], timeout=3).strip()

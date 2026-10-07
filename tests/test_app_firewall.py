@@ -3,7 +3,7 @@ import copy
 import json
 import unittest
 from unittest.mock import patch
-from titan.app_firewall import reconcile
+from titan.app_firewall import reconcile, lan_scopes
 from titan.core import Error
 
 
@@ -63,6 +63,46 @@ class AppFirewallTests(unittest.TestCase):
         self.assertFalse(any('203.0.113' in rule or '172.17' in rule for rule in self.runtime))
         self.assertFalse(any('--reload' in args or '--runtime-to-permanent' in args or '--add-port' in ' '.join(args) for args in self.calls))
         self.assertTrue(all('--zone=home' in args for args in self.calls if any('rich-rule=' in arg for arg in args)))
+
+    def test_unassigned_interface_uses_default_zone_for_all_cli_absence_variants(self):
+        base = self.command
+        self.addresses.append({'ifname': 'titan-ci0', 'addr_info': [{'local': '10.254.254.1', 'prefixlen': 30}]})
+        for absent in ('', 'no zone', Error('no zone\n')):
+            with self.subTest(absent=str(absent)):
+                self.calls.clear()
+                def command(args, **kwargs):
+                    if '--get-zone-of-interface=enp1s0' in args:
+                        self.calls.append(args)
+                        if isinstance(absent, Error): raise absent
+                        return absent
+                    if '--get-default-zone' in args:
+                        self.calls.append(args)
+                        return 'public\n'
+                    return base(args, **kwargs)
+                with patch('titan.app_firewall._run', side_effect=command):
+                    scopes = lan_scopes()
+                    self.assertEqual({row['zone'] for row in scopes if row['source'] == '192.168.10.0/24'}, {'public'})
+                    self.assertEqual({row['zone'] for row in scopes if row['source'] == '10.254.254.0/30'}, {'home'})
+                    result = reconcile(self.host, 'app:cloudflared-web', [{'host': 14333, 'protocol': 'tcp'}])
+                    self.assertEqual(result['managed_rules'], 3)
+                rules = [args for args in self.calls if any(arg.startswith('--add-rich-rule=') for arg in args)]
+                self.assertTrue(all('--zone=public' in args for args in rules if '192.168.10.0/24' in ' '.join(args)))
+                self.assertTrue(all('--zone=home' in args for args in rules if '10.254.254.0/30' in ' '.join(args)))
+                self.assertFalse(any('source address="0.0.0.0/0"' in ' '.join(args) for args in self.calls))
+                reconcile(self.host, 'app:cloudflared-web', [])
+
+    def test_interface_query_error_does_not_fall_back_or_mutate_rules(self):
+        base = self.command
+        def command(args, **kwargs):
+            if any(arg.startswith('--get-zone-of-interface=') for arg in args):
+                raise Error('DBUS_ERROR: access denied')
+            return base(args, **kwargs)
+        with patch('titan.app_firewall._run', side_effect=command):
+            with self.assertRaisesRegex(Error, 'access denied'):
+                reconcile(self.host, 'app:cloudflared-web', self.ports())
+        self.assertFalse(self.runtime)
+        self.assertFalse(self.permanent)
+        self.assertFalse(any('--get-default-zone' in args for args in self.calls))
 
     def test_existing_user_rules_remain_in_each_scope_and_shared_owner_keeps_access(self):
         reconcile(self.host, 'web', self.ports())
