@@ -3,6 +3,7 @@
 import argparse
 import base64
 import contextlib
+import hashlib
 import importlib.util
 import json
 import os
@@ -57,6 +58,25 @@ def disposable_backup_disk(base, run):
         image.unlink()
 
 
+def nextcloud_license_snapshot(config_root, container):
+    """Check an actual release-provided relative link in the mounted HTML tree."""
+    mounts = [item for item in container.get('Mounts', []) if item.get('Destination') == '/var/www/html']
+    if len(mounts) != 1 or mounts[0].get('Type') != 'bind':
+        raise Error('Nextcloud acceptance needs its managed HTML bind mount.')
+    html = Path(mounts[0]['Source'])
+    if not html.is_relative_to(config_root) or '..' in html.parts:
+        raise Error('Nextcloud HTML mount is outside its managed app configuration.')
+    link = html / 'dist/1404-1404.js.map.license'
+    target = html / 'dist/1404-1404.js.license'
+    if not link.is_symlink() or os.readlink(link) != target.name or target.is_symlink() or not target.is_file():
+        raise Error('Nextcloud release did not contain the expected internal license symlink and regular target.')
+    link_info, target_info = link.lstat(), target.stat()
+    return {'link': str(link), 'target': str(target), 'linkname': os.readlink(link),
+            'link_owner': (link_info.st_uid, link_info.st_gid),
+            'target_permissions': (target_info.st_mode & 0o777, target_info.st_uid, target_info.st_gid),
+            'target_sha256': hashlib.sha256(target.read_bytes()).hexdigest()}
+
+
 def app_backup_restore_smoke(base, host, request, action, ready, app, installed, run, app_port):
     """Real Nextcloud/PostgreSQL restore through production HTTP and Host APIs."""
     config_root = host._app_config_path(app, installed)
@@ -66,6 +86,7 @@ def app_backup_restore_smoke(base, host, request, action, ready, app, installed,
     primary = host._app_container(app, host.managed_app(app))
     if not primary:
         raise Error('Nextcloud primary container is missing before app backup acceptance.')
+    license_before = nextcloud_license_snapshot(config_root, primary)
 
     def occ(*arguments):
         current = host._app_container(app, host.managed_app(app))
@@ -107,6 +128,13 @@ def app_backup_restore_smoke(base, host, request, action, ready, app, installed,
             for path, _, _, _, _ in sentinels:
                 path.write_text('changed-after-backup')
                 path.chmod(0o666)
+            # Mutate the real application-provided link and its regular target;
+            # a successful restore must recover both, including target rights.
+            license_link, license_target = Path(license_before['link']), Path(license_before['target'])
+            license_link.unlink()
+            license_link.symlink_to('changed-after-backup')
+            license_target.write_text('changed-after-backup')
+            license_target.chmod(0o666)
             action('app_action', app=app, action='stop')
             restored = action('backup_app_restore', backup=backup['id'], app=app,
                               confirmation=backup['id'], include_data=True)
@@ -116,6 +144,9 @@ def app_backup_restore_smoke(base, host, request, action, ready, app, installed,
                 raise Error('App restore unexpectedly started a container.')
             if json.loads(private.read_text()) != options_before:
                 raise Error('App restore changed the saved private credentials.')
+            restored_primary = host._app_container(app, host.managed_app(app))
+            if nextcloud_license_snapshot(config_root, restored_primary) != license_before:
+                raise Error('App restore did not recover the real Nextcloud internal link and target permissions/content.')
             for path, value, mode, uid, gid in sentinels:
                 info = path.stat()
                 if path.read_text() != value or (info.st_mode & 0o777, info.st_uid, info.st_gid) != (mode, uid, gid):
@@ -139,7 +170,8 @@ def app_backup_restore_smoke(base, host, request, action, ready, app, installed,
                     raise Error('Restored Nextcloud did not return an installed, usable HTTP status.')
             return {'external_ext4_target': True, 'http_backup_restore': True, 'explicit_user_data': True,
                     'credentials_retained': True, 'unix_permissions_retained': True, 'recovery_retained': True,
-                    'restore_kept_stopped': True, 'nextcloud_database_restored': True, 'restart_http_ready': True}
+                    'restore_kept_stopped': True, 'nextcloud_database_restored': True, 'restart_http_ready': True,
+                    'nextcloud_internal_link_restored': True}
         finally:
             request('/api/backup/settings', previous_settings)
 

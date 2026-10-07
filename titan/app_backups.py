@@ -52,6 +52,48 @@ class AppBackups:
                 (len(parts) == 2 or parts[2:] == ("app.json",) or
                  parts[2] == "config" or parts[2] == "data" and parts[1] in manifest["app_data"]))
 
+    @staticmethod
+    def validate_links(nodes, links):
+        """Resolve archive links without consulting or following host paths.
+
+        Each link stays in its own config/data tree, including through other
+        links and through '..' after a link. Dangling links and loops fail
+        closed. Archive parents are separately required to be real directories.
+        """
+        def reject(message, path):
+            raise Error(message + " Archivpfad: " + json.dumps("/".join(path), ensure_ascii=False))
+
+        def components(target, path):
+            if (not isinstance(target, str) or not target or len(target) > 4096 or
+                    target.startswith("/") or "\\" in target or "\x00" in target):
+                reject("App-Sicherung enthält einen absoluten oder ungültigen Link.", path)
+            return target.split("/")
+
+        for path, target in links.items():
+            root, cursor, pending, expansions = path[:3], list(path[3:-1]), components(target, path), 0
+            if len(path) < 4 or root[0] != "apps" or root[2] not in ("config", "data"):
+                reject("Links sind nur innerhalb ausgewählter App-Verzeichnisse erlaubt.", path)
+            while pending:
+                component, pending = pending[0], pending[1:]
+                if component in ("", "."):
+                    continue
+                if component == "..":
+                    if not cursor:
+                        reject("App-Link verlässt das gesicherte Verzeichnis.", path)
+                    cursor.pop()
+                    continue
+                cursor.append(component)
+                current = root + tuple(cursor)
+                kind = nodes.get(current)
+                if kind == "link":
+                    expansions += 1
+                    if expansions > 40:
+                        reject("App-Sicherung enthält eine Link-Schleife oder zu lange Link-Kette.", path)
+                    cursor.pop()
+                    pending = components(links[current], path) + pending
+                elif kind not in ("directory", "file") or pending and kind != "directory":
+                    reject("App-Link hat kein vorhandenes internes Datei- oder Verzeichnisziel.", path)
+
     def inspect(self, app):
         self.selected([app], [])
         self.host.app_storage_ready(app)
@@ -115,9 +157,9 @@ class AppBackups:
                      "options": snapshot["options"]}
             atomic_json(metadata / "app.json", value)
             self.backups._add_tree(archive, metadata, "apps/" + app, totals, preserve=True)
-            self.backups._add_tree(archive, snapshot["config"], "apps/" + app + "/config", totals, preserve=True)
+            self.backups._add_tree(archive, snapshot["config"], "apps/" + app + "/config", totals, preserve=True, allow_links=True)
             if app in app_data:
-                self.backups._add_tree(archive, snapshot["data"], "apps/" + app + "/data", totals, preserve=True)
+                self.backups._add_tree(archive, snapshot["data"], "apps/" + app + "/data", totals, preserve=True, allow_links=True)
 
     def metadata(self, backup, app):
         result = None

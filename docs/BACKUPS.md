@@ -18,11 +18,15 @@ Freigaben werden während eines Backups nicht vollständig eingefroren. Für kon
 
 Ausgewählte Apps werden für den gesamten Sicherungslauf angehalten. Danach startet Titan nur die zuvor laufenden Dienste wieder. App-Auswahl, ausdrücklich eingeschlossene Nutzdaten, Ziel und Zeitplan stehen in der Zusammenfassung des Assistenten. Große Nutzdaten können entsprechend längere Unterbrechungen verursachen.
 
+Innerhalb eines ausgewählten App-Konfigurations- oder Nutzdatenverzeichnisses bleiben relative symbolische Links erhalten, beispielsweise die Lizenzverweise einer Nextcloud-Installation. Titan folgt ihnen beim Lesen und Schreiben nicht und prüft das vollständige Ziel einschließlich Linkketten und `..`-Komponenten innerhalb desselben gesicherten Verzeichnisses. Absolute, aus dem Verzeichnis führende oder verwaiste Links, Schleifen, Archiv-Hardlinks und Spezialdateien werden abgelehnt. Links zwischen Konfiguration und Nutzdaten sind ebenfalls gesperrt. Freigaben und NAS-Konfigurationsarchive unterstützen weiterhin keine Links. Fehler nennen ausschließlich den betreffenden Archivpfad, keine Linkziele oder Dateiinhalte.
+
 ## Wiederherstellung
 
 **Dateien wiederherstellen** prüft zunächst das Archiv und erstellt einen neuen Ordner in der gewählten Zielfreigabe. Darunter liegen die gesicherten Freigaben. Bestehende Dateien werden nicht überschrieben. Die aktuellen Leser-/Schreiberrechte der Zielfreigabe werden auf die wiederhergestellten Dateien angewendet. Anschließend Inhalt im Dateimanager kontrollieren.
 
 **App wiederherstellen** setzt ausschließlich eine weiterhin installierte, vollständig gestoppte App mit passender Vorlage und identischen tatsächlichen sowie lokal verfügbaren Images zurück. Konfiguration, Datenbanken und gespeicherte Zugangsdaten gehören zusammen; Nutzdaten werden nur nach zusätzlicher Auswahl zurückgesetzt. Unix-Rechte und Eigentümer bleiben erhalten. Die bisherigen Ordner und privaten Optionen bleiben für eine Rücksetzung erhalten, und die neu angelegten Container bleiben gestoppt. Ein Versionswechsel oder eine unvollständige Rücksetzung sperrt den Start. Ablauf, Recovery-Verzeichnisse und Grenzen stehen unter [Speicher, Sicherung und Benachrichtigungen](STORAGE-BACKUP-MONITORING.md).
+
+App-Links werden erst nach sämtlichen normalen Dateien und Verzeichnissen angelegt. Ihr Eigentümer wird ohne Verfolgen des Links gesetzt; Linkziele werden dabei weder geöffnet noch mit veränderten Rechten versehen. Ein Archivpfad darf niemals ein Kind eines Links sein, unabhängig von der Reihenfolge im Archiv.
 
 **Konfiguration exportieren** erzeugt einen privaten Prüfexport auf dem NAS; er wird nicht im Browser heruntergeladen. Der Export enthält Passworthashes und muss vertraulich bleiben.
 

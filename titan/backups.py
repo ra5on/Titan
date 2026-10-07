@@ -464,7 +464,8 @@ class Backups:
                     raise Error("SMB-Zugangsdaten konnten nicht gesichert werden.") from None
         atomic_json(directory / "config.json", data)
 
-    def _add_tree(self, archive, source, prefix, totals, preserve=False):
+    def _add_tree(self, archive, source, prefix, totals, preserve=False, allow_links=False):
+        nodes, links = {}, {}
         with self._data_fd(source) as rootfd:
             def recurse(fd, name):
                 info = os.fstat(fd)
@@ -473,6 +474,7 @@ class Backups:
                 if preserve:
                     node.mode, node.uid, node.gid = stat.S_IMODE(info.st_mode) & 0o777, info.st_uid, info.st_gid
                 archive.addfile(node)
+                nodes[archive_name(name)] = "directory"
                 totals[0] += 1
                 for entry in sorted(os.listdir(fd)):
                     archive_name(entry)
@@ -494,16 +496,35 @@ class Backups:
                             if preserve:
                                 item.mode, item.uid, item.gid = stat.S_IMODE(before.st_mode) & 0o777, before.st_uid, before.st_gid
                             archive.addfile(item, stream)
+                            nodes[archive_name(item.name)] = "file"
                             after = os.fstat(stream.fileno())
                             if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
                                 raise Error("Eine Quelldatei wurde während des Backups geändert; Backup erneut starten.")
                             totals[0] += 1
                             totals[1] += before.st_size
+                    elif allow_links and preserve and stat.S_ISLNK(child.st_mode):
+                        # Read the link itself, never its target. Validation uses
+                        # only the complete snapshot graph after traversal.
+                        target = os.readlink(entry, dir_fd=fd)
+                        after = os.stat(entry, dir_fd=fd, follow_symlinks=False)
+                        if (child.st_dev, child.st_ino, child.st_mode, child.st_ctime_ns) != (after.st_dev, after.st_ino, after.st_mode, after.st_ctime_ns):
+                            raise Error("Ein App-Link wurde während der Sicherung verändert.")
+                        item = tarfile.TarInfo(name + "/" + entry)
+                        item.type, item.linkname, item.mode = tarfile.SYMTYPE, target, 0o777
+                        item.uid, item.gid, item.mtime = child.st_uid, child.st_gid, int(child.st_mtime)
+                        archive.addfile(item)
+                        parts = archive_name(item.name)
+                        nodes[parts], links[parts] = "link", target
+                        totals[0] += 1
                     else:
-                        raise Error("Quelle enthält Links oder Spezialdateien; diese werden aus Sicherheitsgründen nicht gesichert.")
+                        # Archive-relative paths aid diagnosis without exposing
+                        # host paths, file contents or link targets.
+                        raise Error("Quelle enthält einen gesperrten Link oder eine Spezialdatei. Archivpfad: " + json.dumps(name + "/" + entry, ensure_ascii=False))
                     if totals[0] > MAX_ENTRIES or totals[1] > MAX_BYTES:
                         raise Error("Backup überschreitet die Sicherheitsgrenzen.")
             recurse(rootfd, prefix)
+        if links:
+            self.apps.validate_links(nodes, links)
 
     def create(self, shares=None, include_config=None, apps=None, app_data=None):
         with self.lock:
@@ -573,16 +594,18 @@ class Backups:
             raise Error("Backup fehlgeschlagen: " + str(exc)) from exc
 
     def _members(self, archive, manifest):
-        seen, required_directories, size = {}, set(), 0
+        seen, nodes, links, required_directories, size = {}, {}, {}, set(), 0
         vm_members = {("vm",), ("vm", "domain.xml"), ("vm", "disk.qcow2"), ("vm", "nvram.fd")}
         if manifest["type"] == "vm":
             vm_members.update(tuple(disk["archive"].split("/")) for disk in manifest.get("vm_disks", []))
         for member in archive:
             parts = archive_name(member.name)
             ancestors = ["/".join(parts[:index]) for index in range(1, len(parts))]
-            if (member.name in seen or any(seen.get(parent) == "file" for parent in ancestors) or
-                    (member.isfile() and member.name in required_directories) or
-                    not (member.isfile() or member.isdir()) or (member.isdir() and member.size != 0) or member.sparse or
+            app_link = (member.issym() and manifest["type"] == "bundle" and len(parts) >= 4 and
+                        parts[0] == "apps" and parts[2] in ("config", "data"))
+            if (member.name in seen or any(seen.get(parent) in ("file", "link") for parent in ancestors) or
+                    (not member.isdir() and member.name in required_directories) or
+                    not (member.isfile() or member.isdir() or app_link) or (not member.isfile() and member.size != 0) or member.sparse or
                     member.size < 0 or member.size > MAX_BYTES or
                     (manifest["type"] in ("shares", "bundle") and not ((parts[0] == "shares" and len(parts) >= 2 and parts[1] in manifest["shares"]) or
                      (parts[0] == "config" and manifest.get("include_config") and
@@ -592,7 +615,10 @@ class Backups:
                      not 0 <= member.uid < 2**32 - 1 or not 0 <= member.gid < 2**32 - 1 or member.mode & ~0o777)) or
                     (manifest["type"] == "vm" and parts not in vm_members)):
                 raise Error("Archiv enthält unerwartete Pfade, Links oder Spezialdateien.")
-            seen[member.name] = "file" if member.isfile() else "directory"
+            kind = "file" if member.isfile() else "link" if app_link else "directory"
+            seen[member.name], nodes[parts] = kind, kind
+            if app_link:
+                links[parts] = member.linkname
             required_directories.update(ancestors)
             size += member.size
             if len(seen) > MAX_ENTRIES or size > MAX_BYTES or size > manifest["unpacked_bytes"]:
@@ -600,6 +626,8 @@ class Backups:
             yield member, parts
         if len(seen) != manifest["entries"] or size != manifest["unpacked_bytes"]:
             raise Error("Archiv stimmt nicht mit dem Manifest überein.")
+        if links:
+            self.apps.validate_links(nodes, links)
         if manifest["type"] == "bundle":
             for app in manifest["apps"]:
                 prefix = "apps/" + app
@@ -641,7 +669,7 @@ class Backups:
     def _extract(self, backup, destination, predicate, trim=0, preserve=False):
         self.verify(backup)
         with self._data_fd(destination) as rootfd:
-            directories = []
+            directories, links = [], []
             with self._archive(backup) as (manifest, archive):
                 for member, parts in self._members(archive, manifest):
                     if not predicate(parts):
@@ -650,6 +678,11 @@ class Backups:
                     if not relative:
                         if preserve and member.isdir():
                             directories.append((relative, member.uid, member.gid, member.mode))
+                        continue
+                    if member.issym():
+                        if not preserve:
+                            raise Error("App-Links benötigen eine Wiederherstellung mit erhaltenen Rechten.")
+                        links.append((relative, member.linkname, member.uid, member.gid))
                         continue
                     parent = os.dup(rootfd)
                     try:
@@ -681,6 +714,19 @@ class Backups:
                                     os.fchmod(stream.fileno(), member.mode)
                     finally:
                         os.close(parent)
+            # The complete graph has now been validated. Links are leaves and
+            # appear only after ordinary entries; never traverse one on write.
+            for relative, target, uid, gid in links:
+                parent = os.dup(rootfd)
+                try:
+                    for component in relative[:-1]:
+                        following = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+                        os.close(parent)
+                        parent = following
+                    os.symlink(target, relative[-1], dir_fd=parent)
+                    os.chown(relative[-1], uid, gid, dir_fd=parent, follow_symlinks=False)
+                finally:
+                    os.close(parent)
             for relative, uid, gid, mode in sorted(directories, key=lambda value: len(value[0]), reverse=True):
                 child = os.dup(rootfd)
                 try:

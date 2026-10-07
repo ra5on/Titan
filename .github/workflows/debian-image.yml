@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.5.5 with scoped tunnel access, app backups and compact resizable managers.
+# Build Titan 0.5.5 with scoped tunnel access, safe Nextcloud backups and personal desktop controls.
 on:
   workflow_dispatch:
   push:

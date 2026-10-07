@@ -174,6 +174,129 @@ class AppBackupTests(unittest.TestCase):
         self.run.assert_called_once_with(['docker', 'start', 'a' * 64], timeout=180)
         self.assertEqual(self.members['db']['State']['Status'], 'exited')
 
+    def test_internal_app_links_roundtrip_without_dereferencing_or_changing_targets(self):
+        # Nextcloud release archives contain links such as *.map.license ->
+        # *.license, plus relative directory links using '..'.
+        (self.config / 'credential.txt.map').symlink_to('credential.txt')
+        (self.config / 'database' / 'credential-link').symlink_to('../credential.txt.map')
+        (self.config / 'database-link').symlink_to('database', target_is_directory=True)
+        (self.config / 'through-directory-link').symlink_to('database-link/credential-link')
+        (self.config / 'build' / 'frontend-legacy' / 'apps').mkdir(parents=True)
+        (self.config / 'build' / 'frontend-legacy' / 'apps' / 'files').symlink_to('../../../database')
+        (self.data / 'document-link').symlink_to('./document.txt')
+        self.backups.save_settings({'app_data': [APP]})
+        backup = self.backups.create()
+        with tarfile.open(self.backups.namespace() / backup['id'] / 'archive.tar.gz') as archive:
+            member = archive.getmember('apps/' + APP + '/config/database/credential-link')
+            self.assertTrue(member.issym())
+            self.assertEqual(member.linkname, '../credential.txt.map')
+            self.assertEqual(member.size, 0)
+        # Order is intentionally changed: link creation must be deferred until
+        # all ordinary archive entries have been processed and checked.
+        archive_path = self.backups.namespace() / backup['id'] / 'archive.tar.gz'
+        with tarfile.open(archive_path) as source:
+            contents = [(member, source.extractfile(member).read() if member.isfile() else None) for member in source]
+        contents.sort(key=lambda item: not item[0].issym())
+        with tarfile.open(archive_path, 'w:gz') as target:
+            for member, data in contents:
+                target.addfile(member, io.BytesIO(data) if data is not None else None)
+        manifest_path = archive_path.parent / 'manifest.json'
+        manifest = json.loads(manifest_path.read_text())
+        manifest.update(bytes=archive_path.stat().st_size, sha256=digest_file(archive_path))
+        atomic_json(manifest_path, manifest)
+        (self.config / 'credential.txt').write_text('new credentials')
+        self.stop()
+        self.restore(backup, include_data=True)
+        self.assertTrue((self.config / 'database' / 'credential-link').is_symlink())
+        self.assertEqual(os.readlink(self.config / 'database' / 'credential-link'), '../credential.txt.map')
+        self.assertEqual((self.config / 'database-link' / 'credential-link').read_text(), 'saved-credential')
+        self.assertEqual((self.config / 'through-directory-link').read_text(), 'saved-credential')
+        self.assertEqual((self.config / 'build/frontend-legacy/apps/files/data.db').read_bytes(), b'consistent database')
+        self.assertEqual((self.config / 'credential.txt').stat().st_mode & 0o777, 0o640)
+        self.assertEqual((self.data / 'document-link').read_text(), 'original user data')
+        info = (self.config / 'database' / 'credential-link').lstat()
+        self.assertEqual((info.st_uid, info.st_gid), (os.getuid(), os.getgid()))
+
+    def test_external_dangling_and_cyclic_source_links_fail_closed_and_resume_app(self):
+        for target in ('/etc/passwd', '../../outside', 'absent', 'bad-link'):
+            with self.subTest(target=target):
+                link = self.config / 'bad-link'
+                link.symlink_to(target)
+                try:
+                    with self.assertRaises(Error):
+                        self.backups.create()
+                    self.assertEqual(self.members[APP]['State']['Status'], 'running')
+                    self.assertEqual(self.backups.list(), [])
+                finally:
+                    link.unlink()
+
+    def test_special_source_diagnostic_contains_only_archive_relative_path(self):
+        os.mkfifo(self.config / 'database' / 'blocked-socket')
+        with self.assertRaises(Error) as caught:
+            self.backups.create()
+        self.assertIn('apps/' + APP + '/config/database/blocked-socket', str(caught.exception))
+        self.assertNotIn(str(self.root), str(caught.exception))
+
+    def test_archive_link_escape_chain_and_link_ancestor_attacks_are_rejected(self):
+        prefix = 'apps/' + APP + '/config/'
+        attacks = {
+            'relative-escape': [('bad-link', '../../app.json')],
+            'other-volume': [('bad-link', '../data/document.txt')],
+            'loop': [('bad-link', 'other'), ('other', 'bad-link')],
+            'symlink-before-dotdot': [('pivot', '.'), ('bad-link', 'pivot/../app.json')],
+            'chain-escape': [('pivot', '/etc'), ('bad-link', 'pivot/passwd')],
+            'dangling': [('bad-link', 'missing')],
+            'file-parent': [('bad-link', 'credential.txt/../credential.txt')],
+            'file-trailing-slash': [('bad-link', 'credential.txt/')],
+            'file-trailing-dot': [('bad-link', 'credential.txt/.')],
+        }
+        for label, links in attacks.items():
+            with self.subTest(label=label):
+                backup = self.backups.create()
+                for name, target in links:
+                    member = tarfile.TarInfo(prefix + name)
+                    member.type, member.linkname = tarfile.SYMTYPE, target
+                    self.rewrite(backup, extra=(member, None))
+                self.stop()
+                with self.assertRaises(Error):
+                    self.restore(backup)
+                self.assertEqual((self.config / 'credential.txt').read_text(), 'saved-credential')
+        # A link may never be a parent, regardless of entry ordering. Without
+        # the reverse-order check, a later link could replace an implicit dir.
+        for link_first in (True, False):
+            with self.subTest(link_first=link_first):
+                backup = self.backups.create()
+                link = tarfile.TarInfo(prefix + 'injected')
+                link.type, link.linkname = tarfile.SYMTYPE, 'database'
+                child = tarfile.TarInfo(prefix + 'injected/data.db')
+                child.size = 1
+                entries = [(link, None), (child, b'x')]
+                for extra in entries if link_first else reversed(entries):
+                    self.rewrite(backup, extra=extra)
+                self.stop()
+                with self.assertRaises(Error):
+                    self.restore(backup)
+        self.assertEqual(list(self.host.directory.glob('app-restore-recovery-*')), [])
+
+    def test_links_outside_app_trees_and_excessive_chains_stay_forbidden(self):
+        for location in ('shares/data/injected', 'apps/' + APP + '/app.json', 'config/config.json'):
+            with self.subTest(location=location):
+                backup = self.backups.create()
+                member = tarfile.TarInfo(location)
+                member.type, member.linkname = tarfile.SYMTYPE, 'credential.txt'
+                self.rewrite(backup, extra=(member, None), drop=location)
+                with self.assertRaises(Error):
+                    self.backups.verify(backup['id'])
+        root = ('apps', APP, 'config')
+        nodes = {root: 'directory', root + ('target',): 'file'}
+        links = {}
+        for index in range(42):
+            path = root + ('link-' + str(index),)
+            nodes[path] = 'link'
+            links[path] = 'link-' + str(index + 1) if index < 41 else 'target'
+        with self.assertRaisesRegex(Error, 'lange Link-Kette'):
+            self.backups.apps.validate_links(nodes, links)
+
     def test_paused_package_blocks_backup_before_any_stop(self):
         self.members[APP]['State'] = {'Status': 'paused'}
         with self.assertRaisesRegex(Error, 'Pausierte'):

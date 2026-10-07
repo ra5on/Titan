@@ -63,6 +63,30 @@ class AppBackupSmokeTests(unittest.TestCase):
             smoke.main()
         self.assertEqual(result.exception.code, 2)
 
+    def test_real_nextcloud_link_probe_captures_target_contents_and_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            html = root / 'mount-1'
+            dist = html / 'dist'
+            dist.mkdir(parents=True)
+            target = dist / '1404-1404.js.license'
+            target.write_text('release licenses')
+            target.chmod(0o640)
+            link = dist / '1404-1404.js.map.license'
+            link.symlink_to(target.name)
+            container = {'Mounts': [{'Type': 'bind', 'Source': str(html), 'Destination': '/var/www/html'}]}
+            before = smoke.nextcloud_license_snapshot(root, container)
+            self.assertEqual(before['linkname'], target.name)
+            self.assertEqual(before['target_permissions'][0], 0o640)
+            target.write_text('changed target')
+            self.assertNotEqual(smoke.nextcloud_license_snapshot(root, container), before)
+            link.unlink()
+            link.symlink_to('/etc/passwd')
+            with self.assertRaisesRegex(Error, 'expected internal license'):
+                smoke.nextcloud_license_snapshot(root, container)
+            with self.assertRaisesRegex(Error, 'outside'):
+                smoke.nextcloud_license_snapshot(root / 'other-app', container)
+
 
 if __name__ == '__main__':
     unittest.main()
