@@ -54,6 +54,27 @@ if [[ "${2:-}" == --debian-ab ]]; then
 else
     qemu-img resize -q "$task_dir/test.qcow2" 32G
 fi
+# Fixtures are absent from the distribution image and loaded only by the
+# current app's explicitly guarded CI loader in this private QCOW overlay.
+task_app_source="${TITAN_APP_SOURCE_ROOT:-$(pwd)}"
+if [[ "$(python3 scripts/ci-app-source.py "$task_app_source")" == mode=native ]]; then
+    if [[ "$(guestfish --ro -a "$task_image" -m /dev/sda3 exists /var/lib/titan-agent/ci-compose-fixtures.json)" != false ]]; then
+        echo 'Distribution image unexpectedly contains a CI app fixture.' >&2
+        exit 1
+    fi
+    python3 - "$task_app_source/tests/fixtures/runtime-stack-store.json" "$task_dir/ci-compose-fixtures.json" <<'PYFIXTURE'
+import json,sys
+from pathlib import Path
+source=Path(sys.argv[1]);target=Path(sys.argv[2])
+target.write_text(json.dumps({'schema':1,'disposable':True,'document':json.loads(source.read_text()),'legacy_ids':['heimdall']})+'\n')
+PYFIXTURE
+    guestfish --rw --format=qcow2 -a "$task_dir/test.qcow2" -m /dev/sda3 <<GUEST
+mkdir-p /var/lib/titan-agent
+upload $task_dir/ci-compose-fixtures.json /var/lib/titan-agent/ci-compose-fixtures.json
+chown 0 0 /var/lib/titan-agent/ci-compose-fixtures.json
+chmod 0600 /var/lib/titan-agent/ci-compose-fixtures.json
+GUEST
+fi
 if [[ "${2:-}" == --debian-ab ]]; then
     # A harmless legacy root unit exists only in this disposable overlay. It
     # deliberately starts before the containment helper, allowing the real
@@ -87,7 +108,7 @@ task_accel=tcg
 task_cpu=max
 if [[ -r /dev/kvm && -w /dev/kvm ]]; then task_accel=kvm; task_cpu=host; fi
 printf 'Raw image boot test: %s acceleration.\n' "$task_accel"
-# Eight GiB provide room for the complete BigBear Nextcloud stack and NAS reserve.
+# Eight GiB also preserve the resource budget of frozen legacy application gates.
 qemu-system-x86_64 -accel "$task_accel" -machine q35 -cpu "$task_cpu" -m 8192 -smp 2 \
     -display none -monitor none -qmp unix:"$task_dir/qmp.sock",server=on,wait=off -serial file:"$task_dir/console.log" \
     -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \

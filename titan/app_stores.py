@@ -1,18 +1,16 @@
-"""Explicitly trusted, bounded GitHub catalog imports; no arbitrary Compose execution."""
+"""Local app offers and read compatibility for installed legacy Compose recipes."""
 import hashlib
 import copy
 import json
 from pathlib import Path
 import re
 import threading
-import time
-from collections import Counter
 from datetime import datetime, timezone
 import urllib.parse
 import urllib.request
 from .core import Error, integer
 from .catalog import APPS, catalog
-from .store_sources import PRESETS, LINUXSERVER, BIGBEAR, fetch_document
+from .store_sources import LINUXSERVER, BIGBEAR, fetch_document
 from .store_recipes import text, recipes
 
 ADAPTER_REVISION = 5
@@ -37,89 +35,16 @@ class StoreMixin:
         return self._catalog_lock
 
     def _automatic_catalog_enabled(self):
-        # Development/demo/test hosts must never contact external services merely
-        # by being constructed. Production starts the same non-blocking worker
-        # on agent startup and on catalog reads; custom hosts can opt in.
-        return getattr(self, 'catalog_auto_bootstrap', getattr(self, 'directory', None) == Path('/var/lib/titan-agent'))
+        return False
 
     def ensure_app_catalog(self):
-        if not self._automatic_catalog_enabled(): return
-        if getattr(self, 'directory', None) and (self.directory / 'config-restore.lock').exists(): return
-        with self._catalog_guard():
-            found = next((row for row in self.store_records() if row.get('url') == BIGBEAR), None)
-            state = self.load('app-store-bootstrap-v1', {})
-            if state.get('disabled') or found and (not found.get('enabled', True) or found.get('adapter_revision') == ADAPTER_REVISION):
-                return
-            if getattr(self, '_catalog_worker', None) and self._catalog_worker.is_alive(): return
-            now = time.time()
-            # At most three automatic attempts in one day, including restarts.
-            attempts = state.get('attempts', 0) if now - state.get('attempted_at', 0) < 86400 else 0
-            if attempts >= 3 or now < state.get('retry_at', 0): return
-            self.save('app-store-bootstrap-v1', {**state, 'state':'loading', 'attempts':attempts+1, 'attempted_at':now, 'error':None})
-            self._catalog_worker = threading.Thread(target=self._bootstrap_app_catalog, name='titan-catalog-bootstrap', daemon=True)
-            self._catalog_worker.start()
-
-    def _bootstrap_app_catalog(self):
-        try:
-            document, skipped = self.store_document(BIGBEAR)
-            name, parsed = recipes(document, BIGBEAR)
-            with self._catalog_guard():
-                state = self.load('app-store-bootstrap-v1', {})
-                stores = self.store_records()
-                # A user may disable/remove the source while it is downloading.
-                existing = next((row for row in stores if row.get('url') == BIGBEAR), None)
-                if state.get('disabled') or existing and (not existing.get('enabled',True) or existing.get('adapter_revision') == ADAPTER_REVISION): return
-                if getattr(self, 'directory', None) and (self.directory / 'config-restore.lock').exists(): return
-                loaded_at = datetime.now(timezone.utc).isoformat()
-                # Serialize the short write with app recipe/config publication,
-                # never hold that lock during the network download.
-                lock = getattr(self, 'app_config_lock', self._catalog_guard())
-                with lock:
-                    record = {'id':'bigbear','name':name,'url':BIGBEAR,'document':document,'enabled':True,'skipped':skipped,'loaded_at':loaded_at,'adapter_revision':ADAPTER_REVISION}
-                    if existing:
-                        installed_ids = {row['id'] for row in self.load('apps', [])}
-                        retained = []
-                        for item in existing['document']['apps'] + existing.get('retained', []):
-                            _, previous = recipes({**existing['document'],'apps':[item]}, BIGBEAR)
-                            if set(previous) & installed_ids and item not in retained: retained.append(item)
-                        record['retained'] = retained
-                        stores = [record if row.get('url') == BIGBEAR else row for row in stores]
-                    else: stores = stores + [record]
-                    self.save_store_records(stores)
-                    installed = {row['id'] for row in self.load('apps', [])}
-                    present = {key for key, recipe in APPS.items() if recipe.get('store_url') == BIGBEAR}
-                    for key in present - set(parsed) - installed: APPS.pop(key, None)
-                    APPS.update({key: recipe for key, recipe in parsed.items() if key not in installed})
-                self.save('app-store-bootstrap-v1', {**state,'state':'ready','error':None,'retry_at':0,'last_success':loaded_at})
-        except Exception as exc:
-            with self._catalog_guard():
-                state = self.load('app-store-bootstrap-v1', {})
-                attempts = state.get('attempts', 1)
-                delay = 60 if attempts == 1 else 300
-                message = str(exc) if isinstance(exc, Error) else 'Katalog nicht erreichbar (' + type(exc).__name__ + ').'
-                self.save('app-store-bootstrap-v1', {**state,'state':'error','error':message[:300], 'retry_at':time.time()+delay})
-                if attempts < 3 and not state.get('disabled'):
-                    timer = threading.Timer(delay, self.ensure_app_catalog)
-                    timer.daemon = True
-                    self._catalog_retry = timer
-                    timer.start()
+        # External catalog imports were retired. Startup and reads are local.
+        return None
 
     def catalog_status(self):
-        state = self.load('app-store-bootstrap-v1', {})
-        found = next((row for row in self.store_records() if row.get('url') == BIGBEAR), None)
-        skipped = found.get('skipped', []) if found else []
-        accepted = len(found.get('document', {}).get('apps', [])) if found else 0
-        labels = {'permissions':'Zusätzliche Berechtigungen oder Geräte','host_mount':'Zugriff auf Hostdateien oder Docker-Socket','runtime_options':'Zusätzliche Laufzeitoptionen','network':'Besondere Netzwerkeinrichtung','ports':'Besondere Portzuordnung','web_port':'Webzugang nicht eindeutig','container_user':'Container-Benutzer muss aufgelöst werden','dependencies':'Besondere Dienstabhängigkeiten','template_format':'Vorlagenformat benötigt Anpassung','unsupported':'Weitere Einrichtung erforderlich'}
-        counts = Counter(row.get('code','template_format') for row in skipped)
-        status = state.get('state','idle') if not found or found.get('adapter_revision') != ADAPTER_REVISION and state.get('state') in ('loading','error') else 'ready'
-        if state.get('disabled') or found and not found.get('enabled',True): status = 'disabled'
-        return {'state':status,'automatic':True,'error':state.get('error') if status=='error' else None,
-                'last_success':found.get('loaded_at') if found else state.get('last_success'),
-                'attempts':state.get('attempts',0),'accepted':accepted,'skipped':len(skipped),'total':accepted+len(skipped),
-                'cached':bool(found),
-                'retry_at':state.get('retry_at',0) if status=='error' else 0,
-                'reasons':[{'code':code,'reason':labels.get(code,code),'count':count} for code,count in counts.most_common()],
-                'skipped_apps':skipped}
+        return {'state':'ready','automatic':False,'error':None,'accepted':1,
+                'skipped':0,'total':1,'cached':False,'retry_at':0,'attempts':0,
+                'reasons':[],'skipped_apps':[]}
 
     def store_records(self):
         # New stack fields must never reach a previous version's startup parser.
@@ -137,43 +62,41 @@ class StoreMixin:
         self.save('app-store-sources-v4', records)
 
     def initialize_app_stores(self):
-        document = json.loads((Path(__file__).parent / 'titan-app-store.json').read_text())
-        _, parsed = recipes(document, LINUXSERVER)
-        for app in parsed.values(): app.update(titan_recipe=True,store_name='Titan AppStore',catalog_status='preparation')
-        own=set(parsed);owned_recipes=dict(parsed)
-        APPS.update(parsed)
-        for store in self.store_records():
-            _, parsed = recipes(store['document'], store_url(store['url']))
-            for key,item in parsed.items():
-                if key in own:item.update(owned_recipes[key])
-            APPS.update(parsed)
-            if store.get('retained'):
-                _, archived = recipes({**store['document'], 'apps':store['retained']}, store['url'])
-                APPS.update(archived)
-
+        # Read only recipes needed by already installed apps. Preserve the old
+        # registries verbatim so updates and rollback never erase app data.
         installed = {row['id'] for row in self.load('apps', [])}
+        bundled = json.loads((Path(__file__).parent / 'titan-app-store.json').read_text())
+        _, parsed = recipes(bundled, LINUXSERVER)
+        APPS.update({key:recipe for key,recipe in parsed.items() if key in installed})
+        for store in self.store_records():
+            document = {**store['document'], 'apps':store['document']['apps'] + store.get('retained', [])}
+            # Retained recipes may repeat a current ID. Parse separately, with
+            # the retained installed version winning as in earlier releases.
+            for items in (store['document']['apps'], store.get('retained', [])):
+                if items:
+                    _, parsed = recipes({**document,'apps':items}, store_url(store['url']))
+                    APPS.update({key:recipe for key,recipe in parsed.items() if key in installed})
         from .app_credentials import private_recipe
         for key, recipe in self.load('installed-app-recipes-v1', {}).items():
-            if key in installed: APPS[key] = private_recipe(recipe)
-        self.ensure_app_catalog()
+            if key in installed:
+                APPS[key] = private_recipe(recipe)
+        from .native_catalog import load_ci_fixtures
+        load_ci_fixtures(self)
 
     def op_catalog(self):
-        self.ensure_app_catalog()
         with self._catalog_guard():
             result = catalog()
-            enabled = {row['url'] for row in self.store_records() if row.get('enabled', True)}
-            result['apps'] = [app for app in result['apps'] if not app.get('imported_stack') or app.get('store_url') in enabled]
             installed = {row['id'] for row in self.load('apps', [])}
             result['installed_recipes'] = [app for app in catalog(include_legacy=True)['apps'] if app['id'] in installed]
             result['store_status'] = self.catalog_status()
-            result['skipped'] = result['store_status']['skipped_apps']
+            result['skipped'] = []
         return result
 
     def op_app_stores(self):
-        self.ensure_app_catalog()
-        return {'stores':[{'id':'titan','name':'Titan AppStore','enabled':True,'apps':len(catalog()['apps']),'skipped':[]}] + [{'id':row['id'],'name':row['name'],'url':row['url'],'enabled':row.get('enabled',True),'apps':len(row['document']['apps']),'skipped':row.get('skipped',[])} for row in self.store_records()], 'presets':PRESETS, 'catalog_status':self.catalog_status()}
+        return {'stores':[{'id':'titan','name':'Titan Apps','enabled':True,'apps':len(catalog()['apps']),'skipped':[]}],
+                'presets':[],'catalog_status':self.catalog_status()}
 
-    def op_app_store_toggle(self, store, enabled):
+    def _legacy_app_store_toggle(self, store, enabled):
         if type(enabled) is not bool:
             raise Error('Store-Auswahl ist ungültig.')
         with self._catalog_guard():
@@ -193,17 +116,17 @@ class StoreMixin:
                     state = self.load('app-store-bootstrap-v1', {})
                     self.save('app-store-bootstrap-v1', {**state, 'disabled':not enabled})
         if found is None and store == 'bigbear' and enabled:
-            return self.op_app_store_add(BIGBEAR, trusted=True)
+            return self._legacy_app_store_add(BIGBEAR, trusted=True)
         if found is None: raise Error('Store nicht gefunden.', 404)
         return {'ok': True, 'enabled': enabled}
 
-    def op_app_store_refresh(self, store):
+    def _legacy_app_store_refresh(self, store):
         stores = self.store_records()
         found = next((row for row in stores if row['id'] == store), None)
         if store == 'linuxserver' and found is None:
-            return self.op_app_store_add(LINUXSERVER, trusted=True)
+            return self._legacy_app_store_add(LINUXSERVER, trusted=True)
         if store == 'bigbear' and found is None:
-            return self.op_app_store_add(BIGBEAR, trusted=True)
+            return self._legacy_app_store_add(BIGBEAR, trusted=True)
         if found is None: raise Error('Store nicht gefunden.', 404)
         document, skipped = self.store_document(found['url'])
         name, parsed = recipes(document, found['url'])
@@ -254,7 +177,7 @@ class StoreMixin:
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise Error('Store konnte nicht geladen werden: ' + type(exc).__name__) from None
 
-    def op_app_store_add(self, url, trusted=False):
+    def _legacy_app_store_add(self, url, trusted=False):
         if trusted is not True:
             raise Error('Vertrauen in den Store ausdrücklich bestätigen.')
         url = store_url(url)
@@ -280,7 +203,7 @@ class StoreMixin:
             APPS.update(parsed)
         return {'ok': True, 'name': name, 'apps': len(parsed), 'skipped':len(skipped)}
 
-    def op_app_store_remove(self, store):
+    def _legacy_app_store_remove(self, store):
         stores = self.store_records()
         found = next((row for row in stores if row['id'] == store), None)
         if found is None:
@@ -297,3 +220,15 @@ class StoreMixin:
         for identifier in parsed:
             APPS.pop(identifier, None)
         return {'ok': True}
+
+    def op_app_store_add(self, url, trusted=False):
+        raise Error('Externe AppStores wurden entfernt. Nutze die eigenen Titan-Apps.', 410)
+
+    def op_app_store_refresh(self, store):
+        raise Error('Externe AppStores wurden entfernt. Nutze die eigenen Titan-Apps.', 410)
+
+    def op_app_store_toggle(self, store, enabled):
+        raise Error('Externe AppStores wurden entfernt. Nutze die eigenen Titan-Apps.', 410)
+
+    def op_app_store_remove(self, store):
+        raise Error('Externe AppStores wurden entfernt. Bestehende Apps bleiben in Docker verwaltbar.', 410)

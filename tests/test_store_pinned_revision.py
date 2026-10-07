@@ -92,9 +92,9 @@ class PinnedRevisionTests(unittest.TestCase):
 
     def test_all_workflow_bigbear_runs_use_one_explicit_revision(self):
         import yaml
-        workflow = yaml.safe_load((Path(__file__).resolve().parents[1]/'.github/workflows/bigbear.yml').read_text())
+        workflow = yaml.safe_load((Path(__file__).resolve().parents[1]/'.github/workflows/app-packages.yml').read_text())
         self.assertEqual(workflow['env']['BIGBEAR_REVISION'], REVISION)
-        commands = [step['run'] for job in workflow['jobs'].values() for step in job['steps'] if 'run' in step and 'scripts/smoke-app-packages.py' in step['run']]
+        commands = [step['run'] for name,job in workflow['jobs'].items() if name.startswith('legacy-') for step in job['steps'] if 'run' in step and 'scripts/smoke-app-packages.py' in step['run']]
         self.assertEqual(len(commands), 2)
         self.assertTrue(all('--bigbear-revision "$BIGBEAR_REVISION"' in command for command in commands))
 

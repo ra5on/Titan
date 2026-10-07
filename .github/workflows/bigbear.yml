@@ -1,63 +1,13 @@
-name: BigBear stack runtime checks
+name: Native app runtime checks
 on:
   push:
     branches: [main]
-    paths: ['titan/**', 'scripts/smoke-app-packages.py', '.github/workflows/bigbear.yml']
+    paths: ['titan/**', 'scripts/smoke-*.py', 'scripts/ci-*.py', 'scripts/ci-ubuntu-dependencies.sh', 'tests/fixtures/runtime-stack-store.json', '.github/workflows/bigbear.yml', '.github/workflows/app-packages.yml']
   workflow_dispatch:
 permissions:
   contents: read
-env:
-  # Pin acceptance checks; shared runner IPs can exhaust anonymous API limits.
-  BIGBEAR_REVISION: f5e7cb7e4c5e01180d44fc459c65ae1c37c2ac20
 jobs:
-  stack:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        app: [adguard-home, nextcloud, immich]
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install YAML parser
-        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml
-      - name: Real Docker and HTTP lifecycle
-        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py 'bigbear:${{ matrix.app }}' --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION"
-
-  cloudflared-web:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        auth: [disabled, password]
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-      - name: Disposable LAN and firewall dependencies
-        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml firewalld caddy
-      - name: Validate all generated Caddy protocol and port configurations
-        run: python3 -m unittest discover -s tests -p test_web_access_caddy.py -v
-      - name: Real Caddy tunnel routing and Titan login acceptance
-        run: python3 -m unittest discover -s tests -p test_remote_access_proxy.py -v
-      - name: Isolated LAN client and active firewalld
-        run: |
-          sudo systemctl start firewalld
-          sudo ip netns add titan-ci-client
-          sudo ip link add titan-ci0 type veth peer name eth0 netns titan-ci-client
-          sudo ip addr add 10.254.254.1/30 dev titan-ci0
-          sudo ip link set titan-ci0 up
-          sudo ip netns exec titan-ci-client ip addr add 10.254.254.2/30 dev eth0
-          sudo ip netns exec titan-ci-client ip link set lo up
-          sudo ip netns exec titan-ci-client ip link set eth0 up
-          sudo firewall-cmd --zone=home --add-interface=titan-ci0
-      - name: Cloudflared Web real HTTP, LAN access, stop, start, restart and uninstall (${{ matrix.auth }})
-        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py bigbear:cloudflared-web --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION" --cloudflared-auth '${{ matrix.auth }}'
-      - name: Remove isolated test LAN
-        if: always()
-        run: |
-          sudo ip netns del titan-ci-client || true
-          sudo ip link del titan-ci0 || true
+  native-apps:
+    uses: ./.github/workflows/app-packages.yml
+    with:
+      source_ref: ${{ github.sha }}

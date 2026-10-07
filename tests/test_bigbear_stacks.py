@@ -65,7 +65,7 @@ class BigBearTests(unittest.TestCase):
                     self.assertEqual(built['network_mode'], 'host')
                     self.assertNotIn('networks', built)
                     self.assertNotIn('ports', built)
-                public = next(row for row in catalog()['apps'] if row['id'] == key)
+                public = next(row for row in catalog(include_legacy=True)['apps'] if row['id'] == key)
                 self.assertEqual(public['default_network'], 'host')
                 self.assertFalse(public['install_schema'][0]['required'])
 
@@ -87,7 +87,7 @@ class BigBearTests(unittest.TestCase):
         self.assertEqual(built['services'][key]['environment']['DB_PASSWORD'], 'private$$Password')
         self.assertEqual(built['services'][key + '-db']['environment']['DB_PASSWORD'], 'private$$Password')
         self.assertEqual(built['services'][key + '-db']['volumes'][0]['source'], '/control/config/mount-2')
-        self.assertIn(key, {item['id'] for item in catalog()['apps']})
+        self.assertIn(key, {item['id'] for item in catalog(include_legacy=True)['apps']})
 
     def test_dependency_data_is_private_and_keeps_its_numeric_owner(self):
         source, meta = example()
@@ -188,12 +188,12 @@ class BigBearTests(unittest.TestCase):
         key = next(iter(recipes(document(), URL)[1]))
         self.addCleanup(APPS.pop, key, None)
         with patch.object(host, 'store_document', return_value=(document(), [])):
-            host.op_app_store_add(URL, trusted=True)
+            host._legacy_app_store_add(URL, trusted=True)
         host.rows['apps'] = [{'id': key}]
         with patch.object(host, 'store_document', return_value=(document('2'), [])):
-            host.op_app_store_refresh('bigbear')
+            host._legacy_app_store_refresh('bigbear')
         self.assertIn(':1@', APPS[key]['image'])
-        host.op_app_store_toggle('bigbear', False)
+        host._legacy_app_store_toggle('bigbear', False)
         self.assertNotIn(key, {row['id'] for row in host.op_catalog()['apps']})
         self.assertIn(key, {row['id'] for row in host.op_catalog()['installed_recipes']})
         APPS.pop(key)
@@ -225,7 +225,7 @@ class BigBearLifecycleTests(unittest.TestCase):
         previous = cloudflared_document()
         previous['apps'][0]['stack_fields'][0].update(required=True, min_length=1, label='BASIC_AUTH_PASS · cloudflared')
         with patch.object(self.host, 'store_document', return_value=(previous, [])):
-            self.host.op_app_store_add(URL, trusted=True)
+            self.host._legacy_app_store_add(URL, trusted=True)
         key = next(iter(recipes(previous, URL)[1]))
         self.addCleanup(APPS.pop, key, None)
         field = APPS[key]['install_schema'][0]
@@ -235,7 +235,7 @@ class BigBearLifecycleTests(unittest.TestCase):
         compose_before = (directory / 'compose.json').read_bytes()
         snapshot_before = copy.deepcopy(self.host.load('installed-app-recipes-v1', {})[key])
         with patch.object(self.host, 'store_document', return_value=(cloudflared_document(), [])):
-            self.host.op_app_store_refresh('bigbear')
+            self.host._legacy_app_store_refresh('bigbear')
         self.assertEqual((directory / 'options.json').read_bytes(), options_before)
         self.assertEqual((directory / 'compose.json').read_bytes(), compose_before)
         self.assertEqual(self.host._app_options(key)[field['key']], 'Keep$PrivatePassword')

@@ -105,47 +105,107 @@ class WebAccessHTTPTests(unittest.TestCase):
             time.sleep(.01)
         self.fail('job did not complete')
 
+    def native_body(self):
+        legacy = self.tunnel_body()
+        return {'app': 'titan-cloudflared', 'options': {'tunnel_token': legacy['token'], 'public_origin': ''}, 'expected_revision': legacy['expected_revision']}
+
+    def test_retired_settings_installers_return_gone_without_accepting_jobs(self):
+        for path in ('/api/remote-access/tunnel', '/api/remote-access/tunnel-address'):
+            status, body, _ = self.request(path, {})
+            self.assertEqual(status, 410)
+            self.assertIn('Apps-Bereich', body['error'])
+        self.agent.call.assert_not_called()
+        self.assertEqual(self.app.store.jobs(), [])
+
+    def test_native_install_status_is_admin_only_and_demo_never_calls_root_agent(self):
+        path = '/api/app-install?app=titan-cloudflared'
+        self.assertEqual(self.request(path, actor=None)[0], 401)
+        self.assertEqual(self.request(path, actor='reader')[0], 403)
+        self.assertEqual(self.request('/api/app-install')[0], 400)
+        self.assertEqual(self.request('/api/app-install?app=heimdall')[0], 404)
+        self.assertEqual(self.request(path + '&token=secret')[0], 400)
+        self.agent.call.assert_not_called()
+        self.assertEqual(self.request(path)[0], 200)
+        self.agent.call.assert_called_once_with('app_install_status', app='titan-cloudflared')
+        self.agent.call.reset_mock()
+        self.app.store.create_user('demo', 'long-disposable-password', 'admin', 'demo')
+        self.app.demo = True
+        status, value, _ = self.request(path)
+        self.assertEqual(status, 200)
+        self.assertTrue(value['demo'])
+        self.assertFalse(value['available'])
+        self.assertEqual(len(value['steps']), 8)
+        self.agent.call.assert_not_called()
+
+    def test_native_resume_is_credentials_free_and_rechecks_disabled_admin(self):
+        body = {'app': 'titan-cloudflared', 'expected_revision': 'current-revision'}
+        self.assertEqual(self.request('/api/app-install/resume', {**body, 'token': self.tunnel_body()['token']})[0], 400)
+        self.assertEqual(self.request('/api/app-install/resume', body, actor='reader')[0], 403)
+        self.assertEqual(self.request('/api/app-install/resume', body, **{'X-CSRF-Token': 'wrong'})[0], 403)
+        captured = []
+        def submit(user, action, function, **kwargs):
+            self.assertEqual(action, 'app_install_resume')
+            captured.append(function)
+            return {'job': 'held-resume'}
+        self.app.jobs.submit = submit
+        self.assertEqual(self.request('/api/app-install/resume', body)[0], 202)
+        with self.app.store.connection() as db:
+            db.execute('UPDATE users SET enabled=0 WHERE name=?', ('admin',))
+        from titan.core import Error
+        with self.assertRaises(Error) as error:
+            with patch('titan.server.require_application'):
+                captured[0]()
+        self.assertEqual(error.exception.status, 403)
+        self.agent.call.assert_not_called()
+
     def test_tunnel_setup_requires_admin_csrf_trusted_origin_and_exact_safe_arguments(self):
-        body = self.tunnel_body()
+        body = self.native_body()
         for options, expected in (({'actor':None},401),({'actor':'reader'},403),
                 ({'X-CSRF-Token':'wrong'},403),({'Host':'evil.test'},403),({'Origin':'https://evil.test'},403),
                 ({'Sec-Fetch-Site':'cross-site'},403)):
             with self.subTest(options=options):
-                self.assertEqual(self.request('/api/remote-access/tunnel', body, **options)[0], expected)
-        for invalid in ({**body, 'extra': True}, {**body, 'token': 'cloudflared run --token ' + body['token']},
-                {**body, 'public_origin': 'http://nas.example.com'}, {**body, 'expected_revision': []}):
-            self.assertEqual(self.request('/api/remote-access/tunnel', invalid)[0], 400)
+                self.assertEqual(self.request('/api/app-install', body, **options)[0], expected)
+        for invalid in ({**body, 'extra': True}, {**body, 'options': {**body['options'], 'tunnel_token': 'cloudflared run --token ' + body['options']['tunnel_token']}},
+                {**body, 'options': {**body['options'], 'tunnel_token': 'x' * 4097}},
+                {**body, 'options': {'public_origin': ''}},
+                {**body, 'options': {**body['options'], 'password': 'not-an-app-password'}},
+                {**body, 'options': {**body['options'], 'port': 8080}},
+                {**body, 'options': {**body['options'], 'gpu': True}},
+                {**body, 'options': {**body['options'], 'public_origin': 'http://nas.example.com'}}, {**body, 'expected_revision': []}):
+            self.assertEqual(self.request('/api/app-install', invalid)[0], 400)
+        self.assertEqual(self.request('/api/app-install', {**body, 'app': 'heimdall'})[0], 404)
         self.agent.call.assert_not_called()
         self.assertEqual(self.app.store.jobs(), [])
 
     def test_tunnel_job_response_database_and_audit_never_contain_token(self):
-        body = self.tunnel_body()
+        body = self.native_body()
+        credential = body['options']['tunnel_token']
         entered, release = threading.Event(), threading.Event()
         def execute(operation, **arguments):
-            self.assertEqual(operation, 'remote_access_tunnel')
+            self.assertEqual(operation, 'app_install_run')
             self.assertEqual(arguments, body)
             entered.set()
             self.assertTrue(release.wait(3))
             return {'ok': True, 'setup': {'phase': 'needs_domain', 'needs_domain': True}}
         self.agent.call.side_effect = execute
-        status, response, _ = self.request('/api/remote-access/tunnel', body)
+        status, response, _ = self.request('/api/app-install', body)
         self.assertEqual(status, 202)
         self.assertEqual(set(response), {'job'})
         try:
             self.assertTrue(entered.wait(2))
             status, jobs, _ = self.request('/api/jobs')
             self.assertEqual(status, 200)
-            self.assertNotIn(body['token'], json.dumps(jobs))
+            self.assertNotIn(credential, json.dumps(jobs))
         finally:
             release.set()
         job = self.wait_job(response['job'])
         self.assertEqual(job['status'], 'completed')
-        self.assertEqual(job['action'], 'remote_access_tunnel')
-        self.assertNotIn(body['token'], json.dumps(job))
-        self.assertNotIn(body['token'].encode(), self.app.store.path.read_bytes())
+        self.assertEqual(job['action'], 'app_install_run')
+        self.assertNotIn(credential, json.dumps(job))
+        self.assertNotIn(credential.encode(), self.app.store.path.read_bytes())
         with self.app.store.connection() as db:
             audit = [tuple(row) for row in db.execute('SELECT action,detail FROM audit')]
-        self.assertNotIn(body['token'], json.dumps(audit))
+        self.assertNotIn(credential, json.dumps(audit))
 
     def test_queued_tunnel_job_rechecks_revoked_admin_permissions(self):
         captured = []
@@ -153,7 +213,7 @@ class WebAccessHTTPTests(unittest.TestCase):
             captured.append(function)
             return {'job': 'held-job'}
         self.app.jobs.submit = submit
-        self.assertEqual(self.request('/api/remote-access/tunnel', self.tunnel_body())[0], 202)
+        self.assertEqual(self.request('/api/app-install', self.native_body())[0], 202)
         with self.app.store.connection() as db:
             db.execute('UPDATE users SET enabled=0 WHERE name=?', ('admin',))
         from titan.core import Error
@@ -163,40 +223,40 @@ class WebAccessHTTPTests(unittest.TestCase):
         self.agent.call.assert_not_called()
 
     def test_tunnel_address_requires_admin_csrf_trusted_origin_and_exact_credential_free_arguments(self):
-        body = {'public_origin': 'https://nas.example.com', 'expected_revision': 'current-revision'}
+        body = {'app': 'titan-cloudflared', 'public_origin': 'https://nas.example.com', 'expected_revision': 'current-revision'}
         for options, expected in (({'actor': None}, 401), ({'actor': 'reader'}, 403),
                 ({'X-CSRF-Token': 'wrong'}, 403), ({'Host': 'evil.test'}, 403),
                 ({'Origin': 'https://evil.test'}, 403), ({'Sec-Fetch-Site': 'cross-site'}, 403)):
             with self.subTest(options=options):
-                self.assertEqual(self.request('/api/remote-access/tunnel-address', body, **options)[0], expected)
+                self.assertEqual(self.request('/api/app-install/address', body, **options)[0], expected)
         for invalid in ({**body, 'token': self.tunnel_body()['token']}, {**body, 'connector': 'other'},
                 {**body, 'public_origin': ''}, {**body, 'public_origin': 'http://nas.example.com'},
                 {**body, 'public_origin': 'https://user:password@nas.example.com'},
                 {**body, 'expected_revision': []}, {'public_origin': 'https://nas.example.com'}):
-            self.assertEqual(self.request('/api/remote-access/tunnel-address', invalid)[0], 400)
+            self.assertEqual(self.request('/api/app-install/address', invalid)[0], 400)
         self.agent.call.assert_not_called()
         self.assertEqual(self.app.store.jobs(), [])
         self.app.store.create_user('demo', 'long-disposable-password', 'admin', 'demo')
         self.app.demo = True
-        self.assertEqual(self.request('/api/remote-access/tunnel-address', body, **{'X-CSRF-Token': 'demo-only'})[0], 409)
+        self.assertEqual(self.request('/api/app-install/address', body, **{'X-CSRF-Token': 'demo-only'})[0], 409)
 
     def test_tunnel_address_returns_background_job_before_activation_finishes(self):
-        body = {'public_origin': 'https://nas.example.com', 'expected_revision': 'current-revision'}
+        body = {'app': 'titan-cloudflared', 'public_origin': 'https://nas.example.com', 'expected_revision': 'current-revision'}
         entered, release = threading.Event(), threading.Event()
         def execute(operation, **arguments):
-            self.assertEqual(operation, 'remote_access_tunnel_address')
+            self.assertEqual(operation, 'app_install_address')
             self.assertEqual(arguments, body)
             entered.set()
             self.assertTrue(release.wait(3))
             return {'ok': True, 'setup': {'phase': 'ready', 'needs_domain': False}}
         self.agent.call.side_effect = execute
-        status, response, _ = self.request('/api/remote-access/tunnel-address', body)
+        status, response, _ = self.request('/api/app-install/address', body)
         self.assertEqual(status, 202)
         self.assertEqual(set(response), {'job'})
         try:
             self.assertTrue(entered.wait(2))
             row = next(row for row in self.app.store.jobs() if row['id'] == response['job'])
-            self.assertEqual(row['action'], 'remote_access_tunnel_address')
+            self.assertEqual(row['action'], 'app_install_address')
             self.assertEqual(row['status'], 'running')
             self.assertEqual(self.request('/api/session')[0], 200)
         finally:
@@ -206,17 +266,18 @@ class WebAccessHTTPTests(unittest.TestCase):
     def test_tunnel_address_job_rechecks_admin_role_before_execution(self):
         captured = []
         def submit(user, action, function, **kwargs):
-            self.assertEqual(action, 'remote_access_tunnel_address')
+            self.assertEqual(action, 'app_install_address')
             captured.append(function)
             return {'job': 'held-address-job'}
         self.app.jobs.submit = submit
-        body = {'public_origin': 'https://nas.example.com', 'expected_revision': 'current-revision'}
-        self.assertEqual(self.request('/api/remote-access/tunnel-address', body)[0], 202)
+        body = {'app': 'titan-cloudflared', 'public_origin': 'https://nas.example.com', 'expected_revision': 'current-revision'}
+        self.assertEqual(self.request('/api/app-install/address', body)[0], 202)
         with self.app.store.connection() as db:
             db.execute('UPDATE users SET role=? WHERE name=?', ('user', 'admin'))
         from titan.core import Error
         with self.assertRaises(Error) as error:
-            captured[0]()
+            with patch('titan.server.require_application'):
+                captured[0]()
         self.assertEqual(error.exception.status, 403)
         self.agent.call.assert_not_called()
 

@@ -349,9 +349,10 @@ def _image_metadata(images):
 
 
 def catalog(refresh=False, include_legacy=False):
+    from .native_catalog import AVAILABLE_APP_IDS
     apps = []
     for app_id, recipe in list(APPS.items()):
-        if not include_legacy and not recipe.get('imported_stack'):
+        if not include_legacy and app_id not in AVAILABLE_APP_IDS:
             continue
         remote = {}
         public_recipe = {key: value for key, value in recipe.items() if key not in ("environment", "stack")}
@@ -370,7 +371,7 @@ def catalog(refresh=False, include_legacy=False):
                      "deprecated": remote.get("deprecated", False),
                      "architectures": remote.get("architectures", []),
                      "documentation": recipe.get("documentation") or f"https://docs.linuxserver.io/images/docker-{recipe.get('upstream_name', app_id)}/"})
-    return {"apps": apps, "source": "Titan AppStore", "error": None}
+    return {"apps": apps, "source": "Titan Apps", "error": None}
 
 
 def compose(app_id, directory, uid, gid, port, data_path, options=None, network=None, hardware=None, config_path=None):

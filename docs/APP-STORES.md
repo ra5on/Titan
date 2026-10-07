@@ -1,77 +1,50 @@
-# Titan AppStore und Geräteauswahl
+# Titan Apps und vorhandene Docker-Anwendungen
 
-Titan verwendet seine eigene Docker-Verwaltung für lokale Container und zusammengehörige Compose-Stacks. Der BigBear-Katalog wird auf einem neu eingerichteten NAS automatisch im Hintergrund geladen und lokal gespeichert. Der Verwaltungsdienst und der Desktop warten nicht auf den Download. Im AppStore erscheinen Ladezustand, Verbindungsfehler sowie die Anzahl kompatibler Vorlagen und Vorlagen mit zusätzlichem Einrichtungsbedarf. Eigene Titan-App-Pakete werden nicht mehr angeboten.
+Ab Titan 0.5.8 bietet **Apps** eigene Docker-Compose-Anwendungen an. Die erste freigegebene App ist **Cloudflare Tunnel**. Der Katalog steht lokal bereit; Titan lädt beim Start keinen BigBear-Katalog und bietet keinen Import externer Stores an.
 
-Ein vorhandener Katalog ist nach einem Neustart sofort aus dem lokalen Cache verfügbar. Eine ausdrückliche Deaktivierung oder Entfernung bleibt erhalten. Nach einem Verbindungsfehler werden höchstens drei automatische Versuche pro 24 Stunden durchgeführt; die ersten beiden Wiederholungen erfolgen nach einer beziehungsweise fünf Minuten. **Katalog aktualisieren** bleibt für einen gezielten erneuten Versuch verfügbar. Entwicklungs- und Demo-Instanzen laden keinen externen Katalog beim Start.
+Bereits installierte Anwendungen und ihre gespeicherten Compose-Rezepte bleiben erhalten. Die Umstellung entfernt weder Container noch Konfiguration, Datenbanken oder Nutzdaten. Unter **Weitere installierte Apps → Verwalten** und unter **Docker** lassen sich diese Anwendungen weiter bedienen. Das bisherige Cloudflared-Web wird nicht für neue Installationen angeboten.
 
-Einzelne Downloads wiederholen vorübergehende Serverfehler, ausdrückliche Rate-Limits oder unterbrochene Verbindungen höchstens zweimal mit kurzen Wartezeiten. Fehler zeigen beispielsweise den HTTP-Code; Antwortinhalte und Adressen mit möglichen Zugangsdaten werden nicht ausgegeben. Ungültige Vorlagen, Weiterleitungen und Zertifikatsfehler werden dadurch nicht freigegeben.
+## Cloudflare Tunnel installieren
 
-## Platz im App Store
+1. **Apps → Cloudflare Tunnel** öffnen. Ein Administrator kann die Installation starten.
+2. Den Tunnel-Token aus der Connector-Einrichtung des Cloudflare-Kontos einfügen. Nur den Token verwenden, keinen Installationsbefehl oder Verwaltungs-API-Token. Eine öffentliche Titan-Adresse ist optional.
+3. **Installieren & verbinden** wählen. Die Ansicht zeigt die tatsächlich ausgeführten Schritte: Docker prüfen, private Dateien und Compose erstellen, Image laden, Container erstellen und starten, Cloudflare-Verbindung prüfen, lokalen Zugang einrichten und öffentlichen Zugang prüfen.
+4. Den öffentlichen Hostnamen in Cloudflare auf die angezeigte **Service URL** richten. Die HTTPS-Adresse anschließend in Titan unter **Öffentliche Route** mit **Adresse speichern & prüfen** übernehmen.
 
-Katalogaktionen, die Ansichten **Installiert / Alle Apps**, Ladehinweise und Suche befinden sich zusammen mit den Apps in einem Scrollbereich. Die oberen Leisten scrollen beim Durchsehen der Anwendungen weg. Suche, Filter sowie Kachel-/Listenansicht bleiben beim Wechsel zwischen den Ansichten erhalten.
+Ein zusätzliches Verwaltungspasswort wird nicht benötigt. Die Titan-Anmeldung schützt weiterhin die Weboberfläche. Der Connector verwendet das Host-Netz und das lokale HTTP-Ziel `http://127.0.0.1:5102`. Damit wird keine wechselnde Docker-Container-IP als Ziel verwendet.
 
-## Cloudflared Web und Fernzugriff
+Die Installation läuft auf dem NAS weiter, wenn das Fenster geschlossen wird. Nach erneutem Öffnen erscheinen der gespeicherte Verlauf und der aktuelle Laufzeitstatus. Ein fehlgeschlagener oder durch einen Dienstneustart unterbrochener Auftrag lässt sich mit **Einrichtung fortsetzen** erneut prüfen; private Wiederaufnahme-Eingaben werden nicht an den Browser zurückgegeben. Nach erfolgreichem Abschluss oder ausdrücklicher Deinstallation werden diese vorübergehenden Eingaben entfernt.
 
-Bei neuen Cloudflared-Web-Installationen ist das Verwaltungspasswort optional. Ein leeres Passwort deaktiviert die Basic-Anmeldung der Cloudflared-Verwaltung; Tunnel-Token und Titan-Anmeldung sind davon unabhängig. Ein Katalog-Refresh verändert die gespeicherte Vorlage und Zugangsdaten einer bestehenden Installation nicht.
+**Mit Cloudflare verbunden** bestätigt den Connector, **Öffentlicher Zugang geprüft** bestätigt zusätzlich die öffentliche Titan-Adresse. Ohne öffentliche Route können die ersten Schritte abgeschlossen sein, während die öffentliche Prüfung aussteht. Ein gestarteter Container oder abgeschlossener früherer Auftrag genügt nicht als Bereitschaftsnachweis.
 
-Unter **Systemsteuerung → Allgemein → Fernzugriff · Cloudflare Tunnel** werden öffentliche Titan- und App-Adressen ausdrücklich eingetragen. Titan ermittelt das tatsächliche Host-/Bridge-Netz des Connectors und zeigt das lokale Tunnelziel auf Port 5102 an. Die Tunnelroute wird in Cloudflare eingerichtet. Einrichtung und Diagnose: [Fernzugriff mit Cloudflare Tunnel](REMOTE-ACCESS.md).
+Der Token wird privat gespeichert und nie wieder im Formular angezeigt. **Token ändern oder erneut verbinden** ersetzt ihn ausdrücklich. Details zu Route, Datenschutz und Diagnose: [Fernzugriff mit Cloudflare Tunnel](REMOTE-ACCESS.md).
 
-## BigBear
+## Vorhandene Apps verwalten
 
-Der Import verarbeitet `compose.yaml`/`compose.yml` und `metadata.json` aus einer festgelegten Git-Version des BigBear-Dockge-Katalogs. Ein begrenztes Archiv vermeidet hunderte Einzelabrufe und gemischte Versionen. Bis zu 1000 Vorlagen, 16 Dienste pro App und acht private Bridge-Netze pro Stack sind zulässig. Getrennte Netze, interne Netze und DNS-Aliase bleiben getrennt; lokale Netzwerknamen werden pro Titan-Stack isoliert. Externe Netze, IPAM und besondere Netzwerktreiber werden weiterhin nicht automatisch eingerichtet.
+Docker zeigt zusammengehörige Dienste eines verwalteten Compose-Pakets gemeinsam an. Details enthalten Status, tatsächlich gemessene Ressourcen, Protokolle und verfügbare Aktionen. Start, Stop und Neustart verwenden weiterhin das gespeicherte Rezept einer vorhandenen App; es wird nicht durch einen neuen Katalog ersetzt.
 
-Die Docker-Abnahmetests in GitHub verwenden eine ausdrücklich festgelegte BigBear-Commit-ID (`--bigbear-revision`). Dadurch benötigen Testläufe keine anonyme GitHub-API-Abfrage für den aktuellen Branch und prüfen dieselbe Vorlage reproduzierbar. Archivgröße, Parser und Rezeptvalidierung bleiben identisch; der automatische Katalog auf dem NAS ermittelt weiterhin den aktuellen Stand.
+Deinstallation entfernt die verwalteten Container, behält aber die App-Konfiguration und Nutzdaten. App-Sicherungen stoppen alle beteiligten Dienste für einen konsistenten Dateistand. Separate Nutzdaten müssen ausdrücklich ausgewählt werden. Grenzen und Wiederherstellung: [App-Sicherungen](BACKUPS.md).
 
-Übliche Speichergrößen wie `512MiB` oder `1gb`, zusammengesetzte Zeitangaben wie `1m30s`, Healthchecks als Text sowie numerische Container-Benutzer und `root` werden übersetzt. Unterstützte Schutzoptionen (`read_only`, `init`, `cap_drop`, `no-new-privileges`), temporäre Dateisysteme, Startbedingungen, Stoppsignale und interne Ports bleiben erhalten. Kleine statische Portbereiche werden begrenzt auf einzelne zuordnungsfähige Ports erweitert. Bindeadressen wie `127.0.0.1` bleiben lokal und werden nicht zu einer Freigabe im gesamten Netzwerk erweitert. Dienste ohne Weboberfläche können als Hintergrunddienste installiert werden; sie erhalten keinen erfundenen Webport oder Öffnen-Link.
+Gespeicherte Rezepte früherer externer Apps werden für die Verwaltung und ältere Systemstände aufbewahrt. Ihre Verfügbarkeit ist keine Freigabe für neue Installationen aus diesen Quellen. Persönliche Zugangsdaten erscheinen weiterhin nicht als normale öffentliche App-Einstellung.
 
-Nicht unterstützte Vorlagen werden mit einem konkreten Grund und gegebenenfalls benötigten Hostpfaden, Geräten oder Berechtigungen aufgelistet. YAML-Aliase, beliebige privilegierte Container, zusätzliche Fähigkeiten und Docker-Socket-Zugriff werden nicht pauschal freigegeben. Auch ein Administrator erhält diese Rechte nicht stillschweigend durch eine fremde App-Vorlage. Eine als kompatibel importierte Vorlage ist noch keine auf jeder Hardware getestete Anwendung. Es wird keine Dockge- oder Dockhand-Anwendung benötigt.
+## Netzwerk und Geräte vorhandener Anwendungen
 
-Vor der Installation: Speicherbereich per Dropdown, gegebenenfalls Webport, weitere Ports und benötigte Zugangsdaten wählen. Mehrere Dienste erhalten die privaten Netzsegmente ihrer Vorlage; ohne besondere Zuordnung ein gemeinsames privates Netz. Datenbank-Passwörter werden in korrespondierenden Diensten gemeinsam eingestellt; veröffentlichte Standardpasswörter werden nicht übernommen. Vorgaben aus Vorlagen werden angezeigt, ersetzen aber nicht die Prüfung auf Portkonflikte und RAM-Reserve.
+Unter **Docker → Netzwerke** zeigt Titan vorhandene, eigene und von Apps verwendete Netze mit ihren Containerzuordnungen an. Ein eigenes Bridge-Netz lässt sich nur entfernen, wenn es weder von einem Container noch einem installierten App-Paket verwendet wird. Ein gestopptes Paket gibt seine Netzwerkzuordnung nicht automatisch frei.
 
-Installierte Vorlagen werden separat eingefroren und nach einem Agent-Neustart wiederhergestellt. Katalogaktualisierung oder Deaktivierung verändert keine installierte App. Im Paketzentrum sind alle Dienste, Start/Stop/Neustart, Protokolle und Einstellungen verfügbar. Deinstallation entfernt Container, behält aber Daten. Eine Sicherung stoppt die Dienste und enthält die Konfiguration mit internen Datenbanken; separate Nutzdaten zusätzlich sichern.
+Titan prüft private Subnetze gegen vorhandene Docker-Netze und Host-Routen. Interne Netze sind nur für Anwendungen geeignet, deren benötigte Verbindungen dadurch weiterhin möglich sind. Zusätzliche Macvlan-, Overlay- oder IPv6-Netze werden darüber nicht automatisch eingerichtet.
 
-Ältere gespeicherte Vorlagen erhalten beim Laden korrigierte Passwort-Metadaten, etwa für `BASIC_AUTH_PASS`. Gespeicherte Zugangsdaten werden dadurch nicht geändert; persönliche Werte erscheinen nicht als normale App-Einstellung. Neue Installationen fragen benötigte Passwörter ab.
+Die Geräteauswahl zeigt tatsächlich erkannte USB-, Grafik- und Beschleunigergeräte mit ihren Linux-Pfaden. Nach erneutem Anstecken seine Zuordnung prüfen. Ein fehlendes oder neu zugeordnetes Gerät verhindert einen neuen App-Start, bis die Auswahl korrigiert wurde; Stoppen und Entfernen bleiben möglich.
 
-Neue Katalogdaten und installierte Rezepte werden versioniert gespeichert. Bei einem System-Rollback erhalten ältere Titan-Versionen nur App-Einträge und Rezepte, die ihr Parser versteht. Neu eingeführte Hintergrunddienste, Netzsegmente oder Schutzoptionen bleiben für die ältere Oberfläche ausgeblendet; ihre Container und Daten werden dabei nicht gelöscht. Diese Anwendungen sind nach Rückkehr zur neuen Version wieder verwaltbar. Start-/Stopp- und Deinstallationsänderungen kompatibler Apps während eines Rollbacks werden beim erneuten Wechsel berücksichtigt. Diese Metadatenprüfung ersetzt keinen vollständigen Rollback-Laufzeittest mit den veröffentlichten Images.
+- Intel-/AMD-Grafik benötigt ein Rendergerät mit aktivem Treiber. AMD-Compute kann zusätzlich `/dev/kfd` benötigen.
+- NVIDIA benötigt einen passenden Treiber und eine einsatzbereite NVIDIA Container Runtime.
+- NPUs werden über vorhandene `/dev/accel/accel*`-Geräte erkannt.
 
-Die Katalogvorlagen und deren Logos werden nicht mit Titan ausgeliefert. Eine ausdrückliche kommerzielle Weitergabefreigabe für den BigBear-Katalog wurde noch nicht verifiziert. Vor kommerzieller Auslieferung die Rechte am Katalog und an den einzelnen Anwendungen klären. Die technische Importprüfung bestätigt keine uneingeschränkte Lizenz oder Funktionsfähigkeit sämtlicher Apps.
+Die Auswahl installiert keine Treiber und garantiert keine Unterstützung im Container-Image. In Proxmox muss die Hardware zuerst der Titan-VM zugewiesen werden. Physische Geräte werden von den automatisierten QEMU-Tests nicht abgenommen.
 
-Bereits installierte frühere Pakete bleiben über Docker verwaltbar. Ihre Kompatibilitätsdefinitionen bleiben für Start, Stop, Sicherung und Deinstallation erhalten; Container und Nutzdaten werden durch die Katalogbereinigung nicht gelöscht.
+**App-Einstellungen → Geräte ändern** setzt eine gestoppte App voraus. Titan erstellt die verwalteten Container mit der neuen Zuordnung; gespeicherte Daten bleiben erhalten. Bei einem Fehler versucht Titan die vorherige Konfiguration wiederherzustellen. Einen gemeldeten Wiederherstellungsfehler über Status und Logs prüfen.
 
-## Eine App installieren
+Für unterstützte manuell mit Titan erstellte Container bietet **Einstellungen & Geräte** eine neue Containerkonfiguration mit demselben Datenvolume an. Der vorherige Container bleibt zunächst gestoppt als Sicherung erhalten. Das gemeinsam genutzte Volume ist kein unabhängiges Backup.
 
-1. Im Hauptmenü **App Store** öffnen und die App wählen. Suche, Kategorien und A–Z/Z–A helfen beim Finden.
-2. Hinweise zum ersten Login lesen. Je nach App legst du den Zugang beim Installieren fest oder richtest ihn beim ersten Öffnen ein. Nicht bestätigte Zugangsdaten werden nicht als garantiertes Standardpasswort ausgegeben.
-3. Vorgaben prüfen: Webport, weitere Ports, Datenbereich und Netzwerk. Bridge mit veröffentlichtem Webport ist der einfache Standard. Ein vorhandenes eigenes Netzwerk oder Host-Netzwerk ist gezielt auswählbar. Unter **Netzwerk anpassen → Eigenes Bridge-Netz erstellen** genügt ein Name; Titan wählt ein freies privates IPv4-Subnetz. Nach erfolgreichem Anlegen wird das neue Netz direkt ausgewählt. Subnetz, Gateway und rein interne Kommunikation sind optional unter den erweiterten Einstellungen einstellbar.
-4. Bei Bedarf tatsächlich erkannte Geräte auswählen. Ohne Auswahl bekommt die App keinen Gerätezugriff.
-5. Installieren. Unter **Docker** den Container anklicken, um App öffnen, Einstellungen, Stoppen, Neustarten und Logs direkt zu erreichen.
+## System-Rollback
 
-Mehrere Dienste einer App laufen in ihren isolierten privaten App-Netzen. Zugangsdaten werden separat mit privaten Dateirechten gespeichert und nicht in der Containerübersicht ausgegeben. Die Vorlagen geben keine beliebigen Hostpfade, den Docker-Socket oder privilegierten Containerzugriff frei. Lokale App-Bildsymbole benötigen keine externen Logo-Abfragen.
-
-## Netzwerk verwalten
-
-Unter **Docker → Netzwerke** findest du eigene, eingebaute und von Apps verwendete Netze. Die Details zeigen die verbundenen Container und zugeordneten App-Pakete. Ein eigenes Bridge-Netz kann nur entfernt werden, wenn es von keinem Container und keinem installierten App-Paket mehr verwendet wird; die Bestätigung erfolgt mit Ja/Nein. Ein gestopptes App-Paket gibt seine Netzwerkzuordnung nicht automatisch frei. System- und App-Netze werden nicht über diese Löschaktion entfernt.
-
-Titan prüft ein angegebenes oder automatisch gewähltes Subnetz gegen vorhandene Docker-Netze und Host-Routen. Eigene Macvlan-, Overlay- oder IPv6-Netze werden hier nicht angelegt. Ein internes Netz beschränkt normale externe Verbindungen; wähle es nur für Apps, deren benötigte Verbindungen damit weiterhin erreichbar sind.
-
-## USB, Grafik und NPU
-
-Die Auswahl zeigt Hersteller, Modell und verfügbare Seriennummer sowie den tatsächlichen Linux-Gerätepfad. Nach erneutem Anstecken eines USB-Geräts seine Zuordnung überprüfen. Ein fehlendes oder neu zugeordnetes Gerät verhindert einen neuen App-Start, bis die Auswahl korrigiert wurde; Stoppen und Entfernen bleiben möglich.
-
-- Intel-/AMD-Grafik erscheint, wenn ein Rendergerät mit aktivem Kernel-Treiber vorhanden ist. AMD-Compute kann zusätzlich `/dev/kfd` benötigen.
-- NVIDIA-GPUs werden mit ihrer konkreten Kennung angeboten, wenn Treiber und NVIDIA Container Runtime einsatzbereit sind.
-- NPUs erscheinen über tatsächlich vorhandene `/dev/accel/accel*`-Geräte. Mehrere Geräte sind gemeinsam wählbar, beispielsweise Intel-Grafik und NPU.
-
-Die App selbst benötigt passende Beschleunigungssoftware. Die Geräteauswahl installiert keine GPU-/NPU-Treiber und garantiert keine Unterstützung durch jedes Container-Image. In Proxmox muss die Hardware zuerst der Titan-VM zugewiesen werden. Physische Geräte stehen den automatisierten QEMU-Tests nicht zur Verfügung.
-
-## Geräte nachträglich ändern
-
-**App-Einstellungen → Geräte ändern**: App zuerst stoppen, Geräte auswählen und speichern. Titan legt die verwalteten Container mit der neuen Zuordnung an; gespeicherte App-Daten bleiben erhalten. Anschließend die App starten. Schlägt die Neuanlage fehl, wird die vorherige Konfiguration wiederhergestellt; ein gemeldeter Wiederherstellungsfehler muss über Status und Logs geprüft werden.
-
-Bei manuell mit Titan erstellten Containern bietet das Aktionsmenü **Einstellungen & Geräte**. Für unterstützte Konfigurationen erstellt Titan eine lokale Kopie der beschreibbaren Dateischicht, verwendet dasselbe Datenvolume und startet den neuen Container. Der vorherige Container bleibt gestoppt als Sicherung erhalten. Erst nach erfolgreicher Prüfung kann er unter Weitere Aktionen entfernt werden. Das gemeinsame Datenvolume ist kein unabhängiges Backup. Fremde Container und individuell komplexere Konfigurationen werden nicht automatisch umgebaut.
-
-## Vorhandene Apps und Rollback
-
-Bereits installierte Anwendungen aus älteren externen Quellen bleiben zur Verwaltung verfügbar. Neue externe Stores können nicht mehr über die Oberfläche hinzugefügt oder aktualisiert werden. Bestehende Quellendaten werden für diese Kompatibilität und ältere Systemstände aufbewahrt.
-
-Ein Betriebssystem-Rollback setzt App-Daten oder neue Geräteeinstellungen nicht zurück. Insbesondere ältere Versionen können neue NPU-Zuordnungen nicht vollständig bearbeiten. Vor dem Wechsel Hardware-Konfigurationen prüfen und unabhängige Sicherungen behalten.
+Ein Betriebssystem-Rollback setzt App-Daten oder Geräteeinstellungen nicht zurück. Ältere Titan-Versionen sehen nur Rezepte, die sie verstehen; neuere Einträge und ihre Daten werden dabei nicht gelöscht. Vor einem Wechsel unabhängige Sicherungen behalten. Die Kompatibilitätsprüfung ersetzt keinen praktischen Rollback-Test mit den veröffentlichten Images.

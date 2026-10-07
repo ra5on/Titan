@@ -13,4 +13,18 @@ Quellstand des Imports: RaNAS `ff828eae7d4c50662e225dbf8f7ba0d9e5e47c59`. Die Ve
 
 Private Schlüssel gehören ausschließlich in `.secrets/` und GitHub Actions Secrets. Ins Repository kommen nur öffentliche Prüfschlüssel. `TITAN_SIGNING_KEY` signiert Veröffentlichungen.
 
-BigBear-Parser und Stack-Regressionsfälle: `tests/test_bigbear_stacks.py`. Der Workflow `BigBear stack runtime checks` installiert AdGuard, Nextcloud und Immich auf getrennten Wegwerf-Runnern und prüft echte HTTP-, Datei- und Containeraktionen. Lokale Demo-Tests ersetzen diese Betriebsprüfung nicht.
+## App-Abnahme und eingefrorene Quellen
+
+Der Workflow **Native app runtime checks** ruft die wiederverwendbare App-Abnahme auf. Für Titan ab 0.5.8 gibt es keinen Live-BigBear-Katalog als Voraussetzung. Zwei getrennte Wegwerf-Runner prüfen den eigenen Cloudflare-Installer und eine lokal gebündelte Compose-Fixture mit zwei Containern.
+
+Der Cloudflare-Test verwendet das echte Cloudflared-Image mit einem absichtlich ungültigen, formal zulässigen Test-Token. Er prüft reale Docker-Schritte, fehlgeschlagene Verbindung, geschützte Token-/Wiederaufnahme-Dateien, einen Wiederholungsversuch ohne erneute Tokenübertragung und den weiterhin erreichbaren lokalen Titan-Zugang. Ein gestarteter Container darf keinen Tunnel-Erfolg vortäuschen. Echte Caddy-Validierung und ein gestarteter Tunnel-Proxy werden separat geprüft. Eine erfolgreiche Verbindung mit einem echten Cloudflare-Konto, DNS-Route und externer Anmeldung benötigt weiterhin eine praktische Abnahme.
+
+Die eigene Fixture `tests/fixtures/runtime-stack-store.json` prüft Gruppierung, HTTP-Bereitschaft, Container- und Paketaktionen, parallelen Dateizugriff und Datenerhalt bei Deinstallation. Ihre Backup-Abnahme verwendet ein separates ext4-Loop-Gerät und die normalen HTTP-/Host-APIs: kalte Sicherung, ausdrücklich gewählte Nutzdaten, SQLite-Daten, relative interne Links, Unix-Rechte, private Einstellungen, gestoppte Wiederherstellung und anschließenden Neustart. Sie verändert keine öffentlichen Installationsfreigaben.
+
+Der Boot-Test lädt diese Fixture ausschließlich vor dem Start in seine private QCOW2-Testschicht. Die Datei `/var/lib/titan-agent/ci-compose-fixtures.json` muss im ausgelieferten Rohimage fehlen. Der Agent akzeptiert sie nur als begrenzte normale Root-Datei mit Modus 0600, ohne Links und in einem geschützten Verzeichnis. Die öffentliche App-Liste bleibt auf Cloudflare begrenzt. Das Rohimage wird nur lesbar geöffnet und sein SHA256 nach dem Test erneut verglichen.
+
+Systemupdates können einen älteren Anwendungsstand behalten. Die App-Abnahme liest deshalb die Versionsnummer aus genau diesem eingefrorenen Checkout, ohne ihn zu importieren. Für 0.5.6/0.5.7 bleiben die bisherigen, auf eine BigBear-Commit-ID festgelegten Legacy-Abnahmen aktiv; Parser- und Kompatibilitätstests erhalten die Verwaltung vorhandener Anwendungen. Native und Legacy-Abnahmen laufen nicht gleichzeitig für denselben Anwendungsstand.
+
+Das aktuelle Build-Werkzeug wird getrennt unter `.titan-ci-builder` ausgecheckt. Host-Abhängigkeiten und neue CI-Helfer kommen aus diesem aktuellen Stand; die getesteten Produktmodule, Vorlagen und Produkt-Smokes stammen weiterhin aus dem eingefrorenen Anwendungsstand. So benötigt ein älterer Checkout keine nachträglich hinzugefügten Build-Helfer. Die APT-Spiegelanpassung gilt ausschließlich auf bestätigten GitHub-gehosteten Wegwerf-Runnern und verändert keine NAS-Paketquellen.
+
+Lokale Tests, Demo und simulierte Docker-Transporte ersetzen diese Betriebsprüfung nicht. Die echten Smoke-Skripte verlangen ausdrücklich einen Wegwerf-Runner und dürfen nicht auf einem benutzten NAS ausgeführt werden.

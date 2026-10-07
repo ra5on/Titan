@@ -11,10 +11,32 @@ on:
 permissions:
   contents: read
 env:
-  # Same accepted snapshot as the main BigBear lifecycle workflow.
+  # Frozen legacy applications keep their accepted catalog snapshot.
   BIGBEAR_REVISION: f5e7cb7e4c5e01180d44fc459c65ae1c37c2ac20
 jobs:
-  package:
+  source:
+    runs-on: ubuntu-24.04
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - name: Check out frozen application
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Check out current CI builder
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .titan-ci-builder
+          persist-credentials: false
+      - name: Select frozen application acceptance contract
+        id: mode
+        run: python3 .titan-ci-builder/scripts/ci-app-source.py . >> "$GITHUB_OUTPUT"
+
+  legacy-package:
+    needs: source
+    if: needs.source.outputs.mode == 'legacy'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
@@ -26,12 +48,20 @@ jobs:
         with:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
+      - name: Check out current CI builder
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .titan-ci-builder
+          persist-credentials: false
       - name: Install YAML parser
-        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
+        run: bash .titan-ci-builder/scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
       - name: Complete package startup, connection and restart
         run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py '${{ matrix.package }}' --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION" ${{ matrix.package == 'bigbear:nextcloud' && '--app-backup-smoke' || '' }}
 
-  cloudflared-web:
+  legacy-cloudflared-web:
+    needs: source
+    if: needs.source.outputs.mode == 'legacy'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -43,8 +73,14 @@ jobs:
         with:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
+      - name: Check out current CI builder
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .titan-ci-builder
+          persist-credentials: false
       - name: Disposable LAN, firewall and Caddy dependencies
-        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml firewalld caddy
+        run: bash .titan-ci-builder/scripts/ci-ubuntu-dependencies.sh python3-yaml firewalld caddy
       - name: Generated Caddy configurations and real Titan tunnel proxy acceptance
         run: |
           python3 -m unittest discover -s tests -p test_web_access_caddy.py -v
@@ -68,16 +104,50 @@ jobs:
           sudo ip netns del titan-ci-client || true
           sudo ip link del titan-ci0 || true
 
-
   cloudflared-token:
+    needs: source
+    if: needs.source.outputs.mode == 'native'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out frozen application
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
-      - name: Install direct-token acceptance dependencies
-        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml iproute2 util-linux
-      - name: Private token file, official runner and failed setup recovery
+      - name: Check out current CI builder
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .titan-ci-builder
+          persist-credentials: false
+      - name: Install native app and real proxy dependencies
+        run: bash .titan-ci-builder/scripts/ci-ubuntu-dependencies.sh python3-yaml iproute2 util-linux caddy
+      - name: Real Caddy configuration and tunnel proxy acceptance
+        run: |
+          python3 -m unittest discover -s tests -p test_web_access_caddy.py -v
+          python3 -m unittest discover -s tests -p test_remote_access_proxy.py -v
+      - name: Native Cloudflare installation steps, private token and failed-auth recovery
         run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-cloudflare-token.py --confirm-disposable-runner
+
+  compose-fixture:
+    needs: source
+    if: needs.source.outputs.mode == 'native'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out frozen application
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Check out current CI builder
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .titan-ci-builder
+          persist-credentials: false
+      - name: Install isolated Compose acceptance dependencies
+        run: bash .titan-ci-builder/scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
+      - name: Own multi-container Compose lifecycle and data preservation
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 .titan-ci-builder/scripts/smoke-compose-fixture.py --source-root "$GITHUB_WORKSPACE" --confirm-disposable-runner

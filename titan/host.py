@@ -59,10 +59,11 @@ def run(arguments, input=None, timeout=120, pass_fds=(), include_stderr=False):
 
 
 from .docker_engine import DockerEngineMixin
+from .app_installation import AppInstallationMixin
 from .core import OperationCoordinator, job_resources
 
 
-class Host(RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -99,6 +100,13 @@ class Host(RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServices
         save_state(self.directory, name, value)
 
     def dispatch(self, operation, **args):
+        if operation == 'app_install':
+            from .cloudflare_tunnel import CONNECTOR
+            app = args.get('app')
+            if not isinstance(app, str):
+                raise Error('Eine gültige App auswählen.')
+            if app != CONNECTOR and app not in getattr(self, '_ci_fixture_ids', set()):
+                raise Error('Neue Installationen sind nur für freigegebene eigene Titan-Apps verfügbar. Vorhandene Apps bleiben verwaltbar.', 403)
         method = getattr(self, "op_" + operation, None)
         if not method:
             raise Error("Unbekannte Verwaltungsaktion.")
@@ -123,7 +131,7 @@ class Host(RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServices
                 if isinstance(app, str):
                     keys.add("app:" + app)
             independent = tuple(keys)
-        if operation in {"app_memory_preflight", "catalog", "app_stores", "web_access", "remote_access", "web_access_confirm", "web_access_cancel"}:
+        if operation in {"app_install_status", "app_memory_preflight", "catalog", "app_stores", "web_access", "remote_access", "web_access_confirm", "web_access_cancel"}:
             read_ops.add(operation)
         fast_lane = operation in read_ops or file_read or operation in account_ops or operation in share_ops
         resources = () if fast_lane else independent

@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import stat
 import sys
 import tempfile
 import threading
@@ -176,6 +177,73 @@ def app_backup_restore_smoke(base, host, request, action, ready, app, installed,
             request('/api/backup/settings', previous_settings)
 
 
+def compose_fixture_backup(base, host, request, action, ready, app, installed, run, app_port):
+    """Cold backup/restore of two real containers, Unix metadata and SQLite data."""
+    import sqlite3
+    config = host._app_config_path(app, installed)
+    data = Path(installed['data'])
+    database = config / 'titan-fixture.sqlite'
+    def marker(value=None):
+        with sqlite3.connect(database) as connection:
+            if value is not None:
+                connection.execute('CREATE TABLE IF NOT EXISTS smoke (value TEXT)')
+                connection.execute('DELETE FROM smoke')
+                connection.execute('INSERT INTO smoke VALUES (?)', (value,))
+            return connection.execute('SELECT value FROM smoke').fetchone()[0]
+    marker('before-backup')
+    database.chmod(0o600)
+    target = config / 'titan-fixture-target'
+    target.write_text('configuration-before')
+    target.chmod(0o640)
+    target_info = target.stat()
+    link = config / 'titan-fixture-link'
+    link.symlink_to(target.name)
+    user_data = data / 'titan-fixture-user-data'
+    user_data.write_text('user-data-before')
+    user_data.chmod(0o600)
+    private = host.directory / 'apps' / app / 'options.json'
+    options_before = private.read_bytes()
+    settings = request('/api/backup/settings')
+    with disposable_backup_disk(base, run) as disk:
+        try:
+            request('/api/backup/settings', {'target':str(disk),'shares':[],'include_config':False,
+                'apps':[app],'app_data':[app],'auto_backup':False,'retention':2})
+            backup = action('backup_create', shares=[], include_config=False, apps=[app], app_data=[app])
+            if backup.get('apps') != [app] or backup.get('app_data') != [app]:
+                raise Error('Compose fixture backup omitted explicitly selected app data.')
+            ready()
+            marker('after-backup')
+            target.write_text('changed-after-backup');target.chmod(0o666)
+            link.unlink();link.symlink_to('missing-after-backup')
+            user_data.write_text('changed-after-backup')
+            action('app_action', app=app, action='stop')
+            restored = action('backup_app_restore', backup=backup['id'], app=app,
+                              confirmation=backup['id'], include_data=True)
+            if not restored.get('kept_stopped') or not restored.get('include_data'):
+                raise Error('Compose fixture restore did not preserve the stopped state.')
+            if any(host._app_container_active(row) for row in host._app_lifecycle_snapshot(app)):
+                raise Error('Compose fixture restore unexpectedly started a container.')
+            current = target.stat()
+            if (target.read_text() != 'configuration-before' or os.readlink(link) != target.name or
+                    (stat.S_IMODE(current.st_mode),current.st_uid,current.st_gid) !=
+                    (stat.S_IMODE(target_info.st_mode),target_info.st_uid,target_info.st_gid) or
+                    user_data.read_text() != 'user-data-before' or marker() != 'before-backup' or
+                    private.read_bytes() != options_before):
+                raise Error('Compose fixture restore lost data, metadata, links or private settings.')
+            recovery = Path(restored['recovery'])
+            paths = json.loads((recovery / 'recovery.json').read_text())['paths']
+            if not any((Path(row['previous']) / target.name).is_file() for row in paths):
+                raise Error('Compose fixture restore lost the previous recovery directory.')
+            if (private.parent / 'restore-pending.json').exists():
+                raise Error('Compose fixture restore left a blocking marker.')
+            action('app_action', app=app, action='start');ready()
+            return {'external_ext4_target':True,'http_backup_restore':True,'explicit_user_data':True,
+                    'sqlite_restored':True,'relative_link_restored':True,'unix_permissions_retained':True,
+                    'credentials_retained':True,'recovery_retained':True,'restore_kept_stopped':True,'restart_http_ready':True}
+        finally:
+            request('/api/backup/settings', settings)
+
+
 def cloudflared_lan_probe(run, url, credentials=None):
     """Only report bounded response metadata, never bodies, cookies or secrets."""
     command = ['ip', 'netns', 'exec', 'titan-ci-client', 'curl', '--noproxy', '*',
@@ -238,26 +306,35 @@ def check_cloudflared_api(url, credentials=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('package', choices=[*PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
+    parser.add_argument('package', choices=['titan-ci-compose-fixture', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
     parser.add_argument('--bigbear-revision', type=bigbear_revision, metavar='SHA',
         help='Use one verified BigBear commit without anonymous GitHub API branch lookup.')
     parser.add_argument('--cloudflared-auth', choices=['disabled', 'password'],
         help='Cloudflared administration login mode; the default installation leaves it disabled.')
     parser.add_argument('--app-backup-smoke', action='store_true',
-        help='Exercise a real external cold backup and Nextcloud database restore through the HTTP APIs.')
+        help='Exercise an external cold backup and restore for the own fixture or frozen legacy Nextcloud.')
     args = parser.parse_args()
     if args.bigbear_revision is not None and not args.package.startswith('bigbear:'):
         parser.error('--bigbear-revision requires a BigBear package.')
     cloudflared_web = args.package == 'bigbear:cloudflared-web'
     if args.cloudflared_auth is not None and not cloudflared_web:
         parser.error('--cloudflared-auth requires bigbear:cloudflared-web.')
-    if args.app_backup_smoke and args.package != 'bigbear:nextcloud':
-        parser.error('--app-backup-smoke requires bigbear:nextcloud.')
+    if args.app_backup_smoke and args.package not in ('bigbear:nextcloud', 'titan-ci-compose-fixture'):
+        parser.error('--app-backup-smoke requires the owned Compose fixture or legacy Nextcloud.')
     cloudflared_auth = args.cloudflared_auth or 'disabled'
     if not args.confirm_disposable_runner or os.environ.get('GITHUB_ACTIONS') != 'true':
         parser.error('This test is restricted to an explicitly confirmed disposable GitHub runner.')
-    if args.package.startswith('bigbear:'):
+    fixture_document = None
+    if args.package == 'titan-ci-compose-fixture':
+        from titan.native_catalog import CI_SOURCE
+        from titan.store_recipes import recipes
+        from titan.catalog import APPS
+        fixture_document = json.loads((Path(__file__).resolve().parents[1] / 'tests/fixtures/runtime-stack-store.json').read_text())
+        _, imported = recipes(fixture_document, CI_SOURCE)
+        app, recipe = next(iter(imported.items()))
+        APPS[app] = recipe
+    elif args.package.startswith('bigbear:'):
         from titan.app_stores import StoreMixin
         from titan.store_sources import BIGBEAR
         from titan.store_recipes import recipes
@@ -313,6 +390,12 @@ def main():
             pwd.getpwnam('titan-files')
         except KeyError:
             run(['useradd', '--system', '--no-create-home', '--home-dir', '/nonexistent', '--shell', '/usr/sbin/nologin', 'titan-files'])
+        if fixture_document is not None:
+            from titan.core import atomic_json
+            (base / 'agent').mkdir(mode=0o700)
+            atomic_json(base / 'agent' / 'ci-compose-fixtures.json', {'schema':1,'disposable':True,'document':fixture_document,'legacy_ids':['heimdall']}, mode=0o600)
+            if run(['docker','ps','-aq','--filter','label=com.docker.compose.project=titan-' + app],timeout=15).strip():
+                raise Error('Compose fixture must not replace a pre-existing project.')
         host = Host(base / 'agent', base / 'shares', base / 'vms', base / 'samba.conf')
         host.directory.chmod(0o700)
         host.share_root.mkdir(mode=0o755)
@@ -504,7 +587,8 @@ def main():
             keep.write_text('persistent-user-data')
             private = host.directory / 'apps' / app / 'options.json'
             private_before = private.read_bytes()
-            app_backup = (app_backup_restore_smoke(base, host, request, action, ready, app, installed, run, app_port)
+            backup_check = compose_fixture_backup if fixture_document is not None else app_backup_restore_smoke
+            app_backup = (backup_check(base, host, request, action, ready, app, installed, run, app_port)
                           if args.app_backup_smoke else None)
             removed = action('app_action', app=app, action='remove')
             if not removed.get('data_retained') or removed.get('state') != 'removed':

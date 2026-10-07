@@ -102,9 +102,9 @@ def main():
             deadline = time.monotonic() + 180
             while time.monotonic() < deadline:
                 job = next(row for row in request('/api/jobs') if row['id'] == identifier)
-                state = request('/api/remote-access').get('setup', {})
-                if state.get('phase'):
-                    observed.add(state['phase'])
+                state = request('/api/app-install?app=' + CONNECTOR)
+                if state.get('current_step'):
+                    observed.add(state['current_step'])
                 if job['status'] not in ('queued', 'running'):
                     require(job['status'] == ('failed' if expect_failure else 'completed'),
                             'Unexpected production job result for disposable token lifecycle.')
@@ -117,16 +117,30 @@ def main():
                 'arguments': {'app': CONNECTOR, 'action': value}})['job'])
 
         try:
-            queued = request('/api/remote-access/tunnel', {'token': credential,
-                'public_origin': 'https://titan-cloudflare-smoke.invalid',
-                'expected_revision': host.web_access.config()['revision']})
+            initial = request('/api/app-install?app=' + CONNECTOR)
+            queued = request('/api/app-install', {'app': CONNECTOR,
+                'options': {'tunnel_token': credential, 'public_origin': 'https://titan-cloudflare-smoke.invalid'},
+                'expected_revision': initial['revision']})
             require(set(queued) == {'job'}, 'Tunnel setup did not return the standard job contract.')
             failed = wait_job(queued['job'], expect_failure=True)
             require(credential not in json.dumps(failed), 'Job exposed the tunnel credential.')
             for path, content in local_files.items():
                 require(path.read_bytes() == content, 'Failed token authentication changed the LAN/proxy configuration.')
-            require(request('/api/remote-access')['setup']['phase'] == 'failed',
+            status = request('/api/app-install?app=' + CONNECTOR)
+            require(status['setup']['phase'] == 'failed' and status['status'] == 'failed',
                     'The invalid dummy credential did not finish with a failed setup state.')
+            steps = {row['id']: row for row in status['steps']}
+            require(all(steps[key]['status'] == 'completed' and steps[key]['finished_at'] for key in
+                    ('docker', 'files', 'pull', 'create', 'start')), 'Native installation did not report completed real Docker steps.')
+            require(steps['connection']['status'] == 'failed' and status['resumable'],
+                    'Failed authentication did not retain a safe tokenless retry.')
+            require(credential not in host._installation_path(CONNECTOR).read_text(), 'Public installation journal contains the token.')
+            require(stat.S_IMODE(host._installation_path(CONNECTOR, private=True).stat().st_mode) == 0o600,
+                    'Private resume input file is readable by another account.')
+            resumed = request('/api/app-install/resume', {'app': CONNECTOR, 'expected_revision': status['revision']})
+            wait_job(resumed['job'], expect_failure=True)
+            require(request('/api/app-install?app=' + CONNECTOR)['status'] == 'failed',
+                    'Tokenless retry falsely succeeded with an invalid credential.')
             record = host.managed_app(CONNECTOR)
             container = host._app_container(CONNECTOR, record)
             require(container is not None and not container['State']['Running'], 'Failed fresh connector was not safely stopped.')
@@ -172,7 +186,8 @@ def main():
             print(json.dumps({'ok': True, 'official_image_token_file_read': True,
                 'host_network': True, 'root_0600_token_file': True, 'no_secret_api_argv_env_database': True,
                 'invalid_token_never_ready': True, 'failed_setup_lan_preserved': True,
-                'normal_start_stop_remove': True, 'external_tunnel_tested': False,
+                'normal_start_stop_remove': True, 'native_install_steps_verified': True, 'tokenless_retry_verified': True,
+                'external_tunnel_tested': False,
                 'reason': 'No live Cloudflare account token is used.', 'observed_phases': sorted(observed)}))
         finally:
             try:

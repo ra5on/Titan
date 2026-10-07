@@ -114,6 +114,9 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
         # Queued jobs may outlive an account's permissions; check them again when
         # executing, not only when accepting the HTTP request.
         current = self.store.user_record(actor)
+        if operation in ('app_install_run', 'app_install_resume', 'app_install_address') or (operation == 'app_install' and arguments.get('app') == 'titan-cloudflared'):
+            if not current['enabled'] or current['role'] != 'admin':
+                raise Error('Administratorrechte sind nicht mehr gültig.', 403)
         application = operation_application(operation)
         if application:
             require_application(self.store, current, application)
@@ -467,6 +470,20 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                     raise Error('Ungültige Diagnoseoption.')
                 return self.reply(diagnostics_report(self.app.agent, self.app.demo), extra={
                     'Content-Disposition': 'attachment; filename="titan-diagnostics.json"'} if query else None)
+            if path == '/api/app-install':
+                from .app_installation import STEPS, validate_app
+                if set(query) != {'app'}:
+                    raise Error('Genau eine eigene App auswählen.')
+                app = validate_app(query['app'])
+                if self.app.demo:
+                    from .remote_access import validate_remote
+                    return self.reply({'app': app, 'revision': 'demo', 'status': 'idle', 'current_step': '',
+                        'steps': [{'id': key, 'label': label, 'status': 'pending', 'message': '', 'started_at': None, 'finished_at': None} for key, label in STEPS],
+                        'resumable': False, 'installed': False, 'available': False, 'demo': True, 'setup': {},
+                        'remote': validate_remote(None), 'remote_revision': 'demo', 'diagnosis': {},
+                        'runtime': {'state': 'missing', 'cloudflare_connected': False, 'public_ready': False,
+                            'public_origin': '', 'service_url': 'http://127.0.0.1:5102', 'enabled': False, 'message': 'Vorschau ohne Installation.'}})
+                return self.reply(self.app.agent.call('app_install_status', app=app))
             if path == '/api/remote-access':
                 if query:
                     raise Error('Fernzugriff unterstützt keine zusätzlichen Parameter.')
@@ -695,33 +712,32 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             require_application(self.app.store, user, application)
         else:
             self.require_user(admin=True)
-        if path in ('/api/remote-access', '/api/remote-access/diagnose', '/api/remote-access/tunnel', '/api/remote-access/tunnel-address'):
+        if path in ('/api/remote-access/tunnel', '/api/remote-access/tunnel-address'):
+            raise Error('Die Tunnel-Einrichtung ist in den Apps-Bereich umgezogen. Cloudflare Tunnel dort installieren oder verwalten.', 410)
+        if path in ('/api/app-install', '/api/app-install/resume', '/api/app-install/address'):
+            from .app_installation import validate_app, validate_options
             if self.app.demo:
-                raise Error('Fernzugriff benötigt eine echte Titan-Installation.', 409)
-            if path.endswith('/tunnel-address'):
-                if set(body) != {'public_origin', 'expected_revision'}:
-                    raise Error('Öffentliche Adresse und aktuellen Stand angeben.')
+                raise Error('Apps benötigen eine echte Titan-Installation.', 409)
+            expected = {'app', 'options', 'expected_revision'} if path == '/api/app-install' else {'app', 'public_origin', 'expected_revision'} if path.endswith('/address') else {'app', 'expected_revision'}
+            if set(body) != expected:
+                raise Error('App und vollständige Installationsangaben übergeben.')
+            validate_app(body['app'])
+            if not isinstance(body['expected_revision'], str):
+                raise Error('Aktuellen Installationsstand als Text angeben.')
+            if path == '/api/app-install':
+                validate_options(body['options'])
+                operation = 'app_install_run'
+            elif path.endswith('/address'):
                 from .remote_access import public_url
                 public_url(body['public_origin'])
-                if not isinstance(body['expected_revision'], str):
-                    raise Error('Aktuellen Stand als Text angeben.')
-                return self.reply(self.app.jobs.submit(user['name'], 'remote_access_tunnel_address',
-                    lambda: self.app.admin_action(user['name'], 'remote_access_tunnel_address', body)), 202)
-            if path.endswith('/tunnel'):
-                if set(body) != {'token', 'public_origin', 'expected_revision'}:
-                    raise Error('Tunnel-Token, öffentliche Adresse und aktuellen Stand angeben.')
-                from .cloudflare_tunnel import validate_token
-                from .remote_access import public_url
-                validate_token(body['token'])
-                if not isinstance(body['public_origin'], str) or not isinstance(body['expected_revision'], str):
-                    raise Error('Öffentliche Adresse und aktuellen Stand als Text angeben.')
-                if body['public_origin']:
-                    public_url(body['public_origin'])
-                # Jobs persist only action/status/result. The credential stays
-                # in this in-memory closure until the root agent saves it in
-                # protected app files; execution rechecks admin permissions.
-                return self.reply(self.app.jobs.submit(user['name'], 'remote_access_tunnel',
-                    lambda: self.app.admin_action(user['name'], 'remote_access_tunnel', body)), 202)
+                operation = 'app_install_address'
+            else:
+                operation = 'app_install_resume'
+            return self.reply(self.app.jobs.submit(user['name'], operation,
+                lambda: self.app.admin_action(user['name'], operation, body), resources=job_resources(operation, body)), 202)
+        if path in ('/api/remote-access', '/api/remote-access/diagnose'):
+            if self.app.demo:
+                raise Error('Fernzugriff benötigt eine echte Titan-Installation.', 409)
             if path.endswith('/diagnose'):
                 if body:
                     raise Error('Verbindungsprüfung benötigt keine zusätzlichen Parameter.')

@@ -20,7 +20,7 @@ class CatalogExpansionTests(unittest.TestCase):
         with patch.object(catalog_module.urllib.request, "urlopen", return_value=io.BytesIO(body)) as network:
             result=catalog_module.catalog(refresh=True, include_legacy=True)
             network.assert_not_called()
-            self.assertEqual(result["source"],"Titan AppStore")
+            self.assertEqual(result["source"],"Titan Apps")
             return result
 
     def test_external_metadata_cannot_change_images_ports_mounts_or_add_apps(self):

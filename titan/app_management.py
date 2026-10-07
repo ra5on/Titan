@@ -173,6 +173,11 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 raise Error("Paket konnte noch nicht vollständig entfernt werden. Daten bleiben erhalten.", 503)
             if unregister:
                 self._app_patch_record(app, remove=True)
+                if app == 'titan-cloudflared':
+                    # A deliberate uninstall invalidates only the temporary
+                    # retry input. Existing private app configuration stays.
+                    from .app_installation import AppInstallationMixin
+                    AppInstallationMixin._installation_path(self, app, private=True).unlink(missing_ok=True)
             else:
                 self._app_patch_record(app, {"phase": "stopped", "last_error": "", "changed": time.time()})
         else:
@@ -592,26 +597,42 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             return _run(["docker", "compose", "--project-name", "titan-" + app, "-f", str(path), *options], timeout=timeout)
         try:
             command = arguments[0] if arguments else None
+            from .app_installation import active_install, progress
+            installing = active_install(self, app)
             if command in ('up', 'restart', 'create') and app == 'titan-cloudflared':
                 from .cloudflare_tunnel import prepare_runtime
                 prepare_runtime(self, record)
             if command in ("up", "restart", "create"): invoke("config", "--quiet")
             if command in ("up", "restart", "create"):
+                if installing:
+                    progress(self, app, 'files', 'completed', 'Private Dateien und Compose-Konfiguration erstellt und geprüft.')
+                    progress(self, app, 'pull', message='Freigegebenes Container-Image wird geladen.')
+                    invoke('pull')
+                    progress(self, app, 'pull', 'completed', 'Container-Image vollständig verfügbar.')
+                    progress(self, app, 'create', message='Container wird aus der geprüften Compose-Konfiguration erstellt.')
                 # Compose's Mount API drops SELinux Z when create_host_path is
                 # false. Keep missing-volume protection and label the verified
                 # config using the actual new container MCS before it can run.
                 options = [option for option in arguments[1:] if option != "-d"] if command != "restart" else ["--no-recreate"]
                 created = invoke("create", *options)
                 self._app_private_config_label(app, record)
+                if installing:
+                    progress(self, app, 'create', 'completed', 'Verwalteter Container erstellt; private Speicherzuordnung geprüft.')
                 if command == "create":
                     return created
                 from .app_memory import check_start_memory
                 check_start_memory(app, self._app_options(app), definition,
                     self._app_inspected_containers(), telemetry=self.telemetry)
                 self._app_firewall(app, enabled=True)
+                if installing:
+                    progress(self, app, 'start', message='Verwalteter Container wird gestartet.')
                 if APPS[app].get('stack') and command == 'up':
-                    return invoke('up', '-d', '--no-recreate', '--wait', '--wait-timeout', '300')
-                return invoke("restart" if command == "restart" else "start")
+                    output = invoke('up', '-d', '--no-recreate', '--wait', '--wait-timeout', '300')
+                else:
+                    output = invoke("restart" if command == "restart" else "start")
+                if installing:
+                    progress(self, app, 'start', 'completed', 'Container-Start abgeschlossen. Die Cloudflare-Verbindung wird separat geprüft.')
+                return output
             return invoke(*arguments)
         except Error as exc:
             try:

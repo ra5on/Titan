@@ -1,6 +1,6 @@
 # Titan: Dashboard und Verwaltung
 
-Stand: 7. Oktober 2026, Entwicklung für 0.5.6-alpha.1. Titan bleibt Alpha. Die älteren Abschnitte dokumentieren die Entwicklung der Oberfläche; die aktuelle Ergänzung steht unter [Desktop und Dialoge ab 0.5.6](#desktop-und-dialoge-ab-056). „VDSM“ verstehen wir hier als die Bedienidee von Synology DSM bzw. Virtual DSM, nicht als eine zusätzliche Titan-Laufzeit.
+Stand: 7. Oktober 2026, Entwicklung für 0.5.8-alpha.1. Titan bleibt Alpha. Die älteren Abschnitte dokumentieren die Entwicklung der Oberfläche; die aktuelle Ergänzung steht unter [Desktop und Dialoge ab 0.5.6](#desktop-und-dialoge-ab-056). „VDSM“ verstehen wir hier als die Bedienidee von Synology DSM bzw. Virtual DSM, nicht als eine zusätzliche Titan-Laufzeit.
 
 ## Was die Recherche hergibt
 
@@ -131,3 +131,10 @@ Hell und Dunkel verwenden durchgängig gemeinsame Flächen-, Text-, Fokus- und S
 **Widgets hinzufügen** öffnet eine Galerie mit Vorschau und getrennten Hinzufügen-/Entfernen-Aktionen. Jede CPU-, RAM-, Systemstatus-, Meldungs-, Aktivitäts- und Uhr-Karte besitzt einen eigenen Verschiebegriff und eine eigene gespeicherte Position. Eine leere oder ausgeblendete Auswahl kann jederzeit aus Kopfzeile, Kontomenü, Hauptmenü oder Desktop-Menü erweitert werden. Die Uhr ist auch für normale Konten verfügbar; Systemmesswerte bleiben an Administratorrechte gebunden.
 
 Das freie Desktop-Menü bietet gruppierte Aktionen mit Symbolen und Beschreibungen: Widgets, App-Verknüpfungen, Ordner, Darstellung und Symbolgröße. Rechtsklick, langes Drücken und Tastaturbedienung funktionieren auch auf der freien Desktopfläche. Die vorhandenen App-Schnellaktionen im Hauptmenü und auf dem Desktop bleiben erhalten.
+
+
+## Eigene Apps ab 0.5.8
+
+Der frühere AppStore und seine externe Katalogsuche entfallen. **Apps** zeigt zunächst eine eigene Compose-App: **Cloudflare Tunnel**. Token und optionale öffentliche HTTPS-Adresse reichen für den Installationsauftrag. Die Installation zeigt acht tatsächlich ausgeführte Schritte; ihr Verlauf bleibt nach Schließen und Neuladen erhalten. Eine unterbrochene Einrichtung kann ohne erneute Token-Eingabe fortgesetzt werden. Historischer Installationsabschluss und aktueller Verbindungsstatus werden getrennt dargestellt.
+
+Der gesamte Apps-Inhalt scrollt gemeinsam; ein hoher feststehender Store-Balken entfällt. Schmale Fenster ordnen Konfiguration und Verlauf untereinander. Farben folgen Hell, Dunkel und Auto. Die bisherige Cloudflare-Karte der Systemsteuerung ist entfernt. Bereits installierte Apps bleiben als kompakte Liste erreichbar; Docker öffnet die vorhandene Verwaltung. Die älteren Store-Abbildungen und Beschreibungen oben dokumentieren frühere Versionen.

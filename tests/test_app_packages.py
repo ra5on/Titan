@@ -27,7 +27,7 @@ class PackagesTests(unittest.TestCase):
         return validate_options(name, prepare_options(name, user))
 
     def test_retired_packages_are_hidden_but_existing_installs_remain_manageable(self):
-        self.assertFalse(set(PACKAGES) & {item['id'] for item in catalog()['apps']})
+        self.assertEqual({item['id'] for item in catalog()['apps']}, {'titan-cloudflared'})
         public = [item for item in catalog(include_legacy=True)['apps'] if item['id'] in PACKAGES]
         self.assertEqual({item['id'] for item in public}, set(PACKAGES))
         self.assertEqual(len(public), len(PACKAGES))

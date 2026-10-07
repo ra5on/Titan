@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.5.7 with complete dark surfaces and activation-bound token/domain jobs and official Ubuntu build mirrors.
+# Build Titan 0.5.8 with native Compose apps, persistent installation steps and no external app catalog.
 on:
   workflow_dispatch:
   push:

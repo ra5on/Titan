@@ -14,13 +14,13 @@ Vorlagen-Apps sind zusätzlich sichtbar. Ihre Aktionen werden an den bestehenden
 
 RAM wird einschließlich Dateicache aus Linux-Cgroups gemessen. Wenn diese Messung nicht verfügbar ist, erscheint „—“. Gestoppte Container zeigen 0 B. Ein Docker-RAM-Limit ist eine Obergrenze, kein Verbrauchswert.
 
-Die Oberfläche, Bildsymbole und der Backend-Code werden in Titan gepflegt. Der eigene [Titan AppStore](APP-STORES.md) ergänzt die freie Container-Erstellung um lokale Installationsvorlagen; externe AppStores oder Docker-Oberflächen werden nicht eingebettet.
+Die Oberfläche, Bildsymbole und der Backend-Code werden in Titan gepflegt. Der Bereich [Apps](APP-STORES.md) ergänzt die freie Container-Erstellung um Titans eigene Compose-Apps. Die erste angebotene App ist Cloudflare Tunnel; externe App-Kataloge werden nicht geladen.
 
 ## Eigene Docker-Netzwerke
 
 **Docker → Netzwerke → Erstellen** legt ein eigenes Bridge-Netz an. Ein Name genügt; Titan wählt ein freies privates IPv4-Subnetz und Gateway nach Prüfung vorhandener Docker-Netze und Host-Routen. Unter **Erweiterte Einstellungen** kannst du Subnetz, Gateway und rein interne Kommunikation selbst festlegen. Ein Gateway ohne zugehöriges Subnetz ist nicht zulässig. Schlägt die Prüfung fehl, zeigt die Oberfläche den Grund und bestätigt keine erfolgreiche Erstellung.
 
-Das fertige Netz steht bei **Container erstellen** und bei der App-Installation zur Auswahl. Ein Klick auf den Netznamen zeigt Subnetz, Gateway, verbundene Container und zugeordnete App-Pakete. Die Verwaltung wartet auf das tatsächliche Auftragsende und lädt die Netzliste neu.
+Das fertige Netz steht bei **Container erstellen** zur Auswahl. Eigene App-Rezepte bestimmen ihre erforderliche Netzwerkverbindung selbst. Ein Klick auf den Netznamen zeigt Subnetz, Gateway, verbundene Container und zugeordnete App-Pakete. Die Verwaltung wartet auf das tatsächliche Auftragsende und lädt die Netzliste neu.
 
 **Entfernen** benötigt Ja/Nein und ist nur für ein ungenutztes, von Titan angelegtes Bridge-Netz verfügbar. Eingebaute Docker-Netze, fremde Netze und App-Netze werden nicht entfernt. Auch gestoppte Container oder installierte App-Pakete können ein Netz noch verwenden. Diese Zuordnung zuerst durch Entfernen oder unterstützte Neuerstellung mit einem anderen Netz auflösen. Titan verwendet hierfür keine Force- oder Prune-Aktion. Macvlan-, Overlay- und IPv6-Netze werden in dieser Oberfläche nicht neu eingerichtet.
 

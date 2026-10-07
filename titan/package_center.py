@@ -53,6 +53,11 @@ class PackageCenterMixin:
             state = summary["state"] if summary else "blocked" if warning else "missing"
             health = summary["health"] if summary else ""
             ready = bool(summary and (state == "running" and (health == "healthy" if expected.get("healthcheck") else health not in ("starting", "unhealthy")) or one_shot and state == "exited" and summary["exit_code"] == 0))
+            if app == 'titan-cloudflared' and key == app and ready:
+                from .cloudflare_tunnel import connector_ready
+                ready = connector_ready(container)
+                if not ready:
+                    warning = 'Container läuft, aber die Cloudflare-Verbindung ist nicht bestätigt. Token und Internetzugang prüfen.'
             label = recipe.get("dependencies", raw_keys)[raw_keys.index(original)] if original in raw_keys else original
             services.append({"id": key, "name": label, "state": state, "health": health, "ready": ready,
                               "one_shot": one_shot, "image": expected["image"], "container": summary, "warning": warning,

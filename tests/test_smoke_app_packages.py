@@ -17,24 +17,20 @@ spec.loader.exec_module(smoke)
 
 
 class CloudflaredLanProbeTests(unittest.TestCase):
-    def test_cloudflared_ci_runs_both_real_authentication_modes(self):
+    def test_legacy_cloudflared_auth_modes_are_only_gates_for_frozen_legacy_apps(self):
         import yaml
-        root = Path(__file__).resolve().parents[1]
-        for name in ('bigbear.yml', 'app-packages.yml'):
-            with self.subTest(workflow=name):
-                workflow = yaml.safe_load((root / '.github/workflows' / name).read_text())
-                job = workflow['jobs']['cloudflared-web']
-                self.assertEqual(set(job['strategy']['matrix']['auth']), {'disabled', 'password'})
-                steps = [step for step in job['steps'] if 'smoke-app-packages.py' in step.get('run', '')]
-                self.assertEqual(len(steps), 1)
-                self.assertIn('--cloudflared-auth', steps[0]['run'])
-                self.assertIn('${{ matrix.auth }}', steps[0]['run'])
-                self.assertTrue(any('systemctl start firewalld' in step.get('run', '') for step in job['steps']))
-                self.assertTrue(any('ip netns add titan-ci-client' in step.get('run', '') for step in job['steps']))
-                if name == 'app-packages.yml':
-                    checkout = next(step for step in job['steps'] if step.get('uses', '').startswith('actions/checkout@'))
-                    self.assertEqual(checkout['with']['ref'], '${{ inputs.source_ref || github.sha }}')
-                    self.assertTrue(any('test_remote_access' in step.get('run', '') for step in job['steps']))
+        root=Path(__file__).resolve().parents[1]
+        workflow=yaml.safe_load((root/'.github/workflows/app-packages.yml').read_text())
+        job=workflow['jobs']['legacy-cloudflared-web']
+        self.assertEqual(job['if'], "needs.source.outputs.mode == 'legacy'")
+        self.assertEqual(set(job['strategy']['matrix']['auth']), {'disabled','password'})
+        self.assertTrue(any('--cloudflared-auth' in step.get('run','') for step in job['steps']))
+        self.assertTrue(any('test_remote_access' in step.get('run','') for step in job['steps']))
+        main=yaml.safe_load((root/'.github/workflows/bigbear.yml').read_text())
+        self.assertNotIn('BIGBEAR_REVISION',main.get('env',{}))
+        self.assertEqual(main['jobs']['native-apps']['uses'],'./.github/workflows/app-packages.yml')
+        for name in ('cloudflared-token','compose-fixture'):
+            self.assertEqual(workflow['jobs'][name]['if'], "needs.source.outputs.mode == 'native'")
 
     def test_real_configuration_http_check_accepts_both_modes_and_detects_mismatch(self):
         credentials = base64.b64encode(b'admin:private-password').decode()
@@ -68,15 +64,18 @@ class CloudflaredLanProbeTests(unittest.TestCase):
         finally:
             server.shutdown(); server.server_close(); worker.join(3)
 
-    def test_image_package_gate_uses_same_validated_bigbear_revision(self):
+    def test_only_legacy_gates_use_an_explicit_bigbear_revision(self):
         import yaml
-        root = Path(__file__).resolve().parents[1]
-        ordinary = yaml.safe_load((root / '.github/workflows/bigbear.yml').read_text())
-        image_gate = yaml.safe_load((root / '.github/workflows/app-packages.yml').read_text())
-        self.assertEqual(smoke.bigbear_revision(image_gate['env']['BIGBEAR_REVISION']), ordinary['env']['BIGBEAR_REVISION'])
-        runtime_steps = [step for step in image_gate['jobs']['package']['steps'] if 'smoke-app-packages.py' in step.get('run','')]
-        self.assertEqual(len(runtime_steps), 1)
-        self.assertIn('--bigbear-revision "$BIGBEAR_REVISION"', runtime_steps[0]['run'])
+        root=Path(__file__).resolve().parents[1]
+        workflow=yaml.safe_load((root/'.github/workflows/app-packages.yml').read_text())
+        self.assertRegex(smoke.bigbear_revision(workflow['env']['BIGBEAR_REVISION']),r'^[a-f0-9]{40}$')
+        for name,job in workflow['jobs'].items():
+            commands='\n'.join(step.get('run','') for step in job.get('steps',[]))
+            if '--bigbear-revision' in commands:
+                self.assertTrue(name.startswith('legacy-'))
+                self.assertEqual(job['if'], "needs.source.outputs.mode == 'legacy'")
+            if name in ('cloudflared-token','compose-fixture'):
+                self.assertNotIn('bigbear:',commands)
 
     def test_only_current_status_and_allowlisted_headers_are_reported(self):
         run = Mock(return_value='HTTP/1.1 100 Continue\r\nContent-Type: old-type\r\n\r\n'

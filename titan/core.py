@@ -454,7 +454,7 @@ class OperationCoordinator:
                 self.condition.notify_all()
 
 
-APP_RESOURCE_OPERATIONS = frozenset({"app_install", "app_action", "package_repair"})
+APP_RESOURCE_OPERATIONS = frozenset({"app_install", "app_install_run", "app_install_resume", "app_install_address", "app_action", "package_repair"})
 
 
 def job_resources(operation, arguments):

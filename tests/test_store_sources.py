@@ -66,10 +66,10 @@ class SourcesTests(unittest.TestCase):
             def load(self,key,default):return self.rows.get(key,default)
             def save(self,key,value):self.rows[key]=value
         for store in PRESETS:self.assertEqual(store_url(store['url']),store['url'])
-        host=MemoryHost();host.op_app_store_toggle('linuxserver',False)
+        host=MemoryHost();host._legacy_app_store_toggle('linuxserver',False)
         with patch('titan.app_stores.catalog',return_value={'apps':[{'id':'jellyfin','name':'Jellyfin'}]}):self.assertEqual(host.op_catalog()['apps'][0]['id'],'jellyfin')
         self.assertIn('jellyfin',APPS)
-        host.op_app_store_toggle('linuxserver',True)
+        host._legacy_app_store_toggle('linuxserver',True)
         self.assertTrue(host.op_app_stores()['stores'][0]['enabled'])
 
     def test_new_sources_do_not_rewrite_legacy_rollback_catalog(self):
@@ -78,11 +78,11 @@ class SourcesTests(unittest.TestCase):
             def load(self,key,default): return self.rows.get(key,default)
             def save(self,key,value): self.rows[key]=value
         host=MemoryHost()
-        host.op_app_store_toggle('linuxserver',False)
+        host._legacy_app_store_toggle('linuxserver',False)
         self.assertEqual(host.rows['app-stores'],[])
         self.assertEqual(host.rows['app-store-sources-v4'][0]['url'],LINUXSERVER)
         self.assertNotIn('app-store-sources-v3',host.rows)
-        host.op_app_store_toggle('linuxserver',True)
+        host._legacy_app_store_toggle('linuxserver',True)
         self.assertEqual(host.rows['app-stores'],[])
 
     def test_refresh_keeps_installed_retired_recipe_after_restart_and_disable(self):
@@ -97,18 +97,18 @@ class SourcesTests(unittest.TestCase):
         old,new=document('old'),document('new')
         old_id=next(iter(recipes(old,url)[1]));new_id=next(iter(recipes(new,url)[1]))
         try:
-            with patch.object(host,'store_document',return_value=(old,[])): host.op_app_store_add(url,trusted=True)
+            with patch.object(host,'store_document',return_value=(old,[])): host._legacy_app_store_add(url,trusted=True)
             row=next(row for row in host.store_records() if row['url']==url)
             host.rows['apps']=[{'id':old_id}]
-            with patch.object(host,'store_document',return_value=(new,[])): host.op_app_store_refresh(row['id'])
+            with patch.object(host,'store_document',return_value=(new,[])): host._legacy_app_store_refresh(row['id'])
             self.assertIn(old_id,APPS)
             APPS.pop(old_id)
             host.initialize_app_stores()
             self.assertIn(old_id,APPS)
-            host.op_app_store_toggle(row['id'],False)
+            host._legacy_app_store_toggle(row['id'],False)
             with patch('titan.app_stores.catalog',return_value={'apps':[{'id':old_id,'store_url':url},{'id':new_id,'store_url':url}]}):
                 self.assertEqual([item['id'] for item in host.op_catalog()['installed_recipes']],[old_id])
-            with self.assertRaises(Error): host.op_app_store_remove(row['id'])
+            with self.assertRaises(Error): host._legacy_app_store_remove(row['id'])
         finally:
             APPS.pop(old_id,None);APPS.pop(new_id,None)
 

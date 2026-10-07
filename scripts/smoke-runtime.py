@@ -28,8 +28,11 @@ RUNTIME_APP_ROOT = Path(os.environ.get('TITAN_APP_SOURCE_ROOT', Path(__file__).r
 sys.path.insert(0, str(RUNTIME_APP_ROOT))
 from titan.catalog import APPS
 
-RUNTIME_STACK_URL = 'https://github.com/bigbeartechworld/big-bear-dockge'
-RUNTIME_STACK_ID = 's' + hashlib.sha256(RUNTIME_STACK_URL.encode()).hexdigest()[:10] + '-nextcloud'
+RUNTIME_STACK_URL = 'https://raw.githubusercontent.com/ra5on/Titan/main/tests/fixtures/runtime-stack-store.json'
+RUNTIME_STACK_ID = 's' + hashlib.sha256(RUNTIME_STACK_URL.encode()).hexdigest()[:10] + '-runtime-stack'
+LEGACY_STACK_URL = 'https://github.com/bigbeartechworld/big-bear-dockge'
+LEGACY_STACK_ID = 's' + hashlib.sha256(LEGACY_STACK_URL.encode()).hexdigest()[:10] + '-nextcloud'
+NATIVE_APP_CONTRACT = (RUNTIME_APP_ROOT / 'titan/native_catalog.py').is_file()
 
 
 class SmokeFailure(Exception):
@@ -682,11 +685,11 @@ class GuestClient:
 
     def app_http_ready(self, timeout=120, expected_app="heimdall"):
         """Only named test applications on the fixed disposable-guest forward."""
-        if expected_app not in {"heimdall", "nextcloud"}:
+        if expected_app not in {"heimdall", "nextcloud", "runtime-stack"}:
             raise SmokeFailure("Unknown runtime HTTP application.")
-        marker = expected_app.encode()
+        marker = ("heimdall" if expected_app == "runtime-stack" else expected_app).encode()
         target_path = "/index.php/login" if expected_app == "nextcloud" else "/"
-        identifier = RUNTIME_STACK_ID if expected_app == "nextcloud" else "heimdall"
+        identifier = LEGACY_STACK_ID if expected_app == "nextcloud" else RUNTIME_STACK_ID if expected_app == "runtime-stack" else "heimdall"
         deadline = time.monotonic() + timeout
         observed = {"last_http_status": None, "last_content_type": "unavailable",
                     "last_transport": "unavailable", "response_category": "unavailable"}
@@ -731,23 +734,24 @@ class GuestClient:
         raise SmokeFailure(expected_app.capitalize() + " HTTP page did not become ready within the bounded deadline.", observed)
 
     def stack_diagnostic(self):
-        """Only fixed Nextcloud service states and classified logs leave the guest."""
+        """Only fixed fixture service states and classified logs leave the guest."""
         try:
-            details = self.request('/api/package-details?app=' + RUNTIME_STACK_ID)
+            app = RUNTIME_STACK_ID if NATIVE_APP_CONTRACT else LEGACY_STACK_ID
+            services = ((app, 'web'), (app + '-sidecar', 'sidecar')) if NATIVE_APP_CONTRACT else (
+                (app, 'nextcloud'), (app + '-db-nextcloud', 'database'),
+                (app + '-redis-nextcloud', 'redis'), (app + '-cron', 'cron'))
+            details = self.request('/api/package-details?app=' + app)
             rows = details.get('services', []) if isinstance(details, dict) else []
             if not isinstance(rows, list):
                 return {'available': False}
             result = {'available': True, 'services': {}}
-            for key, label in ((RUNTIME_STACK_ID, 'nextcloud'),
-                               (RUNTIME_STACK_ID + '-db-nextcloud', 'database'),
-                               (RUNTIME_STACK_ID + '-redis-nextcloud', 'redis'),
-                               (RUNTIME_STACK_ID + '-cron', 'cron')):
+            for key, label in services:
                 row = next((item for item in rows if isinstance(item, dict) and item.get('id') == key), None)
                 if row is None:
                     continue
                 logs = ''
                 try:
-                    response = self.request('/api/package-logs?app=' + RUNTIME_STACK_ID + '&service=' + key + '&tail=50')
+                    response = self.request('/api/package-logs?app=' + app + '&service=' + key + '&tail=50')
                     logs = response.get('logs', '') if isinstance(response, dict) else ''
                 except Exception:
                     pass
@@ -1238,9 +1242,11 @@ class RuntimeSmoke:
         if (not isinstance(value, dict) or set(value) - {"apps", "source", "error", "installed_recipes", "store_status", "skipped"}
                 or not isinstance(apps, list) or len(apps) > 1000):
             raise SmokeFailure("App catalog or first-login guidance is incomplete.")
-        # Empty is valid until the user explicitly enables BigBear. Keep a
-        # compatibility check for old complete catalogs on existing installs.
-        if apps and all(isinstance(app, dict) and app.get('id') in PACKAGES for app in apps) and len(apps) != len(PACKAGES):
+        # The offline native catalog must not start network imports. Installed
+        # legacy recipes are reported separately and remain manageable.
+        if NATIVE_APP_CONTRACT and {app.get('id') for app in apps if isinstance(app, dict)} != {'titan-cloudflared'}:
+            raise SmokeFailure("Native app catalog must contain the approved Cloudflare app only.")
+        if not NATIVE_APP_CONTRACT and apps and all(isinstance(app, dict) and app.get('id') in PACKAGES for app in apps) and len(apps) != len(PACKAGES):
             raise SmokeFailure("Legacy app catalog is incomplete.")
         modes = {mode: 0 for mode in ("default", "generated", "install", "none", "setup", "documentation")}
         seen = set()
@@ -1250,9 +1256,7 @@ class RuntimeSmoke:
                 raise SmokeFailure("App catalog contains an unexpected or duplicate template.")
             seen.add(identifier)
             if identifier not in APPS:
-                # The automatic catalog is fetched in the real guest. The
-                # runner intentionally has no copy of those private recipes.
-                # Verify its public schema without importing anything locally.
+                # Verify a saved private recipe boundary without importing a store.
                 self.imported_catalog_entry(app, modes)
                 continue
             recipe = APPS[identifier]
@@ -1278,10 +1282,11 @@ class RuntimeSmoke:
             'note','store_name','store_url','install_schema','extra_ports','default_network','imported_stack',
             'catalog_status','dependencies','version','deprecated','architectures','containers'}
         identifier, docs, login, schema = (app.get(key) for key in ('id','documentation','first_login','install_schema'))
-        prefix = 's' + hashlib.sha256(RUNTIME_STACK_URL.encode()).hexdigest()[:10] + '-'
-        if (set(app) - allowed or app.get('imported_stack') is not True or app.get('store_url') != RUNTIME_STACK_URL or
+        source = LEGACY_STACK_URL
+        prefix = 's' + hashlib.sha256(source.encode()).hexdigest()[:10] + '-'
+        if (NATIVE_APP_CONTRACT or set(app) - allowed or app.get('imported_stack') is not True or app.get('store_url') != source or
                 not isinstance(identifier, str) or not re.fullmatch(re.escape(prefix) + r'[a-z][a-z0-9_-]{0,17}', identifier) or
-                not isinstance(docs, str) or not docs.startswith(RUNTIME_STACK_URL + '/tree/main/Apps/') or
+                not isinstance(docs, str) or not docs.startswith(source + '/tree/main/Apps/') or
                 not isinstance(login, dict) or set(login) != {'mode','instructions','documentation'} or
                 login.get('mode') != 'documentation' or login.get('documentation') != docs or
                 not isinstance(login.get('instructions'), str) or not 1 <= len(login['instructions']) <= 2000 or
@@ -1704,9 +1709,69 @@ class RuntimeSmoke:
                     pass
 
     def docker_stack(self):
-        url = RUNTIME_STACK_URL
-        store = 'bigbear'
+        if not NATIVE_APP_CONTRACT:
+            return self.legacy_docker_stack()
+        # The root-owned fixture was injected only into the disposable QCOW
+        # overlay. Never enable a public store or download a recipe in a guest.
+        from titan.store_recipes import recipes
+        document = json.loads((RUNTIME_APP_ROOT / 'tests/fixtures/runtime-stack-store.json').read_text())
+        _, fixtures = recipes(document, RUNTIME_STACK_URL)
         app = RUNTIME_STACK_ID
+        recipe = fixtures[app]
+        schema = recipe.get('install_schema', [])
+        container_count = len(recipe['stack']['services'])
+        install_attempted = False
+        try:
+            if any(row.get('id') == app for row in self.client.request('/api/apps').get('installed', [])):
+                raise SmokeFailure('Disposable stack test must not replace a pre-existing installation.')
+            options = {field['key']: 'Test-' + secrets.token_hex(24)
+                       for field in schema
+                       if field.get('type') == 'password' and not field.get('generated')}
+            if any(field.get('key') == 'stack_nas_host' for field in schema):
+                options['stack_nas_host'] = self.client.HOST.rsplit(':', 1)[0]
+            install_attempted = True
+            self.client.action('app_install', {'app': app, 'port': 18080, 'options': options}, timeout=900)
+            installed = next((row for row in self.client.request('/api/apps')['installed']
+                              if row.get('id') == app), None)
+            template = next((row for row in self.client.request('/api/catalog').get('installed_recipes', [])
+                             if row.get('id') == app), None)
+            if not template or template.get('containers') != container_count:
+                raise SmokeFailure('Installed multi-container source was not translated.')
+            if not installed or installed.get('state') != 'running':
+                raise SmokeFailure('Imported stack did not reach the managed running state.')
+            self.client.app_http_ready(timeout=240, expected_app="runtime-stack")
+            metrics = self.client.request('/api/app-metrics').get('apps', {}).get(app, {})
+            if any(not isinstance(metrics.get(key), (int, float)) for key in
+                   ('cpu_percent', 'memory_bytes', 'disk_read_bytes', 'disk_write_bytes')):
+                raise SmokeFailure('Managed container stack statistics are unavailable.')
+            stack_rows = [row for row in self.client.request('/api/docker-engine')['containers']
+                          if row.get('managed_app') == app]
+            if len(stack_rows) != container_count or len({row.get('project') for row in stack_rows}) != 1 or not stack_rows[0].get('project'):
+                raise SmokeFailure('Compose stack grouping unavailable.')
+            self.client.action('docker_container_batch', {'containers': [row['id'] for row in stack_rows], 'action': 'stop'})
+            if any(row['state'] == 'running' for row in self.client.request('/api/docker-engine')['containers']
+                   if row.get('managed_app') == app):
+                raise SmokeFailure('Stack batch stop left a service running.')
+            self.client.action('docker_container_batch', {'containers': [row['id'] for row in stack_rows], 'action': 'start'})
+            self.client.app_http_ready(timeout=240, expected_app="runtime-stack")
+            self.client.action('app_action', {'app': app, 'action': 'remove'})
+            if any(row['id'] == app for row in self.client.request('/api/apps')['installed']):
+                raise SmokeFailure('Removed stack remains installed.')
+            return {'containers': container_count, 'compose_grouping': True, 'batch_stop_start': True, 'import': True,
+                    'install': True, 'http': True, 'stop': True, 'start': True, 'remove': True, 'live_resources': True, 'source': 'bundled-fixture'}
+        finally:
+            if install_attempted:
+                try:
+                    installed = self.client.request('/api/apps')['installed']
+                    if any(row['id'] == app for row in installed):
+                        self.client.action('app_action', {'app': app, 'action': 'remove'})
+                except Exception:
+                    pass
+
+    def legacy_docker_stack(self):
+        url = LEGACY_STACK_URL
+        store = 'bigbear'
+        app = LEGACY_STACK_ID
         added = False
         install_attempted = False
         try:

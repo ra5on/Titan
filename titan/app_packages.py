@@ -105,7 +105,7 @@ PACKAGES = {
 }
 
 PACKAGES['titan-cloudflared'] = recipe('Cloudflare Tunnel', 'Netzwerk',
-    'Titan über einen vorhandenen Cloudflare Tunnel erreichen. Einrichtung unter Einstellungen → Fernzugriff.',
+    'Dein NAS über Cloudflare erreichen. Als eigene Compose-App mit sichtbaren Installationsschritten.',
     'cloudflared', {'cloudflared': {
         'image': 'cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07',
         'command': ['tunnel', '--no-autoupdate', '--metrics', '127.0.0.1:5103', 'run', '--token-file', '/etc/cloudflared/token'],
@@ -115,7 +115,7 @@ PACKAGES['titan-cloudflared'] = recipe('Cloudflare Tunnel', 'Netzwerk',
         'required': True, 'min_length': 80, 'max_length': 4096, 'pattern': '[A-Za-z0-9+/]+={0,2}',
         'help': 'Nur den Tunnel-Token (eyJ…) einfügen. Wird ausschließlich in privaten App-Dateien gespeichert.'}],
     'https://developers.cloudflare.com/tunnel/get-started/',
-    'Kein zusätzliches Passwort. Titan-Anmeldung und deren Sicherheitsregeln bleiben erhalten. Tunnel-Token unter Einstellungen → Fernzugriff einrichten oder ersetzen.',
+    'Kein zusätzliches Passwort. Titan-Anmeldung und deren Sicherheitsregeln bleiben erhalten. Tunnel-Token im Apps-Bereich einrichten oder ersetzen.',
     web_available=False, default_network='host',
     note='Kein eigener Webport. HTTP-Ziel für die öffentliche Titan-Route: http://127.0.0.1:5102. Die öffentliche Route im Cloudflare-Konto einrichten; ein Tunnel-Token kann DNS und Routen nicht bearbeiten.')
 

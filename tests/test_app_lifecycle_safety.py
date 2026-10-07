@@ -256,6 +256,9 @@ class OperationConcurrencyTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
         self.host = Host(base / 'agent', base / 'shares', base / 'vms', base / 'smb.conf')
+        # Explicit private test authorization, matching the disposable-image
+        # fixture boundary. Production recipes cannot grant this themselves.
+        self.host._ci_fixture_ids = {'first'}
         self.release = threading.Event()
         self.threads = []
         self.errors = []
@@ -282,7 +285,7 @@ class OperationConcurrencyTests(unittest.TestCase):
 
     def test_install_does_not_block_files_other_app_or_account_revocation_but_same_app_waits(self):
         self.block_install()
-        read, other, revoked, same = (threading.Event() for _ in range(4))
+        read, other, revoked, same, progress = (threading.Event() for _ in range(5))
         allowed = [True]
         def file_op(**arguments):
             if not allowed[0]: raise Error('Kein Zugriff', 403)
@@ -291,10 +294,12 @@ class OperationConcurrencyTests(unittest.TestCase):
         def revoke(**arguments): allowed[0] = False; revoked.set()
         self.host.op_account_set_enabled = revoke
         self.host.op_app_action = lambda app, action: same.set() if app == 'first' else other.set()
+        self.host.op_app_install_status = lambda app: progress.set()
+        self.launch('app_install_status', app='titan-cloudflared')
         self.launch('file', user='reader', share='docs', action='list')
         self.launch('app_action', app='second', action='stop')
         self.launch('app_action', app='first', action='stop')
-        self.assertTrue(read.wait(1)); self.assertTrue(other.wait(1)); self.assertFalse(same.wait(.05))
+        self.assertTrue(read.wait(1)); self.assertTrue(other.wait(1)); self.assertTrue(progress.wait(1)); self.assertFalse(same.wait(.05))
         self.launch('account_set_enabled', name='reader', enabled=False)
         self.assertTrue(revoked.wait(1))
         with self.assertRaises(Error): self.host.dispatch('file', user='reader', share='docs', action='list')

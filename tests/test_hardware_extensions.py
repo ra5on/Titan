@@ -96,24 +96,24 @@ class StoreTests(unittest.TestCase):
             def load(self, key, default): return self.records.get(key, default)
             def save(self, key, value): self.records[key] = value
         host = Host()
-        with self.assertRaises(Error): host.op_app_store_add(self.url)
+        with self.assertRaises(Error): host._legacy_app_store_add(self.url)
         import json
         with patch('titan.app_stores.urllib.request.build_opener') as opener:
             opener.return_value.open.return_value = io.BytesIO(json.dumps(self.document).encode())
-            host.op_app_store_add(self.url, trusted=True)
+            host._legacy_app_store_add(self.url, trusted=True)
         row = next(row for row in host.store_records() if row['url'] == self.url)
         _, parsed = recipes(self.document, self.url)
         identifier = next(iter(parsed))
         try:
             host.records['apps'] = [{'id': identifier}]
-            with self.assertRaises(Error): host.op_app_store_remove(row['id'])
+            with self.assertRaises(Error): host._legacy_app_store_remove(row['id'])
             APPS.pop(identifier)
             host.initialize_app_stores()
             self.assertIn(identifier, APPS)
             host.records['apps'] = []
-            host.op_app_store_remove(row['id'])
+            host._legacy_app_store_remove(row['id'])
             self.assertNotIn(identifier, APPS)
-            self.assertEqual([row['name'] for row in host.op_app_stores()['stores']], ['Titan AppStore'])
+            self.assertEqual([row['name'] for row in host.op_app_stores()['stores']], ['Titan Apps'])
         finally:
             APPS.pop(identifier, None)
 

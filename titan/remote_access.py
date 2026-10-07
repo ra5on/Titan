@@ -219,6 +219,7 @@ class RemoteAccessMixin:
         from .catalog import validate_options
         from .core import atomic_json
         from .host import run
+        from .app_installation import progress, suspend_progress
         token = validate_token(token)
         if not isinstance(public_origin, str):
             raise Error('Eine öffentliche HTTPS-Adresse angeben oder das Feld leer lassen.')
@@ -242,13 +243,16 @@ class RemoteAccessMixin:
             phase = 'preparing'
             try:
                 self._remote_setup_update(phase, 'Docker und geschützte Tunnel-Einrichtung werden vorbereitet.', running=True)
+                progress(self, CONNECTOR, 'docker', message='Docker-Engine und Compose werden geprüft.')
                 if not self.docker_component().get('available'):
                     self.op_component_install('docker')
                 if not was_running and (not existing or existing.get('network', {}).get('mode') == 'host'):
                     if run(['ss', '-H', '-ltn', 'sport = :' + str(METRICS_PORT)], timeout=5).strip():
                         raise Error('Der lokale Cloudflare-Prüfport ist bereits belegt.', 409)
+                progress(self, CONNECTOR, 'docker', 'completed', 'Docker verfügbar; lokaler Prüfport ist frei oder gehört zum eigenen laufenden Connector.')
                 phase = 'installing'
                 self._remote_setup_update(phase, 'Cloudflare-Connector wird installiert oder mit dem neuen Token gestartet.', running=True)
+                progress(self, CONNECTOR, 'files', message='Private Einstellungen und Compose-Dateien werden erstellt oder geprüft.')
                 changed = True
                 if existing:
                     options = validate_options(CONNECTOR, {**old_options, 'tunnel_token': token})
@@ -258,6 +262,7 @@ class RemoteAccessMixin:
                     self.op_app_install(CONNECTOR, 0, options={'tunnel_token': token}, network={'mode': 'host'}, storage_id='system')
                 phase = 'connecting'
                 self._remote_setup_update(phase, 'Connector gestartet. Verbindung zu Cloudflare wird geprüft.', running=True)
+                progress(self, CONNECTOR, 'connection', message='Cloudflare muss die tatsächliche Tunnel-Verbindung bestätigen.')
                 deadline = time.monotonic() + 25
                 while True:
                     record = self.managed_app(CONNECTOR)
@@ -267,13 +272,17 @@ class RemoteAccessMixin:
                     if time.monotonic() >= deadline:
                         raise Error('Cloudflare-Verbindung konnte nicht bestätigt werden.', 503)
                     time.sleep(1)
+                progress(self, CONNECTOR, 'connection', 'completed', 'Cloudflare-Verbindung über den lokalen /ready-Prüfendpunkt bestätigt.')
                 if not address:
+                    progress(self, CONNECTOR, 'proxy', 'pending', 'Öffentliche HTTPS-Adresse fehlt. Lokaler Tunnel-Zugang ist noch nicht aktiviert.')
+                    progress(self, CONNECTOR, 'public_check', 'pending', 'Öffentliche Cloudflare-Route ergänzen, danach den Zugang prüfen.')
                     self._remote_setup_update('needs_domain',
                         'Connector mit Cloudflare verbunden. Öffentlichen Hostnamen im Cloudflare-Konto auf das angezeigte HTTP-Ziel richten und die HTTPS-Adresse in Titan speichern. Der lokale Tunnel-Zugang wird erst mit dieser Adresse aktiviert.',
                         needs_domain=True)
                     return {'ok': True, **self.op_remote_access()}
                 phase = 'configuring'
                 self._remote_setup_update(phase, 'Lokaler Tunnel-Zugang, Proxy und begrenzte Firewallregeln werden eingerichtet.', running=True)
+                progress(self, CONNECTOR, 'proxy', message='Geschützter lokaler Proxy und begrenzte Firewallregeln werden aktiviert.')
                 desired = validate_remote({**previous_remote, 'enabled': True, 'public_origin': address,
                     'connector': CONNECTOR, **self._connector_settings(CONNECTOR)})
                 self.web_access.save_remote(desired, expected_revision, wait=True)
@@ -281,14 +290,19 @@ class RemoteAccessMixin:
                 self.save('remote-diagnosis', {})
                 if validate_remote(self.web_access.config().get('remote')) != desired:
                     raise Error('Der lokale Tunnel-Zugang konnte nicht aktiviert werden.', 503)
+                progress(self, CONNECTOR, 'proxy', 'completed', 'Lokaler Proxy und Firewallregeln aktiviert.')
                 phase = 'checking'
                 self._remote_setup_update(phase, 'Öffentliche HTTPS-Adresse wird mit diesem Titan abgeglichen.', running=True)
+                progress(self, CONNECTOR, 'public_check', message='Öffentliche HTTPS-Adresse wird sicher mit diesem Titan abgeglichen.')
                 diagnosis = self.op_remote_access_diagnose()
+                progress(self, CONNECTOR, 'public_check', 'completed' if diagnosis['connected'] else 'failed',
+                    'Öffentlicher Zugang bestätigt.' if diagnosis['connected'] else 'Öffentliche Route noch nicht bestätigt. Cloudflare-Hostname und lokales HTTP-Ziel prüfen.')
                 self._remote_setup_update('ready' if diagnosis['connected'] else 'needs_route',
                     'Tunnel und öffentlicher Titan-Zugang sind geprüft.' if diagnosis['connected'] else
                     'Connector verbunden und lokales Ziel eingerichtet. Die öffentliche Cloudflare-Route ist noch nicht bestätigt; Hostname und HTTP-Ziel im Cloudflare-Konto prüfen, danach Verbindung erneut prüfen.')
                 return {'ok': True, **self.op_remote_access()}
             except Exception:
+                suspend_progress(self)
                 # No upstream error string can carry a token into a job/audit.
                 # Restore a rotated credential and its previous lifecycle;
                 # fresh failed runners remain managed but safely stopped.
@@ -326,6 +340,7 @@ class RemoteAccessMixin:
     def op_remote_access_tunnel_address(self, public_origin, expected_revision):
         """Activate a managed runner's address in a background job, then probe."""
         from .cloudflare_tunnel import CONNECTOR, connector_ready
+        from .app_installation import progress, suspend_progress
         address = public_url(public_origin)
         with self.app_config_lock:
             config = self.web_access.config()
@@ -346,19 +361,25 @@ class RemoteAccessMixin:
             phase = 'configuring'
             try:
                 self._remote_setup_update(phase, 'Lokaler Tunnel-Zugang, Proxy und begrenzte Firewallregeln werden eingerichtet.', running=True)
+                progress(self, CONNECTOR, 'proxy', message='Geschützter lokaler Proxy und begrenzte Firewallregeln werden aktiviert.')
                 self.web_access.save_remote(desired, expected_revision, wait=True)
                 saved = True
                 self.save('remote-diagnosis', {})
                 if validate_remote(self.web_access.config().get('remote')) != desired:
                     raise Error('Der lokale Tunnel-Zugang konnte nicht aktiviert werden.', 503)
+                progress(self, CONNECTOR, 'proxy', 'completed', 'Lokaler Proxy und Firewallregeln aktiviert.')
                 phase = 'checking'
                 self._remote_setup_update(phase, 'Öffentliche HTTPS-Adresse wird mit diesem Titan abgeglichen.', running=True)
+                progress(self, CONNECTOR, 'public_check', message='Öffentliche HTTPS-Adresse wird sicher mit diesem Titan abgeglichen.')
                 diagnosis = self.op_remote_access_diagnose()
+                progress(self, CONNECTOR, 'public_check', 'completed' if diagnosis['connected'] else 'failed',
+                    'Öffentlicher Zugang bestätigt.' if diagnosis['connected'] else 'Öffentliche Route noch nicht bestätigt. Cloudflare-Hostname und lokales HTTP-Ziel prüfen.')
                 self._remote_setup_update('ready' if diagnosis['connected'] else 'needs_route',
                     'Tunnel und öffentlicher Titan-Zugang sind geprüft.' if diagnosis['connected'] else
                     'Lokaler Tunnel-Zugang eingerichtet. Die öffentliche Cloudflare-Route ist noch nicht bestätigt; Hostname und HTTP-Ziel im Cloudflare-Konto prüfen.')
                 return {'ok': True, **self.op_remote_access()}
             except Exception:
+                suspend_progress(self)
                 restored = True
                 try:
                     current = self.web_access.config()

@@ -71,7 +71,7 @@ class OperationCoordinatorSafetyTests(unittest.TestCase):
             self.release.set()
 
     def test_queued_exclusive_maintenance_does_not_freeze_fast_read_or_security_lane(self):
-        self.slow('app_install', app='first')
+        self.slow('app_install', app='titan-cloudflared')
         exclusive = threading.Event()
         self.host.op_test_maintenance = lambda: exclusive.set()
         self.launch('test_maintenance')

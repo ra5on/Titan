@@ -45,7 +45,13 @@ class DebianWorkflowTests(unittest.TestCase):
         for job in package['jobs'].values():
             for step in job.get('steps',[]):
                 if step.get('uses','').startswith('actions/checkout@'):
-                    self.assertEqual(step['with']['ref'],'${{ inputs.source_ref || github.sha }}')
+                    if step.get('name') == 'Check out current CI builder':
+                        self.assertEqual(step['with']['ref'],'${{ github.sha }}')
+                        self.assertEqual(step['with']['path'],'.titan-ci-builder')
+                    else:
+                        self.assertEqual(step['with']['ref'],'${{ inputs.source_ref || github.sha }}')
+            dependency_steps=[step['run'] for step in job.get('steps',[]) if 'ci-ubuntu-dependencies.sh' in step.get('run','')]
+            self.assertTrue(all('.titan-ci-builder/scripts/ci-ubuntu-dependencies.sh' in command for command in dependency_steps))
         frozen=[step for step in reusable['jobs']['system']['steps'] if step.get('name')=='Check out the frozen application source'][0]
         self.assertEqual(frozen['with']['ref'],'${{ inputs.source_ref }}')
         self.assertEqual(frozen['if'],"inputs.update_kind == 'system'")
