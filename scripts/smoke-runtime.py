@@ -1235,8 +1235,8 @@ class RuntimeSmoke:
         from titan.app_packages import PACKAGES
         value = self.client.request("/api/catalog")
         apps = value.get("apps") if isinstance(value, dict) else None
-        if (not isinstance(value, dict) or set(value) - {"apps", "source", "error", "installed_recipes"}
-                or not isinstance(apps, list)):
+        if (not isinstance(value, dict) or set(value) - {"apps", "source", "error", "installed_recipes", "store_status", "skipped"}
+                or not isinstance(apps, list) or len(apps) > 1000):
             raise SmokeFailure("App catalog or first-login guidance is incomplete.")
         # Empty is valid until the user explicitly enables BigBear. Keep a
         # compatibility check for old complete catalogs on existing installs.
@@ -1246,9 +1246,15 @@ class RuntimeSmoke:
         seen = set()
         for app in apps:
             identifier = app.get("id") if isinstance(app, dict) else None
-            if not isinstance(identifier, str) or identifier not in APPS or identifier in seen:
+            if not isinstance(identifier, str) or identifier in seen:
                 raise SmokeFailure("App catalog contains an unexpected or duplicate template.")
             seen.add(identifier)
+            if identifier not in APPS:
+                # The automatic catalog is fetched in the real guest. The
+                # runner intentionally has no copy of those private recipes.
+                # Verify its public schema without importing anything locally.
+                self.imported_catalog_entry(app, modes)
+                continue
             recipe = APPS[identifier]
             allowed = set(recipe) - {"environment","stack"}
             allowed.update(("id", "version", "deprecated", "architectures", "documentation", "install_schema", "containers", "store_name", "memory_plan", "containers_default", "optional_dependencies"))
@@ -1264,6 +1270,36 @@ class RuntimeSmoke:
                 raise SmokeFailure("App catalog first-login guidance or public field boundary is invalid.")
             modes[login["mode"]] += 1
         return {"app_count": len(seen), "first_login_mode_counts": modes, "ok": True}
+
+    @staticmethod
+    def imported_catalog_entry(app, modes):
+        allowed = {'id','name','description','image','port','scheme','default_port','web_available','web_host_ip',
+            'mount','memory','config_mount','category','color','symbol','documentation','first_login','upstream_name',
+            'note','store_name','store_url','install_schema','extra_ports','default_network','imported_stack',
+            'catalog_status','dependencies','version','deprecated','architectures','containers'}
+        identifier, docs, login, schema = (app.get(key) for key in ('id','documentation','first_login','install_schema'))
+        prefix = 's' + hashlib.sha256(RUNTIME_STACK_URL.encode()).hexdigest()[:10] + '-'
+        if (set(app) - allowed or app.get('imported_stack') is not True or app.get('store_url') != RUNTIME_STACK_URL or
+                not isinstance(identifier, str) or not re.fullmatch(re.escape(prefix) + r'[a-z][a-z0-9_-]{0,17}', identifier) or
+                not isinstance(docs, str) or not docs.startswith(RUNTIME_STACK_URL + '/tree/main/Apps/') or
+                not isinstance(login, dict) or set(login) != {'mode','instructions','documentation'} or
+                login.get('mode') != 'documentation' or login.get('documentation') != docs or
+                not isinstance(login.get('instructions'), str) or not 1 <= len(login['instructions']) <= 2000 or
+                type(app.get('containers')) is not int or not 1 <= app['containers'] <= 16 or
+                not isinstance(schema, list) or len(schema) > 256):
+            raise SmokeFailure('Imported app catalog guidance or public field boundary is invalid.')
+        from titan.app_credentials import secret_name
+        keys = set()
+        for field in schema:
+            if (not isinstance(field, dict) or set(field) - {'key','label','type','default','required','min','max','min_length','max_length','display_default'} or
+                    not isinstance(field.get('key'), str) or field['key'] in keys or not re.fullmatch(r'[a-zA-Z0-9_-]{1,110}', field['key']) or
+                    field.get('type') not in ('text','password','number') or
+                    not isinstance(field.get('label'), str) or not 1 <= len(field['label']) <= 100 or
+                    field.get('type') == 'password' and any(field.get(key) not in ('', None) for key in ('default','display_default')) or
+                    any(secret_name(field.get(key)) for key in ('key','label')) and field.get('type') != 'password'):
+                raise SmokeFailure('Imported catalog private option boundary is invalid.')
+            keys.add(field['key'])
+        modes['documentation'] += 1
 
     def components(self):
         value = self.client.request("/api/components").get("components", {})
@@ -1672,21 +1708,43 @@ class RuntimeSmoke:
         store = 'bigbear'
         app = RUNTIME_STACK_ID
         added = False
+        install_attempted = False
         try:
-            imported = self.client.action('app_store_add', {'url': url, 'trusted': True})
-            added = True
-            if imported.get('ok') is not True or not isinstance(imported.get('apps'), int) or imported['apps'] < 1:
-                raise SmokeFailure('Multi-container source was not imported.')
             offered = next((row for row in self.client.request('/api/catalog').get('apps', [])
                             if row.get('id') == app), None)
+            if not offered:
+                stores = self.client.request('/api/app-stores').get('stores', [])
+                existing = next((row for row in stores if row.get('id') == store and row.get('url') == url), None)
+                if existing:
+                    operation, arguments = ('app_store_toggle', {'store':store,'enabled':True}) if existing.get('enabled') is False else ('app_store_refresh', {'store':store})
+                    self.client.action(operation, arguments)
+                else:
+                    try:
+                        imported = self.client.action('app_store_add', {'url': url, 'trusted': True})
+                        added = True
+                    except SmokeFailure:
+                        # Auto-bootstrap can finish between the inventory and
+                        # explicit add. Accept only an actually published offer,
+                        # not a swallowed download/validation error.
+                        raced = self.client.request('/api/catalog').get('apps', [])
+                        if not any(row.get('id') == app for row in raced):
+                            raise
+                    else:
+                        if imported.get('ok') is not True or type(imported.get('apps')) is not int or imported['apps'] < 1:
+                            raise SmokeFailure('Multi-container source was not imported.')
+                offered = next((row for row in self.client.request('/api/catalog').get('apps', [])
+                                if row.get('id') == app), None)
             if not offered or not isinstance(offered.get('containers'), int) or offered['containers'] < 2:
                 raise SmokeFailure('BigBear multi-container offer is unavailable.')
+            if any(row.get('id') == app for row in self.client.request('/api/apps').get('installed', [])):
+                raise SmokeFailure('Disposable stack test must not replace a pre-existing installation.')
             container_count = offered['containers']
             options = {field['key']: 'Test-' + secrets.token_hex(24)
                        for field in offered.get('install_schema', [])
                        if field.get('type') == 'password' and not field.get('generated')}
             if any(field.get('key') == 'stack_nas_host' for field in offered.get('install_schema', [])):
                 options['stack_nas_host'] = self.client.HOST.rsplit(':', 1)[0]
+            install_attempted = True
             self.client.action('app_install', {'app': app, 'port': 18080, 'options': options}, timeout=900)
             installed = next((row for row in self.client.request('/api/apps')['installed']
                               if row.get('id') == app), None)
@@ -1717,12 +1775,13 @@ class RuntimeSmoke:
             return {'containers': container_count, 'compose_grouping': True, 'batch_stop_start': True, 'import': True,
                     'install': True, 'http': True, 'stop': True, 'start': True, 'remove': True, 'live_resources': True}
         finally:
-            if added:
+            if added or install_attempted:
                 try:
                     installed = self.client.request('/api/apps')['installed']
                     if any(row['id'] == app for row in installed):
                         self.client.action('app_action', {'app': app, 'action': 'remove'})
-                    self.client.action('app_store_remove', {'store': store})
+                    if added:
+                        self.client.action('app_store_remove', {'store': store})
                 except Exception:
                     pass
 

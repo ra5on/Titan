@@ -10,6 +10,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  # Same accepted snapshot as the main BigBear lifecycle workflow.
+  BIGBEAR_REVISION: f5e7cb7e4c5e01180d44fc459c65ae1c37c2ac20
 jobs:
   package:
     runs-on: ubuntu-24.04
@@ -26,4 +29,4 @@ jobs:
       - name: Install YAML parser
         run: sudo apt-get update && sudo apt-get install -y python3-yaml
       - name: Complete package startup, connection and restart
-        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py '${{ matrix.package }}' --confirm-disposable-runner
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py '${{ matrix.package }}' --confirm-disposable-runner --bigbear-revision "$BIGBEAR_REVISION"

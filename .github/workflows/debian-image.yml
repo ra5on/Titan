@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Configure an explicit NAS hostname for the complete Nextcloud browser lifecycle.
+# Build Titan 0.5.4 with automatic catalog loading and confirmed HTTPS web access.
 on:
   workflow_dispatch:
   push:

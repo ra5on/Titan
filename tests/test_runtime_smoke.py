@@ -271,6 +271,34 @@ class RuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(result['app_count'], 0)
         self.assertTrue(result['ok'])
 
+    def test_guest_auto_catalog_public_metadata_needs_no_runner_private_recipe(self):
+        from titan.store_recipes import recipes
+        document = {'schema':1, 'name':'BigBear', 'apps':[{'id':'smoke-catalog', 'name':'Smoke App',
+            'description':'Catalog boundary fixture.', 'image':'example/app:1.0', 'port':8080,
+            'documentation':smoke.RUNTIME_STACK_URL + '/tree/main/Apps/smoke-catalog',
+            'login_note':'Create an account in the app.',
+            'stack':{'primary':'web','services':{'web':{'image':'example/app:1.0','environment':{},'mounts':[]}}},
+            'stack_fields':[{'key':'stack_password','label':'PASSWORD', 'type':'password','default':'',
+                'required':True,'min_length':1,'max_length':1000}]}]}
+        _, parsed = recipes(document, smoke.RUNTIME_STACK_URL)
+        identifier, recipe = next(iter(parsed.items()))
+        public = {key:value for key,value in recipe.items() if key not in ('environment','stack')}
+        public.update(id=identifier, containers=1, version='latest', deprecated=False, architectures=[])
+        self.assertNotIn(identifier, app_catalog.APPS)
+        client = Mock()
+        client.request.return_value = {'apps':[public], 'source':'Titan AppStore', 'error':None,
+            'store_status':{'state':'ready','accepted':1}, 'skipped':[],'installed_recipes':[]}
+        result = smoke.RuntimeSmoke(client).catalog()
+        self.assertEqual(result['app_count'], 1)
+        self.assertEqual(result['first_login_mode_counts']['documentation'], 1)
+        for change in ({'environment':{'PASSWORD':'private-fixture-secret'}},
+                       {'first_login':{**public['first_login'],'password':'private-fixture-secret'}},
+                       {'install_schema':[{**public['install_schema'][0], 'default':'private-fixture-secret'}]},
+                       {'store_url':'https://github.com/untrusted/source'}):
+            client.request.return_value['apps'] = [{**public, **change}]
+            with self.subTest(change=list(change)), self.assertRaises(smoke.SmokeFailure):
+                smoke.RuntimeSmoke(client).catalog()
+
     def stack_fixture(self, schema=None):
         url = smoke.RUNTIME_STACK_URL
         store = "bigbear"
@@ -281,6 +309,8 @@ class RuntimeSmokeTests(unittest.TestCase):
 
         def request(path):
             requests.append((path, state["installed"]))
+            if path == "/api/app-stores":
+                return {"stores": [{"id": store, "url": url, "enabled": True}] if state["store"] else []}
             if path == "/api/catalog":
                 return {"apps": ([{"id": identifier} for identifier in app_catalog.PACKAGES] +
                                  ([{"id": app, "containers": 2, "install_schema": schema or []}] if state["store"] else [])),
@@ -347,10 +377,52 @@ class RuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(client.app_http_ready.call_count, 2)
         self.assertEqual([arguments["action"] for operation, arguments in client.actions
                           if operation == "docker_container_batch"], ["stop", "start"])
-        self.assertEqual([installed for path, installed in client.requests if path == "/api/catalog"], [False, True])
+        self.assertEqual([installed for path, installed in client.requests if path == "/api/catalog"], [False, False, True])
         self.assertEqual(set(row["id"] for row in client.request("/api/catalog")["apps"]), set(app_catalog.PACKAGES))
         self.assertFalse(client.state["installed"])
         self.assertFalse(client.state["store"])
+
+    def test_auto_bootstrapped_stack_is_reused_without_duplicate_add_or_source_removal(self):
+        client = self.stack_fixture()
+        client.state['store'] = True
+        result = smoke.RuntimeSmoke(client).docker_stack()
+        self.assertTrue(result['install'] and result['remove'])
+        self.assertTrue(client.state['store'])
+        self.assertFalse(client.state['installed'])
+        self.assertFalse(any(operation.startswith('app_store_') for operation, _ in client.actions))
+
+    def test_bootstrap_finishing_between_inventory_and_add_uses_real_published_offer(self):
+        client = self.stack_fixture()
+        action = client.action
+        def raced(operation, arguments, **parameters):
+            if operation == 'app_store_add':
+                client.state['store'] = True
+                raise smoke.SmokeFailure('Store already exists.')
+            return action(operation, arguments, **parameters)
+        client.action = raced
+        self.assertTrue(smoke.RuntimeSmoke(client).docker_stack()['http'])
+        self.assertTrue(client.state['store'])
+        self.assertFalse(client.state['installed'])
+
+    def test_missing_store_import_failure_is_not_misclassified_as_bootstrap_race(self):
+        client = self.stack_fixture()
+        action = client.action
+        def failed(operation, arguments, **parameters):
+            if operation == 'app_store_add': raise smoke.SmokeFailure('Store download failed.')
+            return action(operation, arguments, **parameters)
+        client.action = failed
+        with self.assertRaisesRegex(smoke.SmokeFailure, 'download failed'):
+            smoke.RuntimeSmoke(client).docker_stack()
+        self.assertFalse(client.state['installed'])
+        self.assertFalse(client.state['store'])
+
+    def test_preexisting_stack_installation_is_never_removed_by_runtime_check(self):
+        client = self.stack_fixture()
+        client.state.update(store=True, installed=True)
+        with self.assertRaisesRegex(smoke.SmokeFailure, 'pre-existing'):
+            smoke.RuntimeSmoke(client).docker_stack()
+        self.assertTrue(client.state['installed'])
+        self.assertEqual(client.actions, [])
 
     def test_bigbear_stack_supplies_private_required_passwords_before_install(self):
         client = self.stack_fixture(schema=[

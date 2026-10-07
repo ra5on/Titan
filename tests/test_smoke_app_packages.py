@@ -15,6 +15,16 @@ spec.loader.exec_module(smoke)
 
 
 class CloudflaredLanProbeTests(unittest.TestCase):
+    def test_image_package_gate_uses_same_validated_bigbear_revision(self):
+        import yaml
+        root = Path(__file__).resolve().parents[1]
+        ordinary = yaml.safe_load((root / '.github/workflows/bigbear.yml').read_text())
+        image_gate = yaml.safe_load((root / '.github/workflows/app-packages.yml').read_text())
+        self.assertEqual(smoke.bigbear_revision(image_gate['env']['BIGBEAR_REVISION']), ordinary['env']['BIGBEAR_REVISION'])
+        runtime_steps = [step for step in image_gate['jobs']['package']['steps'] if 'smoke-app-packages.py' in step.get('run','')]
+        self.assertEqual(len(runtime_steps), 1)
+        self.assertIn('--bigbear-revision "$BIGBEAR_REVISION"', runtime_steps[0]['run'])
+
     def test_only_current_status_and_allowlisted_headers_are_reported(self):
         run = Mock(return_value='HTTP/1.1 100 Continue\r\nContent-Type: old-type\r\n\r\n'
             'HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain; charset=utf-8\r\n'
