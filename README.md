@@ -4,19 +4,19 @@
 
 Titan ist eine eigenständige NAS-Oberfläche auf Debian mit persönlichem Desktop, Dateimanager, Freigaben, virtuellen Maschinen und Docker-Verwaltung.
 
-**Version: 0.5.3-alpha.1 · Alpha.** Zunächst mit Testdaten verwenden.
+**Version: 0.5.4-alpha.1 · Alpha.** Zunächst mit Testdaten verwenden.
 
-[**Image herunterladen · AMD64 (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.5.3-alpha.1/titan-0.5.3-alpha.1-amd64.img.xz) · [Release, Checksummen und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.3-alpha.1)
+[**Image herunterladen · AMD64 (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.5.4-alpha.1/titan-0.5.4-alpha.1-amd64.img.xz) · [Release, Checksummen und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.4-alpha.1)
 
-Für den VM-Test: **UEFI/OVMF**, **Secure Boot aus**, **8 GiB RAM** und mindestens **64 GiB Festplatte**. Die `.img.xz` entpacken; das enthaltene Image ist 48 GiB groß. Die virtuelle Festplatte vor dem ersten Start auf die gewünschte Größe erweitern. Danach Titan unter `https://NAS-IP:5000` öffnen.
+Für den VM-Test: **UEFI/OVMF**, **Secure Boot aus**, **8 GiB RAM** und mindestens **64 GiB Festplatte**. Die `.img.xz` entpacken; das enthaltene Image ist 48 GiB groß. Die virtuelle Festplatte vor dem ersten Start auf die gewünschte Größe erweitern. Danach Titan unter `https://NAS-IP` öffnen.
 
-Der Download oben ist der veröffentlichte Stand **0.5.3-alpha.1**. Neue Builds verwenden **HTTPS auf Port 443** mit automatischer Weiterleitung von **HTTP auf Port 80**. Unter **Systemsteuerung → Allgemein → Webzugriff** sind Modus und Ports einstellbar. Bestehende Installationen behalten bei einem Update ihre bisherige Adresse, bis du sie dort änderst.
+Neuinstallationen verwenden **HTTPS auf Port 443** mit automatischer Weiterleitung von **HTTP auf Port 80**. Unter **Systemsteuerung → Allgemein → Webzugriff** sind Modus und Ports einstellbar. Eine neue Adresse innerhalb von **120 Sekunden** bestätigen; sonst wird die bisherige Einstellung wiederhergestellt. Bestehende Installationen behalten bei einem Update ihre bisherige Adresse, bis du sie dort änderst.
 
 ![Titan Desktop · Demoansicht](docs/images/titan-desktop-bigbear.jpg)
 
 ## Docker mit BigBear
 
-Der AppStore lädt den BigBear-Katalog in neuen Builds automatisch im Hintergrund und speichert ihn lokal. Ladezustand und zusätzliche Anforderungen einzelner Vorlagen sind sichtbar. Vor der Installation wählst du Speicherbereich, Ports, Zugangsdaten und gegebenenfalls Netzwerk sowie Geräte aus. Datenbanken und Zusatzdienste werden als zusammengehöriger Stack eingerichtet.
+Der AppStore lädt den BigBear-Katalog automatisch im Hintergrund und speichert ihn lokal. Ladezustand und zusätzliche Anforderungen einzelner Vorlagen sind sichtbar. Vor der Installation wählst du Speicherbereich, Ports, Zugangsdaten und gegebenenfalls Netzwerk sowie Geräte aus. Datenbanken und Zusatzdienste werden als zusammengehöriger Stack eingerichtet.
 
 Administratoren können im Dateimanager und Terminal einen zeitlich begrenzten **Root-Modus** aktivieren. Dafür werden das aktuelle Passwort und bei aktivierter Zwei-Faktor-Anmeldung ein Sicherheitscode erneut geprüft. Die Freigabe gilt nur für diese Anmeldung; Betriebssystembereiche werden nicht automatisch beschreibbar gemacht.
 
