@@ -6,8 +6,6 @@ remain manageable through AppMixin; this is not an arbitrary Compose importer.
 import hashlib
 import ipaddress
 import json
-from pathlib import Path
-import time
 
 from .app_packages import PACKAGES
 from .catalog import APPS, compose, published_ports, validate_options
@@ -58,6 +56,11 @@ class PackageCenterMixin:
                 ready = connector_ready(container)
                 if not ready:
                     warning = 'Container läuft, aber die Cloudflare-Verbindung ist nicht bestätigt. Token und Internetzugang prüfen.'
+            if app == 'titan-tailscale' and key == app and ready:
+                from .native_apps import tailscale_runtime
+                ready = tailscale_runtime(container)['connected']
+                if not ready:
+                    warning = 'Container läuft, aber die Verbindung zum Tailscale-Konto ist nicht bestätigt. Auth-Key und Internetzugang prüfen.'
             label = recipe.get("dependencies", raw_keys)[raw_keys.index(original)] if original in raw_keys else original
             services.append({"id": key, "name": label, "state": state, "health": health, "ready": ready,
                               "one_shot": one_shot, "image": expected["image"], "container": summary, "warning": warning,

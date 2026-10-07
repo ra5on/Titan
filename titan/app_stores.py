@@ -8,7 +8,7 @@ import threading
 from datetime import datetime, timezone
 import urllib.parse
 import urllib.request
-from .core import Error, integer
+from .core import Error
 from .catalog import APPS, catalog
 from .store_sources import LINUXSERVER, BIGBEAR, fetch_document
 from .store_recipes import text, recipes

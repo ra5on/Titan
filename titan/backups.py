@@ -477,6 +477,8 @@ class Backups:
                 nodes[archive_name(name)] = "directory"
                 totals[0] += 1
                 for entry in sorted(os.listdir(fd)):
+                    if entry.startswith('.titan-uploads-'):
+                        continue
                     archive_name(entry)
                     child = os.stat(entry, dir_fd=fd, follow_symlinks=False)
                     if stat.S_ISDIR(child.st_mode):

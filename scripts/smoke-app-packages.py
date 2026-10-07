@@ -15,6 +15,8 @@ import tempfile
 import threading
 import pwd
 import re
+import socket
+import struct
 from http.server import ThreadingHTTPServer
 import time
 import urllib.error
@@ -26,6 +28,68 @@ from titan.catalog import validate_options
 from titan.host import Host
 from titan.server import Application, Handler
 from titan.core import Error
+
+
+def adguard_dns_probe(port, tcp=False):
+    """Resolve a local rewrite over each actual published DNS transport."""
+    identifier = int.from_bytes(os.urandom(2), 'big')
+    name = b''.join(bytes([len(label)]) + label for label in (b'titan-smoke', b'invalid')) + b'\0'
+    query = struct.pack('!HHHHHH', identifier, 0x0100, 1, 0, 0, 0) + name + struct.pack('!HH', 1, 1)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM if tcp else socket.SOCK_DGRAM) as client:
+        client.settimeout(5)
+        client.connect(('127.0.0.1', port))
+        if tcp:
+            client.sendall(struct.pack('!H', len(query)) + query)
+            def receive(length):
+                result = b''
+                while len(result) < length:
+                    part = client.recv(length - len(result))
+                    if not part: raise Error('AdGuard DNS stream ended before its response.')
+                    result += part
+                return result
+            packet = receive(struct.unpack('!H', receive(2))[0])
+        else:
+            client.send(query)
+            packet = client.recv(4096)
+    if len(packet) < 12:
+        raise Error('AdGuard DNS response is incomplete.')
+    reply, flags, questions, answers, _, _ = struct.unpack('!HHHHHH', packet[:12])
+    if reply != identifier or flags & 15 or not flags & 0x8000 or questions != 1 or answers < 1:
+        raise Error('AdGuard DNS query did not return a successful answer.')
+    def name_end(offset):
+        while offset < len(packet):
+            size = packet[offset]
+            if size & 0xc0 == 0xc0: return offset + 2
+            offset += 1
+            if not size: return offset
+            if size > 63: break
+            offset += size
+        raise Error('AdGuard DNS response contains an invalid name.')
+    offset = name_end(12) + 4
+    for _ in range(answers):
+        offset = name_end(offset)
+        if offset + 10 > len(packet): break
+        kind, category, _, length = struct.unpack('!HHIH', packet[offset:offset + 10])
+        offset += 10
+        if kind == 1 and category == 1 and packet[offset:offset + length] == socket.inet_aton('192.0.2.123'):
+            return True
+        offset += length
+    raise Error('AdGuard DNS rewrite did not return its configured test address.')
+
+
+def adguard_setup(origin, password):
+    """Complete the upstream wizard only inside this disposable acceptance."""
+    auth = base64.b64encode(('smokeadmin:' + password).encode()).decode()
+    def post(path, value, authenticated=False):
+        headers = {'Content-Type': 'application/json'}
+        if authenticated: headers['Authorization'] = 'Basic ' + auth
+        request = urllib.request.Request(origin + '/control/' + path, data=json.dumps(value).encode(), headers=headers)
+        with urllib.request.urlopen(request, timeout=20) as response:
+            if response.status != 200: raise Error('AdGuard disposable setup failed.')
+    post('install/configure', {'web': {'ip': '0.0.0.0', 'port': 3000}, 'dns': {'ip': '0.0.0.0', 'port': 53},
+        'username': 'smokeadmin', 'password': password})
+    post('rewrite/add', {'domain': 'titan-smoke.invalid', 'answer': '192.0.2.123'}, True)
+    return auth
 
 
 @contextlib.contextmanager
@@ -455,7 +519,16 @@ def main():
         config = host.directory / 'apps' / app / 'compose.json'
         command = ['docker', 'compose', '--project-name', 'titan-' + app, '-f', str(config)]
         try:
-            installed_job = submit('app_install', {'app': app, 'port': app_port, 'options': options})
+            native_steps = app in ('titan-immich', 'titan-adguard')
+            if native_steps:
+                initial = request('/api/app-install?app=' + app)
+                public_options = {key: value for key, value in options.items()
+                    if key not in {field['key'] for field in recipe['install_schema'] if field.get('generated')}}
+                installed_job = request('/api/app-install', {'app': app,
+                    'options': {**public_options, 'port': app_port, 'storage_id': 'system'},
+                    'expected_revision': initial['revision']})['job']
+            else:
+                installed_job = submit('app_install', {'app': app, 'port': app_port, 'options': options})
             # The HTTP file request runs while the production Host is pulling,
             # initializing databases and waiting for health, not after it ends.
             deadline = time.monotonic() + 15
@@ -472,6 +545,12 @@ def main():
                 raise Error('File manager could not browse during package installation.')
             list_seconds = time.monotonic() - before_list
             wait_job(installed_job)
+            if native_steps:
+                journal = request('/api/app-install?app=' + app)
+                if journal['status'] != 'completed' or not all(row['status'] == 'completed' and row['finished_at'] for row in journal['steps']):
+                    raise Error('Native installer did not prove completion of every real Compose and health step.')
+                if journal['resumable'] or host._installation_path(app, private=True).exists():
+                    raise Error('Successful native installation retained temporary retry inputs.')
             definition = json.loads(config.read_text())
             ready()
             installed = next(row for row in host.load('apps', []) if row['id'] == app)
@@ -528,6 +607,16 @@ def main():
                 protected_url = 'http://127.0.0.1:' + str(app_port) + '/config'
                 check_cloudflared_api(protected_url, credentials)
                 cloudflared_private_before = (host.directory / 'apps' / app / 'options.json').read_bytes()
+            if app == 'titan-adguard':
+                adguard_password = 'Test-' + os.urandom(24).hex()
+                secrets.append(adguard_password)
+                secrets.append(adguard_setup('http://127.0.0.1:' + str(app_port), adguard_password))
+            def check_native_dns():
+                if app != 'titan-adguard':
+                    return
+                for tcp in (False, True):
+                    adguard_dns_probe(options['stack_port_adguard_53_' + ('tcp' if tcp else 'udp')], tcp)
+            check_native_dns()
             lan_url = 'http://10.254.254.1:' + str(app_port)
             def check_cloudflared_lan():
                 if not cloudflared_web:
@@ -579,9 +668,11 @@ def main():
                     raise Error('Stopped Cloudflared Web retained a managed firewall rule.')
             action('app_action', app=app, action='start')
             ready()
+            check_native_dns()
             check_cloudflared_lan()
             action('app_action', app=app, action='restart')
             ready()
+            check_native_dns()
             check_cloudflared_lan()
             keep = Path(installed['data']) / 'titan-smoke-retained.txt'
             keep.write_text('persistent-user-data')
@@ -602,6 +693,8 @@ def main():
             if cloudflared_web and any('app:' + app in row['owners'] for row in host.load('managed-firewall-v1', {}).values()):
                 raise Error('Uninstall retained app firewall access.')
             print(json.dumps({'package': app, 'containers': len(definition['services']), 'ready': True,
+                'native_install_steps_verified': native_steps,
+                'adguard_dns_tcp_udp_verified': app == 'titan-adguard',
                 'restart': True, 'host_http_lifecycle': True, 'single_container_stop': True,
                 'package_stop_start': True, 'uninstall_data_retained': True,
                 **({'isolated_lan_firewall_access': True, 'basic_auth_required': bool(credentials),

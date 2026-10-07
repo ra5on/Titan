@@ -12,7 +12,7 @@ from unittest.mock import patch
 from titan.app_stores import StoreMixin
 from titan.catalog import APPS
 from titan.core import Error
-from titan.native_catalog import CI_FILENAME, CI_SOURCE, load_ci_fixtures
+from titan.native_catalog import AVAILABLE_APP_IDS, CI_FILENAME, CI_SOURCE, load_ci_fixtures
 from titan.store_recipes import recipes
 
 FIXTURE_ID = 's5f61a2c464-runtime-stack'
@@ -52,7 +52,7 @@ class NativeCatalogTests(unittest.TestCase):
             host.ensure_app_catalog()
             offered = host.op_catalog()
         fetch.assert_not_called()
-        self.assertEqual([row['id'] for row in offered['apps']], ['titan-cloudflared'])
+        self.assertEqual({row['id'] for row in offered['apps']}, AVAILABLE_APP_IDS)
         self.assertFalse(offered['store_status']['automatic'])
         self.assertEqual(offered['skipped'], [])
         self.assertEqual(host.op_app_stores()['presets'], [])
@@ -87,7 +87,7 @@ class NativeCatalogTests(unittest.TestCase):
         host.initialize_app_stores()
         self.assertEqual(APPS[FIXTURE_ID]['name'], 'Installed version')
         catalog = host.op_catalog()
-        self.assertEqual([row['id'] for row in catalog['apps']], ['titan-cloudflared'])
+        self.assertEqual({row['id'] for row in catalog['apps']}, AVAILABLE_APP_IDS)
         self.assertEqual([row['id'] for row in catalog['installed_recipes']], [FIXTURE_ID])
         self.assertEqual(host.rows, original)
         self.assertEqual(host._ci_fixture_ids, set())
@@ -131,7 +131,7 @@ class NativeCatalogTests(unittest.TestCase):
             self.run_as_root(host)
             self.assertEqual(host._ci_fixture_ids, {'heimdall',FIXTURE_ID})
             self.assertIn(FIXTURE_ID, APPS)
-            self.assertEqual([row['id'] for row in host.op_catalog()['apps']], ['titan-cloudflared'])
+            self.assertEqual({row['id'] for row in host.op_catalog()['apps']}, AVAILABLE_APP_IDS)
             self.assertEqual(host.op_catalog()['installed_recipes'], [])
 
     def test_test_fixture_rejects_untrusted_owner_permissions_links_and_file_types(self):

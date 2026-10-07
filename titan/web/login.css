@@ -1,0 +1,191 @@
+/* Original Titan sign-in surface. Account preferences apply after sign-in. */
+#auth {
+ --auth-bg: #e7edf6;
+ --auth-glow-one: #c6d8f2;
+ --auth-glow-two: #d9d0f0;
+ --auth-glow-three: #d1e8e5;
+ --auth-card: #ffffffbd;
+ --auth-card-border: #ffffffd9;
+ --auth-text: #253146;
+ --auth-muted: #647187;
+ --auth-line: #becadd8a;
+ --auth-input: #ffffffad;
+ --auth-accent: #6556cb;
+ --auth-hover: #5848bc;
+ --auth-on-accent: #fff;
+ --auth-error: #9f2943;
+ --auth-error-bg: #fbe5eb;
+ --auth-focus: #6556cb;
+ --auth-shadow: #344c771c;
+ color: var(--auth-text);
+ color-scheme: light;
+ min-height: 100vh;
+ min-height: 100dvh;
+ display: flex;
+ flex-direction: column;
+ isolation: isolate;
+ overflow: clip;
+ padding: 0;
+ background: radial-gradient(ellipse at 85% 5%, var(--auth-glow-one), transparent 52%),
+  radial-gradient(ellipse at 8% 88%, var(--auth-glow-two), transparent 46%),
+  radial-gradient(ellipse at 90% 95%, var(--auth-glow-three), transparent 40%), var(--auth-bg);
+}
+#auth::before {
+ content: '';
+ position: fixed;
+ z-index: -1;
+ width: min(82vw, 1150px);
+ height: min(64vw, 850px);
+ border: 1px solid #ffffff38;
+ border-radius: 50%;
+ transform: rotate(-25deg);
+ top: 7vh;
+ left: 24vw;
+ pointer-events: none;
+}
+#auth .auth-topbar {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 20px;
+ padding: 28px 40px;
+ flex-shrink: 0;
+}
+#auth .auth-brand {display:flex;align-items:center;gap:10px;font-size:21px;font-weight:750;letter-spacing:-.7px}
+#auth .auth-brand img {width:32px;height:32px}
+#auth .auth-topline {font-size:12px;color:var(--auth-muted)}
+#auth .auth-content {flex:1;display:grid;place-items:center;padding:24px 20px 40px}
+#auth .auth-card {
+ width: min(100%, 420px);
+ padding: 34px 34px 23px;
+ border: 1px solid var(--auth-card-border);
+ border-radius: 24px;
+ background: var(--auth-card);
+ box-shadow: 0 24px 80px var(--auth-shadow), 0 1px 0 #ffffff5c inset;
+ backdrop-filter: blur(24px) saturate(125%);
+ -webkit-backdrop-filter: blur(24px) saturate(125%);
+}
+#auth .auth-emblem {
+ display: grid;
+ place-items: center;
+ width: 48px;
+ height: 48px;
+ margin: 0 auto 22px;
+ border-radius: 16px;
+ color: var(--auth-accent);
+ background: color-mix(in srgb, var(--auth-accent) 9%, transparent);
+ box-shadow: 0 1px 0 #ffffff69 inset;
+}
+#auth .auth-emblem svg {width:25px;height:25px}
+#auth .auth-eyebrow {margin:0 0 9px;text-align:center;font-size:9px;letter-spacing:1.6px;font-weight:650;color:var(--auth-muted)}
+#auth h1 {margin:0;text-align:center;font-size:26px;line-height:1.28;font-weight:650;letter-spacing:-.9px;color:var(--auth-text)}
+#auth .auth-subtitle {margin:10px 0 27px;text-align:center;font-size:13px;line-height:1.6;color:var(--auth-muted)}
+#auth .auth-form {display:grid;gap:18px;min-width:0}
+#auth .auth-field {display:grid;gap:7px;min-width:0}
+#auth .auth-field>label {display:block;margin:0;font-size:12px;font-weight:600;line-height:1.5;color:var(--auth-text)}
+#auth .auth-field input {
+ width:100%;
+ min-width:0;
+ min-height:46px;
+ margin:0;
+ padding:11px 13px;
+ border:1px solid var(--auth-line);
+ border-radius:11px;
+ color:var(--auth-text);
+ background:var(--auth-input);
+ font-size:14px;
+ line-height:1.5;
+ transition:border-color .15s,box-shadow .15s;
+}
+#auth .auth-field input:focus {border-color:var(--auth-focus);outline:0;box-shadow:0 0 0 3px color-mix(in srgb,var(--auth-focus) 16%,transparent)}
+#auth .auth-field input:-webkit-autofill {-webkit-text-fill-color:var(--auth-text);box-shadow:0 0 0 100px var(--auth-bg) inset}
+#auth .auth-field input:-webkit-autofill:focus {box-shadow:0 0 0 100px var(--auth-bg) inset,0 0 0 3px color-mix(in srgb,var(--auth-focus) 16%,transparent)}
+#auth .auth-field small,#auth .auth-field-hint {margin:0;font-size:11px;line-height:1.6;color:var(--auth-muted)}
+#auth .auth-field-hint {margin-top:-12px}
+#auth .auth-password {position:relative;min-width:0}
+#auth .auth-password input {padding-right:90px}
+#auth .auth-password-toggle {
+ position:absolute;
+ right:3px;
+ top:3px;
+ bottom:3px;
+ padding:0 10px;
+ border:0;
+ border-radius:8px;
+ color:var(--auth-muted);
+ background:transparent;
+ font-size:11px;
+ font-weight:600;
+}
+#auth .auth-password-toggle:hover {color:var(--auth-accent);background:color-mix(in srgb,var(--auth-accent) 7%,transparent)}
+#auth :is(button,summary):focus-visible {outline:2px solid var(--auth-focus);outline-offset:3px}
+#auth .auth-otp {margin:0;color:var(--auth-muted);font-size:12px}
+#auth .auth-otp summary {width:fit-content;cursor:pointer;border-radius:4px;padding:2px 0;font-size:11px;line-height:1.7}
+#auth .auth-otp[open] summary {margin-bottom:14px;color:var(--auth-accent)}
+#auth .auth-otp .auth-field>label {font-size:11px}
+#auth .auth-error {margin:0;padding:11px 13px;border:1px solid color-mix(in srgb,var(--auth-error) 18%,transparent);border-radius:10px;color:var(--auth-error);background:var(--auth-error-bg);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+#auth .auth-error:focus {outline:2px solid var(--auth-focus);outline-offset:3px}
+#auth .auth-submit {
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ position:relative;
+ gap:12px;
+ min-height:46px;
+ width:100%;
+ margin:2px 0 0;
+ padding:11px 18px;
+ border:1px solid transparent;
+ border-radius:11px;
+ background:var(--auth-accent);
+ color:var(--auth-on-accent);
+ box-shadow:0 4px 12px color-mix(in srgb,var(--auth-accent) 16%,transparent);
+ font-size:13px;
+ font-weight:600;
+ transition:background .15s,box-shadow .15s;
+}
+#auth .auth-submit>span:last-child {position:absolute;right:17px;font-size:18px;font-weight:400}
+#auth .auth-submit:hover {background:var(--auth-hover);box-shadow:0 5px 17px color-mix(in srgb,var(--auth-accent) 24%,transparent)}
+#auth .auth-submit:disabled {cursor:wait;opacity:.7;box-shadow:none}
+#auth .auth-form[aria-busy=true] .auth-submit>span:last-child {visibility:hidden}
+#auth .auth-local-hint {margin:18px 0 0;font-size:11px;line-height:1.7;color:var(--auth-muted)}
+#auth .auth-release {display:flex;align-items:flex-start;gap:9px;margin-top:24px;padding-top:17px;border-top:1px solid var(--auth-line);color:var(--auth-muted)}
+#auth .auth-release-label {flex-shrink:0;padding:2px 6px;border:1px solid var(--auth-line);border-radius:5px;font-size:9px;font-weight:650;line-height:1.5}
+#auth .auth-release p {margin:1px 0 0;font-size:10px;line-height:1.7}
+#auth .auth-footer {flex-shrink:0;text-align:center;margin:0;padding:0 20px 25px;font-size:11px;line-height:1.7;color:var(--auth-muted)}
+@media(prefers-color-scheme:dark) {
+ #auth {--auth-bg:#141d2c;--auth-glow-one:#253d60;--auth-glow-two:#342c51;--auth-glow-three:#1c3d43;--auth-card:#202c40bd;--auth-card-border:#a2bbdf24;--auth-text:#edf2fc;--auth-muted:#a9b8cf;--auth-line:#9eb2d333;--auth-input:#101b2a75;--auth-accent:#ad9bf1;--auth-hover:#c2b2ff;--auth-on-accent:#211b39;--auth-error:#ffb4c1;--auth-error-bg:#442c3b;--auth-focus:#c2b2ff;--auth-shadow:#070c1d5c;color-scheme:dark}
+ #auth::before {border-color:#9cb7e414}
+ #auth .auth-card {box-shadow:0 24px 80px var(--auth-shadow),0 1px 0 #ffffff09 inset}
+ #auth .auth-emblem {box-shadow:0 1px 0 #ffffff10 inset}
+}
+@media(max-width:520px) {
+ #auth .auth-topbar {padding:22px 22px 10px}
+ #auth .auth-brand {font-size:20px}
+ #auth .auth-topline {font-size:10px;max-width:100px;text-align:right}
+ #auth .auth-content {padding:22px 18px 30px}
+ #auth .auth-card {padding:28px 24px 21px;border-radius:21px}
+ #auth h1 {font-size:24px}
+ #auth .auth-field input {font-size:16px}
+ #auth .auth-password-toggle {font-size:11px}
+ #auth .auth-footer {padding-bottom:20px;font-size:10px}
+}
+@media(max-width:350px) {
+ #auth .auth-content {padding-inline:12px}
+ #auth .auth-card {padding-inline:20px}
+ #auth h1 {font-size:22px}
+}
+@media(max-height:760px) {
+ #auth .auth-topbar {padding-block:18px}
+ #auth .auth-content {padding-block:12px 20px}
+ #auth .auth-card {padding-block:26px 19px}
+ #auth .auth-emblem {width:42px;height:42px;margin-bottom:15px}
+ #auth .auth-subtitle {margin-top:8px;margin-bottom:20px}
+ #auth .auth-form {gap:14px}
+ #auth .auth-field-hint {margin-top:-8px}
+ #auth .auth-release {margin-top:19px;padding-top:13px}
+ #auth .auth-footer {padding-bottom:16px}
+}
+@media(prefers-reduced-motion:reduce) {
+ #auth :is(input,button) {transition:none}
+}

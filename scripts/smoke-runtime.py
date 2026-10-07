@@ -1244,8 +1244,10 @@ class RuntimeSmoke:
             raise SmokeFailure("App catalog or first-login guidance is incomplete.")
         # The offline native catalog must not start network imports. Installed
         # legacy recipes are reported separately and remain manageable.
-        if NATIVE_APP_CONTRACT and {app.get('id') for app in apps if isinstance(app, dict)} != {'titan-cloudflared'}:
-            raise SmokeFailure("Native app catalog must contain the approved Cloudflare app only.")
+        if NATIVE_APP_CONTRACT:
+            from titan.native_catalog import AVAILABLE_APP_IDS
+            if {app.get('id') for app in apps if isinstance(app, dict)} != AVAILABLE_APP_IDS:
+                raise SmokeFailure("Native app catalog must contain exactly the approved Titan apps.")
         if not NATIVE_APP_CONTRACT and apps and all(isinstance(app, dict) and app.get('id') in PACKAGES for app in apps) and len(apps) != len(PACKAGES):
             raise SmokeFailure("Legacy app catalog is incomplete.")
         modes = {mode: 0 for mode in ("default", "generated", "install", "none", "setup", "documentation")}

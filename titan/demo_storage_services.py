@@ -4,9 +4,7 @@ Never invokes smartctl/zfs/SMTP or resolves simulated host mount paths. File
 restoration uses the demo's private backup tree and its existing safe copier.
 """
 import copy
-import json
 import os
-from pathlib import Path
 import threading
 import time
 from types import SimpleNamespace

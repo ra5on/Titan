@@ -1,6 +1,6 @@
 # Titan · Debian 13 · A/B-Alpha
 
-[Titan 0.5.4-alpha.1 herunterladen](https://github.com/ra5on/Titan/releases/download/v0.5.4-alpha.1/titan-0.5.4-alpha.1-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.4-alpha.1)
+[Titan 0.5.9-alpha.1 herunterladen](https://github.com/ra5on/Titan/releases/download/v0.5.9-alpha.1/titan-0.5.9-alpha.1-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.9-alpha.1)
 
 Titan ist eine frühe Alpha. Verwende eine separate Test-VM und unabhängige
 Sicherungen. Das Image ist für eine Neuinstallation bestimmt; es konvertiert
@@ -15,7 +15,7 @@ kein bestehendes anderes NAS-System und übernimmt dessen Daten nicht automatisc
 - Das entpackte IMG als VM-Festplatte importieren und als Startlaufwerk auswählen.
   Die virtuelle Platte ist 48 GiB groß. Sie vor dem Start auf mindestens 64 GiB
   beziehungsweise die gewünschte Kapazität vergrößern; Titan erweitert beim Start ausschließlich seine Datenpartition.
-- Netzwerk per DHCP. Das veröffentlichte Image 0.5.4-alpha.1 ist unter `https://<NAS-IP>` erreichbar.
+- Netzwerk per DHCP. Das veröffentlichte Image 0.5.9-alpha.1 ist unter `https://<NAS-IP>` erreichbar.
   Das lokale TLS-Zertifikat ist selbstsigniert. Den Administrator beim ersten
   Aufruf im eigenen Netz erstellen; es gibt kein vorgegebenes Kennwort.
 

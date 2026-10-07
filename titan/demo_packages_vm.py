@@ -4,12 +4,13 @@ import time
 import uuid
 
 from .app_packages import PACKAGES
-from .catalog import APPS, validate_options
+from .catalog import validate_options
 from .core import Error, identifier, integer
+from .vm_names import identity as vm_identity
 
 
 OPERATIONS = frozenset({'app_memory_preflight','package_details','package_diagnose','package_logs','package_repair','package_update','package_settings',
-                        'vm_extensions','vm_clone','vm_snapshot_create','vm_snapshot_restore','vm_snapshot_remove',
+                        'vm_extensions','vm_clone','vm_snapshot_create','vm_snapshot_restore','vm_snapshot_restore_new','vm_snapshot_remove',
                         'vm_disk_add','vm_disk_remove','vm_nic_add','vm_nic_remove','vm_guest_agent','vm_guest_action',
                         'vm_backup','vm_restore'})
 
@@ -43,10 +44,10 @@ class DemoPackagesVMMixin:
                 plan['startup_limit_bytes'], installation=True), 'plan':plan, 'demo':True}
         if operation == 'vm_restore':
             saved = self.backup(args['backup'])
-            name = identifier(args['name'])
+            name, label = vm_identity(args['name'])
             if saved['type'] != 'vm': raise Error('Diese Sicherung enthält keine VM.')
-            if any(vm['name'] == name for vm in self.vms): raise Error('VM existiert bereits.',409)
-            item = {**copy.deepcopy(saved['vm']), 'id':str(uuid.uuid4()), 'name':name, 'state':'shut off', 'autostart':False,
+            if any((vm['name'] == name or vm.get('display_name',vm['name']) == label) for vm in self.vms): raise Error('VM existiert bereits.',409)
+            item = {**copy.deepcopy(saved['vm']), 'id':str(uuid.uuid4()), 'name':name, 'display_name':label, 'state':'shut off', 'autostart':False,
                     'storage':args.get('storage','system'), 'disk_path':'/var/lib/libvirt/images/titan/'+name+'.qcow2', 'cpu_ids':[]}
             self.vms.append(item)
             _, state = self._demo_extended_vm(item['id'])
@@ -113,6 +114,9 @@ class DemoPackagesVMMixin:
             if args.get('action') not in ('shutdown','reboot') or not state['guest_agent'] or item['state']!='running': raise Error('Gastagent ist nicht verbunden.',409)
             if args['action']=='shutdown': item['state']='shut off'
             return {'ok':True,'demo':True,'mode':'agent'}
+        if operation in ('vm_snapshot_create','vm_snapshot_restore_new','vm_backup'):
+            if type(args.get('shutdown',False)) is not bool: raise Error('Herunterfahren muss Ja oder Nein sein.')
+            if args.get('shutdown') and item['state'] in ('running','in shutdown'): item['state']='shut off'
         if item['state']!='shut off': raise Error('Die VM zuerst vollständig herunterfahren.',409)
         if operation == 'vm_backup':
             target=args.get('target') or self.backup_settings['target']
@@ -127,16 +131,19 @@ class DemoPackagesVMMixin:
         if operation == 'vm_guest_agent':
             if not isinstance(args['enabled'],bool): raise Error('Gastagent-Einstellung muss Ja oder Nein sein.')
             state['guest_agent']=args['enabled']
-        elif operation == 'vm_clone':
-            name=identifier(args['name'])
-            if any(vm['name']==name for vm in self.vms): raise Error('VM-Name wird bereits verwendet.',409)
-            cloned=copy.deepcopy(item);cloned.update(id=str(uuid.uuid4()),name=name,disk_path='/var/lib/libvirt/images/titan/'+name+'.qcow2',state='shut off',autostart=False)
+        elif operation in ('vm_clone','vm_snapshot_restore_new'):
+            name, label = vm_identity(args['name'])
+            if any(vm['name']==name or vm.get('display_name',vm['name'])==label for vm in self.vms): raise Error('VM-Name wird bereits verwendet.',409)
+            checkpoint=next((record for record in state['snapshots'] if record['id']==args.get('snapshot')),None) if operation=='vm_snapshot_restore_new' else None
+            if operation=='vm_snapshot_restore_new' and checkpoint is None: raise Error('Snapshot nicht gefunden.',404)
+            cloned=copy.deepcopy(checkpoint['vm'] if checkpoint else item);cloned.update(id=str(uuid.uuid4()),name=name,display_name=label,disk_path='/var/lib/libvirt/images/titan/'+name+'.qcow2',state='shut off',autostart=False)
             self.vms.append(cloned)
-            hardware=copy.deepcopy(state);hardware['snapshots']=[]
+            hardware=copy.deepcopy(checkpoint['hardware'] if checkpoint else state);hardware['snapshots']=[]
             for index,disk in enumerate(hardware['disks']):disk['disk']='/var/lib/libvirt/images/titan/'+name+('' if index==0 else '--'+uuid.uuid4().hex)+'.qcow2'
             for nic in hardware['networks']:nic['mac']=''
             self._demo_vm_hardware[cloned['id']]=hardware
-            return {'ok':True,'demo':True,'id':cloned['id'],'name':name}
+            return {'ok':True,'demo':True,'id':cloned['id'],'name':name,'source_vm':item['id'],'source_preserved':True,
+                    'message':'Demo: Eigenständige neue VM simuliert; ursprüngliche VM bleibt erhalten.'}
         elif operation == 'vm_disk_add':
             if state['snapshots']: raise Error('Vor dem Ändern der Laufwerksanzahl Snapshots entfernen.',409)
             if len(state['disks'])>=8: raise Error('Bis zu acht Laufwerke werden unterstützt.')

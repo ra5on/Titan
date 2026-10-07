@@ -20,6 +20,20 @@ class DemoPackagesVMTests(unittest.TestCase):
 
     def stop(self): self.demo.call('vm_action',vm=self.vm,action='shutdown')
 
+    def test_display_names_are_kept_separate_from_internal_demo_paths(self):
+        with patch('titan.host.run', side_effect=AssertionError('Demo must never run host commands')):
+            self.demo.call('vm_create', name='Windows 11 Test', cpus=1, memory_mb=1024, disk_gb=32, iso=self.demo.call('isos')[0])
+            item = next(vm for vm in self.demo.vms if vm.get('display_name') == 'Windows 11 Test')
+            self.assertRegex(item['name'], r'^[a-z][a-z0-9_-]{0,30}$')
+            self.demo.call('vm_update', vm=item['id'], cpus=1, memory_mb=1024, display_name='Meine Windows VM')
+            before = item['disk_path']
+            cloned = self.demo.call('vm_clone', vm=item['id'], name='Windows 11 Kopie')
+            copy = self.demo.vm(cloned['id'])
+            self.assertEqual(copy['display_name'], 'Windows 11 Kopie')
+            self.assertEqual(item['display_name'], 'Meine Windows VM')
+            self.assertEqual(item['disk_path'], before)
+            self.assertNotEqual(copy['disk_path'], before)
+
     def test_nextcloud_dependencies_and_private_credentials(self):
         options={'username':'administrator','password':'Chosen-private-password','nas_host':'nas.local'}
         self.demo.call('app_install',app='titan-nextcloud-office',port=18088,options=options)
@@ -91,6 +105,19 @@ class DemoPackagesVMTests(unittest.TestCase):
         self.demo.call('vm_action',vm=self.vm,action='start')
         self.demo.call('vm_guest_action',vm=self.vm,action='shutdown')
         self.assertEqual(self.demo.vm(self.vm)['state'],'shut off')
+
+    def test_snapshot_restore_as_new_is_explicitly_simulated_and_preserves_original(self):
+        snapshot=self.demo.call('vm_snapshot_create',vm=self.vm,name='Baseline',shutdown=True)['snapshot']['id']
+        self.demo.call('vm_guest_agent',vm=self.vm,enabled=True)
+        original=json.dumps(self.demo.vm(self.vm),sort_keys=True)
+        with patch('titan.host.run',side_effect=AssertionError('Demo must never call the host')):
+            restored=self.demo.call('vm_snapshot_restore_new',vm=self.vm,snapshot=snapshot,name='recovered')
+        self.assertTrue(restored['demo']);self.assertTrue(restored['source_preserved'])
+        self.assertNotEqual(restored['id'],self.vm)
+        self.assertEqual(json.dumps(self.demo.vm(self.vm),sort_keys=True),original)
+        self.assertTrue(self.demo.call('vm_extensions',vm=self.vm)['guest_agent']['configured'])
+        self.assertFalse(self.demo.call('vm_extensions',vm=restored['id'])['guest_agent']['configured'])
+        self.assertEqual(self.demo.vm(restored['id'])['state'],'shut off')
 
     def test_stopped_vm_has_zero_io_and_live_disk_totals_cover_all_disks(self):
         self.stop()

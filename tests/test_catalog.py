@@ -35,13 +35,17 @@ class CatalogTests(unittest.TestCase):
                 options['tunnel_token'] = base64.b64encode(json.dumps({'a': 'a' * 32,
                     't': '2c9069cd-5cf1-470f-9ddd-df156d3f2c57',
                     's': base64.b64encode(b'disposable-test-secret-with-entropy').decode()}).encode()).decode()
+            if name == 'titan-tailscale':
+                options['auth_key'] = 'tskey-auth-disposable-invalid-test-key-123456789'
             port = 0 if APPS[name].get('web_available') is False else 12345
-            service = compose(name, "/srv/app", 1000, 1000, port, "/srv/data", options)["services"][name]
-            self.assertNotIn("privileged", service)
-            self.assertNotIn("network_mode", service)
-            self.assertNotIn("devices", service)
-            self.assertFalse(any("docker.sock" in volume["source"] for volume in service["volumes"]))
-            self.assertTrue(all(volume["bind"]["create_host_path"] is False for volume in service["volumes"]))
+            services = compose(name, "/srv/app", 1000, 1000, port, "/srv/data", options)["services"]
+            for service in services.values():
+                self.assertNotIn("privileged", service)
+                self.assertNotIn("network_mode", service)
+                self.assertNotIn("cap_add", service)
+                self.assertNotIn("devices", service)
+                self.assertFalse(any("docker.sock" in volume["source"] for volume in service["volumes"]))
+                self.assertTrue(all(volume["bind"]["create_host_path"] is False for volume in service["volumes"]))
 
     def test_arbitrary_remote_image_is_not_installable(self):
         with self.assertRaises(Error):

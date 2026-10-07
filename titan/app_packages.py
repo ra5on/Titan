@@ -36,7 +36,7 @@ def recipe(name, category, description, primary, services, webport, default_port
             'port': webport, 'default_port': default_port, 'memory': memory, 'mount': None, 'scheme': 'http',
             'color': '#2788cf', 'symbol': name[0], 'titan_package': True, 'store_name': 'Titan AppStore',
             'catalog_status': 'available', 'documentation': documentation, 'install_schema': schema,
-            'stack': {'primary': primary, 'services': services}, 'dependencies': [{'immich-server':'Immich · Fotos und Videos', 'immich-machine-learning':'Immich · Bilderkennung', 'database':'PostgreSQL · Datenbank', 'redis':'Cache-Dienst', 'nextcloud':'Nextcloud · Dateien', 'cron':'Hintergrundaufgaben', 'eurooffice':'Euro-Office · Dokumentbearbeitung', 'office-init':'Office-Ersteinrichtung', 'adguard':'AdGuard Home', 'pihole':'Pi-hole'}.get(key,key) for key in services],
+            'stack': {'primary': primary, 'services': services}, 'dependencies': [{'immich-server':'Immich · Fotos und Videos', 'immich-machine-learning':'Immich · Bilderkennung', 'database':'PostgreSQL · Datenbank', 'redis':'Cache-Dienst', 'nextcloud':'Nextcloud · Dateien', 'cron':'Hintergrundaufgaben', 'eurooffice':'Euro-Office · Dokumentbearbeitung', 'office-init':'Office-Ersteinrichtung', 'adguard':'AdGuard Home', 'pihole':'Pi-hole', 'tailscale':'Tailscale · privater Netzwerkzugang'}.get(key,key) for key in services],
             'first_login': {'mode': 'install' if any(f['type'] == 'password' and not f.get('generated') for f in schema) else 'setup',
                             'instructions': login, 'documentation': documentation, 'verified': '2026-10-04'}, **extra}
 
@@ -53,11 +53,11 @@ NC_MOUNTS = [mount('nextcloud', '/var/www/html'), mount('data', '/var/www/html/d
 PACKAGES = {
  'titan-immich': recipe('Immich', 'Fotos', 'Fotos und Videos sichern, durchsuchen und teilen. Datenbank, Cache und Bilderkennung werden mitinstalliert.',
   'immich-server', {
-   'immich-server': {'image': 'ghcr.io/immich-app/immich-server:v3.2.4', 'environment': IMMICH_ENV,
+   'immich-server': {'image': 'ghcr.io/immich-app/immich-server:v3.3.0@sha256:be56bc12c17a84617a979ad1eab1d9105bbec1955ffa7da09b3f9cf79d3bd09d', 'environment': IMMICH_ENV,
                     'mounts': [mount('data', '/data')], 'ports': [port(2283)],
                     'depends_on': {'database': {'condition': 'service_healthy'}, 'redis': {'condition': 'service_healthy'}}},
-   'immich-machine-learning': {'image': 'ghcr.io/immich-app/immich-machine-learning:v3.2.4', 'mounts': [mount('models', '/cache')]},
-   'redis': {'image': 'docker.io/valkey/valkey:9@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf',
+   'immich-machine-learning': {'image': 'ghcr.io/immich-app/immich-machine-learning:v3.3.0@sha256:aa88ec3aef3bdc97ab31eff66acecc98bb6ee14d47b6122c25e761ed9f31a7da', 'mounts': [mount('models', '/cache')]},
+   'redis': {'image': 'docker.io/valkey/valkey:9@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d',
              'memory': '512m', 'healthcheck': {'test': ['CMD', 'redis-cli', 'ping'], 'interval': '10s', 'timeout': '5s', 'retries': 10}},
    'database': {'image': 'ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23',
                 'environment': {'POSTGRES_USER': 'immich', 'POSTGRES_DB': 'immich', 'POSTGRES_PASSWORD': '@option:database_password', 'POSTGRES_INITDB_ARGS': '--data-checksums'},
@@ -65,10 +65,11 @@ PACKAGES = {
                 'healthcheck': {'test': ['CMD', 'pg_isready', '-U', 'immich', '-d', 'immich'], 'interval': '10s', 'timeout': '5s', 'start_period': '30s', 'retries': 20}}
   }, 2283, 2283, '4g', [secret('database_password', 'Datenbankpasswort', True)],
   'https://docs.immich.app/install/docker-compose/', 'Beim ersten Öffnen dein eigenes Administratorkonto erstellen. Die Datenbank ist bereits verbunden; dafür sind keine Eingaben nötig.',
-  note='Mindestens 6 GB freier Arbeitsspeicher empfohlen. Fotos liegen im gewählten Datenordner; die Datenbank liegt separat im lokalen App-Verzeichnis.'),
+  note='16 GiB NAS-RAM für den vollständigen Verbund empfohlen; 8 GiB benötigen ausreichend freie Kapazität. Titan prüft das gesamte RAM-Budget vor dem Download. Fotos, Modelle und Datenbank liegen getrennt auf dem gewählten lokalen Speicher; Sicherung vor jedem Update erstellen. Ältere x86-Prozessoren ohne x86-64-v2 werden nicht unterstützt.'),
  'titan-adguard': recipe('AdGuard Home', 'Netzwerk', 'Werbung und Tracking im Heimnetz per DNS filtern.', 'adguard', {
-   'adguard': {'image': 'adguard/adguardhome:v0.107.79', 'mounts': [mount('work', '/opt/adguardhome/work'), mount('config', '/opt/adguardhome/conf')],
-               'ports': [port(3000), port(53, protocol='tcp'), port(53, protocol='udp')]}
+   'adguard': {'image': 'adguard/adguardhome:v0.107.79@sha256:aba9e3bf0613be3ba3755e1fc311b126e2c24bec25e18b6483894a88283074f0', 'mounts': [mount('work', '/opt/adguardhome/work'), mount('config', '/opt/adguardhome/conf')],
+               'ports': [port(3000), port(53, protocol='tcp'), port(53, protocol='udp')],
+               'healthcheck': {'test': ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:3000/'], 'interval': '15s', 'timeout': '5s', 'start_period': '10s', 'retries': 12}}
   }, 3000, 3000, '512m', [], 'https://github.com/AdguardTeam/AdGuardHome/wiki/Docker',
   'Im ersten Assistenten Benutzername und Passwort wählen. Für die Weboberfläche „Alle Schnittstellen“ und internen Port 3000 beibehalten, für DNS Port 53. Danach im Router die NAS-IP als DNS-Server eintragen.',
   note='DNS benötigt Port 53/TCP und UDP. AdGuard und Pi-hole können diesen Port auf derselben NAS-IP nicht gleichzeitig verwenden.'),
@@ -119,6 +120,29 @@ PACKAGES['titan-cloudflared'] = recipe('Cloudflare Tunnel', 'Netzwerk',
     web_available=False, default_network='host',
     note='Kein eigener Webport. HTTP-Ziel für die öffentliche Titan-Route: http://127.0.0.1:5102. Die öffentliche Route im Cloudflare-Konto einrichten; ein Tunnel-Token kann DNS und Routen nicht bearbeiten.')
 
+PACKAGES['titan-tailscale'] = recipe('Tailscale', 'Netzwerk',
+    'Dein NAS und ausdrücklich gewählte Heimnetzbereiche privat über Tailscale erreichen.',
+    'tailscale', {'tailscale': {
+        'image': 'tailscale/tailscale:v1.102.5@sha256:c507f3a2a6ab1cabd8d809b98edeb41edbd5c3fb6ad9632ffd098b4c7d0b4065',
+        'environment': {'TS_STATE_DIR': '/var/lib/tailscale', 'TS_AUTH_ONCE': 'true', 'TS_USERSPACE': 'true',
+            'TS_ACCEPT_DNS': 'false', 'TS_AUTHKEY': 'file:/etc/titan-tailscale/authkey',
+            'TS_HOSTNAME': '@option:hostname', 'TS_ROUTES': '@option:subnet_routes'},
+        'mounts': [mount('state', '/var/lib/tailscale'), {'slot': 'credentials', 'target': '/etc/titan-tailscale', 'readonly': True}],
+        'user': '0:0', 'security_opt': ['no-new-privileges:true'],
+        'healthcheck': {'test': ['CMD-SHELL', 'tailscale status --json | grep -q \'"BackendState": "Running"\''],
+            'interval': '10s', 'timeout': '5s', 'start_period': '20s', 'retries': 12}
+    }}, 0, 0, '256m', [secret('auth_key', 'Tailscale Auth-Key'),
+        text('hostname', 'Gerätename', 'titan', '[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?'),
+        {'key': 'nas_address', 'label': 'NAS-IP zusätzlich freigeben', 'type': 'text', 'default': '', 'required': False,
+         'min_length': 0, 'max_length': 45, 'help': 'Optional: private NAS-IP als einzelne Hostroute ankündigen. Nach Freigabe im Tailscale-Konto über diese private IP erreichbar.'},
+        {'key': 'subnet_routing', 'label': 'Heimnetz freigeben', 'type': 'text', 'default': 'disabled', 'required': True,
+         'min_length': 7, 'max_length': 8, 'pattern': '(?:enabled|disabled)', 'choices': [['disabled', 'Deaktiviert'], ['enabled', 'Gewählte Bereiche freigeben']]},
+        {'key': 'subnet_routes', 'label': 'Freigegebene Heimnetzbereiche', 'type': 'text', 'default': '', 'required': False,
+         'min_length': 0, 'max_length': 512, 'help': 'Private CIDR-Bereiche, mit Komma getrennt, z. B. 192.168.1.0/24. Danach im Tailscale-Konto freigeben.'}],
+    'https://tailscale.com/docs/features/containers/docker/docker-params',
+    'Auth-Key im Tailscale-Konto erstellen. Gewählte Subnet-Routen anschließend in der Tailscale-Verwaltung freigeben und passende Zugriffsregeln erlauben. Diese Freigabe wird von Titan nicht automatisch vorgenommen.',
+    web_available=False, note='Isolierter Userspace-Router für TCP und UDP; Ping eingeschränkt, andere IP-Protokolle nicht unterstützt. Verändert weder Host-IP-Forwarding noch Host-Firewall oder Host-DNS. Ohne NAS-IP oder freigegebene Routen werden keine NAS-Dienste bereitgestellt.')
+
 # Every secondary publication is editable before installation and registered for
 # conflict checks. DNS TCP and UDP default to the same host port on separate protocols.
 for package in PACKAGES.values():
@@ -157,7 +181,7 @@ RESOURCE_PROFILES = {
 # than making an 8 GiB NAS a safe full-stack Office host.
 RESOURCE_LIMITS = {
     'titan-immich': {
-        'balanced': {'immich-server': '2g', 'immich-machine-learning': '2g', 'database': '1536m', 'redis': '256m'},
+        'balanced': {'immich-server': '2g', 'immich-machine-learning': '2g', 'database': '2g', 'redis': '256m'},
         'performance': {'immich-server': '4g', 'immich-machine-learning': '4g', 'database': '2g', 'redis': '512m'},
     },
     'titan-nextcloud-office': {
@@ -167,6 +191,7 @@ RESOURCE_LIMITS = {
     'titan-adguard': {'balanced': {'adguard': '512m'}, 'performance': {'adguard': '512m'}},
     'titan-pihole': {'balanced': {'pihole': '512m'}, 'performance': {'pihole': '512m'}},
     'titan-cloudflared': {'balanced': {'cloudflared': '256m'}, 'performance': {'cloudflared': '256m'}},
+    'titan-tailscale': {'balanced': {'tailscale': '256m'}, 'performance': {'tailscale': '512m'}},
 }
 
 for package in PACKAGES.values():
@@ -195,6 +220,9 @@ def selected_recipe(app, recipe, options):
     if app not in PACKAGES:
         return recipe
     result = copy.deepcopy(recipe)
+    if app == 'titan-tailscale':
+        from .native_apps import advertised_routes
+        result['stack']['services']['tailscale']['environment']['TS_ROUTES'] = advertised_routes(options)
     profile = options.get('resource_profile', 'legacy')
     if profile not in RESOURCE_PROFILES:
         raise Error('Ungültiges RAM-Profil.')

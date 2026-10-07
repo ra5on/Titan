@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
+      expanded_native: ${{ steps.mode.outputs.expanded_native }}
     steps:
       - name: Check out frozen application
         uses: actions/checkout@v7.0.1
@@ -151,3 +152,49 @@ jobs:
         run: bash .titan-ci-builder/scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
       - name: Own multi-container Compose lifecycle and data preservation
         run: sudo --preserve-env=GITHUB_ACTIONS python3 .titan-ci-builder/scripts/smoke-compose-fixture.py --source-root "$GITHUB_WORKSPACE" --confirm-disposable-runner
+
+  native-package:
+    needs: source
+    if: needs.source.outputs.mode == 'native' && needs.source.outputs.expanded_native == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [titan-immich, titan-adguard]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Check out current CI builder
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .titan-ci-builder
+          persist-credentials: false
+      - name: Install native Compose acceptance dependencies
+        run: bash .titan-ci-builder/scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
+      - name: Native app installation journal, readiness and restart
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py '${{ matrix.package }}' --confirm-disposable-runner
+
+  tailscale-userspace:
+    needs: source
+    if: needs.source.outputs.mode == 'native' && needs.source.outputs.expanded_native == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - name: Check out current CI builder
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .titan-ci-builder
+          persist-credentials: false
+      - name: Install native Compose dependencies
+        run: bash .titan-ci-builder/scripts/ci-ubuntu-dependencies.sh python3-yaml iproute2 util-linux
+      - name: Tailscale userspace isolation, private auth key and invalid-auth recovery
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-tailscale.py --confirm-disposable-runner

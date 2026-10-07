@@ -10,7 +10,7 @@
 .nas-window-content .two-columns,.nas-window-content .form-grid{min-width:0}
 .nas-window-content :is(.panel-heading,.section-heading){margin-bottom:10px}
 .nas-window-content :is(pre,code){overflow-wrap:anywhere}
-.cp-content,.storage-manager-content,.sl-manager,.vm-master-pane,.vm-detail-content{scrollbar-width:thin;scroll-padding-block:12px}
+.cp-content,.storage-manager-content,.vm-master-pane,.vm-detail-content{scrollbar-width:thin;scroll-padding-block:12px}
 
 /* The form's save controls follow the form instead of covering its last fields. */
 .cp-window .cp-toolbar{min-height:40px;padding:5px 10px;gap:8px}
@@ -44,7 +44,7 @@
 .package-center .package-service{padding:9px 10px;gap:9px}
 .package-center .package-login,.package-center .package-update{padding-top:10px;margin-top:12px}
 .package-center .package-log{max-height:none;overflow:visible;white-space:pre-wrap;overflow-wrap:anywhere}
-.nas-window-content .update-package-changes ul,.nas-window-content .catalog-status ul{max-height:none;overflow:visible}
+.nas-window-content .update-package-changes ul{max-height:none;overflow:visible}
 
 @media(max-width:760px){
  .nas-window-content>.page-heading{gap:6px;margin-bottom:8px;padding-bottom:6px}

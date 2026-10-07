@@ -2,6 +2,8 @@
 const assert=require('node:assert/strict');const ui=require('../titan/web/docker_workbench.js');
 assert.deepEqual(ui.containerStorageConfig('system'),{storage_id:'system'});assert.deepEqual(ui.containerStorageConfig('volume:photos'),{storage_id:'volume:photos'});assert.deepEqual(ui.containerStorageConfig('@docker-volume:photos'),{volume:'photos'});assert.deepEqual(ui.containerStorageConfig(''),{});assert.throws(()=>ui.containerStorageConfig('/etc'),/gültigen Speicher/);
 assert.deepEqual(ui.parsePorts('8080:80\n8443:443/tcp\n5353:5353/udp'),[{published:8080,target:80,protocol:'tcp'},{published:8443,target:443,protocol:'tcp'},{published:5353,target:5353,protocol:'udp'}]);
+assert.deepEqual(ui.parsePorts('65535:1/udp'),[{published:65535,target:1,protocol:'udp'}]);
+for(const port of ['0:80','80:0','65536:80','80:65536'])assert.throws(()=>ui.parsePorts(port),/zwischen 1 und 65535/);
 assert.throws(()=>ui.parsePorts('$(id)'));assert.throws(()=>ui.parseEnv('SECRET=a\nSECRET=b'));
 const env=ui.parseEnv('KEY=a=b\n__proto__=safe');assert.equal(env.KEY,'a=b');assert.equal(env.__proto__,'safe');assert.equal(Object.getPrototypeOf(env),Object.prototype);
 assert.match(ui.ports({'80/tcp':[{'HostIp':'0.0.0.0','HostPort':'8080'}]}),/8080 → 80/);

@@ -1,0 +1,27 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),ui=require('../titan/web/console_controls.js'),{fixture}=require('./desktop_test_dom.cjs');
+const flush=()=>new Promise(resolve=>setImmediate(resolve));
+(async()=>{
+ const f=fixture();f.doc.body.innerHTML=fs.readFileSync('titan/web/console.html','utf8').match(/<body>([\s\S]*)<\/body>/)[1];
+ const doc=f.doc,win=f.win,menu=doc.querySelector('[data-console-menu]'),screen=doc.querySelector('#screen'),field=doc.querySelector('#console-clipboard-text'),dialog=doc.querySelector('#console-clipboard');menu.hidden=true;field.select=()=>field.selected=true;dialog.open=false;let messages=[],sent=[],keys=[],writes=[],connected=true,read='Hallo VM',rfb={scaleViewport:true,clipboardPasteFrom:text=>sent.push(text),sendKey:(...args)=>keys.push(args),sendCtrlAltDel(){this.cad=true;},focus(){this.focused=true;}};
+ win.navigator={clipboard:{readText:async()=>read,writeText:async text=>writes.push(text)}};doc.documentElement={requestFullscreen:async()=>{doc.fullscreenElement=doc.documentElement;}};doc.exitFullscreen=async()=>doc.fullscreenElement=null;
+ const controller=ui.mount({doc,win,client:()=>rfb,connected:()=>connected,status:message=>messages.push(message)});
+ const click=action=>doc.dispatch(doc.querySelector('.topbar').querySelector(`[data-console-action="${action}"]`),'click');
+ click('paste');await flush();assert.deepEqual(sent,['Hallo VM']);assert.equal(keys.length,0,'Clipboard transfer never executes guest keys or a command');
+ controller.clipboard('Gasttext');click('copy');await flush();assert.deepEqual(writes,['Gasttext']);
+ let event=doc.dispatch(screen,'keydown',{key:'v',ctrlKey:true,shiftKey:true});await flush();assert(event.defaultPrevented);assert.equal(sent.length,2);
+ event=doc.dispatch(screen,'keydown',{key:'c',ctrlKey:true,shiftKey:false});assert(!event.defaultPrevented,'Ordinary Ctrl+C remains a guest shortcut');
+ controller.shortcut('paste');assert.deepEqual(keys,[[0xffe3,'ControlLeft',true],[0x76,'KeyV',true],[0x76,'KeyV',false],[0xffe3,'ControlLeft',false]]);
+ assert.throws(()=>controller.transfer('ä'.repeat(32769)),/64 KiB/);assert.equal(sent.length,2);
+ read='x'.repeat(65537);click('paste');await flush();assert.match(messages.at(-1),/64 KiB/);assert(!dialog.open);
+ win.navigator.clipboard.readText=async()=>{throw Error('denied');};click('paste');await flush();assert(dialog.open);assert.equal(field.value,'');field.value='manuell';doc.dispatch(dialog.querySelector('form'),'submit');assert.equal(sent.at(-1),'manuell');assert(!dialog.open);
+ doc.dispatch(screen,'contextmenu',{clientX:999,clientY:799});assert(!menu.hidden);assert.equal(doc.activeElement,menu.querySelector('button:not(:disabled)'));
+ doc.dispatch(doc.activeElement,'keydown',{key:'End'});assert.equal(doc.activeElement,menu.querySelectorAll('button:not(:disabled)').at(-1));doc.dispatch(doc.activeElement,'keydown',{key:'Escape'});assert(menu.hidden);assert(rfb.focused);
+ assert(doc.dispatch(screen,'mousedown',{button:2}).defaultPrevented,'Right click never also clicks in the guest');
+ doc.dispatch(screen,'pointerdown',{pointerType:'touch'});f.advance(550);assert(!menu.hidden);doc.dispatch(menu.querySelector('[data-console-action="guest-paste"]'),'click');assert.equal(keys.length,8);
+ doc.dispatch(screen,'contextmenu');doc.dispatch(menu.querySelector('[data-console-action="guest-pointer"]'),'click');assert(!doc.dispatch(screen,'mousedown',{button:2}).defaultPrevented,'Guest pointer mode keeps guest context menus reachable');assert(!doc.dispatch(screen,'contextmenu').defaultPrevented);
+ connected=false;controller.update();assert(doc.querySelector('.topbar').querySelector('[data-console-action="paste"]').disabled);assert.throws(()=>controller.transfer('x'),/verbinden/);
+ connected=true;click('fullscreen');await flush();assert(doc.fullscreenElement);click('fullscreen');await flush();assert.equal(doc.fullscreenElement,null);
+ controller.destroy();assert.throws(()=>controller.transfer('x'),/verbinden/);const count=keys.length;doc.dispatch(screen,'keydown',{key:'v',ctrlKey:true,shiftKey:true});await flush();assert.equal(keys.length,count);
+ console.log('VM console clipboard, UTF-8 limits, HTTP fallback, guest shortcuts, menu keyboard/touch controls, fullscreen and cleanup passed.');
+})();

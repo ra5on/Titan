@@ -9,7 +9,6 @@ import hmac
 import http.client
 from http.cookies import SimpleCookie
 import json
-import mimetypes
 import re
 import secrets
 import select

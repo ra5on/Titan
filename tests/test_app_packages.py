@@ -22,12 +22,15 @@ class PackagesTests(unittest.TestCase):
             import base64
             user['tunnel_token'] = base64.b64encode(json.dumps({'a': 'a' * 32, 't': '2c9069cd-5cf1-470f-9ddd-df156d3f2c57',
                 's': base64.b64encode(b'example-secret-for-tests-only-123').decode()}).encode()).decode()
+        if name == 'titan-tailscale':
+            user['auth_key'] = 'tskey-auth-test-only-invalid-key-123456789'
         if name == 'titan-nextcloud-office':
             user['office_mode'] = 'enabled'
         return validate_options(name, prepare_options(name, user))
 
     def test_retired_packages_are_hidden_but_existing_installs_remain_manageable(self):
-        self.assertEqual({item['id'] for item in catalog()['apps']}, {'titan-cloudflared'})
+        from titan.native_catalog import AVAILABLE_APP_IDS
+        self.assertEqual({item['id'] for item in catalog()['apps']}, AVAILABLE_APP_IDS)
         public = [item for item in catalog(include_legacy=True)['apps'] if item['id'] in PACKAGES]
         self.assertEqual({item['id'] for item in public}, set(PACKAGES))
         self.assertEqual(len(public), len(PACKAGES))

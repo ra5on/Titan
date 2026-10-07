@@ -1,10 +1,12 @@
 # Paketzentrum und VM-Verwaltung
 
-## Vier verwaltete Pakete
+## Eigene Apps und bestehende Pakete
 
-Titan bietet Immich, AdGuard Home, Pi-hole und Nextcloud mit Euro-Office an.
-Datenbank, Cache, Hintergrundaufgaben und Office gehören zur jeweiligen
-Installation. Der Paketstatus prüft jeden Dienst: Ein laufender Hauptcontainer
+Neue Installationen im Appcenter sind für Cloudflare Tunnel, Immich, AdGuard
+Home und Tailscale freigegeben. Vorhandene Pi-hole- und Nextcloud-/Euro-Office-
+Installationen bleiben verwaltbar; sie sind keine neu angebotenen Apps.
+Datenbank, Cache, Hintergrundaufgaben und gegebenenfalls Office gehören zur
+jeweiligen Paketinstallation. Der Paketstatus prüft jeden Dienst: Ein laufender Hauptcontainer
 allein ist kein Beleg für ein funktionierendes Paket. Der einmalige
 Office-Einrichtungscontainer gilt nach erfolgreichem Ende als abgeschlossen.
 
@@ -62,6 +64,44 @@ Zustand eingerichtet. Bis zu acht verwaltete qcow2-Laufwerke und acht
 Netzwerkkarten werden pro VM unterstützt. Das Trennen eines Laufwerks erhält die
 Image-Datei.
 
+Anzeigenamen dürfen Großbuchstaben, Leerzeichen und Umlaute enthalten und bis
+zu 96 sichtbare Zeichen lang sein. Sie werden als Titel getrennt vom internen
+libvirt-Namen gespeichert. Beim Bearbeiten bleibt die UUID mitsamt Laufwerken
+erhalten; hierfür die VM vorher ausschalten. Auch Klone und Wiederherstellungen
+dürfen solche Anzeigenamen verwenden. Interne Namen bleiben auf sichere,
+begrenzte Zeichen beschränkt und werden bei Bedarf automatisch erzeugt.
+
+## Terminal und VM-Konsole
+
+Das Terminal bietet Kopieren, Einfügen, Alles markieren, Bildschirm leeren,
+Befehl abbrechen und Vollbild. Strg+C kopiert eine Auswahl oder geht ohne
+Auswahl als Abbruch an die Shell. Strg+Umschalt+C kopiert; Strg+V,
+Strg+Umschalt+V oder Umschalt+Einfg fügt ein. Rechtsklick, langes Drücken und
+Umschalt+F10 öffnen das Schnellmenü. **Auf Desktop** legt eine Verknüpfung zum
+Terminal an. Die Sitzung beginnt mit **Verbinden** und endet beim Schließen
+des Appfensters oder beim Abmelden; Minimieren erhält sie.
+
+In der VM-Konsole bleiben Strg+C und Strg+V Tastenkombinationen des Gastes.
+Strg+Umschalt+C/V und die Zwischenablage-Schaltflächen übertragen Text zwischen
+Browser und Gast. **Einfügen** überträgt den Text in die Gast-Zwischenablage;
+anschließend Strg+V im Gast verwenden oder über das Schnellmenü an ihn senden.
+Die gemeinsame Zwischenablage benötigt Unterstützung durch das Gastsystem und
+funktioniert häufig nicht in reinen Textkonsolen. Ist die Browser-Zwischenablage
+auf HTTP oder durch verweigerte Freigabe nicht verfügbar, steht ein Textdialog
+bereit. Pro Übertragung sind höchstens 64 KiB UTF-8-Text erlaubt.
+
+Das Menü bietet zusätzlich Gast-Tastenkombinationen, Einpassen und Vollbild.
+Mit **Gast-Rechtsklick verwenden** gehen Rechtsklick und Touchgesten wieder an
+den Gast; Titans Menü bleibt über **···** in der Werkzeugleiste erreichbar.
+**Konsole auf Desktop** in den VM-Details legt einen Link zur betreffenden VM
+an. Eine ausgeschaltete oder entfernte VM wird dadurch nicht gestartet.
+Der Dunkel-/Hellmodus folgt der persönlichen Desktop-Einstellung. Der
+Terminalinhalt und die Gastanzeige behalten ihre eigenen Bildschirmfarben.
+
+Eine Aktualisierung derselben laufenden VM-Konsole erhält das verbundene
+iframe im Dokument. Dadurch bleibt die VNC-Sitzung erhalten. Das Wechseln zu
+einem anderen Detailtab oder das Schließen des VM-Fensters beendet sie.
+
 Der optionale VirtIO-Gastagent-Kanal benötigt zusätzlich den Dienst
 `qemu-guest-agent` im Gast. Wenn er antwortet, erscheinen Gast-IP-Adressen und
 Herunterfahren über den Agent wird angeboten. Ein fehlender Agent verhindert
@@ -81,12 +121,21 @@ UEFI-Variablen. RAM und laufende Gastprozesse werden nicht gespeichert. Es wird
 kein laufendes Dateisystem eingefroren und kein Live-Snapshot als konsistent
 ausgegeben.
 
-Vor der Wiederherstellung werden interne Sicherheits-Snapshots erzeugt. Wenn ein
-weiteres Laufwerk nicht wiederhergestellt werden kann, werden bereits geänderte
-Laufwerke auf ihren vorherigen Zustand zurückgesetzt. Bei einer fehlgeschlagenen
-Rücknahme bleiben Sicherheits-Snapshots für die manuelle Wiederherstellung
-erhalten; die VM muss ausgeschaltet bleiben. Nach erfolgreicher Wiederherstellung
-bleibt sie ebenfalls ausgeschaltet.
+**Als neue VM wiederherstellen** kopiert den gewählten Snapshot in eigene
+qcow2-Dateien im ausgewählten Speicher. Die ursprüngliche VM, ihre aktuellen
+Laufwerksinhalte und ihre Snapshots bleiben erhalten. Die neue VM verwendet eine
+eigene UUID, neue MAC-Adressen und die zum Snapshot gehörenden UEFI-Variablen;
+exklusive USB-/PCI-Geräte werden nicht übernommen. Sie bleibt ausgeschaltet.
+Gast-IP und Rechnernamen vor dem ersten Start prüfen. Bei einem Kopierfehler
+werden nur die neu angelegten Dateien bereinigt; das Original wird nie auf den
+Snapshot zurückgesetzt.
+
+Für eine laufende VM sind **Snapshot erstellen** und **Extern sichern** erreichbar.
+Im jeweiligen Formular das geordnete Herunterfahren ausdrücklich bestätigen.
+Titan wartet höchstens 120 Sekunden auf den ausgeschalteten Zustand und bricht
+bei einem Timeout ab. Es erfolgt kein erzwungenes Ausschalten. Eine pausierte VM
+zuerst fortsetzen oder im Gast herunterfahren. Nach der Sicherung bleibt die VM
+ausgeschaltet.
 
 Die Laufwerksanzahl kann nicht verändert werden, solange Snapshots vorhanden
 sind. Zuerst diese Snapshots entfernen oder einen unabhängigen Klon anlegen.
@@ -105,15 +154,22 @@ Klonen, Rücknahme eines Fehlers auf dem zweiten Laufwerk, UEFI-Variablen,
 Metadatenprüfung und Verweigerung laufender Änderungen. Die übrigen VM- und
 Pakettests prüfen libvirt- und Docker-Verwaltung sowie Protokollschutz. Ein
 echtes Gastbetriebssystem, Browser-Tastatur/Maus und physische Geräte bleiben
-Teil des manuellen Betatests.
+Teil des manuellen Betatests. `tests/test_vm_names.py` und die VM-Tests prüfen
+Anzeigenamen ohne Änderungen an internen Kennungen. Die UI-Tests für Terminal,
+Konsole, Desktoplinks und Admin-Login-Updateprüfung verwenden simulierte
+Sitzungen; sie bestätigen keine echte Gast-Zwischenablage oder Tailnet-Verbindung.
 
-Der GitHub-Workflow `App package runtime checks` startet jedes vollständige
-Paket auf einem kurzlebigen Runner. Für Nextcloud/Office prüft
+Der GitHub-Workflow `App package runtime checks` wählt die Prüfungen passend
+zum eingefrorenen Produktstand. Für aktuelle native Stände prüft er den
+Cloudflare-Installer und eine unabhängige Compose-Laufzeitvorlage. Das ist kein
+Nachweis einer echten Immich-, AdGuard- oder Tailscale-Kontoeinrichtung.
+Die bisherigen Legacy-App-Prüfungen bleiben für ältere Produktstände erhalten.
+Für Nextcloud/Office kann
 `scripts/smoke-office-gateway.py` zusätzlich Titans echten HTTP-Gateway mit
 temporären Dokumenten: Der laufende Dokumentserver lädt ein Dokument über die
 Docker-Bridge, konvertiert es über seine [Conversion API](https://api.onlyoffice.com/docs/docs-api/additional-api/conversion-api/request/),
 und ein signierter Callback schreibt das Ergebnis mit Revisionsprüfung zurück.
 Der Test prüft zudem den JavaScript-/Dokumentproxy, erhaltene Dateirechte,
 abgewiesene Signaturen und die Rückkonvertierung eines ODT-Originals. Dieser
-CI-Test ersetzt keinen manuellen Test der interaktiven Bearbeitung und
+Test ersetzt keinen manuellen Test der interaktiven Bearbeitung und
 Zusammenarbeit im Browser.

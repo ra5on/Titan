@@ -57,7 +57,7 @@ fi
 # Fixtures are absent from the distribution image and loaded only by the
 # current app's explicitly guarded CI loader in this private QCOW overlay.
 task_app_source="${TITAN_APP_SOURCE_ROOT:-$(pwd)}"
-if [[ "$(python3 scripts/ci-app-source.py "$task_app_source")" == mode=native ]]; then
+if [[ "$(python3 scripts/ci-app-source.py "$task_app_source")" == mode=native* ]]; then
     if [[ "$(guestfish --ro -a "$task_image" -m /dev/sda3 exists /var/lib/titan-agent/ci-compose-fixtures.json)" != false ]]; then
         echo 'Distribution image unexpectedly contains a CI app fixture.' >&2
         exit 1

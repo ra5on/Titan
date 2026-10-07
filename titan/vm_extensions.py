@@ -18,11 +18,23 @@ import xml.etree.ElementTree as ET
 from .backups import directory_fd
 from .core import Error, atomic_json, identifier, integer
 from .platforms import current as host_platform
+from .vm_names import display_name as vm_display_name, identity as vm_identity, set_title as set_vm_title
 
 
 class VMExtensionsMixin:
-    def _offline_vm(self, vm):
+    def _offline_vm(self, vm, shutdown=False):
+        if type(shutdown) is not bool:
+            raise Error("Herunterfahren muss Ja oder Nein sein.")
         record = self.managed_vm(vm)
+        if shutdown and record["state"] in ("running", "in shutdown"):
+            if record["state"] == "running":
+                self.op_vm_action(vm, "shutdown")
+            deadline = time.monotonic() + 120
+            while record["state"] != "shut off":
+                if time.monotonic() >= deadline:
+                    raise Error("Die VM wurde innerhalb von 120 Sekunden nicht vollständig heruntergefahren. Es wurde keine Sicherung erstellt und die VM nicht zwangsweise ausgeschaltet. Im Gast herunterfahren und erneut versuchen.", 409)
+                time.sleep(1)
+                record = self.managed_vm(vm)
         if record["state"] != "shut off":
             raise Error("Die VM zuerst vollständig herunterfahren. Diese Änderung erfolgt im ausgeschalteten Zustand.", 409)
         return record
@@ -275,10 +287,10 @@ class VMExtensionsMixin:
         self.redefine_vm(record, root)
         return {"ok": True, "message": "Netzwerkkarte entfernt."}
 
-    def op_vm_snapshot_create(self, vm, name):
-        record = self._offline_vm(vm)
+    def op_vm_snapshot_create(self, vm, name, shutdown=False):
         if not isinstance(name, str) or not name.strip() or len(name) > 80 or any(ord(char) < 32 for char in name):
             raise Error("Snapshot-Name muss 1–80 sichtbare Zeichen enthalten.")
+        record = self._offline_vm(vm, shutdown=shutdown)
         if len(self._vm_snapshot_records(record)) >= 32:
             raise Error("Bis zu 32 Snapshots pro VM werden unterstützt.")
         snapshot = "s-" + uuid.uuid4().hex
@@ -399,15 +411,35 @@ class VMExtensionsMixin:
                 stream.flush()
                 os.fsync(stream.fileno())
 
+    def op_vm_snapshot_restore_new(self, vm, snapshot, name, storage="system", shutdown=False):
+        # Export the checkpoint directly. Applying it to the source, even only
+        # temporarily, would risk replacing the administrator's current VM.
+        name = vm_display_name(name)
+        record = self.managed_vm(vm)
+        value = self._vm_snapshot(record, snapshot)
+        if value.get("incomplete"):
+            raise Error("Ein unvollständiger Snapshot kann nicht wiederhergestellt werden.", 409)
+        root = ET.fromstring(value["xml"])
+        if (root.findtext("uuid") != record["id"] or root.findtext("name") != "titan-" + record["name"] or
+                [node.find("source").get("file") for node in root.findall("./devices/disk[@device='disk']")] != [disk["disk"] for disk in record["disks"]]):
+            raise Error("Snapshot-Konfiguration passt nicht zur ursprünglichen VM.", 409)
+        record = self._offline_vm(vm, shutdown=shutdown)
+        restored = self._vm_copy(record, name, storage, snapshot=value)
+        return {**restored, "snapshot": snapshot, "source_vm": record["id"], "source_preserved": True,
+                "message": "Snapshot als neue ausgeschaltete VM mit eigenen Laufwerken wiederhergestellt. Die ursprüngliche VM und ihre aktuellen Daten bleiben erhalten. Gast-IP und Rechnernamen vor dem ersten Start prüfen."}
+
     def op_vm_clone(self, vm, name, storage="system"):
-        record = self._offline_vm(vm)
-        name = identifier(name)
-        if any(item["name"] == name for item in self.load("vms", [])) or (self.directory / ("vm-" + name + ".xml")).exists():
+        return self._vm_copy(self._offline_vm(vm), name, storage)
+
+    def _vm_copy(self, record, name, storage="system", snapshot=None):
+        name, label = vm_identity(name)
+        if any(item["name"] == name or item.get("display_name", item["name"]) == label for item in self.load("vms", [])) or (self.directory / ("vm-" + name + ".xml")).exists():
             raise Error("Dieser VM-Name wird bereits verwendet.", 409)
         if "titan-" + name in self.command(["virsh", "list", "--all", "--name"], timeout=10).splitlines():
             raise Error("Dieser Name gehört bereits zu einer libvirt-VM.", 409)
-        root = ET.fromstring(record["xml"])
+        root = ET.fromstring(snapshot["xml"] if snapshot else record["xml"])
         root.find("name").text = "titan-" + name
+        set_vm_title(root, label)
         for node in root.findall("uuid"): root.remove(node)
         devices = root.find("devices")
         for node in list(devices.findall("hostdev")): devices.remove(node)
@@ -430,7 +462,11 @@ class VMExtensionsMixin:
                         os.fchown(target, owner.pw_uid, owner.pw_gid)
                         os.fchmod(target, 0o660)
                         with self._vm_disk_fd(record, disk) as source:
-                            self.command(["qemu-img", "convert", "-f", "qcow2", "-O", "qcow2", "/proc/self/fd/" + str(source), "/proc/self/fd/" + str(target)], pass_fds=(source, target), timeout=3600)
+                            checkpoint = ["-l", "snapshot.name=" + snapshot["id"]] if snapshot else []
+                            self.command(["qemu-img", "convert", "-f", "qcow2", *checkpoint, "-O", "qcow2", "/proc/self/fd/" + str(source), "/proc/self/fd/" + str(target)], pass_fds=(source, target), timeout=3600)
+                        # Probe every independent result before any definition
+                        # is registered. No backing dependency is accepted.
+                        self.vm_image_probe(target, "qcow2")
                     finally:
                         os.close(target)
                     self.vm_storage_label(destination)
@@ -441,16 +477,21 @@ class VMExtensionsMixin:
                 expected = self.vm_instance_nvram_path(record["name"], record["disk"])
                 if previous != expected: raise Error("Unsichere UEFI-Quelldatei.", 409)
                 destination = self.vm_instance_nvram_path(name, copied[0])
-                with directory_fd(previous.parent) as parent:
-                    source = os.open(previous.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent)
+                source_path = self._vm_snapshot_root(record["id"]) / (snapshot["id"] + ".nvram") if snapshot else previous
+                if snapshot and snapshot.get("nvram") != str(expected):
+                    raise Error("UEFI-Snapshot gehört nicht zur ursprünglichen VM.", 409)
+                with directory_fd(source_path.parent) as parent:
+                    source = os.open(source_path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent)
                     with os.fdopen(source, "rb") as stream:
                         info = os.fstat(stream.fileno())
                         if not stat.S_ISREG(info.st_mode) or info.st_size > 16 * 1024 ** 2: raise Error("UEFI-Datei ist ungültig.")
                         content = stream.read()
+                with directory_fd(destination.parent) as parent:
                     target = os.open(destination.name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600, dir_fd=parent)
                     nvram_created = True
                     with os.fdopen(target, "wb") as stream:
-                        os.fchown(stream.fileno(), info.st_uid, info.st_gid)
+                        owner = pwd.getpwnam(host_platform().qemu_user)
+                        os.fchown(stream.fileno(), owner.pw_uid, owner.pw_gid)
                         stream.write(content)
                 nvram.text = str(destination)
             cloned = self.register_vm_definition(name, ET.tostring(root, encoding="unicode"))

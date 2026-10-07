@@ -1,6 +1,5 @@
 import argparse
 import base64
-from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -17,7 +16,7 @@ import threading
 import time
 import urllib.parse
 from . import __version__, __release_stage__
-from .catalog import APPS, catalog
+from .catalog import catalog
 from .core import configuration_lock, job_resources, Error, Jobs, Store, identifier, integer, password_hash, user_profile_text
 from .demo import Demo
 from .rpc import AgentClient
@@ -37,7 +36,7 @@ WEB = Path(__file__).parent / "web"
 MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
              "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
-             "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "backup_app_restore", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
+             "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "backup_app_restore", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore_new", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
 FILE_ACTIONS = {"mkdir", "upload", "rename", "trash", "trash_list", "restore", "copy", "move", "read", "write", "create", "create_document", "delete"}
 
 
@@ -114,7 +113,8 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
         # Queued jobs may outlive an account's permissions; check them again when
         # executing, not only when accepting the HTTP request.
         current = self.store.user_record(actor)
-        if operation in ('app_install_run', 'app_install_resume', 'app_install_address') or (operation == 'app_install' and arguments.get('app') == 'titan-cloudflared'):
+        from .native_catalog import AVAILABLE_APP_IDS
+        if operation in ('app_install_run', 'app_install_resume', 'app_install_address') or (operation == 'app_install' and isinstance(arguments.get('app'), str) and arguments['app'] in AVAILABLE_APP_IDS):
             if not current['enabled'] or current['role'] != 'admin':
                 raise Error('Administratorrechte sind nicht mehr gültig.', 403)
         application = operation_application(operation)
@@ -471,14 +471,14 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 return self.reply(diagnostics_report(self.app.agent, self.app.demo), extra={
                     'Content-Disposition': 'attachment; filename="titan-diagnostics.json"'} if query else None)
             if path == '/api/app-install':
-                from .app_installation import STEPS, validate_app
+                from .app_installation import steps_for, validate_app
                 if set(query) != {'app'}:
                     raise Error('Genau eine eigene App auswählen.')
                 app = validate_app(query['app'])
                 if self.app.demo:
                     from .remote_access import validate_remote
                     return self.reply({'app': app, 'revision': 'demo', 'status': 'idle', 'current_step': '',
-                        'steps': [{'id': key, 'label': label, 'status': 'pending', 'message': '', 'started_at': None, 'finished_at': None} for key, label in STEPS],
+                        'steps': [{'id': key, 'label': label, 'status': 'pending', 'message': '', 'started_at': None, 'finished_at': None} for key, label in steps_for(app)],
                         'resumable': False, 'installed': False, 'available': False, 'demo': True, 'setup': {},
                         'remote': validate_remote(None), 'remote_revision': 'demo', 'diagnosis': {},
                         'runtime': {'state': 'missing', 'cloudflare_connected': False, 'public_ready': False,
@@ -696,7 +696,7 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         if path == "/api/files":
             if body.get("action") not in FILE_ACTIONS:
                 raise Error("Ungültige Dateiaktion.")
-            if set(body) - {"share", "path", "action", "offset", "size", "limit", "search", "data", "destination", "trash_name", "destination_share", "revision", "confirmation_path", "document_type"}:
+            if set(body) - {"share", "path", "action", "offset", "size", "limit", "search", "data", "destination", "trash_name", "destination_share", "revision", "confirmation_path", "document_type", "upload_id", "total", "finish", "cancel"}:
                 raise Error("Unbekannte Dateioption.")
             result = self.file_call(user, **body)
             self.app.store.audit(user["name"], "file_" + body["action"], body.get("path", ""))
@@ -725,10 +725,12 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             if not isinstance(body['expected_revision'], str):
                 raise Error('Aktuellen Installationsstand als Text angeben.')
             if path == '/api/app-install':
-                validate_options(body['options'])
+                validate_options(body['options'], body['app'])
                 operation = 'app_install_run'
             elif path.endswith('/address'):
                 from .remote_access import public_url
+                if body['app'] != 'titan-cloudflared':
+                    raise Error('Nur Cloudflare Tunnel verwendet eine öffentliche Tunnel-Adresse.', 404)
                 public_url(body['public_origin'])
                 operation = 'app_install_address'
             else:

@@ -138,3 +138,13 @@ Das freie Desktop-Menü bietet gruppierte Aktionen mit Symbolen und Beschreibung
 Der frühere AppStore und seine externe Katalogsuche entfallen. **Apps** zeigt zunächst eine eigene Compose-App: **Cloudflare Tunnel**. Token und optionale öffentliche HTTPS-Adresse reichen für den Installationsauftrag. Die Installation zeigt acht tatsächlich ausgeführte Schritte; ihr Verlauf bleibt nach Schließen und Neuladen erhalten. Eine unterbrochene Einrichtung kann ohne erneute Token-Eingabe fortgesetzt werden. Historischer Installationsabschluss und aktueller Verbindungsstatus werden getrennt dargestellt.
 
 Der gesamte Apps-Inhalt scrollt gemeinsam; ein hoher feststehender Store-Balken entfällt. Schmale Fenster ordnen Konfiguration und Verlauf untereinander. Farben folgen Hell, Dunkel und Auto. Die bisherige Cloudflare-Karte der Systemsteuerung ist entfernt. Bereits installierte Apps bleiben als kompakte Liste erreichbar; Docker öffnet die vorhandene Verwaltung. Die älteren Store-Abbildungen und Beschreibungen oben dokumentieren frühere Versionen.
+
+## Titan 0.5.9: ruhige Aktualisierung und Schnellaktionen
+
+Desktop-Widgets behalten beim Aktualisieren ihre DOM-Karten, Kopfzeilen und Bedienelemente. Nur Messwerte und Beschriftungen werden angepasst. VM-Details halten bei einem Poll die aktuelle Ansicht; insbesondere bleibt die Konsole im Dokument verbunden. Auswahl und Scrollposition bleiben erhalten, ein Fehler wird innerhalb der vorhandenen Ansicht angezeigt.
+
+Der Dateimanager startet mit einer kompakten Werkzeugleiste. Eine leere Auswahlleiste ist ausgeblendet; der Detailbereich kann separat ein- und ausgeblendet werden. Rechtsklick, Langdruck und Umschalt+F10 öffnen passende Aktionen am Eintrag beziehungsweise im freien Ordnerbereich. Mehrere Dateien können per Drag-and-drop in einen beschreibbaren Ordner geladen werden. Fortschritt und Abbrechen-Button bleiben während der Übertragung stabil.
+
+Andere Anwendungsmenüs verwenden die vorhandenen Aktionsschaltflächen als Quelle. Damit gelten weiterhin dieselben Rechte, Bestätigungen und deaktivierten Zustände. Das Titan-Terminal und die VM-Konsole besitzen eigene kontextspezifische Menüs. Eine Gast-Rechtsklickoption erhält den Zugriff auf Kontextmenüs innerhalb der VM.
+
+Die Screenshots im README stammen aus Titans eigener Demo. TitanOS wurde ausschließlich als visuelle Referenz verwendet; dessen Quellcode und Assets wurden nicht übernommen.

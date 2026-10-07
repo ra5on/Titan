@@ -6,6 +6,13 @@ class Store:
     def config(self,key,default):return self.data.get(key,default)
     def set_config(self,key,value):self.data[key]=value
 class Tests(unittest.TestCase):
+    def test_vm_shortcuts_require_canonical_uuid(self):
+        key = "vm:12345678-1234-1234-1234-123456789abc"
+        self.assertEqual(validate({"items": [key]})["items"], [key])
+        for key in ("vm:../guest", "vm:not-a-uuid", "vm:javascript:alert(1)", "vm:12345678-1234-1234-1234-123456789ABC"):
+            with self.subTest(key=key), self.assertRaises(Error):
+                validate({"items": [key]})
+
     def test_folders_and_positions_survive_per_user_without_cross_account_access(self):
         store=Store();value={'items':['tool:vms',{'id':'folder-media','name':'Medien','items':['app:jellyfin','tool:files']}]}
         save(store,'alice',value);self.assertEqual(load(store,'alice'),value);self.assertEqual(load(store,'bob'),{'items':[]})

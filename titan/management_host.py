@@ -426,6 +426,9 @@ class ManagementMixin:
             with tempfile.TemporaryFile(mode="w+t", dir=self.directory) as journal:
                 try:
                     for directory, dirs, files, dir_fd in os.fwalk(".", follow_symlinks=False, dir_fd=root_fd):
+                        # Upload fragments stay private to their worker UID;
+                        # share ACL changes apply only after atomic publication.
+                        dirs[:] = [name for name in dirs if not name.startswith('.titan-uploads-')]
                         relative_dir = "" if directory == "." else directory.removeprefix("./")
                         for relative in [relative_dir] + [str(Path(relative_dir) / name) for name in files]:
                             try:

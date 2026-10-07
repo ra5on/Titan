@@ -2,6 +2,8 @@
 import re
 from .core import Error
 
+KEY = r"(?:(?:tool|app):[a-zA-Z0-9_-]{1,64}|vm:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})"
+
 def validate(value):
     if not isinstance(value,dict) or 'items' not in value or set(value)-{'items','hidden','version','positions','widgets','docker_added','icon_size','desktop'} or not isinstance(value['items'],list) or len(value['items'])>128: raise Error('Ungültige Hauptmenü-Anordnung.')
     if 'docker_added' in value and type(value['docker_added']) is not bool: raise Error('Ungültige Desktop-Initialisierung.')
@@ -14,7 +16,7 @@ def validate(value):
     seen=set(); folders=set(); count=0
     def item(key):
         nonlocal count
-        if not isinstance(key,str) or not re.fullmatch(r'(tool|app):[a-zA-Z0-9_-]{1,64}',key) or key in seen: raise Error('Ungültige oder doppelte Menü-App.')
+        if not isinstance(key,str) or not re.fullmatch(KEY,key) or key in seen: raise Error('Ungültige oder doppelte Menü-App.')
         seen.add(key); count+=1
         if count>128: raise Error('Zu viele Menü-Apps.')
     for row in value['items']:
@@ -26,7 +28,7 @@ def validate(value):
         for key in row['items']: item(key)
     if "hidden" in value:
         hidden=value["hidden"]
-        if not isinstance(hidden,list) or len(hidden)>128 or any(not isinstance(key,str) or not re.fullmatch(r"(tool|app):[a-zA-Z0-9_-]{1,64}",key) for key in hidden) or len(set(hidden))!=len(hidden): raise Error("Ungültige ausgeblendete Menü-Apps.")
+        if not isinstance(hidden,list) or len(hidden)>128 or any(not isinstance(key,str) or not re.fullmatch(KEY,key) for key in hidden) or len(set(hidden))!=len(hidden): raise Error("Ungültige ausgeblendete Menü-Apps.")
     if 'version' in value and (type(value['version']) is not int or value['version'] != 2): raise Error('Ungültige Desktop-Version.')
     roots={row if isinstance(row,str) else row['id'] for row in value['items']}
     positions=value.get('positions',{})

@@ -94,7 +94,7 @@ footer{background:transparent;border-color:#b5c7dc50;color:#7890a9;font-size:10p
 .pill.purple{color:var(--info);background:var(--info-bg);border-color:var(--line)}
 .pill.red{color:var(--danger);background:var(--danger-bg);border-color:var(--line)}
 .healthy{color:var(--green)}
-.error-text,.form-error,.auth-error{color:var(--red)}
+.error-text,.form-error{color:var(--red)}
 .notice{color:var(--text);background:var(--info-bg);border-color:var(--line);border-radius:8px;font-size:12px}
 .notice.warning{color:var(--warning);background:var(--warning-bg);border-color:var(--line)}
 .empty{font-size:12px}
@@ -163,10 +163,6 @@ dialog::backdrop{background:color-mix(in srgb,var(--text) 30%,transparent);backd
 .close-button:hover{background:var(--hover);color:var(--accent)}
 .toast{background:var(--panel);border-color:var(--line);color:var(--text);box-shadow:none;font-size:12px}
 .toast.error{background:var(--danger-bg);border-color:var(--line);color:var(--danger)}
-.auth-card{background:var(--panel-soft);border-color:var(--line);box-shadow:none;backdrop-filter:blur(20px)}
-.auth-card h1{color:var(--text);font-size:24px}
-.auth-card .brand{color:var(--text)}
-.auth-card .alpha-notice{background:var(--panel-soft)}
 .nav-backdrop{background:color-mix(in srgb,var(--text) 35%,transparent);backdrop-filter:blur(4px)}
 .layout-load-hint{color:var(--text)}
 .storage-ring .track{stroke:#eaf0f7}

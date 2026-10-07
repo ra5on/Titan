@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.5.8 with native Compose apps, persistent installation steps and no external app catalog.
+# Build Titan 0.5.9 with native Compose apps, atomic uploads, refreshed consoles and VM checkpoints.
 on:
   workflow_dispatch:
   push:

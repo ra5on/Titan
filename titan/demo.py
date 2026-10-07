@@ -2,7 +2,6 @@
 import base64
 import copy
 import hashlib
-import json
 import re
 import shlex
 import shutil
@@ -12,6 +11,7 @@ import threading
 import time
 import uuid
 from .core import Error, identifier, integer
+from .vm_names import identity as vm_identity, display_name as vm_display_name
 from .catalog import APPS, published_ports, validate_options
 from .cpu_topology import demo_topology
 from .files import operate
@@ -402,7 +402,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         if operation == "file":
             allowed = {"list": {"offset", "limit", "search", "recursive", "type", "min_size", "max_size", "modified_after", "modified_before"}, "read": {"offset", "size"}, "mkdir": set(),
                        "write": {"data", "revision"}, "create": {"data"}, "delete": {"confirmation_path"},
-                       "upload": {"offset", "data"}, "rename": {"destination"}, "trash": set(), "trash_list": {"offset", "limit", "search"},
+                       "upload": {"offset", "data", "upload_id", "total", "finish", "cancel"}, "rename": {"destination"}, "trash": set(), "trash_list": {"offset", "limit", "search"},
                        "restore": {"trash_name", "destination"}, "copy": {"destination", "destination_share"},
                        "move": {"destination", "destination_share"}}
             action = args["action"]
@@ -671,7 +671,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
                         "output": "[Demo] App-" + args["action"] + " simuliert; keine Container oder Sicherungsdateien verändert."}
             item["status"] = "Up" if item["state"] == "running" else "Gestoppt"
         elif operation == "vm_create":
-            name = identifier(args["name"])
+            name, label = vm_identity(args["name"])
             options = self.call("vm_options")
             iso, image_id = args.get("iso"), args.get("disk_image")
             if iso and iso not in self.call("isos"): raise Error("ISO nicht gefunden.")
@@ -684,8 +684,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             if image and disk_gb * 1024**3 < image["virtual_size"]: raise Error("Neue Disk darf nicht kleiner als das Image sein.")
             cpus = integer(args["cpus"], 1, 8)
             pins = self.demo_cpu_ids(cpus, args.get("cpu_ids"))
-            if any(item["name"] == name for item in self.vms): raise Error("VM existiert bereits.", 409)
-            self.vms.append({"id": str(uuid.uuid4()), "name": name, "state": "shut off", "cpus": cpus,
+            if any(item["name"] == name or item.get("display_name", item["name"]) == label for item in self.vms): raise Error("VM existiert bereits.", 409)
+            self.vms.append({"id": str(uuid.uuid4()), "name": name, "display_name": label, "state": "shut off", "cpus": cpus,
                              "memory_mb": integer(args["memory_mb"], 512, 31744), "autostart": False,
                              "iso": iso, "boot": "cdrom" if iso else "hd", "cpu_ids": pins, "firmware": args.get("firmware", "bios"), "network": args.get("network", {"mode":"network","source":"default","model":"virtio","mac":"","connected":True}),
                              "storage": choice["id"], "disk_path": choice["path"] + "/" + name + ".qcow2",
@@ -705,6 +705,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             item = self.vm(args["vm"])
             if item["state"] != "shut off": raise Error("VM muss vollständig heruntergefahren sein.", 409)
             if operation == "vm_update":
+                if args.get("display_name") is not None: item["display_name"] = vm_display_name(args["display_name"])
                 cpus = integer(args["cpus"], 1, 8)
                 pins = self.demo_cpu_ids(cpus, args.get("cpu_ids", item.get("cpu_ids")))
                 item["cpus"], item["cpu_ids"] = cpus, pins
@@ -1025,7 +1026,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
                 target = directory / name
                 target.mkdir()
                 for entry in source.iterdir():
-                    if entry.name != ".titan-trash":
+                    if entry.name != ".titan-trash" and not entry.name.startswith('.titan-uploads-'):
                         operate(str(source), "copy", entry.name, destination=entry.name, destination_root=str(target))
             record["digests"] = self.tree_digest(directory)
             record["bytes"] = sum(item.stat().st_size for item in directory.rglob("*") if item.is_file())

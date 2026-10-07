@@ -283,7 +283,7 @@
   listen(main, 'change', change);
   listen(main, 'click', click);
   listen(doc, 'keydown', key);
-  current = {destroy(){
+  current = {clip,batch:openBatch,selectedCount:()=>selected.size,destroy(){
    mounted = false; controller.abort(); removers.splice(0).forEach(remove => remove()); selected.clear();
    // A submitted batch owns its modal until completion, allowing cancellation
    // while its frozen requests finish independently of page navigation.
@@ -291,5 +291,5 @@
   }};
   update();
  }
- return {mount, dispose, limit, eligible, normalizeFolder, destinationPath, keyBlocked, serialBatch};
+ return {mount, dispose, clipboardCommand:command=>current?.clip(command),batchCommand:command=>current?.batch(command),selectedCount:()=>current?.selectedCount()||0,canPaste:owner=>Boolean(clipboard&&clipboardOwner===owner),limit, eligible, normalizeFolder, destinationPath, keyBlocked, serialBatch};
 });

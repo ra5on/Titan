@@ -38,6 +38,15 @@ async function mounted(role,preferences,{acceptSave=true}={}){
   f.surface._rect={left:0,top:60,width:390,height:310,right:390,bottom:370};for(const listener of f.win.events.get('resize'))listener.fn();for(const card of f.doc.querySelectorAll('[data-widget-card]')){const rect=card.getBoundingClientRect();assert(rect.left>=8&&rect.right<=382&&rect.top>=68&&rect.bottom<=362,'Each card remains in the resized viewport');}
  }finally{f.widget.destroy();}
  assert.equal(f.doc.querySelector('.desktop-widget'),null);assert([...f.doc.events.values()].every(events=>events.length===0));
+ f=await mounted('admin',{visible:true,items:['cpu','activity','notifications'],positions:{cpu:{x:150,y:300}}});
+ try{
+  const card=f.card('cpu'),handle=card.querySelector('[data-widget-move]'),value=card.querySelector('[data-widget-value]'),rect=card.getBoundingClientRect(),activity=f.card('activity'),activityValue=activity.querySelector('[data-widget-value]'),alerts=f.card('notifications');handle.focus();
+  f.widget.updateJobs([{status:'running'}]);f.widget.updateAlerts([{severity:'error'}]);
+  f.doc.dispatch(f.doc,'visibilitychange');await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.card('cpu'),card,'Polling must preserve the card so its entrance animation never restarts');assert.equal(card.querySelector('[data-widget-move]'),handle);assert.equal(card.querySelector('[data-widget-value]'),value);assert.equal(f.doc.activeElement,handle,'Polling keeps keyboard focus');assert.deepEqual(card.getBoundingClientRect(),rect);
+  assert.equal(f.card('activity'),activity);assert.equal(activity.querySelector('[data-widget-value]'),activityValue);assert.equal(activityValue.textContent,'1');assert.equal(f.card('notifications'),alerts);assert.equal(alerts.querySelector('[data-widget-value]').textContent,'1');
+  f.widget.updateJobs([]);f.widget.updateAlerts([]);assert.equal(activityValue.textContent,'0');assert.equal(alerts.querySelector('[data-widget-value]').textContent,'0');assert.equal(f.card('cpu'),card);
+ }finally{f.widget.destroy();}
  f=await mounted('user',{visible:false,items:['cpu','health','clock']});
  try{
   f.widget.openPicker(f.toggle);assert.equal(f.gallery().querySelectorAll('[data-widget-choice]').length,1);assert.equal(f.gallery().querySelector('[data-widget-choice]').dataset.widgetChoice,'clock');f.doc.dispatch(f.gallery().querySelector('[data-widget-add="clock"]'),'click');assert(f.card('clock'));assert.equal(f.requests.length,0,'Regular users never request administrator metrics');f.widget.updateAlerts([{severity:'error'}]);f.widget.updateJobs([{status:'running'}]);assert(!f.card('notifications'));assert(!f.card('activity'));

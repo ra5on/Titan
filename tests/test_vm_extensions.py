@@ -1,5 +1,6 @@
 """Real qcow2 checkpoints/clone roundtrips without requiring a running KVM host."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -161,6 +162,20 @@ class VMExtensionTests(unittest.TestCase):
         finally:
             with self.disk.open('r+b') as stream: stream.write(header)
 
+    def test_clone_and_snapshot_restore_accept_labels_with_spaces_without_unsafe_paths(self):
+        snapshot = self.host.op_vm_snapshot_create(self.vm, "Vor Änderung")["snapshot"]["id"]
+        source = self.host.managed_vm(self.vm)
+        for operation, label in ((self.host.op_vm_clone, "Meine VM Kopie"),
+                                 (lambda vm, name: self.host.op_vm_snapshot_restore_new(vm, snapshot, name), "Windows 11 Snapshot")):
+            restored = operation(self.vm, label)
+            record = self.host.managed_vm(restored["id"])
+            self.assertEqual(record["display_name"], label)
+            self.assertRegex(record["name"], r"^[a-z][a-z0-9_-]{0,30}$")
+            self.assertTrue(Path(record["disk"]).is_relative_to(self.host.vm_root))
+            self.assertNotEqual(record["id"], self.vm)
+            self.assertNotEqual(record["disk"], source["disk"])
+        self.assertEqual(self.host.managed_vm(self.vm)["xml"], source["xml"])
+
     def test_real_clone_is_independent_and_has_all_disks(self):
         added = self.host.op_vm_disk_add(self.vm, 1)
         self.write(self.disk, 0x11); self.write(added['disk']['disk'], 0x22)
@@ -171,6 +186,82 @@ class VMExtensionTests(unittest.TestCase):
         self.write(self.disk, 0x33)
         self.check(copy['disk'], 0x11)
         self.assertNotEqual(cloned, self.vm)
+
+    def test_snapshot_restore_new_exports_all_checkpoint_disks_and_preserves_current_vm(self):
+        extra = Path(self.host.op_vm_disk_add(self.vm, 1)['disk']['disk'])
+        self.write(self.disk, 0x11); self.write(extra, 0x22)
+        snapshot = self.host.op_vm_snapshot_create(self.vm, 'Baseline')['snapshot']['id']
+        self.write(self.disk, 0x33); self.write(extra, 0x44)
+        source_xml = self.host.domains[self.vm]
+        original_hashes = [hashlib.sha256(path.read_bytes()).hexdigest() for path in (self.disk, extra)]
+        self.host.calls.clear()
+        result = self.host.op_vm_snapshot_restore_new(self.vm, snapshot, 'recovered')
+        recovered = self.host.managed_vm(result['id'])
+        self.assertTrue(result['source_preserved'])
+        self.assertNotEqual(result['id'], self.vm)
+        self.assertEqual(self.host.domains[self.vm], source_xml)
+        self.assertEqual([hashlib.sha256(path.read_bytes()).hexdigest() for path in (self.disk, extra)], original_hashes)
+        self.check(self.disk, 0x33); self.check(extra, 0x44)
+        self.check(recovered['disks'][0]['disk'], 0x11); self.check(recovered['disks'][1]['disk'], 0x22)
+        self.assertEqual(self.host.states[result['id']], 'shut off')
+        self.assertEqual(len(self.host.op_vm_extensions(self.vm)['snapshots']), 1)
+        self.assertFalse(any(call[:2] == ['qemu-img', 'snapshot'] for call in self.host.calls))
+        converts = [call for call in self.host.calls if call[:2] == ['qemu-img', 'convert']]
+        self.assertEqual(len(converts), 2)
+        self.assertTrue(all('snapshot.name=' + snapshot in call for call in converts))
+
+    def test_snapshot_restore_new_failure_cleans_only_new_files_and_duplicate_name_is_rejected(self):
+        extra = Path(self.host.op_vm_disk_add(self.vm, 1)['disk']['disk'])
+        self.write(self.disk, 0x11); self.write(extra, 0x22)
+        snapshot = self.host.op_vm_snapshot_create(self.vm, 'Baseline')['snapshot']['id']
+        self.write(self.disk, 0x33); self.write(extra, 0x44)
+        with self.assertRaisesRegex(Error, 'bereits verwendet'):
+            self.host.op_vm_snapshot_restore_new(self.vm, snapshot, 'linux')
+        conversions = 0
+        def fail_second(args):
+            nonlocal conversions
+            if args[:2] == ['qemu-img', 'convert']:
+                conversions += 1
+                if conversions == 2: raise Error('second disk unavailable')
+        self.host.failure = fail_second
+        with self.assertRaisesRegex(Error, 'second disk'):
+            self.host.op_vm_snapshot_restore_new(self.vm, snapshot, 'failed-copy')
+        self.assertFalse(list(self.host.vm_root.glob('failed-copy*')))
+        self.assertEqual(len(self.host.load('vms', [])), 1)
+        self.check(self.disk, 0x33); self.check(extra, 0x44)
+
+    def test_explicit_shutdown_waits_for_stopped_vm_without_forced_poweroff(self):
+        self.host.states[self.vm] = 'running'
+        with patch.object(self.host, 'op_vm_action', create=True) as shutdown, patch('titan.vm_extensions.time.sleep', side_effect=lambda _: self.host.states.update({self.vm: 'shut off'})):
+            self.host.op_vm_snapshot_create(self.vm, 'After shutdown', shutdown=True)
+        shutdown.assert_called_once_with(self.vm, 'shutdown')
+        self.assertEqual(self.host.states[self.vm], 'shut off')
+        self.host.states[self.vm] = 'running'
+        with patch.object(self.host, 'op_vm_action', create=True) as shutdown, patch('titan.vm_extensions.time.monotonic', side_effect=[0, 121]), patch('titan.vm_extensions.time.sleep') as sleep:
+            with self.assertRaisesRegex(Error, 'nicht zwangsweise'):
+                self.host.op_vm_snapshot_create(self.vm, 'Timeout', shutdown=True)
+        shutdown.assert_called_once_with(self.vm, 'shutdown')
+        sleep.assert_not_called()
+        self.assertEqual(len(self.host.op_vm_extensions(self.vm)['snapshots']), 1)
+        self.assertFalse(any(call[:2] == ['virsh', 'destroy'] for call in self.host.calls))
+
+    def test_snapshot_restore_new_preserves_saved_uefi_variables_and_original_current_variables(self):
+        variables = self.root / 'nvram'
+        variables.mkdir()
+        with patch.object(self.host, 'vm_nvram_path', side_effect=lambda name: variables / ('titan-' + name + '_VARS.fd')), patch.object(self.host, 'validate_vm_firmware'):
+            record = self.host.managed_vm(self.vm)
+            root = ET.fromstring(record['xml']); root.find('os').set('firmware', 'efi')
+            original = self.host.vm_instance_nvram_path('linux', self.disk)
+            original.write_bytes(b'saved-boot-variables')
+            ET.SubElement(root.find('os'), 'nvram').text = str(original)
+            self.host.redefine_vm(record, root)
+            snapshot = self.host.op_vm_snapshot_create(self.vm, 'UEFI')['snapshot']['id']
+            original.write_bytes(b'current-boot-variables')
+            recovered = self.host.op_vm_snapshot_restore_new(self.vm, snapshot, 'uefi-copy')['id']
+            copied = Path(ET.fromstring(self.host.managed_vm(recovered)['xml']).findtext('./os/nvram'))
+            self.assertNotEqual(copied, original)
+            self.assertEqual(copied.read_bytes(), b'saved-boot-variables')
+            self.assertEqual(original.read_bytes(), b'current-boot-variables')
 
     def test_live_storage_summary_aggregates_all_disks_and_preserves_boot_capacity(self):
         extra=Path(self.host.op_vm_disk_add(self.vm,1)['disk']['disk'])

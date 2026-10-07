@@ -2,7 +2,6 @@
 import json
 import re
 import contextlib
-import os
 from pathlib import Path
 from .core import Error, integer
 

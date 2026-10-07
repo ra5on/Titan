@@ -259,8 +259,9 @@ class RuntimeSmokeTests(unittest.TestCase):
         report = self.run_fixture(client)
         self.assertTrue(report["ok"])
         check = next(item for item in report["checks"] if item["name"] == "app_catalog_first_login")
-        self.assertEqual(check["values"]["app_count"], 1)
-        self.assertEqual(sum(check["values"]["first_login_mode_counts"].values()), 1)
+        from titan.native_catalog import AVAILABLE_APP_IDS
+        self.assertEqual(check["values"]["app_count"], len(AVAILABLE_APP_IDS))
+        self.assertEqual(sum(check["values"]["first_login_mode_counts"].values()), len(AVAILABLE_APP_IDS))
         self.assertEqual(set(check["values"]), {"app_count", "first_login_mode_counts", "ok"})
         client.request.assert_any_call("/api/catalog")
         self.assertNotIn("admin123", json.dumps(report))

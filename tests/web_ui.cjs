@@ -4,10 +4,11 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const callbacks={},nodes=new Map();
-const node=selector=>{if(!nodes.has(selector))nodes.set(selector,{innerHTML:'',textContent:'',hidden:false,open:false,style:{},handlers:{},classList:{remove(){},toggle(){}},addEventListener(type,callback){this.handlers[type]=callback;},append(){},querySelectorAll:()=>[],setAttribute(){},showModal(){this.open=true;},close(){this.open=false;}});return nodes.get(selector);};
+const node=selector=>{if(!nodes.has(selector))nodes.set(selector,{innerHTML:'',textContent:'',hidden:false,open:false,style:{},handlers:{},classList:{remove(){},toggle(){}},addEventListener(type,callback){this.handlers[type]=callback;},append(){},querySelector:()=>null,querySelectorAll:()=>[],setAttribute(){},showModal(){this.open=true;},close(){this.open=false;}});return nodes.get(selector);};
 const document={querySelector:node,querySelectorAll:()=>[],addEventListener:(name,callback)=>callbacks[name]=callback,createElement:()=>({remove(){}})};
 const window={getSelection:()=>({toString:()=>''}),addEventListener(){}};
 window.TitanFileBrowser=require('../titan/web/file_browser.js');
+window.TitanUploads=require('../titan/web/file_uploads.js');
 const context=vm.createContext({document,window,location:{hostname:'nas',hash:'#files'},setTimeout:()=>0,setInterval:()=>0,clearInterval(){},fetch(){throw Error('Unexpected request');},URLSearchParams,FormData,AbortController,Uint8Array,TextEncoder,TextDecoder,atob:value=>Buffer.from(value,'base64').toString('binary'),btoa:value=>Buffer.from(value,'binary').toString('base64'),console});
 const source=fs.readFileSync('titan/web/app.js','utf8').replace(/boot\(\)\.catch\(error=>toast\(error.message,true\)\);\s*$/,'');
 vm.runInContext(fs.readFileSync('titan/web/location_controls.js','utf8'),context);
@@ -30,10 +31,10 @@ const evaluate=expression=>vm.runInContext(expression,context);
  // A file upload must retain its original share/folder across an in-flight navigation.
  evaluate("session={user:{csrf:'synthetic-csrf',role:'admin',system_user:'titan-files'}}; currentShare='original'; currentPath='folder';");
  const requests=[];
- context.fetch=async(url,options)=>{const body=JSON.parse(options.body);requests.push({url,body});evaluate("currentShare='other'; currentPath='changed';");return {ok:true,json:async()=>({offset:body.offset+Buffer.from(body.data,'base64').length})};};
+ context.fetch=async(url,options)=>{const body=JSON.parse(options.body);requests.push({url,body});evaluate("currentShare='other'; currentPath='changed';");return {ok:true,json:async()=>({atomic:true,upload_id:body.upload_id,complete:!!body.finish,offset:body.finish?body.total:body.offset+Buffer.from(body.data,'base64').length})};};
  context.file={name:'big.bin',size:1048577,slice:(start,end)=>({arrayBuffer:async()=>new Uint8Array(Math.min(end,1048577)-start).buffer})};
  await evaluate('upload(file,false)');
- assert.equal(requests.length,2);
+ assert.equal(requests.length,3);assert.equal(requests[2].body.finish,true);
  for(const {body} of requests){assert.equal(body.share,'original');assert.equal(body.path,'folder/big.bin');}
  assert.equal(evaluate('activeUpload'),null);
  // ISO uploads explicitly finalize total size and reuse the server-issued upload token.

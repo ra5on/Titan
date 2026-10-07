@@ -1,9 +1,5 @@
 """Root boundary for group ACL materialization, personal folders and ZFS quotas."""
-import copy
 import hashlib
-import os
-from pathlib import Path
-import pwd
 import re
 import shutil
 from .core import Error, identifier, integer

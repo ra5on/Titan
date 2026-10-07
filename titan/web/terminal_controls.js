@@ -34,6 +34,8 @@
   const endpoint=ctx.rootMode?'/api/root-terminal':'/api/terminal';
   const notice = (text, error = false) => ctx.toast?.(text, error);
   const buttons = Array.from(main.querySelectorAll('[data-terminal-action]'));
+  const menu = main.querySelector('[data-terminal-menu]');
+  let hold = null, heldUntil = 0, showContextMenu = null;
   let term, fit, stream = null, id = null, generation = 0, destroyed = false, creating = false, phase = 'closed';
   let pendingBytes = 0, inputs = [], drainingToken = null, outputBytes = 0, outputs = [], writing = false, writingBytes = 0;
   let observer = null, resizeTimer = null, lastSize = null, resizeToken = null, wantedSize = null;
@@ -225,7 +227,9 @@
   }
   function key(event) {
    if (event.type !== 'keydown') return true;
+   if(showContextMenu&&(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')){event.preventDefault();const rect=screen.getBoundingClientRect();showContextMenu(rect.left+20,rect.top+20);return false;}
    const control = event.ctrlKey || event.metaKey, letter = String(event.key || '').toLowerCase();
+   if (event.shiftKey && event.key === 'Insert') { event.preventDefault(); void paste(); return false; }
    if (control && !event.altKey && letter === 'c' && (event.shiftKey || term.hasSelection())) {
     event.preventDefault(); void copy(); return false;
    }
@@ -246,8 +250,11 @@
   const controller = {
    open, close:() => disconnect('Terminal geschlossen.'), copy, paste,
    interrupt:() => { if (send(utf8('\x03'))) term.focus(); }, clear:() => { term.clear(); term.focus(); },
+   selectAll:() => { term.selectAll(); term.focus(); },
+   fullscreen:async() => { const panel=main.querySelector('.terminal-panel')||screen;if(doc.fullscreenElement)await doc.exitFullscreen?.();else if(panel.requestFullscreen)await panel.requestFullscreen();else notice('Vollbild wird von diesem Browser nicht unterstützt.',true); },
    dispose(keepalive = false) {
     if (destroyed) return;
+    if (hold) view.clearTimeout(hold.timer);
     disconnect('Terminal geschlossen.', false, keepalive); destroyed = true;
     if (resizeTimer !== null) view.clearTimeout(resizeTimer);
     observer?.disconnect(); listeners.splice(0).forEach(remove => remove());
@@ -268,10 +275,27 @@
    listen(main, 'click', event => {
     const button = event.target.closest?.('[data-terminal-action]');
     if (!button || !main.contains(button) || button.disabled) return;
+    if(menu)menu.hidden=true;
     const action = controller[button.dataset.terminalAction];
     if (action) Promise.resolve(action()).catch(error => notice(error?.message || 'Terminal-Aktion fehlgeschlagen.', true));
    });
+   if(menu){
+    const closeMenu=()=>{menu.hidden=true;};
+    const showMenu=(x,y)=>{if(destroyed)return;menu.hidden=false;update();menu.style.left='8px';menu.style.top='8px';const rect=menu.getBoundingClientRect();menu.style.left=8+Math.max(8,Math.min(x,view.innerWidth-rect.width-8))-rect.left+'px';menu.style.top=8+Math.max(8,Math.min(y,view.innerHeight-rect.height-8))-rect.top+'px';menu.querySelector('button:not(:disabled)')?.focus();};
+    showContextMenu=showMenu;
+    const cancelHold=()=>{if(hold)view.clearTimeout(hold.timer);hold=null;};
+    listen(screen,'contextmenu',event=>{event.preventDefault();showMenu(event.clientX,event.clientY);});
+    listen(screen,'keydown',event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10'){event.preventDefault();const rect=screen.getBoundingClientRect();showMenu(rect.left+20,rect.top+20);}});
+    listen(screen,'pointerdown',event=>{cancelHold();if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;hold={x:event.clientX,y:event.clientY,timer:view.setTimeout(()=>{if(!hold||destroyed)return;const point=hold;hold=null;heldUntil=Date.now()+800;showMenu(point.x,point.y);},550)};});
+    listen(screen,'pointermove',event=>{if(hold&&Math.hypot(event.clientX-hold.x,event.clientY-hold.y)>10)cancelHold();});
+    listen(screen,'pointerup',cancelHold);listen(screen,'pointercancel',cancelHold);
+    listen(screen,'click',event=>{if(Date.now()<heldUntil){event.preventDefault();event.stopImmediatePropagation();}},true);
+    listen(doc,'pointerdown',event=>{if(!menu.contains(event.target))closeMenu();});
+    listen(doc,'keydown',event=>{if(menu.hidden)return;if(event.key==='Escape'){event.preventDefault();closeMenu();term.focus();}else if(menu.contains(event.target)&&['ArrowDown','ArrowUp','Home','End','Tab'].includes(event.key)){if(event.key==='Tab'){closeMenu();return;}event.preventDefault();const items=[...menu.querySelectorAll('button:not(:disabled)')],index=items.indexOf(doc.activeElement);items[event.key==='Home'?0:event.key==='End'?items.length-1:(index+(event.key==='ArrowDown'?1:-1)+items.length)%items.length]?.focus();}});
+    listen(view,'resize',closeMenu);
+   }
    listen(screen, 'paste', nativePaste, true);
+   listen(doc,'fullscreenchange',scheduleResize);
    listen(view, 'pagehide', () => controller.dispose(true));
    if (view.ResizeObserver) { observer = new view.ResizeObserver(scheduleResize); observer.observe(screen); }
    else listen(view, 'resize', scheduleResize);

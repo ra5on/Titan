@@ -1,7 +1,6 @@
 """Identity previews isolated to Demo's temporary directory and memory."""
 import copy
 import hashlib
-from pathlib import Path
 from .core import Error, identifier, integer
 from .identity import APPLICATIONS, effective_share, empty_policy, validate_policy
 

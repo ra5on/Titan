@@ -31,13 +31,26 @@ class NativeAcceptanceTests(unittest.TestCase):
             root = Path(directory)
             (root / 'titan').mkdir()
             source = root / 'titan/__init__.py'
-            for version, expected in (('0.5.6', 'legacy'), ('0.5.7', 'legacy'), ('0.5.8', 'native'), ('0.6.0', 'native')):
+            for version, expected in (('0.5.6', 'legacy'), ('0.5.7', 'legacy'), ('0.5.8', 'native'), ('0.5.9-alpha.1', 'native'), ('0.6.0', 'native')):
                 source.write_text(f"raise RuntimeError('must never import')\n__version__ = '{version}'\n")
                 self.assertEqual(selector.gate_mode(root), expected)
-            for version in ('0.5.8-alpha', 'latest', '0.5.8\\n', ''):
+                self.assertEqual(selector.expanded_native(root), selector.frozen_version(root) >= (0, 5, 9))
+            for version in ('0.5.8-', 'latest', '0.5.8\\n', ''):
                 source.write_text(f"__version__ = '{version}'\n")
                 with self.subTest(version=version), self.assertRaises(ValueError):
                     selector.gate_mode(root)
+
+    def test_expanded_native_output_keeps_old_frozen_apps_on_their_original_gates(self):
+        selector = script('ci-app-source.py')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'titan').mkdir()
+            for version, expanded in (('0.5.7', False), ('0.5.8', False), ('0.5.9-alpha.1', True), ('0.5.9', True)):
+                (root / 'titan/__init__.py').write_text(f"raise RuntimeError('not imported')\n__version__='{version}'\n")
+                output = io.StringIO()
+                with patch.object(sys, 'argv', ['ci-app-source', str(root)]), contextlib.redirect_stdout(output):
+                    selector.main()
+                self.assertIn('expanded_native=' + str(expanded).lower(), output.getvalue().splitlines())
 
     def test_fixture_wrapper_imports_and_executes_only_the_frozen_smoke(self):
         wrapper = script('smoke-compose-fixture.py')
@@ -89,6 +102,39 @@ class NativeAcceptanceTests(unittest.TestCase):
         main = yaml.safe_load((ROOT / '.github/workflows/bigbear.yml').read_text())
         self.assertNotIn('env', main)
         self.assertEqual(main['jobs']['native-apps']['uses'], './.github/workflows/app-packages.yml')
+
+    def test_expanded_native_workflow_uses_frozen_app_and_disposable_account_free_gates(self):
+        workflow = yaml.safe_load((ROOT / '.github/workflows/app-packages.yml').read_text())
+        jobs = workflow['jobs']
+        self.assertEqual(jobs['source']['outputs']['expanded_native'], '${{ steps.mode.outputs.expanded_native }}')
+        selector = next(step for step in jobs['source']['steps'] if step.get('id') == 'mode')
+        self.assertIn('.titan-ci-builder/scripts/ci-app-source.py .', selector['run'])
+        self.assertIn('"$GITHUB_OUTPUT"', selector['run'])
+        self.assertEqual(jobs['native-package']['strategy']['matrix']['package'], ['titan-immich', 'titan-adguard'])
+        expected_commands = {
+            'native-package': "python3 scripts/smoke-app-packages.py '${{ matrix.package }}'",
+            'tailscale-userspace': 'python3 scripts/smoke-tailscale.py',
+        }
+        for name, command in expected_commands.items():
+            with self.subTest(job=name):
+                job = jobs[name]
+                self.assertEqual(job['needs'], 'source')
+                self.assertEqual(job['if'], "needs.source.outputs.mode == 'native' && needs.source.outputs.expanded_native == 'true'")
+                self.assertEqual(job['runs-on'], 'ubuntu-24.04')
+                checkouts = [step for step in job['steps'] if step.get('uses', '').startswith('actions/checkout@')]
+                self.assertEqual(len(checkouts), 2)
+                self.assertEqual(checkouts[0]['with']['ref'], '${{ inputs.source_ref || github.sha }}')
+                self.assertNotIn('path', checkouts[0]['with'])
+                self.assertEqual(checkouts[1]['with']['ref'], '${{ github.sha }}')
+                self.assertEqual(checkouts[1]['with']['path'], '.titan-ci-builder')
+                self.assertTrue(all(step['with']['persist-credentials'] is False for step in checkouts))
+                commands = '\n'.join(step.get('run', '') for step in job['steps'])
+                self.assertIn('.titan-ci-builder/scripts/ci-ubuntu-dependencies.sh', commands)
+                self.assertIn('sudo --preserve-env=GITHUB_ACTIONS ' + command + ' --confirm-disposable-runner', commands)
+                self.assertNotIn('.titan-ci-builder/' + command.removeprefix('python3 '), commands)
+                self.assertNotIn('bigbear', commands.lower())
+                self.assertNotIn('secrets.', json.dumps(job))
+                self.assertNotIn('env', job)
 
     def test_boot_fixture_injection_touches_overlay_only_and_refuses_a_dirty_raw_image(self):
         source = (ROOT / 'scripts/smoke-image.sh').read_text()

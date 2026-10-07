@@ -173,7 +173,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 raise Error("Paket konnte noch nicht vollständig entfernt werden. Daten bleiben erhalten.", 503)
             if unregister:
                 self._app_patch_record(app, remove=True)
-                if app == 'titan-cloudflared':
+                from .native_catalog import AVAILABLE_APP_IDS
+                if app in AVAILABLE_APP_IDS:
                     # A deliberate uninstall invalidates only the temporary
                     # retry input. Existing private app configuration stays.
                     from .app_installation import AppInstallationMixin
@@ -602,6 +603,9 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             if command in ('up', 'restart', 'create') and app == 'titan-cloudflared':
                 from .cloudflare_tunnel import prepare_runtime
                 prepare_runtime(self, record)
+            if command in ('up', 'restart', 'create') and app == 'titan-tailscale':
+                from .native_apps import prepare_tailscale_runtime
+                prepare_tailscale_runtime(self, record)
             if command in ("up", "restart", "create"): invoke("config", "--quiet")
             if command in ("up", "restart", "create"):
                 if installing:
@@ -627,11 +631,11 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 if installing:
                     progress(self, app, 'start', message='Verwalteter Container wird gestartet.')
                 if APPS[app].get('stack') and command == 'up':
-                    output = invoke('up', '-d', '--no-recreate', '--wait', '--wait-timeout', '300')
+                    output = invoke('up', '-d', '--no-recreate', '--wait', '--wait-timeout', '120' if app == 'titan-tailscale' else '300')
                 else:
                     output = invoke("restart" if command == "restart" else "start")
                 if installing:
-                    progress(self, app, 'start', 'completed', 'Container-Start abgeschlossen. Die Cloudflare-Verbindung wird separat geprüft.')
+                    progress(self, app, 'start', 'completed', 'Container-Start abgeschlossen. Die Betriebsbereitschaft wird separat geprüft.')
                 return output
             return invoke(*arguments)
         except Error as exc:
@@ -899,6 +903,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         if storage_id is None:
             storage_id = self.load("storage-preferences", {}).get("default_storage", "system")
         resource = self.storage_locations.resolve(storage_id, purpose="apps", write=True)
+        from .native_apps import check_requirements
+        check_requirements(app, resource)
         data = Path(resource["path"]) / app / "data"
         config = Path(resource["path"]) / app / "config"
         if share:

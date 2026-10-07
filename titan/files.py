@@ -246,7 +246,62 @@ def _remove_copy(directory, leaf, required_device=None):
         os.unlink(leaf, dir_fd=directory)
 
 
-def _copy_entry(source, leaf, destination, target, records, relative="", depth=0):
+@contextlib.contextmanager
+def _check_upload_move(source):
+    from .file_uploads import ended_metadata
+    count, ended = 0, {}
+    with contextlib.ExitStack() as locks:
+        for directory, dirs, files, fd in os.fwalk('.', follow_symlinks=False, dir_fd=source):
+            count += len(dirs) + len(files)
+            if len(Path(directory).parts) > 128 or count >= 200000:
+                raise Error('Verschiebeauftrag ist zu groß oder zu tief verschachtelt.')
+            for name in dirs + files:
+                if name.startswith('.titan-uploads-'):
+                    relative = ('' if directory == '.' else '/' + directory.removeprefix('./')) + '/' + name
+                    ended[relative] = locks.enter_context(ended_metadata(fd, name))
+            dirs[:] = [name for name in dirs if not name.startswith('.titan-uploads-')]
+        yield ended
+
+
+def _copy_upload_metadata(source, leaf, destination, target, records, relative, snapshot):
+    info = os.stat(leaf, dir_fd=source, follow_symlinks=False)
+    if _fingerprint(info) != _fingerprint(snapshot['info']):
+        raise Error('Upload-Zwischenstände wurden während des Verschiebens verändert.', 409)
+    os.mkdir(target, mode=0o700, dir_fd=destination)
+    output = os.open(target, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=destination)
+    try:
+        current = os.fstat(output)
+        if (current.st_uid, current.st_gid) != (info.st_uid, info.st_gid):
+            os.fchown(output, info.st_uid, info.st_gid)
+        os.fchmod(output, 0o700)
+        for name, state in snapshot['records'].items():
+            fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=output)
+            with os.fdopen(fd, 'wb') as stream:
+                child = snapshot['originals'][name]
+                current = os.fstat(stream.fileno())
+                if (current.st_uid, current.st_gid) != (child.st_uid, child.st_gid):
+                    os.fchown(stream.fileno(), child.st_uid, child.st_gid)
+                os.fchmod(stream.fileno(), 0o600)
+                stream.write(json.dumps(state, separators=(',', ':')).encode())
+                stream.flush()
+                os.fsync(stream.fileno())
+        os.fsync(output)
+        records[relative] = _fingerprint(info)
+        for name, child in snapshot['originals'].items():
+            records[relative + '/' + name] = _fingerprint(child)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            _remove_copy(destination, target)
+        raise
+    finally:
+        os.close(output)
+
+
+def _copy_entry(source, leaf, destination, target, records, relative="", depth=0, ended_uploads=None):
+    if leaf.startswith('.titan-uploads-'):
+        if ended_uploads is not None and relative in ended_uploads:
+            return _copy_upload_metadata(source, leaf, destination, target, records, relative, ended_uploads[relative])
+        raise Error('Private Upload-Zwischenstände können nicht kopiert werden.', 403)
     if depth > 128 or len(records) >= 200000:
         raise Error("Kopierauftrag ist zu groß oder zu tief verschachtelt.")
     fd = os.open(leaf, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=source)
@@ -262,10 +317,15 @@ def _copy_entry(source, leaf, destination, target, records, relative="", depth=0
             output = os.open(target, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=destination)
             try:
                 for name in os.listdir(fd):
+                    if name.startswith('.titan-uploads-'):
+                        if ended_uploads is None:
+                            continue
+                        if relative + '/' + name not in ended_uploads:
+                            raise Error('Ein neuer Upload wurde während des Verschiebens gestartet. Erneut versuchen.', 409)
                     if name == ".titan-trash":
                         raise Error("Ordner mit einem Papierkorb bitte ohne den Papierkorb kopieren.")
                     _copy_entry(fd, name, output, name, records,
-                                relative + "/" + name, depth + 1)
+                                relative + "/" + name, depth + 1, ended_uploads)
             finally:
                 os.close(output)
         else:
@@ -328,6 +388,11 @@ def _rename_no_replace(source, leaf, destination, target):
 
 
 def operate_at(root, action, path, directory, leaf, **args):
+    if action == "upload" and "upload_id" in args:
+        if leaf == ".":
+            raise Error("Die Freigabe selbst kann nicht geändert werden.")
+        from .file_uploads import upload
+        return upload(directory, leaf, args)
     try:
         if statmod.S_ISLNK(os.stat(leaf, dir_fd=directory, follow_symlinks=False).st_mode):
             raise Error("Symbolische Links werden nicht geöffnet.", 403)
@@ -355,7 +420,7 @@ def operate_at(root, action, path, directory, leaf, **args):
                 nonlocal total
                 with os.scandir(fd) as iterator:
                     for entry in iterator:
-                        if (entry.name == ".titan-trash" and not args.get("include_trash")) or search not in entry.name.casefold():
+                        if entry.name.startswith(".titan-uploads-") or (entry.name == ".titan-trash" and not args.get("include_trash")) or search not in entry.name.casefold():
                             continue
                         try:
                             value = entry.stat(follow_symlinks=False)
@@ -421,9 +486,10 @@ def operate_at(root, action, path, directory, leaf, **args):
         return {"offset": offset + len(data)}
     elif action in ("copy", "move"):
         destination_root = args.get("destination_root", root)
-        with parent_fd(destination_root, args["destination"]) as (destination_fd, destination_leaf):
+        with parent_fd(destination_root, args["destination"]) as (destination_fd, destination_leaf), contextlib.ExitStack() as upload_guards:
             if destination_leaf == ".":
                 raise Error("Die Zielfreigabe selbst kann nicht ersetzt werden.")
+            ended_uploads = None
             source = os.open(leaf, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
             try:
                 source_mode = os.fstat(source).st_mode
@@ -431,6 +497,11 @@ def operate_at(root, action, path, directory, leaf, **args):
                     raise Error("Nur reguläre Dateien und Ordner können kopiert oder verschoben werden.")
                 if statmod.S_ISDIR(source_mode) and _inside_directory(destination_fd, source):
                     raise Error("Ein Ordner kann nicht in sich selbst kopiert oder verschoben werden.")
+                if action == 'move':
+                    if leaf.startswith('.titan-uploads-'):
+                        raise Error('Private Upload-Zwischenstände können nicht verschoben werden.', 403)
+                    if statmod.S_ISDIR(source_mode):
+                        ended_uploads = upload_guards.enter_context(_check_upload_move(source))
             finally:
                 os.close(source)
             if action == "move":
@@ -441,7 +512,7 @@ def operate_at(root, action, path, directory, leaf, **args):
                     if exc.errno != errno.EXDEV:
                         raise
             records = {}
-            _copy_entry(directory, leaf, destination_fd, destination_leaf, records)
+            _copy_entry(directory, leaf, destination_fd, destination_leaf, records, ended_uploads=ended_uploads)
             if action == "move":
                 _remove_source(directory, leaf, records)
     elif action == "rename":

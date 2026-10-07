@@ -9,7 +9,6 @@ from pathlib import Path
 import pwd
 import re
 import shlex
-import stat
 import tempfile
 
 from .core import Error, identifier, integer

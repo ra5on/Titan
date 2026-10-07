@@ -34,7 +34,7 @@ import urllib.parse
 import urllib.request
 
 
-from . import __version__, __release_stage__
+from . import __version__
 
 
 from .core import Error

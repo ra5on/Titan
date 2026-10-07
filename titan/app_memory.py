@@ -4,7 +4,6 @@ MemFree is not usable capacity: MemAvailable includes reclaimable page cache.
 Container ceilings are explicitly separate from observed consumption. Swap is
 shown as a diagnostic, never counted as extra RAM for starting another package.
 """
-from pathlib import Path
 import math
 import re
 import shutil

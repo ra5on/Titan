@@ -1,7 +1,7 @@
 """Identity and security routes with authorization at both HTTP and job execution."""
 from http.cookies import SimpleCookie
 from .core import Error
-from .identity import APPLICATIONS, require_application, permissions
+from .identity import require_application, permissions
 
 
 READ_APPLICATIONS = {

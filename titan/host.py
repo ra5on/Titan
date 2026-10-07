@@ -1,8 +1,6 @@
 from .vm_metrics import VMMetricsMixin
 from .platforms import current as host_platform
-import base64
 import contextlib
-import grp
 import json
 import os
 from pathlib import Path
@@ -16,10 +14,10 @@ import threading
 import time
 import uuid
 import xml.etree.ElementTree as ET
-from .catalog import APPS, compose
-from .core import Error, atomic_json, identifier, integer, password_hash
+from .core import Error, identifier, integer
 from .management_host import ManagementMixin
 from .vm_management import VMMixin
+from .vm_names import identity as vm_identity, set_title as set_vm_title
 from .vm_networks import VMNetworkMixin
 from .app_stores import StoreMixin
 from .vm_usb import USBMixin
@@ -101,11 +99,11 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
 
     def dispatch(self, operation, **args):
         if operation == 'app_install':
-            from .cloudflare_tunnel import CONNECTOR
+            from .native_catalog import AVAILABLE_APP_IDS
             app = args.get('app')
             if not isinstance(app, str):
                 raise Error('Eine gültige App auswählen.')
-            if app != CONNECTOR and app not in getattr(self, '_ci_fixture_ids', set()):
+            if app not in AVAILABLE_APP_IDS and app not in getattr(self, '_ci_fixture_ids', set()):
                 raise Error('Neue Installationen sind nur für freigegebene eigene Titan-Apps verfügbar. Vorhandene Apps bleiben verwaltbar.', 403)
         method = getattr(self, "op_" + operation, None)
         if not method:
@@ -323,7 +321,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
     def _file_operation(self, user, share, action, path, arguments, _admin):
         allowed = {"list": {"offset", "limit", "search", "recursive", "type", "min_size", "max_size", "modified_after", "modified_before"}, "read": {"offset", "size"},
                    "office_write": {"data", "revision"}, "write": {"data", "revision"}, "create": {"data"}, "create_document": {"document_type"}, "delete": {"confirmation_path"},
-                   "upload": {"offset", "data"}, "mkdir": set(), "rename": {"destination"},
+                   "upload": {"offset", "data", "upload_id", "total", "finish", "cancel"}, "mkdir": set(), "rename": {"destination"},
                    "trash": set(), "trash_list": {"offset", "limit", "search"}, "restore": {"trash_name", "destination"},
                    "copy": {"destination", "destination_share"}, "move": {"destination", "destination_share"}}
         if action not in allowed or set(arguments) - allowed[action]:
@@ -410,7 +408,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
                     continue
                 record = self.managed_vm(vm_id)
                 info = run(["virsh", "dominfo", vm_id])
-                records.append({"id": vm_id, "name": record["name"], "state": record["state"],
+                records.append({"id": vm_id, "name": record["name"], "display_name": record["display_name"], "state": record["state"],
                                 "memory_mb": self.vm_memory_mb(root), "cpus": int(root.findtext("vcpu")),
                                 "autostart": bool(re.search(r"^Autostart:\s+enable\s*$", info, re.MULTILINE)),
                                 **self.vm_media_info(root), **self.vm_disk_details(record),
@@ -440,7 +438,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         status = self.op_vms()
         if not status["available"]:
             raise Error(status.get("error", "KVM/libvirt ist nicht verfügbar."), 503)
-        name = identifier(name)
+        name, label = vm_identity(name)
         if status.get("warnings"):
             raise Error("Bestehende VM-Definitionen zuerst prüfen: " + "; ".join(status["warnings"]), 409)
         cpus, memory_mb = self.vm_resources(cpus, memory_mb)
@@ -455,6 +453,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         metadata = self.directory / ("vm-" + name + ".xml")
         if (os.path.lexists(metadata) or
                 name in {item["name"] for item in status["vms"]} or
+                label in {item.get("display_name", item["name"]) for item in status["vms"]} or
                 any(item["name"] == name for item in self.load("vms", []))):
             raise Error("VM-Name oder Laufwerk existiert bereits.", 409)
         # Retained disks and UEFI variables belong to the deleted VM. A fresh
@@ -513,11 +512,12 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
                 os.chmod(disk, 0o660, follow_symlinks=False)
                 os.chown(disk, qemu.pw_uid, qemu.pw_gid, follow_symlinks=False)
                 xml = self.vm_definition(name, cpus, memory_mb, disk, iso, cpu_ids=pins, firmware=firmware)
+                root = ET.fromstring(xml)
+                set_vm_title(root, label)
                 if network is not None:
-                    root = ET.fromstring(xml)
                     self.apply_vm_network(root, network)
                     self.vm_selected_network_ready(root)
-                    xml = ET.tostring(root, encoding="unicode")
+                xml = ET.tostring(root, encoding="unicode")
                 vm_id = self.register_vm_definition(name, xml, virtual_size=disk_gb * 1024**3)
             except Exception as failure:
                 if getattr(failure, "retain_vm_files", False):

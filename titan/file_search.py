@@ -76,7 +76,7 @@ def list_directory(fd, path, arguments, *, devices=None, max_entries=50000, seco
                 if scanned >= max_entries or time.monotonic() >= deadline:
                     truncated = True
                     return
-                if entry.name == ".titan-trash" and not arguments.get("include_trash"):
+                if entry.name.startswith(".titan-uploads-") or entry.name == ".titan-trash" and not arguments.get("include_trash"):
                     continue
                 scanned += 1
                 child = str(PurePosixPath(relative) / entry.name)

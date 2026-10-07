@@ -5,13 +5,20 @@ from pathlib import Path
 import re
 
 
-def gate_mode(root):
+def frozen_version(root):
     source = (Path(root) / 'titan' / '__init__.py').read_text()
-    match = re.search(r'^__version__\s*=\s*[\"\'](\d+)\.(\d+)\.(\d+)[\"\']\s*$', source, re.M)
+    match = re.search(r'^__version__\s*=\s*[\"\'](\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z][0-9A-Za-z.-]{0,63})?[\"\']\s*$', source, re.M)
     if not match:
         raise ValueError('Frozen application version is unavailable or malformed.')
-    version = tuple(map(int, match.groups()))
-    return 'native' if version >= (0, 5, 8) else 'legacy'
+    return tuple(map(int, match.groups()))
+
+
+def gate_mode(root):
+    return 'native' if frozen_version(root) >= (0, 5, 8) else 'legacy'
+
+
+def expanded_native(root):
+    return frozen_version(root) >= (0, 5, 9)
 
 
 def main():
@@ -20,6 +27,7 @@ def main():
     args = parser.parse_args()
     try:
         print('mode=' + gate_mode(args.source_root))
+        print('expanded_native=' + str(expanded_native(args.source_root)).lower())
     except (OSError, ValueError) as error:
         parser.error(str(error))
 

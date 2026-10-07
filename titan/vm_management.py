@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 
 from .core import Error, identifier, integer
 from .vm_extensions import VMExtensionsMixin
+from .vm_names import display_name as vm_display_name, identity as vm_identity, set_title as set_vm_title
 
 
 class VMMixin(VMExtensionsMixin):
@@ -126,7 +127,7 @@ class VMMixin(VMExtensionsMixin):
                 raise Error("VM-Laufwerk fehlt in der Definition.")
             disk = source.get("file")
             location = self.validate_vm_disk_path(name, disk)
-            entry = {"name": name, "id": vm_id, "disk": disk, "storage": location["id"]}
+            entry = {"name": name, "display_name": vm_display_name(root.findtext("title") or name), "id": vm_id, "disk": disk, "storage": location["id"]}
             if location.get("uuid"):
                 entry["storage_uuid"] = location["uuid"]
             if virtual_size is not None:
@@ -218,7 +219,7 @@ class VMMixin(VMExtensionsMixin):
             raise Error("VM-Prozessoreinstellungen sind ungültig.", 409) from None
         if cpus < 1:
             raise Error("VM-Prozessoreinstellungen sind ungültig.", 409)
-        return {"id": vm_id, "name": name, "disk": str(expected), "storage": location["id"], "xml": xml,
+        return {"id": vm_id, "name": name, "display_name": vm_display_name(root.findtext("title") or name), "disk": str(expected), "storage": location["id"], "xml": xml,
                 "state": self.command(["virsh", "domstate", vm_id]).strip(),
                 "disks": validated_disks, "cpus": cpus, "memory_mb": self.vm_memory_mb(root), "cpu_ids": self.vm_cpu_ids(root), **self.vm_media_info(root)}
 
@@ -276,6 +277,8 @@ class VMMixin(VMExtensionsMixin):
         self.write_vm_xml(path, ET.tostring(root, encoding="unicode"))
         try:
             self.command(["virsh", "define", str(path)])
+            records = self.load("vms", [])
+            self.save("vms", [{**item, "display_name": vm_display_name(root.findtext("title") or record["name"])} if item["id"] == record["id"] else item for item in records])
         except Exception:
             try:
                 self.write_vm_xml(path, record["xml"])
@@ -329,12 +332,14 @@ class VMMixin(VMExtensionsMixin):
         self.redefine_vm(record, root)
         return {"ok": True, "iso": iso, "boot": "cdrom" if source is not None else "hd"}
 
-    def op_vm_update(self, vm, cpus, memory_mb, cpu_ids=None, firmware=None, network=None, boot=None):
+    def op_vm_update(self, vm, cpus, memory_mb, cpu_ids=None, firmware=None, network=None, boot=None, display_name=None):
         record = self.managed_vm(vm)
         if record["state"] != "shut off":
             raise Error("Die VM muss zum Bearbeiten ausgeschaltet sein.", 409)
         cpus, memory_mb = self.vm_resources(cpus, memory_mb)
         root = ET.fromstring(record["xml"])
+        if display_name is not None:
+            set_vm_title(root, display_name)
         pins = record["cpu_ids"] if cpu_ids is None else cpu_ids
         pins = self.apply_vm_cpu_policy(root, cpus, pins)
         root.find("vcpu").text = str(cpus)
@@ -390,10 +395,8 @@ class VMMixin(VMExtensionsMixin):
             process[0].terminate()
         return {"ok": True, "disk_retained": True, "disk": record["disk"]}
 
-    def op_vm_backup(self, vm, target=None):
-        record = self.managed_vm(vm)
-        if record["state"] != "shut off":
-            raise Error("Die VM muss für die Sicherung vollständig ausgeschaltet sein.", 409)
+    def op_vm_backup(self, vm, target=None, shutdown=False):
+        record = self._offline_vm(vm, shutdown=shutdown)
         manager = self.backups
         previous = manager.settings()
         changed = target is not None and target != previous["target"]
@@ -411,7 +414,7 @@ class VMMixin(VMExtensionsMixin):
                 "message": "VM gesichert. Das gewählte Laufwerk ist das gemeinsame Titan-Sicherungsziel."}
 
     def op_vm_restore(self, backup, name, storage="system"):
-        name = identifier(name)
+        name, label = vm_identity(name)
         manager = self.backups
         verified = manager.verified_vm(backup)
         try:
@@ -429,7 +432,7 @@ class VMMixin(VMExtensionsMixin):
         disk = Path(location["path"]) / (name + ".qcow2")
         metadata = self.directory / ("vm-" + name + ".xml")
         if (os.path.lexists(disk) or os.path.lexists(metadata) or
-                any(item["name"] == name for item in existing["vms"]) or
+                any(item["name"] == name or item.get("display_name", item["name"]) == label for item in existing["vms"]) or
                 any(item["name"] == name for item in self.load("vms", []))):
             raise Error("VM-Name oder Laufwerk existiert bereits; Wiederherstellung benötigt einen neuen Namen.", 409)
         if "titan-" + name in self.command(["virsh", "list", "--all", "--name"]).splitlines():
@@ -465,6 +468,7 @@ class VMMixin(VMExtensionsMixin):
             firmware = self.vm_media_info(original)["firmware"]
             xml = self.vm_definition(name, cpus, memory_mb, disk, firmware=firmware)
             definition = ET.fromstring(xml)
+            set_vm_title(definition, label)
             for entry in copied_disks[1:]:
                 node = ET.SubElement(definition.find("devices"), "disk", type="file", device="disk")
                 ET.SubElement(node, "driver", name="qemu", type="qcow2")

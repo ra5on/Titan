@@ -1,5 +1,4 @@
 """Named NAS storage and retained program choices for all ordinary forms."""
-from pathlib import Path
 import shutil
 
 from .core import Error

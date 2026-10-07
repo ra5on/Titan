@@ -4,7 +4,6 @@ Only the local management agent writes this configuration. The unprivileged
 HTTP service reads its public origins to validate Host/Origin during a change.
 """
 import copy
-import hashlib
 import ipaddress
 import json
 import os

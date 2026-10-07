@@ -15,7 +15,7 @@ PROTECTED = {"", "etc", "usr", "var", "home", "boot", "root", "srv", "opt", "run
              "dev", "proc", "sys", "tmp", "var/tmp", "bin", "sbin", "lib", "lib64", "lib32", "libx32"}
 VIRTUAL = {"dev", "proc", "sys"}
 ALLOWED = {"list": {"offset", "limit", "search", "recursive", "type", "min_size", "max_size", "modified_after", "modified_before"}, "read": {"offset", "size"},
-           "office_write": {"data", "revision"}, "write": {"data", "revision"}, "create": {"data"}, "create_document": {"document_type"}, "upload": {"offset", "data"}, "mkdir": set(),
+           "office_write": {"data", "revision"}, "write": {"data", "revision"}, "create": {"data"}, "create_document": {"document_type"}, "upload": {"offset", "data", "upload_id", "total", "finish", "cancel"}, "mkdir": set(),
            "rename": {"destination"}, "delete": {"confirmation_path"},
            "copy": {"destination", "destination_share"}, "move": {"destination", "destination_share"}}
 

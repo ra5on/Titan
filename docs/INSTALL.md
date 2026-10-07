@@ -2,7 +2,7 @@
 
 Das Titan-Debian-A/B-Image ist eine **Alpha für eine neue Test-VM**.
 
-[IMG herunterladen](https://github.com/ra5on/Titan/releases/download/v0.5.4-alpha.1/titan-0.5.4-alpha.1-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.4-alpha.1)
+[IMG herunterladen](https://github.com/ra5on/Titan/releases/download/v0.5.9-alpha.1/titan-0.5.9-alpha.1-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.9-alpha.1)
 
 Die Datei entpacken und als Systemplatte einer neuen Proxmox-VM importieren:
 x86-64, UEFI/OVMF ohne Secure Boot, 8 GiB RAM und 2 CPUs. Das entpackte Image ist

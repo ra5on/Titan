@@ -303,7 +303,8 @@ def validate_options(app_id, options=None):
             from .app_package_setup import validate_host
             value = validate_host(value)
         result[field["key"]] = value
-    return result
+    from .native_apps import validate_recipe_options
+    return validate_recipe_options(app_id, result)
 
 
 def published_ports(app_id, port, options=None, host_mode=False):

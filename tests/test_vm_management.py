@@ -50,6 +50,16 @@ class VMManagementTests(unittest.TestCase):
             return self.vm_id
         return ""
 
+    def test_display_name_edit_preserves_uuid_internal_name_and_disk(self):
+        self.host.op_vm_update(self.vm_id, 2, 2048, display_name="Meine Windows VM")
+        root = ET.fromstring(self.metadata.read_text())
+        self.assertEqual(root.findtext("title"), "Meine Windows VM")
+        self.assertEqual(root.findtext("name"), "titan-linux")
+        self.assertEqual(root.findtext("uuid"), self.vm_id)
+        self.assertEqual(root.find("./devices/disk/source").get("file"), str(self.disk))
+        self.assertEqual(self.disk.read_bytes(), b"retained virtual disk")
+        self.assertEqual(self.host.load("vms", [])[0]["display_name"], "Meine Windows VM")
+
     def test_update_offline_vm_changes_cpu_and_memory_without_disk_change(self):
         self.host.op_vm_update(self.vm_id, 1, 4096)
         root = ET.fromstring(self.metadata.read_text())
