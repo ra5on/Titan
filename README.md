@@ -140,7 +140,7 @@ python3 -m unittest discover -s tests
 python3 -m titan.server --demo --host 127.0.0.1 --port 5089
 ```
 
-Die Demo ist eine Vorschau mit simulierten Hostfunktionen. Sie ersetzt keine Prüfung auf echter Hardware oder mit echten Cloudflare-/Tailscale-Konten. Der Release-Workflow baut das Installationsimage und das signierte Update und veröffentlicht sie erst nach Quellcode-, App-, Boot-, Laufzeit- und Wiederherstellungsprüfungen. Die Berichte werden dem Release beigefügt.
+Die Demo ist eine Vorschau mit simulierten Hostfunktionen. Sie ersetzt keine Prüfung auf echter Hardware oder mit echten Cloudflare-/Tailscale-Konten. Der [Release-Workflow für 0.6.0-alpha.4](https://github.com/ra5on/Titan/actions/runs/37819323545) ist erfolgreich abgeschlossen; Installationsimage, signiertes Update und Prüfberichte sind [veröffentlicht](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.4). Der [Prüfnachweis](docs/VERIFY-0.6.0.md#veröffentlichter-image-nachweis--alpha4) dokumentiert den genauen Quellstand, die Testergebnisse, Signaturen und Dateiprüfsummen.
 
 Für dieses Alpha-Installationsimage verwendet die A/B-Prüfung eine private, als Altstand markierte Kopie des aktuellen Builds. Sie prüft Systemwechsel, Datenerhalt, Rollback und Fehlerwiederherstellung. Ein Upgrade von einem tatsächlich älteren veröffentlichten Titan-Image ist damit nicht vollständig nachgewiesen und muss separat geprüft werden.
 

@@ -1,6 +1,6 @@
-# Lokale Prüfung für Titan 0.6.0
+# Prüfungen für Titan 0.6.0
 
-Stand: 8. Oktober 2026. Diese Ergebnisse betreffen den Quellstand und die isolierte lokale Vorschau. Die ersten Abschnitte dokumentieren frühere Prüfungen für 0.6.0; die aktuellen Ergebnisse der lokalen Carbon- und NAS-Weiterentwicklung stehen [am Ende](#carbon-oberfläche-und-nas-funktionen). Die Image-Prüfungen laufen zusätzlich im GitHub-Release-Workflow.
+Stand: 8. Oktober 2026. Die folgenden Abschnitte unterscheiden frühere lokale Prüfungen, den abschließenden Menü-Durchlauf und den [veröffentlichten Image-Nachweis für alpha.4](#veröffentlichter-image-nachweis--alpha4). Lokale Vorschau, GitHub-Tests und Prüfungen des gebooteten Images sind jeweils gesondert ausgewiesen.
 
 ## Frühere Prüfungen für 0.6.0
 
@@ -38,7 +38,7 @@ Bei 390 × 844 wurde ein tatsächlicher Scrollfehler gefunden und korrigiert: Ei
 
 Die verdichtete Widget-Galerie zeigt bei 1280 × 720 alle sechs Karten samt Aktionen und Footer. Auch Dateimanager und Einstellungen wurden bei 390 × 844 ohne horizontalen Dokumentüberlauf geprüft (jeweils 388 Pixel sichtbare und gesamte Dokumentbreite); die Einstellungen scrollten bis zum letzten Eintrag „Protokoll“. Anschließend wurde die Browsergröße zurückgesetzt. Ein erneuter VM-Aufruf bestätigte die transparente Detailfläche im Dunkelmodus.
 
-Aktuelle Aufnahmen: [Desktop](images/titan-desktop.jpg), [Widget-Galerie](images/titan-widgets.jpg), [App Store](images/titan-apps.jpg), [mobile Ansicht](images/titan-apps-mobile.jpg), [VM-Übersicht](images/titan-vm-overview.jpg). Die Demo führt keine echten Installationen aus. Diese Nacharbeit ist noch nicht in einem neuen Image veröffentlicht.
+Aufnahmen: [Desktop](images/titan-desktop.jpg), [Widget-Galerie](images/titan-widgets.jpg), [App Store](images/titan-apps.jpg), [mobile Ansicht](images/titan-apps-mobile.jpg), [VM-Übersicht](images/titan-vm-overview.jpg). Die Demo führt keine echten Installationen aus. Zum Zeitpunkt dieser lokalen Designprüfung war die Nacharbeit noch nicht in einem neuen Image veröffentlicht.
 
 ## Carbon-Symbol und Schriftzug
 
@@ -46,7 +46,7 @@ Die lokale Gestaltung ergänzt ein eigenes kantiges Titan-Symbol und konstruiert
 
 Desktop und Anmeldung wurden bei 1280 × 720 im Browser geprüft, die Anmeldung zusätzlich bei 390 × 844. Es gab keinen horizontalen Dokumentüberlauf und keine Browserwarnungen oder JavaScript-Fehler. Die Login-Prüfung verwendet einen isolierten Datenbestand mit Demo-Provider, ohne Anmeldung oder echte NAS-Aktionen. Die Aufnahmen [Desktop](images/titan-desktop.jpg) und [Anmeldung](images/titan-login.jpg) wurden aktualisiert.
 
-Die sechs gezielten UI-Suiten für Anmeldung, Desktop-Komposition, Verknüpfungsgesten, Widgets, Einstellungen und Themes bestanden nach der Integration. JavaScript-Syntax und `git diff --check` wurden zusätzlich geprüft. Die Carbon-Gestaltung ist lokal implementiert und noch nicht in einem neuen Image veröffentlicht.
+Die sechs gezielten UI-Suiten für Anmeldung, Desktop-Komposition, Verknüpfungsgesten, Widgets, Einstellungen und Themes bestanden nach der Integration. JavaScript-Syntax und `git diff --check` wurden zusätzlich geprüft. Zum Zeitpunkt dieser lokalen Logo-Prüfung war die Carbon-Gestaltung noch nicht in einem neuen Image veröffentlicht.
 
 ## Carbon-Oberfläche und NAS-Funktionen
 
@@ -60,7 +60,7 @@ Der lokale Stand erweitert die Gestaltung auf 18 eigene Werkzeug-/Containersymbo
 | Finaler RAID-Backend-/HTTP-Pfad | 20 Tests zusätzlich separat erfolgreich; Teilmenge der vollständigen Python-Suite |
 | Abschließende Quellenprüfung | 48 eigene JavaScript-Dateien und acht geänderte Python-Module syntaktisch korrekt; `git diff --check` ohne Befund |
 
-Die lokalen Laufprotokolle heißen `/tmp/titan-carbon-python.log`, `/tmp/titan-carbon-python.json`, `/tmp/titan-carbon-cjs.log`, `/tmp/titan-carbon-cjs.json`, `/tmp/titan-carbon-raid-final.log` und `/tmp/titan-carbon-raid-final.json`. Sie sind temporäre Prüfartefakte dieser Arbeitsumgebung, keine dem veröffentlichten alpha.3-Image beigefügten Releaseberichte.
+Die lokalen Laufprotokolle heißen `/tmp/titan-carbon-python.log`, `/tmp/titan-carbon-python.json`, `/tmp/titan-carbon-cjs.log`, `/tmp/titan-carbon-cjs.json`, `/tmp/titan-carbon-raid-final.log` und `/tmp/titan-carbon-raid-final.json`. Sie sind temporäre lokale Prüfartefakte, keine Releaseberichte.
 
 Die RAID-Prüfungen decken unterstützte Mirror-/RAIDZ1-/RAIDZ2-Verbünde, unzureichende Restredundanz, ausgeschlossene Topologien, ungeeignete Ersatzplatten, SMART-Fehler und unbekannte SMART-Zustände, Seriennummern/Hardwarepfade, veränderte Vorschauen, Poolidentität und serverseitige Rechte ab. Die UI-Suite prüft bestätigte Auswahl, gesperrte ungeeignete Platten, Ja-links-/Nein-rechts-Reihenfolge, nur einen Start trotz Doppelklick, Status nach Auftragsannahme sowie das Verwerfen verspäteter Antworten und das Beenden der Anzeigeabfragen beim Schließen. Der erfolgreiche Start bestätigt keinen abgeschlossenen Resilverlauf.
 
@@ -72,7 +72,7 @@ Der simulierte defekte Mirror erlaubte erst nach Auswahl und genauer Eingabe von
 
 Nach dem Konsolen-Farbabgleich bestanden erneut alle 75 UI-Dateien und die Syntaxprüfung der 48 Frontendmodule. Dauerhafte Fälle in `tests/console_recovery_ui.cjs` prüfen den einmaligen Konto-Lesezugriff trotz Wiederverbindung, Vorrang des Elternthemes bei eingebetteten Konsolen, HTTP-/JSON-Fehler sowie Abbruch und verspätete Antworten nach Verlassen der Seite. Neueste Belege: `/tmp/titan-carbon-final-cjs.json` und `/tmp/titan-carbon-final-js.json`. Im Browser wurden [dunkles](images/titan-vm-console-controls-dark.jpg) und [helles](images/titan-vm-console-controls-light.jpg) VM-Konsolenmenü sowie der helle Zwischenablagedialog geprüft. Dafür wurde bewusst keine VM ausgewählt; Gastanzeige, Skalierung und Gast-Zwischenablage wurden damit nicht geprüft. Das isolierte Demo-Terminal verband sich, zeigte neutrale Grundschrift und Schnellaktionen, wechselte mit dem Kontotheme und wurde wieder getrennt. Beide Sitzungen blieben ohne Browserwarnungen oder JavaScript-Fehler.
 
-Für diese Weiterentwicklung wurden keine echten Laufwerke ersetzt und kein physischer Ausfall, Controller-, Hotplug- oder Neustartverhalten nachgewiesen. Die isolierte Demo simuliert Hostzustände und ersetzt diese Prüfungen nicht. Es wurde noch kein neues Installationsimage oder Updatepaket gebaut oder veröffentlicht. Das oben dokumentierte frühere Paket und das veröffentlichte alpha.3-Image sind getrennte Stände.
+Für diese Weiterentwicklung wurden keine echten Laufwerke ersetzt und kein physischer Ausfall, Controller-, Hotplug- oder Neustartverhalten nachgewiesen. Die isolierte Demo simuliert Hostzustände und ersetzt diese Prüfungen nicht. Zum Zeitpunkt dieses lokalen Carbon-/NAS-Durchlaufs war noch kein neues Installationsimage oder Updatepaket gebaut oder veröffentlicht. Das oben dokumentierte frühere Paket und das veröffentlichte alpha.3-Image sind getrennte Stände.
 
 
 ## Abschließender Menü- und Release-Durchlauf · alpha.4
@@ -110,7 +110,62 @@ entfernte die geprüften Fenster sofort aus dem Dock. Die geprüfte Sitzung war
 frei von Browserwarnungen und JavaScript-Fehlern.
 
 Die eigenen Aufnahmen von Hauptmenü, Dateien, Einstellungen und Docker wurden
-aktualisiert. Der Image-Workflow für alpha.4 baut diesen Quellenstand und
-veröffentlicht erst nach seinen eigenen Laufzeit- und A/B-Prüfungen. Ein
-fertiger Image-Nachweis wird nach Abschluss separat ergänzt; die vorherigen
-lokalen Vorprüfungen sind keine Image- oder Hardwareprüfung.
+aktualisiert. Die lokalen Vorprüfungen sind keine Image- oder Hardwareprüfung;
+der anschließend abgeschlossene Release-Nachweis folgt separat.
+
+## Veröffentlichter Image-Nachweis · alpha.4
+
+[Titan 0.6.0-alpha.4](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.4)
+wurde am **8. Oktober 2026 um 20:41 Uhr MESZ** veröffentlicht. Der
+[Release-Workflow](https://github.com/ra5on/Titan/actions/runs/37819323545)
+ist erfolgreich abgeschlossen. Das signierte Manifest bestätigt für Anwendung
+und Image-Builder denselben Quellstand
+`24c287a2572a1afddba973335a22d2836d35e9a5`.
+
+| Prüfung dieses Quellstands | Ergebnis |
+| --- | --- |
+| [Normale CI](https://github.com/ra5on/Titan/actions/runs/37819322857) | 1.916 Python-Tests insgesamt, 1.890 bestanden, 26 wegen fehlender QEMU-Werkzeuge übersprungen; 75 UI-Testdateien sowie JavaScript- und Shellsyntax erfolgreich |
+| Zusätzlicher Lauf im Image-Builder | 1.916 Python-Tests insgesamt, 1.905 bestanden, elf übersprungen; anschließend alle UI- und Syntaxprüfungen erfolgreich |
+| [Native App-Prüfungen](https://github.com/ra5on/Titan/actions/runs/37819323333) | Immich mit vier Containern, AdGuard, Cloudflare-Tokenablauf, Tailscale-Userspace und eigene Compose-Fixture erfolgreich |
+| [Debian-Paketprüfung](https://github.com/ra5on/Titan/actions/runs/37819322856) | Erfolgreich; eigener Paketnachweis, kein Ersatz für den Image-Boot |
+| Image-Boot | Boot-, HTTPS-, UEFI-, VNC- und Laufzeit-Schritt erfolgreich |
+| Laufzeitbericht | 15 Prüfungen bestanden; Systempartitionsvergrößerung ausdrücklich an die separate A/B-Prüfung delegiert |
+| A/B-Bericht | Sieben Szenarien bestanden: Ausgangsstart, Datenpartitionsvergrößerung, Update-Vorbereitung, Update-Boot mit Datenerhalt, Slot-Standardwerte, manueller Rollback und Rückfall nach fehlerhaftem Start |
+
+Die veröffentlichten Berichte
+[runtime-test.json](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.4/runtime-test.json)
+und [ab-test.json](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.4/ab-test.json)
+bestätigen jeweils `ok: true` und ein unverändertes auszulieferndes Rohimage.
+Der Laufzeitbericht umfasst unter anderem SMB-Rechte, die Trennung von
+NAS-Daten und Betriebssystem, ZFS-Modul und Werkzeugbestand, Docker-Netze und
+Containeraktionen sowie VM-Definition, Firmwarestart und RFB-Verbindung.
+Die separate Compose-Fixture bestätigte auch Backup und Restore von
+Anwendungsdaten. Die Cloudflare-Prüfung bestätigte die Deinstallation über
+Docker und anschließende Neueinrichtung im Store bei erhaltenen Nutzdaten.
+Cloudflare und Tailscale verwendeten absichtlich ungültige Testzugänge; eine
+echte externe Tunnelverbindung und freigegebene Subnetzroute sind damit nicht
+nachgewiesen.
+
+| Veröffentlichte Datei | Größe | SHA-256 aus signierter Prüfsummenliste |
+| --- | ---: | --- |
+| `titan-0.6.0-alpha.4-amd64.img.xz` | 595.850.484 Byte | `669a461e1ad88a4be2005fa1b12e14aa19d4ed42205cd6dcd4f6e136685f1d16` |
+| `titan-0.6.0-alpha.4-amd64.raucb` | 726.455.611 Byte | `9da2b3abc47dbb0c0392333955c596ab683a47dcbb22ea37a1551b45119573d7` |
+| `debian-sources.tar.part-000` | 1.601.105.920 Byte | `7007b8e15808fd60653297fb96a7e1c3082454980082c48ff9e18265f4221572` |
+
+Nach der Veröffentlichung wurden Manifest, Signaturen, Prüfsummenliste,
+Prüfberichte, Paket-/Quelleninventar und Installationshinweise heruntergeladen.
+Die Signaturen von Manifest und `SHA256SUMS` wurden mit dem öffentlichen
+Schlüssel aus dem Repository geprüft. Die heruntergeladenen Dateien stimmen
+mit ihren signierten Prüfsummen überein. Bei den drei großen Dateien stimmen
+Dateigröße und von GitHub gemeldeter SHA-256-Digest mit der signierten Liste
+überein; sie wurden für diese Nachkontrolle nicht nochmals vollständig lokal
+heruntergeladen.
+
+Die A/B-Ausgangsbasis ist laut Bericht `generated-current-build`: eine private,
+als älter markierte Kopie des aktuellen Builds. Die Versionsmarkierung
+`0.4.5-alpha.1` bezeichnet deshalb kein getestetes altes veröffentlichtes
+Image. Eine echte versionsübergreifende Migration bleibt separat zu prüfen.
+Auch physischer Plattentausch/RAID-Wiederaufbau, reale NAS-/Proxmox-Hardware,
+Langzeitbetrieb und ein installiertes VM-Gastbetriebssystem einschließlich
+Grafikauflösung und Zwischenablage sind durch diese Veröffentlichung nicht
+nachgewiesen. Der Stand bleibt Alpha.
