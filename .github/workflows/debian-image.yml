@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0: cohesive glass desktop, original scenic artwork and fluid app/VM transitions.
+# Build Titan 0.6.0: include matching Debian sources with the independently implemented desktop.
 on:
   workflow_dispatch:
   push:
