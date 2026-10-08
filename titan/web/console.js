@@ -36,7 +36,7 @@ function later(message){if(closed)return;showConnection('error','Getrennt',messa
 async function connect(){
  const mine=++generation;connection(false);clearTimeout(timer);clearTimeout(layoutTimer);if(rfb){const old=rfb;rfb=null;old.disconnect();}retry.disabled=true;showConnection('connecting','Verbinden …','Verbindung zur virtuellen Maschine wird hergestellt.');
  try{
-  if(!vm)throw Error('Keine VM ausgewählt.');
+  if(!vm){showConnection('empty','Keine VM ausgewählt','Wähle eine virtuelle Maschine aus, um ihre Konsole zu öffnen.');retry.textContent='VM auswählen';return;}
   const response=await fetch('/api/vm-console?vm='+encodeURIComponent(vm),{cache:'no-store'});const result=await response.json();if(closed||mine!==generation)return;
   if(!response.ok){if(response.status===401||response.status===403){showConnection('error','Anmeldung erforderlich','Bitte in Titan als Administrator anmelden.');return;}throw Error(result.error||'VM-Konsole noch nicht bereit.');}
   const {default:RFB}=await import('/novnc/core/rfb.js');if(closed||mine!==generation)return;
@@ -51,6 +51,6 @@ async function connect(){
 }
 const layoutObserver=window.ResizeObserver?new window.ResizeObserver(settleLayout):null;layoutObserver?.observe(screen);
 window.addEventListener('resize',settleLayout);document.addEventListener('fullscreenchange',settleLayout);
-retry.addEventListener('click',()=>{attempt=0;connect();});
+retry.addEventListener('click',()=>{if(!vm){if(embeddedConsole)window.parent.postMessage({type:'titan-console-back'},location.origin);else location.href='/#vms';return;}attempt=0;connect();});
 window.addEventListener('pagehide',()=>{closed=true;generation++;accountThemeAbort?.abort();clearTimeout(timer);clearTimeout(messageTimer);clearTimeout(layoutTimer);layoutObserver?.disconnect();window.removeEventListener('resize',settleLayout);document.removeEventListener('fullscreenchange',settleLayout);controls?.destroy();rfb?.disconnect();});
 connect();

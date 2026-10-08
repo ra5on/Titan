@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0 alpha.4: Carbon desktop, compact navigation and NAS recovery.
+# Build Titan 0.6.0 alpha.5: refined sign-in, grouped menu and optional auto-hide dock.
 on:
   workflow_dispatch:
   push:

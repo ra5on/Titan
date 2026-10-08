@@ -58,3 +58,14 @@ class Tests(unittest.TestCase):
         for positions in (None,[],{'ram':{'x':0,'y':0}},{'clock':{'x':True,'y':0}},{'clock':{'x':0,'y':-1}},{'clock':{'x':0.5,'y':0}},{'clock':{'x':0,'y':1001}},{'clock':{'x':0}},{'clock':{'x':0,'y':0,'z':1}}):
             with self.subTest(positions=positions),self.assertRaises(Error):
                 validate({'items':[],'widgets':{'items':['clock'],'positions':positions}})
+
+    def test_dock_auto_hide_is_boolean_and_saved_per_account(self):
+        store=Store()
+        for enabled in (True,False):
+            value={'items':[],'desktop':{'dock_auto_hide':enabled}}
+            save(store,'alice',value)
+            self.assertEqual(load(store,'alice'),value)
+            self.assertEqual(load(store,'bob'),{'items':[]})
+        for invalid in (0,1,'true',None,[]):
+            with self.subTest(invalid=invalid),self.assertRaises(Error):
+                validate({'items':[],'desktop':{'dock_auto_hide':invalid}})

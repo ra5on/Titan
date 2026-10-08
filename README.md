@@ -10,7 +10,13 @@ Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläc
 
 ![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
 
-*Die Screenshots zeigen die Carbon-Oberfläche von 0.6.0-alpha.4 mit Beispieldaten. Die Demo führt keine Installationen oder Änderungen am echten NAS aus.*
+*Die Screenshots zeigen die Carbon-Oberfläche von 0.6.0 mit Beispieldaten. Die Demo führt keine Installationen oder Änderungen am echten NAS aus.*
+
+## Verfeinerte Oberfläche
+
+Die Anmeldung zeigt den unveränderten Titan-Schriftzug über einer kleinen transparenten Fläche. Das Hauptmenü trennt Dateien & Apps, System und Verwaltung; die Suche blendet leere Gruppen aus. Helle Arbeitsflächen, matte App-Karten und weniger sichtbare Carbon-Struktur geben Texten und Daten mehr Ruhe. VM-Details zeigen die Live-Werte ohne doppelte CPU-/RAM-Karten und bieten „Konsole öffnen“ direkt an.
+
+![Kompakte Titan-Anmeldung](docs/images/titan-login.jpg)
 
 ## Installieren und öffnen
 
@@ -35,7 +41,7 @@ Das kantige Titan-Symbol und der TITAN-Schriftzug bestimmen die Gestaltung: 18 e
 
 Öffnen, Minimieren, Wiederherstellen und Maximieren verwenden zusammenhängende Fensterübergänge. Bei reduzierter Bewegung entfallen die Animationen. Live-Messwerte lösen keine neue Einblendanimation aus. Beim Schließen ändern sich Dock und gespeicherter Zustand sofort; die Bedienung wartet nicht auf eine Hintergrundanimation.
 
-Im Kontomenü stehen **Hell, Dunkel und Automatisch** sowie ein globaler Transparenzregler für den eigenen Desktop bereit. Automatisch folgt dem Betriebssystem. Bereits geöffnete Titan-Fenster und eingebettete Konsolen wechseln mit; eigenständige VM-Konsolentabs laden die gespeicherte Darstellung beim Öffnen. Für einen Klick auf freien Desktop lässt sich auswählen, ob die Fenster minimiert werden oder nichts geschieht.
+Im Kontomenü stehen **Hell, Dunkel und Automatisch** sowie ein globaler Transparenzregler für den eigenen Desktop bereit. Automatisch folgt dem Betriebssystem. Bereits geöffnete Titan-Fenster und eingebettete Konsolen wechseln mit; eigenständige VM-Konsolentabs laden die gespeicherte Darstellung beim Öffnen. Für einen Klick auf freien Desktop lässt sich auswählen, ob die Fenster minimiert werden oder nichts geschieht. Optional blendet sich das Dock bei maximierten Fenstern aus; „Dock anzeigen“ holt es per Maus, Tastatur oder Touch zurück. Auf schmalen Bildschirmen bleibt es sichtbar.
 
 Über **Widgets hinzufügen** öffnet sich eine Galerie für Uhr, CPU, RAM, Systemstatus, Meldungen und Aktivität. Die Karten lassen sich einzeln platzieren. Regelmäßige Messwertupdates ändern die Werte innerhalb der bestehenden Karten; die Widgets werden dabei nicht neu aufgebaut. Systemmesswerte bleiben Administratoren vorbehalten.
 

@@ -2,15 +2,16 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync('titan/web/console.js','utf8').replace("import('/novnc/core/rfb.js')",'loadRFB()');
 const turns=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
-function accountThemeFixture({embedded=false,layoutResponse,late=false}={}){
+function accountThemeFixture({embedded=false,layoutResponse,late=false,missingVM=false}={}){
  const nodes=new Map(),events=new Map(),applied=[],calls=[];let resolveLayout;
  const account=late?new Promise(resolve=>resolveLayout=resolve):Promise.resolve(layoutResponse||{ok:true,json:async()=>({desktop:{color_mode:'dark',transparency:27}})});
  const node=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',handlers:new Map(),addEventListener(name,handler){this.handlers.set(name,handler);}});return nodes.get(id);};
- const context={URLSearchParams,location:{search:'?vm=theme-vm'+(embedded?'&embedded=1':''),protocol:'https:',host:'nas.local'},document:{body:{dataset:{}},querySelector:node,addEventListener(){},removeEventListener(){}},window:{TitanTheme:{set:value=>applied.push(value)},AbortController,addEventListener:(name,handler)=>events.set(name,handler),removeEventListener(){}},fetch:(url,options)=>{calls.push({url,options});if(url==='/api/launcher-layout')return account;return Promise.resolve({ok:false,status:403,json:async()=>({error:'not ready'})});},setTimeout(){return 1;},clearTimeout(){}};
+ const context={URLSearchParams,location:{search:(missingVM?'?':'?vm=theme-vm')+(embedded?'&embedded=1':''),protocol:'https:',host:'nas.local'},document:{body:{dataset:{}},querySelector:node,addEventListener(){},removeEventListener(){}},window:{TitanTheme:{set:value=>applied.push(value)},AbortController,addEventListener:(name,handler)=>events.set(name,handler),removeEventListener(){}},fetch:(url,options)=>{calls.push({url,options});if(url==='/api/launcher-layout')return account;return Promise.resolve({ok:false,status:403,json:async()=>({error:'not ready'})});},setTimeout(){return 1;},clearTimeout(){}};
  vm.runInNewContext(source,context);
- return {node,applied,calls,events,resolveLayout};
+ return {node,applied,calls,events,resolveLayout,context};
 }
 async function verifyAccountThemeLifecycle(){
+ let empty=accountThemeFixture({missingVM:true});await turns();assert(!empty.calls.some(call=>call.url.startsWith('/api/vm-console')));assert.equal(empty.node('#reconnect').textContent,'VM auswählen');empty.node('#reconnect').handlers.get('click')();assert.equal(empty.context.location.href,'/#vms');
  let f=accountThemeFixture();await turns();assert.deepEqual(f.applied,[{color_mode:'dark',transparency:27}]);
  const read=f.calls.find(call=>call.url==='/api/launcher-layout');assert.equal(read.options.credentials,'same-origin');assert.equal(read.options.cache,'no-store');assert.equal(read.options.method,undefined,'Account appearance is read-only');
  f.node('#reconnect').handlers.get('click')();await turns();assert.equal(f.calls.filter(call=>call.url==='/api/launcher-layout').length,1,'Reconnecting a VM does not refetch or reset the account appearance');

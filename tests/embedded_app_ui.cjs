@@ -7,7 +7,7 @@ function deferred(){let resolve;const promise=new Promise(done=>resolve=done);re
 function fixture({hash='#docker?app=missing',signedIn=true,pauseNavigation=false,navigationError=false}={}){
  const nodes=new Map(),listeners=new Map(),messages=[],managed=[],toasts=[],requests=[],trace=[],auth=[];
  let navigationGate=pauseNavigation?deferred():null;
- function node(selector){if(!nodes.has(selector))nodes.set(selector,{dataset:{},hidden:false,attributes:{},setAttribute(name,value){this.attributes[name]=value;},addEventListener(){}});return nodes.get(selector);}
+ function node(selector){if(!nodes.has(selector))nodes.set(selector,{dataset:{},classList:{toggle(){}},hidden:false,attributes:{},setAttribute(name,value){this.attributes[name]=value;},addEventListener(){}});return nodes.get(selector);}
  const location={hash,search:'?desktop-app=1',origin:'https://nas.test'};
  const parent={postMessage:(data,origin)=>{messages.push({data:JSON.parse(JSON.stringify(data)),origin});trace.push(data.type);}};
  const document={documentElement:{dataset:{}},querySelector:node,addEventListener(){}};
