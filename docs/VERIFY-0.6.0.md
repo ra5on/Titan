@@ -4,13 +4,13 @@ Stand: 8. Oktober 2026. Diese Ergebnisse betreffen den Quellstand und die isolie
 
 | Prüfung | Ergebnis |
 | --- | --- |
-| Python-Suite | 1.856 Tests, erfolgreich, 12 ausdrücklich übersprungen |
+| Python-Suite | 1.862 Tests, erfolgreich, 12 ausdrücklich übersprungen |
 | UI-Testdateien | 73 Dateien erfolgreich; einschließlich neuer Desktop-, Store-, Dateiansicht-, Settings- und Konsolenregressionen |
 | JavaScript und Shellsyntax | 47 Frontendmodule und vorhandene Shellskripte erfolgreich geprüft |
 | Debian-Paket | `titan-debian-preview_0.6.0+debian1_amd64.deb` erfolgreich gebaut |
 | Patchformat | `git diff --check` ohne Fehler |
 
-Zusätzliche Quellenprüfung: 55 gezielte Tests für versionsgenaue Sammlung, historische signierte APT-Archive, Tarinhalt, fehlende Teile, Paketzuordnung und Veröffentlichungsgrenzen erfolgreich. Isolierte Tests verwenden ein Schlüsselbund-Fixture; eine eigene Prüfung bestätigt den Abbruch der echten Sammlung bei fehlendem Debian-Schlüsselbund. Zwei echte Quelldownloads wurden geprüft: `hello=2.10-5` aus aktuellen signierten Trixie-Indizes und die nicht mehr aktuelle eingebettete Quelle `golang-fsnotify=1.8.0-1` aus dem authentifizierten Snapshot `20241110T083149Z` (`sid/main`). DSC-Identität, Dateigrößen und SHA-256 stimmen. Ein daraus erzeugtes GNU-Tar wurde über mehrere Teile gestreamt und vollständig verifiziert. Das ist ergänzende Werkzeugprüfung; die vollständige Sammlung aller Image-Pakete muss zusätzlich im Release-Build bestehen.
+Zusätzliche Quellenprüfung: 61 gezielte Tests für versionsgenaue Sammlung, historische signierte APT-Archive, Tarinhalt, fehlende Teile, Paketzuordnung und Veröffentlichungsgrenzen erfolgreich. Isolierte Tests verwenden ein Schlüsselbund-Fixture; eine eigene Prüfung bestätigt den Abbruch der echten Sammlung bei fehlendem Debian-Schlüsselbund. Der Offline-Buildgast nutzt während der Sammlung temporär das Appliance-Netz; Tests bestätigen die Wiederherstellung seiner Resolver-Datei bei Erfolg und Fehlern sowie die Ablehnung dieses Modus bei der Host-Verifikation. Zwei echte Quelldownloads wurden geprüft: `hello=2.10-5` aus aktuellen signierten Trixie-Indizes und die nicht mehr aktuelle eingebettete Quelle `golang-fsnotify=1.8.0-1` aus dem authentifizierten Snapshot `20241110T083149Z` (`sid/main`). DSC-Identität, Dateigrößen und SHA-256 stimmen. Ein daraus erzeugtes GNU-Tar wurde über mehrere Teile gestreamt und vollständig verifiziert. Das ist ergänzende Werkzeugprüfung; die vollständige Sammlung aller Image-Pakete muss zusätzlich im Release-Build bestehen.
 
 Im Browser geprüft: frischer Desktop mit Begrüßung, Widgetreihe und Dock; Hinzufügen einer Uhr; Hell-/Dunkel-Wechsel; Einstellungsfilter, Suche und Unterseiten; Seitenleistenänderung mit Maus und Tastatur; Dateisymbole und Ansichtspopover; AppStore-Suche, Detail-/Rücknavigation und Scrollen; Docker-Details; VM-Kacheln und Sicherungsansicht; Terminal-Verbindung, Rechtsklick-Menü und bestätigtes Schließen. Die AppStore-Ansicht wurde zusätzlich bei 390 Pixeln Breite geprüft und hatte keinen horizontalen Dokumentüberlauf. Die geprüften Sitzungen zeigten keine Browserwarnungen oder JavaScript-Fehler.
 

@@ -1,6 +1,8 @@
 import copy
+from contextlib import contextmanager, redirect_stderr
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -365,6 +367,101 @@ class DebianSourceCollectionTests(unittest.TestCase):
             changed = copy.deepcopy(value); changed['snapshot_repositories'][0][field] = invalid
             with self.subTest(field=field, invalid=invalid), self.assertRaises(ValueError):
                 sources.verify_index(changed, inventory, REF)
+
+    def test_libguestfs_network_restores_symlink_and_never_writes_its_target(self):
+        for fail in (False, True):
+            resolver = self.root / ('resolver-link-' + str(fail))
+            target = self.root / ('runtime-target-' + str(fail))
+            target.write_bytes(b'original runtime resolver\n')
+            resolver.symlink_to(target.name)
+            with self.subTest(fail=fail), patch.object(sources.subprocess, 'check_output', return_value='default via 192.0.2.1 dev eth0\n'), \
+                    patch.object(sources.subprocess, 'run') as run:
+                try:
+                    with sources.libguestfs_network(resolver):
+                        self.assertFalse(resolver.is_symlink())
+                        self.assertEqual(resolver.read_bytes(), b'nameserver 169.254.2.3\n')
+                        self.assertEqual(target.read_bytes(), b'original runtime resolver\n')
+                        if fail: raise RuntimeError('source download failed')
+                except RuntimeError:
+                    self.assertTrue(fail)
+                run.assert_not_called()
+            self.assertTrue(resolver.is_symlink())
+            self.assertEqual(str(resolver.readlink()), target.name)
+            self.assertEqual(target.read_bytes(), b'original runtime resolver\n')
+
+    def test_libguestfs_network_restores_regular_bytes_mode_and_missing_resolver(self):
+        for fail in (False, True):
+            resolver = self.root / ('resolver-file-' + str(fail))
+            original = b'nameserver 192.0.2.1\n# exact bytes\x00\n'
+            resolver.write_bytes(original); resolver.chmod(0o640)
+            with self.subTest(fail=fail), patch.object(sources.subprocess, 'check_output', return_value='default via 192.0.2.1 dev eth0\n'), \
+                    patch.object(sources.subprocess, 'run'):
+                try:
+                    with sources.libguestfs_network(resolver):
+                        self.assertEqual(resolver.read_bytes(), b'nameserver 169.254.2.3\n')
+                        self.assertEqual(resolver.stat().st_mode & 0o777, 0o644)
+                        if fail: raise RuntimeError('APT failed')
+                except RuntimeError:
+                    self.assertTrue(fail)
+            self.assertFalse(resolver.is_symlink())
+            self.assertEqual(resolver.read_bytes(), original)
+            self.assertEqual(resolver.stat().st_mode & 0o777, 0o640)
+        missing = self.root / 'missing-resolver'
+        with patch.object(sources.subprocess, 'check_output', return_value='default via 192.0.2.1 dev eth0\n'):
+            with sources.libguestfs_network(missing): self.assertTrue(missing.is_file())
+        self.assertFalse(missing.exists())
+
+    def test_libguestfs_network_repairs_only_a_missing_default_route(self):
+        resolver = self.root / 'appliance-resolver'
+        resolver.symlink_to('missing-runtime-stub')
+        with patch.object(sources.subprocess, 'check_output', return_value='') as query, \
+                patch.object(sources.subprocess, 'run') as run:
+            with sources.libguestfs_network(resolver):
+                self.assertEqual(resolver.read_bytes(), b'nameserver 169.254.2.3\n')
+        query.assert_called_once_with(['ip', '-4', 'route', 'show', 'default'], text=True)
+        self.assertEqual([call.args[0] for call in run.call_args_list], [
+            ['ip', 'link', 'set', 'eth0', 'up'],
+            ['ip', 'address', 'replace', '169.254.2.15/16', 'dev', 'eth0'],
+            ['ip', 'route', 'replace', 'default', 'via', '169.254.2.2', 'dev', 'eth0']])
+        self.assertTrue(all(call.kwargs == {'check': True} for call in run.call_args_list))
+        self.assertTrue(resolver.is_symlink())
+        self.assertEqual(str(resolver.readlink()), 'missing-runtime-stub')
+
+    def test_libguestfs_network_repair_failure_keeps_original_resolver(self):
+        resolver = self.root / 'resolver'
+        resolver.symlink_to('runtime-stub')
+        with patch.object(sources.subprocess, 'check_output', return_value=''), \
+                patch.object(sources.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'ip')):
+            with self.assertRaises(subprocess.CalledProcessError):
+                with sources.libguestfs_network(resolver): self.fail('network setup failed')
+        self.assertTrue(resolver.is_symlink())
+        self.assertEqual(str(resolver.readlink()), 'runtime-stub')
+
+    def test_libguestfs_cli_flag_requires_confirmed_collection_and_forbids_host_verification(self):
+        cases = [['--output', str(self.root / 'output')],
+                 ['--verify-index', str(self.root / 'index.json'), '--confirm-disposable-guest']]
+        for arguments in cases:
+            with self.subTest(arguments=arguments), \
+                    patch('sys.argv', ['collector', *arguments, '--titan-source-ref', REF, '--libguestfs-network']), \
+                    patch.object(sources, 'libguestfs_network') as network, patch.object(sources, 'collect') as collect, \
+                    redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as exit:
+                sources.main()
+            self.assertEqual(exit.exception.code, 2)
+            network.assert_not_called(); collect.assert_not_called()
+
+    def test_libguestfs_cli_restores_network_context_when_collection_fails(self):
+        events = []
+        @contextmanager
+        def network():
+            events.append('enter')
+            try: yield
+            finally: events.append('restore')
+        with patch('sys.argv', ['collector', '--output', str(self.root / 'output'), '--confirm-disposable-guest',
+                                '--titan-source-ref', REF, '--libguestfs-network']), \
+                patch.object(sources, 'libguestfs_network', side_effect=network), \
+                patch.object(sources, 'collect', side_effect=ValueError('source unavailable')):
+            with self.assertRaisesRegex(ValueError, 'source unavailable'): sources.main()
+        self.assertEqual(events, ['enter', 'restore'])
 
 
 if __name__ == '__main__':

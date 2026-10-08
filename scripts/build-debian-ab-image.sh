@@ -31,7 +31,7 @@ if [[ -f dist/debian-input/previous-packages.json ]]; then
 fi
 virt-customize -a "$task_base" --memsize 4096 "${task_previous[@]}" \
     --run-command 'set -eu; python3 /tmp/titan-package-state.py guard --output /tmp/titan-package-guard.json; python3 /tmp/titan-package-state.py inventory --output /usr/share/titan/debian-packages.json; task_before=/tmp/titan-before-packages.json; if test -f /tmp/titan-previous-packages.json; then task_before=/tmp/titan-previous-packages.json; fi; python3 /tmp/titan-package-state.py changes --before "$task_before" --output /tmp/titan-package-changes.json' \
-    --run-command "set -eu; df -h /tmp; python3 /tmp/titan-collect-debian-sources.py --output /tmp/titan-debian-sources --titan-source-ref '$TITAN_APP_SOURCE_COMMIT' --confirm-disposable-guest; du -sh /tmp/titan-debian-sources; df -h /tmp" \
+    --run-command "set -eu; df -h /tmp; python3 /tmp/titan-collect-debian-sources.py --output /tmp/titan-debian-sources --titan-source-ref '$TITAN_APP_SOURCE_COMMIT' --confirm-disposable-guest --libguestfs-network; du -sh /tmp/titan-debian-sources; df -h /tmp" \
     --run-command 'rm -f /tmp/titan-before-packages.json /tmp/titan-previous-packages.json /tmp/titan-package-state.py; rm -rf /var/lib/apt/lists/*; apt-get clean'
 guestfish --ro -a "$task_base" -m /dev/sda3 download /usr/share/titan/debian-packages.json "$task_dir/debian-packages.json"
 guestfish --ro -a "$task_base" -m /dev/sda3 download /tmp/titan-package-changes.json "$task_dir/package-changes.json"

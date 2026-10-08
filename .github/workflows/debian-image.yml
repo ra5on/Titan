@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0: verified Debian sources, with isolated keyring regression fixtures.
+# Build Titan 0.6.0: verified Debian sources with temporary appliance networking.
 on:
   workflow_dispatch:
   push:

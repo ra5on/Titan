@@ -6,6 +6,7 @@ there is no completed output/index when a source is missing or verification fail
 Host verification reads the index only; archive-part hashes are verified separately.
 """
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from email.parser import Parser
 import hashlib
@@ -14,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 import urllib.parse
@@ -41,6 +43,45 @@ REPOSITORIES = [
 ]
 QUERY = ('${binary:Package}\t${Version}\t${Architecture}\t${db:Status-Status}\t'
          '${source:Package}\t${source:Version}\t${Built-Using}\t${Static-Built-Using}\n')
+
+
+@contextmanager
+def libguestfs_network(resolver_path=Path('/etc/resolv.conf')):
+    """Temporarily use libguestfs's appliance DNS during this build session only.
+
+    The runtime resolver can be a dangling systemd-resolved symlink because the
+    NAS services do not run in virt-customize. Never write through that symlink.
+    resolver_path is injectable for isolated tests, not a CLI option.
+    """
+    resolver = Path(resolver_path)
+    if resolver.is_symlink():
+        original = ('symlink', os.readlink(resolver), None)
+    elif resolver.exists():
+        if not resolver.is_file():
+            raise ValueError('Appliance resolver must be a regular file or symlink')
+        original = ('file', resolver.read_bytes(), stat.S_IMODE(resolver.stat().st_mode))
+    else:
+        original = ('missing', None, None)
+    changed = False
+    try:
+        default_route = subprocess.check_output(['ip', '-4', 'route', 'show', 'default'], text=True)
+        if not default_route.strip():
+            subprocess.run(['ip', 'link', 'set', 'eth0', 'up'], check=True)
+            subprocess.run(['ip', 'address', 'replace', '169.254.2.15/16', 'dev', 'eth0'], check=True)
+            subprocess.run(['ip', 'route', 'replace', 'default', 'via', '169.254.2.2', 'dev', 'eth0'], check=True)
+        resolver.unlink(missing_ok=True)
+        changed = True
+        resolver.write_bytes(b'nameserver 169.254.2.3\n')
+        resolver.chmod(0o644)
+        yield
+    finally:
+        if changed:
+            resolver.unlink(missing_ok=True)
+            if original[0] == 'symlink':
+                resolver.symlink_to(original[1])
+            elif original[0] == 'file':
+                resolver.write_bytes(original[1])
+                resolver.chmod(original[2])
 
 
 def require(pattern, value, label):
@@ -501,7 +542,11 @@ def main():
     parser.add_argument('--inventory', type=Path)
     parser.add_argument('--titan-source-ref', required=True)
     parser.add_argument('--confirm-disposable-guest', action='store_true')
+    parser.add_argument('--libguestfs-network', action='store_true',
+                        help='temporarily prepare the disposable libguestfs appliance network during collection')
     args = parser.parse_args()
+    if args.libguestfs_network and (args.verify_index or not args.confirm_disposable_guest):
+        parser.error('--libguestfs-network requires --output and --confirm-disposable-guest')
     inventory = json.loads(args.inventory.read_text()) if args.inventory else None
     if args.verify_index:
         if inventory is None:
@@ -511,7 +556,11 @@ def main():
     else:
         if not args.confirm_disposable_guest:
             parser.error('collection requires --confirm-disposable-guest')
-        index = collect(args.output, args.titan_source_ref, inventory)
+        if args.libguestfs_network:
+            with libguestfs_network():
+                index = collect(args.output, args.titan_source_ref, inventory)
+        else:
+            index = collect(args.output, args.titan_source_ref, inventory)
         print('Archived ' + str(len(index['sources'])) + ' exact source records in ' + str(args.output))
 
 
