@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.5.9 with native Compose apps, atomic uploads, refreshed consoles and VM checkpoints.
+# Build Titan 0.6.0: cohesive glass desktop, original scenic artwork and fluid app/VM transitions.
 on:
   workflow_dispatch:
   push:

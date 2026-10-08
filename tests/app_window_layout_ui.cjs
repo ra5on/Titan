@@ -9,8 +9,8 @@ assert.match(css,/\.um-manager \.um-toolbar\{position:static/);
 assert.match(css,/@media\(max-height:480px\)/);
 assert.doesNotMatch(css,/grid-template-columns|--titan-sidebar-width|--titan-inspector-width|\.desktop-window|\.topbar/,'Internal layout rules preserve desktop chrome and user sidebar widths');
 const dockerCss=fs.readFileSync('titan/web/docker_workbench.css','utf8');
-assert.match(dockerCss,/\.engine-workbench\.has-inspector \.engine-inspector\{display:block;overflow:auto/);
-assert.match(dockerCss,/\.engine-workbench \.engine-inspector-scroll\{overflow:visible/);
+assert.match(dockerCss,/\.engine-workbench\.has-inspector \.engine-inspector\{[^}]*display:block;[^}]*overflow:auto/);
+assert.match(dockerCss,/\.engine-inspector-scroll\{[^}]*overflow:visible/);
 
 class Pane{
  constructor(kind,key){this.kind=kind;this.className=kind;this.dataset=kind==='engine-content'?{engineView:key}:{engineDetail:key};this.scrollTop=0;}

@@ -4,9 +4,9 @@
 
 Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläche verbindet einen persönlichen Desktop mit Dateimanager, Speicherverwaltung, Freigaben, Docker-Compose-Apps, virtuellen Maschinen und signierten Systemupdates.
 
-**Version 0.5.9-alpha.1 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
+**Version 0.6.0-alpha.1 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
 
-[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.5.9-alpha.1/titan-0.5.9-alpha.1-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.9-alpha.1) · [Änderungen in 0.5.9](docs/RELEASE-0.5.9.md)
+[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.1/titan-0.6.0-alpha.1-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.1) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
 
 ![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
 
@@ -27,7 +27,9 @@ Neuinstallationen verwenden **HTTPS auf Port 443**; HTTP auf Port 80 leitet dort
 
 ## Persönlicher Desktop
 
-Jedes Konto erhält eigene Verknüpfungen, Widgetpositionen und Darstellungsoptionen. Fenster lassen sich öffnen, verschieben, verkleinern und minimieren. Die Seitenleisten in Dateimanager, VM-Verwaltung, Docker, Speicher und Systemsteuerung können am Trenner breiter oder schmaler gezogen werden.
+Ein eigener Landschaftshintergrund, eine persönliche Begrüßung, frei platzierbare Apps und transparente Live-Widgets bilden den Desktop. Das kompakte Dock hält die Werkzeuge erreichbar. Jedes Konto erhält eigene Verknüpfungen, Widgetpositionen und Darstellungsoptionen. Fenster lassen sich öffnen, verschieben, verkleinern und minimieren. Die Seitenleisten in Dateimanager, VM-Verwaltung, Docker, Speicher und Systemsteuerung können am Trenner breiter oder schmaler gezogen werden.
+
+Öffnen, Minimieren, Wiederherstellen und Maximieren verwenden zusammenhängende Fensterübergänge. Bei reduzierter Bewegung entfallen die Animationen. Live-Messwerte lösen keine neue Einblendanimation aus.
 
 Im Kontomenü stehen **Hell, Dunkel und Automatisch** sowie ein globaler Transparenzregler für den eigenen Desktop bereit. Automatisch folgt dem Betriebssystem. Bereits geöffnete Titan-Fenster und Konsolen wechseln mit. Für einen Klick auf freien Desktop lässt sich auswählen, ob die Fenster minimiert werden oder nichts geschieht.
 
@@ -41,7 +43,7 @@ Rechtsklick, längeres Drücken oder **Umschalt+F10** öffnen passende Schnellak
 
 ![Dateimanager mit kompakter Werkzeugleiste und einblendbaren Details](docs/images/titan-files.jpg)
 
-Der Dateimanager bietet Listen- und Kachelansicht, anpassbare Seitenleiste, Navigation, Suche, Vorschau und einen bei Bedarf einblendbaren Detailbereich. Dateien und Ordner lassen sich kopieren, verschieben, umbenennen und über den Papierkorb entfernen. UTF-8-Dateien bis 1 MiB können direkt bearbeitet werden; unterstützte Bilder, Medien und Textdateien erhalten eine Vorschau.
+Der Dateimanager bietet Listen- und Symbolansicht, eine anpassbare Seitenleiste und eine schmale Werkzeugleiste mit Pfad, Navigation und Suche. Ein Ansichtsmenü stellt Symbolgröße, Abstände, Sortierung, versteckte Dateien, Pfadleiste und Dateigrößen ein; die Auswahl bleibt pro Konto gespeichert. Vorschau und Detailbereich öffnen bei Bedarf. Dateien und Ordner lassen sich kopieren, verschieben, umbenennen und über den Papierkorb entfernen. UTF-8-Dateien bis 1 MiB können direkt bearbeitet werden; unterstützte Bilder, Medien und Textdateien erhalten eine Vorschau.
 
 **Mehrere Dateien können per Drag-and-drop in den geöffneten beschreibbaren Ordner geladen werden.** Der Upload zeigt Dateiname, Fortschritt und Position in der Warteschlange. „Abbrechen“ stoppt die Übertragung und die restliche Warteschlange. Bereits vollständig übertragene Dateien bleiben erhalten. Ordnerdrops werden mit einer verständlichen Meldung abgewiesen.
 
@@ -53,7 +55,7 @@ Datei- und Ordnermenüs bieten Aktionen passend zur Auswahl und den Zugriffsrech
 
 ![Titan Apps mit eigenen Docker-Compose-Rezepten](docs/images/titan-apps.jpg)
 
-Titan bietet lokal gepflegte Compose-Rezepte an. **BigBear und externe Store-Downloads sind entfernt.** Vorhandene, früher installierte Anwendungen behalten ihre gespeicherte Vorlage, Konfiguration und Daten und bleiben verwaltbar.
+Der App Store kombiniert Suche und Kategorien mit illustrierten Empfehlungen und kompakten App-Karten. Einrichten öffnet eine eigene Detailansicht mit Konfiguration und Installationsverlauf; die Rückkehr erhält die Store-Ansicht. Der gesamte Store scrollt gemeinsam. Titan bietet lokal gepflegte Compose-Rezepte an. **BigBear und externe Store-Downloads sind entfernt.** Vorhandene, früher installierte Anwendungen behalten ihre gespeicherte Vorlage, Konfiguration und Daten und bleiben verwaltbar.
 
 Die Einrichtung zeigt echte Schritte wie Docker prüfen, Dateien vorbereiten, Images laden, Container erstellen, starten und Bereitschaft prüfen. Der Verlauf bleibt nach einem Fensterwechsel erhalten. Fehler und unterbrochene Schritte bleiben sichtbar und lassen sich fortsetzen. Ein gestarteter Container allein wird nicht als erfolgreiche Einrichtung ausgegeben.
 
@@ -73,6 +75,8 @@ Bei Cloudflare muss der öffentliche Hostname im Cloudflare-Konto dem angezeigte
 [Apps und Installation](docs/APP-STORES.md) · [Cloudflare und Tailscale](docs/REMOTE-ACCESS.md)
 
 ## Docker verwalten
+
+![Docker-Verwaltung mit kompakten Containerwerten](docs/images/titan-docker.jpg)
 
 Die Docker-Ansicht zeigt Container, Compose-Gruppen, Images, Netzwerke und Volumes. CPU- und RAM-Messwerte werden getrennt vom Verbindungsstatus angezeigt. Die Übersicht nutzt kompakte Kennzahlen; Details öffnen sich nur bei Bedarf. Listen und Detailbereiche behalten ihre Scrollposition beim Wechsel.
 
@@ -104,6 +108,10 @@ Die Anmeldung unterstützt Passwort, optionalen zweiten Faktor und Anmeldeschutz
 
 Titan verwendet zwei Systembereiche. Ein Update schreibt den inaktiven Bereich; ein bestätigter vorheriger Systemstand kann wieder ausgewählt werden. **Ein System-Rollback setzt gemeinsam genutzte App-Daten und Datenbanken nicht zurück.** Unabhängige Sicherungen und eine praktisch geprüfte Wiederherstellung bleiben erforderlich. Eine App-Wiederherstellung benötigt ein gestopptes, weiterhin passendes installiertes Paket und lässt die App anschließend gestoppt.
 
+Die Systemsteuerung zeigt links Geräteinformationen und Live-Ressourcen, rechts durchsuchbare Einstellungsgruppen. Einzelne Bereiche öffnen mit ihrer passenden Navigation; Favoriten und Ansicht bleiben persönlich gespeichert.
+
+![Systemsteuerung mit Geräteübersicht und gruppierten Einstellungen](docs/images/titan-settings.jpg)
+
 Weitere Bereiche umfassen Ext4/XFS/ZFS-Speicher, Laufwerksstatus, Dienste, Freigaben und Systemressourcen. Destruktive Aktionen und Änderungen an Netzwerk oder Systemschutz bleiben ausdrücklich bestätigungspflichtig.
 
 ## Entwicklung und Prüfung
@@ -124,4 +132,4 @@ TitanOS dient ausschließlich als visuelle Orientierung. Titan verwendet eigenen
 
 ## Lizenz
 
-Der eigene Titan-Code ist für nichtkommerzielle Nutzung, Änderungen und kostenlose Weitergabe freigegeben. Kommerzielle Rechte können vom Rechteinhaber gesondert erteilt werden. Drittkomponenten behalten ihre jeweiligen Lizenzen. [Lizenz](LICENSE)
+Der eigene Titan-Code ist für nichtkommerzielle Nutzung, Änderungen und kostenlose Weitergabe freigegeben. Der Rechteinhaber kann für sein eigenes Material gesonderte kommerzielle Rechte erteilen. Das hält den späteren Verkauf von Titan offen; fremde Komponenten und Beiträge benötigen ihre jeweiligen Rechte. Drittkomponenten behalten ihre jeweiligen Lizenzen. [Lizenz](LICENSE) · [Kommerzielle Zukunft und Herkunft](docs/LICENSING.md)

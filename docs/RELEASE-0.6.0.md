@@ -1,0 +1,17 @@
+# Titan 0.6.0 Alpha
+
+Titan 0.6.0 verbindet den persönlichen Desktop und seine Verwaltungsfenster mit einer gemeinsamen Gestaltung: eigene Landschaftsgrafiken, transparente Widgets, ein kompaktes Dock, ruhige Farben und zusammenhängende Fensterübergänge. **Titan bleibt Alpha.**
+
+- **Desktop:** persönliche Begrüßung, eigene SVG-Hintergründe und kompakte Apps ohne zusätzliche Symbolrahmen. Öffnen, Minimieren, Wiederherstellen und Maximieren folgen einer gemeinsamen Bewegung; reduzierte Bewegung wird berücksichtigt. Gespeicherte Positionen und Kontoeinstellungen bleiben erhalten.
+- **App Store:** horizontale Kategorien und Suche, eigene illustrierte Empfehlungen, kompakte App-Sammlungen und getrennte Einrichtungsansichten. Der Store scrollt gemeinsam. Native Compose-Apps und ihre echten Installationsschritte bleiben erhalten.
+- **Dateien:** eine schmale Pfad- und Werkzeugleiste, verstellbare Seitenleiste, Symbol-/Listenansicht und ein Ansichtsmenü für Größe, Abstand, Sortierung und Zusatzinformationen. Upload-Abbruch, Drag-and-drop und Dateiaktionen bleiben integriert.
+- **Einstellungen:** Geräteübersicht mit Version, Adresse, Laufzeit und Live-Ressourcen; daneben Suche, Kategorien und gruppierte Einstellungszeilen. Favoriten und Ansicht bleiben pro Konto gespeichert.
+- **Docker und VMs:** kompaktere Listen, Kacheln, Tabs und bedarfsweise Details. Bestehende Messwerte und verbundene Konsolen werden bei einer Aktualisierung erhalten.
+- **VM-Konsole:** kleine überlagerte Vollbild- und Menüaktionen, Zwischenablage, Gast-Tastenkombinationen und Skalierung. Ein fester Gast wird proportional eingepasst. Der separat wählbare Grafikmodus fordert nach Größenänderungen eine neue Gastauflösung an, sofern der Gast sie unterstützt. Schwarze Ränder bei einer festen Auflösung können nicht ohne Verzerrung oder Abschneiden vollständig verschwinden.
+- **Herkunft:** neuer Oberflächencode, Hintergrundbilder und Store-Illustrationen sind eigene Titan-Arbeit. UmbrelOS/TitanOS dienen als Bildreferenz. Deren Code und Assets werden nicht übernommen; die spätere kommerzielle Option und Fremdlizenzpflichten sind dokumentiert.
+
+Die lokale Demo zeigt Beispieldaten. Automatisierte Quellen- und UI-Prüfungen ergänzen Browserprüfungen von Desktop, Scrollbereichen, Themen und Detailnavigation. Der GitHub-Release-Workflow baut das AMD64-Image sowie das signierte RAUC-Update und veröffentlicht erst nach seinen App-, Boot-, VM- und A/B-Prüfungen. Deren Berichte liegen bei den Release-Dateien.
+
+Die A/B-Prüfung verwendet eine als Altstand markierte Kopie des aktuellen Builds; sie ersetzt keine nachgewiesene Migration von einem älteren veröffentlichten Image. Echte Hardware, externe Cloudflare-/Tailscale-Konten und die dynamische Auflösung beziehungsweise Zwischenablage konkreter Grafikgäste benötigen praktische Abnahme. Ein System-Rollback setzt gemeinsame App-Daten nicht zurück.
+
+[README mit eigenen Screenshots](../README.md) · [Lizenz und kommerzielle Zukunft](LICENSING.md) · [Installation](INSTALL.md) · [Release](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.1)

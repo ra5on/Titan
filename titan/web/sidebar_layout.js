@@ -1,7 +1,7 @@
 'use strict';
 (function(root,factory){const ui=factory();if(root)root.TitanSidebarLayout=ui;if(typeof module==='object'&&module.exports)module.exports=ui;})(typeof window==='undefined'?null:window,function(){
  const layouts=[
-  {selector:'.cp-layout',sidebar:'.cp-sidebar',id:'settings',label:'Einstellungen',width:164},
+  {selector:'.cp-layout',sidebar:'.cp-sidebar',id:'settings',label:'Einstellungen',width:240},
   {selector:'.storage-workspace',sidebar:'.storage-navigation',id:'storage',label:'Speicher',width:160},
   {selector:'.engine-workbench',sidebar:'.engine-navigation',id:'docker',label:'Docker',width:160},
   {selector:'.mv-manager[data-manager]',sidebar:'.mv-sidebar',id:'manager',label:'Navigation',width:160},

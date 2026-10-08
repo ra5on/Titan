@@ -1,0 +1,66 @@
+/* Shared product language. Application-specific layouts are intentionally scoped. */
+:root{--titan-wallpaper-image:url('/wallpapers/coast.svg');--radius:12px;--motion-ease:cubic-bezier(.2,.8,.2,1);--motion-fast:160ms;--motion-page:300ms}
+body{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:-.012em}
+html[data-color-theme] :is(button,input,textarea,select){font-family:inherit}
+html[data-color-theme] .button{border-radius:9px;box-shadow:none;line-height:1.3;min-height:32px;font-weight:500}
+html[data-color-theme] .button.primary{background:var(--primary-bg);color:var(--primary-text);border-color:transparent}
+html[data-color-theme] :is(.panel,.service-card,.storage-volume,.storage-card,.mv-stat,.um-detail-section){border-radius:12px;border-color:var(--line);box-shadow:none}
+html[data-color-theme] :is(input,select,textarea){border-radius:8px;color:var(--text);background:var(--panel);border-color:var(--line)}
+html[data-color-theme] :is(button,a,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+html[data-color-theme] .pill{border-radius:20px;font-size:10px;padding:3px 7px;font-weight:500}
+html[data-color-theme] :is(.page-heading h1,.section-heading h2,h2,h3){letter-spacing:-.035em}
+html[data-color-theme] .nas-window-content>.page-heading h1{font-size:23px}
+html[data-color-theme] .nas-window-content>.page-heading{margin-bottom:16px}
+html[data-color-theme] .nas-window-content>.page-heading .subtitle{font-size:12px;line-height:1.6;color:var(--muted)}
+html[data-color-theme] :is(.storage-navigation,.um-detail,.mv-sidebar){background:var(--panel-soft)}
+html[data-color-theme] :is(.table-wrap,.mv-media-list,.vm-extension-list){border-color:var(--line);border-radius:11px}
+html[data-color-theme] :is(th,td){border-color:var(--line)}
+html[data-color-theme] dialog:not(.desktop-menu-dialog){border-radius:20px;border:1px solid var(--line);background:var(--panel);box-shadow:0 28px 100px var(--theme-shadow)}
+html[data-color-theme] dialog::backdrop{background:#080b1455;backdrop-filter:blur(5px)}
+html[data-color-theme] :is(.notice,.mv-notice,.mv-warning){border-radius:10px;font-size:12px;line-height:1.6}
+html[data-color-theme] .toasts{bottom:100px}
+/* Machine tiles become a quiet visual entry point; metrics keep their own stable subtree. */
+#shell[data-page=vms] .vm-master-pane{padding:20px}
+#shell[data-page=vms] .vm-master-list{grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:16px}
+#shell[data-page=vms] .vm-list-row{padding:17px;gap:17px;border-radius:17px;border:1px solid var(--line);background:linear-gradient(145deg,var(--panel),var(--panel-soft));box-shadow:0 5px 18px color-mix(in srgb,var(--theme-shadow) 25%,transparent)}
+#shell[data-page=vms] .vm-list-row:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:linear-gradient(145deg,var(--panel),var(--selected))}
+#shell[data-page=vms] .vm-row-icon{width:48px;height:48px;border-radius:14px;color:var(--selected-text);background:var(--selected);box-shadow:inset 0 1px 0 #ffffff0d}
+#shell[data-page=vms] .vm-row-icon svg{width:27px;height:27px}
+#shell[data-page=vms] .vm-row-name strong{font-size:16px;font-weight:600;letter-spacing:-.025em}
+#shell[data-page=vms] .vm-row-live .vm-live-grid{gap:10px}
+#shell[data-page=vms] .vm-row-live .vm-live-grid small{font-size:10px}
+#shell[data-page=vms] .vm-row-live .vm-live-grid strong{font-size:21px;font-weight:500;letter-spacing:-.04em}
+#shell[data-page=vms] .vm-row-actions>.button{min-height:32px;border-radius:9px}
+#shell[data-page=vms] .vm-extension-detail{background:var(--panel)}
+#shell[data-page=vms] .vm-detail-header{background:var(--panel);padding:12px 16px;border-bottom-color:var(--line)}
+#shell[data-page=vms] .vm-detail-title h2{font-size:18px}
+#shell[data-page=vms] .vm-extension-detail>.manager-tabs{gap:3px;padding:6px 12px;background:var(--panel)}
+#shell[data-page=vms] .vm-extension-detail>.manager-tabs .button{border:0;border-radius:8px;min-height:32px;padding:7px 13px;flex:0 0 auto}
+#shell[data-page=vms] .vm-extension-detail>.manager-tabs .button[aria-selected=true]{background:var(--selected);color:var(--selected-text)}
+#shell[data-page=vms] .vm-detail-content{padding:18px}
+#shell[data-page=vms] .vm-detail-content .vm-live-grid>div,#shell[data-page=vms] .vm-overview-facts article{border-radius:12px;padding:14px}
+#shell[data-page=vms] .vm-detail-content .vm-live-grid strong{font-size:25px;font-weight:500;letter-spacing:-.04em}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-content.is-console{padding:0}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame)>.manager-tabs{padding:4px 10px}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame)>.manager-tabs .button{min-height:28px;padding:5px 10px}
+#shell[data-page=vms] .vm-header-more>div{border-radius:12px;box-shadow:0 12px 40px var(--theme-shadow)}
+/* Auth has the same original scenic scene and glass treatment as the desktop. */
+#auth{--auth-bg:#111c26;--auth-text:#f4f5f7;--auth-muted:#b6c4cb;--auth-card:#18242bb8;--auth-card-border:#ffffff20;--auth-line:#ffffff20;--auth-input:#0b18254a;--auth-accent:#9be2cd;--auth-hover:#b8ebdd;--auth-on-accent:#173c32;--auth-focus:#9be2cd;--auth-error:#ffb4c1;--auth-error-bg:#442c3b;color-scheme:dark;background:linear-gradient(#0e192145,#0e192185),url('/wallpapers/coast.svg') center/cover fixed}
+#auth::before{display:none}
+#auth .auth-topbar{color:#fff}
+#auth .auth-card{border-radius:28px;backdrop-filter:blur(30px) saturate(115%);box-shadow:0 30px 100px #0004}
+#auth .auth-eyebrow{letter-spacing:.12em;font-size:9px;color:var(--auth-muted)}
+#auth .auth-emblem{border-radius:17px;background:#ffffff0d;color:var(--auth-accent)}
+#auth h1{font-size:30px;letter-spacing:-.05em;font-weight:600}
+#auth .auth-field input{border-radius:11px;color:var(--auth-text)}
+#auth .auth-submit{border-radius:12px}
+@media(prefers-reduced-motion:no-preference){
+ .button,a,summary{transition:background-color var(--motion-fast),color var(--motion-fast),border-color var(--motion-fast)}
+ dialog[open]:not(.desktop-menu-dialog){animation:titan-panel-in var(--motion-page) var(--motion-ease)}
+ #auth .auth-card{animation:titan-panel-in 500ms var(--motion-ease)}
+ #shell[data-page=vms] .vm-list-row{transition:background-color 180ms,border-color 180ms,box-shadow 180ms}
+ #shell[data-page=vms] .vm-list-row:hover{box-shadow:0 10px 28px var(--theme-shadow)}
+ @keyframes titan-panel-in{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+}
+@media(max-width:760px){html[data-color-theme] .toasts{bottom:90px}#shell[data-page=vms] .vm-master-pane{padding:12px}#shell[data-page=vms] .vm-master-list{gap:10px}#shell[data-page=vms] .vm-detail-header{padding:8px 10px}#shell[data-page=vms] .vm-detail-content{padding:12px}html[data-color-theme] .button{min-height:40px}#auth .auth-card{padding-inline:24px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}.button,a,summary{transition:none!important}}

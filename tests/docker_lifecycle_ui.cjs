@@ -13,14 +13,16 @@ function harness(){
  const context={api:async path=>path==='/api/docker-engine'?data:{containers:{}},action:async()=>({ok:true}),dialog(){},askYesNo:async()=>true,toast(){},bytes:String};
  const click=async(op,id)=>{const control={dataset:{engineAction:op,engineId:id},disabled:false};await listeners.get('click')({target:{closest:selector=>selector.includes('data-engine-action')?control:null}});};
  const tab=async id=>{const control={dataset:{engineTab:id},isTab:true};await listeners.get('click')({target:{closest:selector=>selector==='[data-engine-tab]'?control:null}});};
+ const toggleProject=(id,open)=>inputs.get('toggle')({target:{closest:selector=>selector==='[data-engine-options]'?{open,dataset:{engineOptions:id}}:null}});
  const select=id=>inputs.get('change')({target:{checked:true,dataset:{engineSelect:id},matches:selector=>selector==='[data-engine-select]'}});
- return {ui:browser.TitanDocker,container,context,data,click,tab,select,listeners,metricNode,poll:()=>poll()};
+ return {ui:browser.TitanDocker,container,context,data,click,tab,select,toggleProject,listeners,metricNode,poll:()=>poll()};
 }
 const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
 async function main(){
  const h=harness();let finish,captured;
  h.context.action=async(operation,args,options)=>{captured={operation,args,options};options.onProgress({status:'running',result:{message:'Container wird gestoppt'}});return new Promise(resolve=>finish=resolve);};
  await h.ui.mount(h.container,h.context);assert.match(h.container.innerHTML,/Container Manager/);assert.match(h.container.innerHTML,/data-engine-tab="overview"[^>]*aria|aria-selected="true" data-engine-tab="overview"/);await h.tab('stacks');assert.match(h.container.innerHTML,/data-engine-group="cloud" open/);assert.match(h.container.innerHTML,/data-engine-action="package-stop"/);
+ h.toggleProject('cloud',true);await h.click('refresh','');assert.match(h.container.innerHTML,/data-engine-options="cloud" open/,'Expanded project actions survive inventory refresh');
  const action=h.click('remove','a'.repeat(64));for(let i=0;i<8;i++)await Promise.resolve();
  assert.equal(captured.operation,'docker_container_action');assert.equal(captured.args.container,'a'.repeat(64));assert.equal(captured.args.action,'remove');assert.equal(captured.args.stop_before_remove,true);assert.equal(captured.options.wait,true);
  assert.match(h.container.innerHTML,/Container wird gestoppt/);assert.match(h.container.innerHTML,/data-engine-action="stop"[^>]*disabled/);

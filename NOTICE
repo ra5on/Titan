@@ -29,3 +29,10 @@ is bundled. Imported metadata and recipes retain their publishers rights.
 
 No Dockhand code or assets are included. Titan's Docker workbench is original
 Titan code and communicates directly with the local Docker engine.
+
+The scenic SVG wallpapers in titan/web/wallpapers and the storefront CSS
+illustrations are original Titan artwork. UmbrelOS/TitanOS screenshots are
+visual references only and are not distributed with Titan. No UmbrelOS or
+TitanOS source code or assets are incorporated by the 0.6.0 UI redesign.
+App names and symbols identify independently licensed third-party apps;
+they do not imply endorsement or a commercial trademark license.

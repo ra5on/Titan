@@ -126,3 +126,21 @@
 }
 @container vm-detail (max-width:340px){#shell[data-page=vms] .vm-detail-content .vm-live-grid,#shell[data-page=vms] .vm-overview-facts{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){#shell[data-page=vms] .vm-list-row,#shell[data-page=vms] .vm-extension-detail .button{transition:none}}
+
+/* Give the guest the complete console pane; controls live over its image. */
+#shell[data-page=vms] .vm-detail-content.is-console{padding:0;gap:0;background:var(--panel)}
+#shell[data-page=vms] .vm-detail-content.is-console .vm-console-frame{border:0;border-radius:0;background:var(--vm-console-bg,#111827)}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-header{padding-block:5px;min-height:36px}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-quick-actions{display:none}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame)>.manager-tabs{margin-bottom:0;padding-block:3px}
+
+/* Console view keeps navigation compact and avoids a second action toolbar. */
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-header{flex-wrap:nowrap;gap:6px;padding:4px 8px;background:var(--panel)}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-title{flex-wrap:nowrap}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-title h2{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-header>.button{flex:0 0 28px;width:28px;min-height:28px;height:28px;padding:5px;border:0;background:transparent;border-radius:50%}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-header>.button:hover{background:var(--hover)}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-header svg{display:block;width:16px;height:16px}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame)>.manager-tabs{padding-block:0}
+#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame)>.manager-tabs .button{min-height:30px;padding:5px 10px;font-size:11px;border-bottom-width:2px}
+@media(pointer:coarse){#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame) .vm-detail-header>.button{flex-basis:40px;width:40px;height:40px}#shell[data-page=vms] .vm-extension-detail:has(.vm-console-frame)>.manager-tabs .button{min-height:40px}}

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1500" viewBox="0 0 2400 1500" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#1e3b61"/><stop offset=".42" stop-color="#8998b5"/><stop offset=".76" stop-color="#e4b3ae"/><stop offset="1" stop-color="#f5c9a1"/></linearGradient>
+    <linearGradient id="ridge" x2=".8" y2="1"><stop stop-color="#b5a5b7"/><stop offset=".45" stop-color="#716e8d"/><stop offset="1" stop-color="#2d4564"/></linearGradient>
+    <linearGradient id="lake" x2="0" y2="1"><stop stop-color="#9f99b1"/><stop offset=".42" stop-color="#536985"/><stop offset="1" stop-color="#152c48"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#ffd2ad" stop-opacity=".6"/><stop offset="1" stop-color="#edb4b8" stop-opacity="0"/></radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="25"/></filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".45" numOctaves="3" seed="21"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".055"/></feComponentTransfer><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+  </defs>
+  <g filter="url(#grain)">
+    <path fill="url(#sky)" d="M0 0h2400v1500H0z"/>
+    <ellipse cx="1720" cy="570" rx="880" ry="510" fill="url(#glow)"/>
+    <g fill="#c6b7ce" opacity=".35" filter="url(#soft)"><path d="M-100 305q500-170 1060 0t1510-75v85q-930 184-1490 10T-100 390Z"/><path d="M700 90q440 100 1800-20v65q-1070 130-1800 0Z"/></g>
+    <path fill="#9d8aa6" d="m0 726 160-172 115 97 230-274 123 156 154-260 161 224 109-105 240 223 196-149 142 189 139-64 165 151 241-76 225 106v723H0Z"/>
+    <path fill="url(#ridge)" d="m0 805 182-124 93 34 229-338 97 187 48-17 133-274 108 191 144 125 77-50 181 171 196-244 114 196 108 72 59-40 207 147 201-82 223 110v630H0Z"/>
+    <g fill="#e9dce0" opacity=".8"><path d="m782 273-71 144 61-51 34 37 84 61Z"/><path d="m504 377-77 118 59-32 33 29 82 72Z"/><path d="m1588 466-62 105 68-38 46 54Z"/></g>
+    <g fill="#324b6b" opacity=".7"><path d="m782 273-12 252-134 232 180-109 74-184Z"/><path d="m504 377-7 252-110 189 144-110 70-144Z"/><path d="m1588 466-14 220-114 153 162-71 80-106Z"/></g>
+    <path fill="#28445c" d="m0 844 190-95 96 56 105-40 149 86 181-20 179 56 156-26 148 74 243-23 92 64 206-13 114 54 237-1 304 38v451H0Z"/>
+    <path fill="url(#lake)" d="M0 998q690-47 1200-8t1200 2v508H0Z"/>
+    <path fill="#39536c" opacity=".3" d="M0 1015q310 148 527 169t218 140l147-127 189 182 139-154 227-89 184 167 203-120 566-111v428H0Z"/>
+    <g fill="none" stroke="#d8cbd7" opacity=".24"><path d="M210 1078q680-21 1210 8t980-6" stroke-width="3"/><path d="M30 1154q630-24 1350 6t1030-12" stroke-width="4"/><path d="M460 1258q390-30 1010-5t930-12" stroke-width="5"/><path d="M10 1396q740-32 1240 3t1150-6" stroke-width="6"/></g>
+    <path fill="#142a3e" d="M0 1500V957l122 5 45 132 40-27 67 105 155 84 138 29 138 87 238 74 213 54Z"/>
+    <path fill="#132c3e" d="M2400 1500V971l-133 48-45 88-120 72-95 134-215 90-252 97Z"/>
+    <g fill="#163043"><path d="m136 937-58 127h35l-53 117h158l-50-117h30Z"/><path d="m240 1064-42 93h22l-42 94h119l-40-94h23Z"/><path d="m2296 1040-53 113h30l-47 110h139l-43-110h25Z"/></g>
+  </g>
+</svg>

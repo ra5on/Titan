@@ -39,13 +39,13 @@ assert(app.includes('window.TitanControlPanel.render(controlRoute.section,html,{
  assert.deepEqual(messages,[{data:{type:'titan-app-route-accepted',requestId:19},origin:'https://nas.test'}]);
 }
 assert.deepEqual(ui.normalizePreferences({view:'list',favorites:['users','unknown','shares','users','__proto__']}),{view:'list',favorites:['users','shares']});
-assert.deepEqual(ui.normalizePreferences(null),{view:'grid',favorites:[]});
+assert.deepEqual(ui.normalizePreferences(null),{view:'list',favorites:[]});
 const storage={data:new Map(),getItem(key){return this.data.get(key)||null;},setItem(key,value){this.data.set(key,value);}};
 assert.equal(ui.writePreferences(storage,'alice',{view:'list',favorites:['updates']}),true);
 assert.deepEqual(ui.readPreferences(storage,'alice'),{view:'list',favorites:['updates']});
-assert.deepEqual(ui.readPreferences(storage,'bob'),{view:'grid',favorites:[]});
+assert.deepEqual(ui.readPreferences(storage,'bob'),{view:'list',favorites:[]});
 assert.equal(ui.writePreferences(null,'alice',{}),false);
-assert.deepEqual(ui.readPreferences({getItem(){throw Error('blocked');}},'alice'),{view:'grid',favorites:[]});
+assert.deepEqual(ui.readPreferences({getItem(){throw Error('blocked');}},'alice'),{view:'list',favorites:[]});
 const hub=ui.render('', '');
 assert(hub.includes('data-cp-view="list"'));assert(hub.includes('data-cp-favorites'));assert.equal((hub.match(/data-cp-pin=/g)||[]).length,11);
 console.log('Control Panel: safe section routing, real readiness/origin/source/ACK guards, persistent navigation, existing forms and mobile selector passed');

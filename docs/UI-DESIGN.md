@@ -1,6 +1,6 @@
 # Titan: Dashboard und Verwaltung
 
-Stand: 7. Oktober 2026, Entwicklung für 0.5.8-alpha.1. Titan bleibt Alpha. Die älteren Abschnitte dokumentieren die Entwicklung der Oberfläche; die aktuelle Ergänzung steht unter [Desktop und Dialoge ab 0.5.6](#desktop-und-dialoge-ab-056). „VDSM“ verstehen wir hier als die Bedienidee von Synology DSM bzw. Virtual DSM, nicht als eine zusätzliche Titan-Laufzeit.
+Stand: 8. Oktober 2026, Entwicklung für 0.6.0-alpha.1. Titan bleibt Alpha. Die älteren Abschnitte dokumentieren die Entwicklung der Oberfläche; die aktuelle Ergänzung steht unter [Desktop und Dialoge ab 0.5.6](#desktop-und-dialoge-ab-056). „VDSM“ verstehen wir hier als die Bedienidee von Synology DSM bzw. Virtual DSM, nicht als eine zusätzliche Titan-Laufzeit.
 
 ## Was die Recherche hergibt
 
@@ -148,3 +148,16 @@ Der Dateimanager startet mit einer kompakten Werkzeugleiste. Eine leere Auswahll
 Andere Anwendungsmenüs verwenden die vorhandenen Aktionsschaltflächen als Quelle. Damit gelten weiterhin dieselben Rechte, Bestätigungen und deaktivierten Zustände. Das Titan-Terminal und die VM-Konsole besitzen eigene kontextspezifische Menüs. Eine Gast-Rechtsklickoption erhält den Zugriff auf Kontextmenüs innerhalb der VM.
 
 Die Screenshots im README stammen aus Titans eigener Demo. TitanOS wurde ausschließlich als visuelle Referenz verwendet; dessen Quellcode und Assets wurden nicht übernommen.
+
+
+## Titan 0.6.0: zusammenhängende Desktop-Gestaltung
+
+Die vom Nutzer bereitgestellten Bilder bestimmen die Bedienidee: ein ruhiger Landschaftsdesktop mit Begrüßung, frei verschiebbaren Apps, einer Widgetreihe und einem schmalen Dock. Drei eigene SVG-Landschaften ersetzen externe Fotos. Der gemeinsame Fensterrahmen verwendet kompakte Symbolaktionen und Übergänge beim Öffnen, Minimieren, Wiederherstellen und Maximieren. Reduzierte Bewegung wird berücksichtigt. Vorhandene persönliche Positionen behalten Vorrang vor neuen Standardpositionen.
+
+Der App Store zeigt horizontal scrollbare Kategorien, Suche, zwei eigene CSS-Illustrationen und kompakte App-Karten. Einrichten öffnet eine fokussierte Detailansicht; Zurück führt in den Store. Eine erneute Statusabfrage baut aktive Konfigurationsformulare nicht neu auf. Docker verwendet einheitliche kompakte Listen und eine bei Bedarf eingeblendete Detailansicht.
+
+Der Dateimanager bündelt Navigation, Pfad und Ansichtsschalter in einer Werkzeugleiste. Ein Popover bietet Symbolgröße, Abstände, Sortierung und Sichtbarkeit von Zusatzinformationen. Die Einstellungen sind persönlich gespeichert. Die Systemsteuerung zeigt in der Übersicht links die Geräteidentität und gemessene Ressourcen, rechts Kategorien, Suche und gruppierte Einstellungszeilen. Beim Öffnen einer Kategorie wird die linke Spalte zur Navigation.
+
+VM-Kacheln und Details verwenden dieselben Farben, Abstände und Übergänge. Polls animieren keine bestehenden Messwertkarten neu. Die noVNC-Konsole erhält maximale Arbeitsfläche und kleine überlagerte Aktionen. Der Standardmodus passt die feste Gastauflösung proportional ein; ein ausdrücklich ausgewählter Grafikmodus fordert zusätzlich eine Gastauflösung an. Das setzt einen unterstützten Grafikgast voraus und ersetzt keine Gasttreiber.
+
+UmbrelOS/TitanOS-Quellcode und Assets werden nicht übernommen. Die kommerzielle Entwicklungsgrenze und Pflichten für Fremdkomponenten sind in [LICENSING.md](LICENSING.md) festgehalten.
