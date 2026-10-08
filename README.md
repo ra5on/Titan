@@ -4,9 +4,9 @@
 
 Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläche verbindet einen persönlichen Desktop mit Dateimanager, Speicherverwaltung, Freigaben, Docker-Compose-Apps, virtuellen Maschinen und signierten Systemupdates.
 
-**Version 0.6.0-alpha.4 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
+**Version 0.6.0-alpha.5 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
 
-[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.4/titan-0.6.0-alpha.4-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.4) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
+[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.5/titan-0.6.0-alpha.5-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.5) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
 
 ![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
 
@@ -146,7 +146,7 @@ python3 -m unittest discover -s tests
 python3 -m titan.server --demo --host 127.0.0.1 --port 5089
 ```
 
-Die Demo ist eine Vorschau mit simulierten Hostfunktionen. Sie ersetzt keine Prüfung auf echter Hardware oder mit echten Cloudflare-/Tailscale-Konten. Der [Release-Workflow für 0.6.0-alpha.4](https://github.com/ra5on/Titan/actions/runs/37819323545) ist erfolgreich abgeschlossen; Installationsimage, signiertes Update und Prüfberichte sind [veröffentlicht](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.4). Der [Prüfnachweis](docs/VERIFY-0.6.0.md#veröffentlichter-image-nachweis--alpha4) dokumentiert den genauen Quellstand, die Testergebnisse, Signaturen und Dateiprüfsummen.
+Die Demo ist eine Vorschau mit simulierten Hostfunktionen. Sie ersetzt keine Prüfung auf echter Hardware oder mit echten Cloudflare-/Tailscale-Konten. Der [Release-Workflow für 0.6.0-alpha.5](https://github.com/ra5on/Titan/actions/runs/37819323545) ist erfolgreich abgeschlossen; Installationsimage, signiertes Update und Prüfberichte sind [veröffentlicht](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.5). Der [Prüfnachweis](docs/VERIFY-0.6.0.md#veröffentlichter-image-nachweis--alpha4) dokumentiert den genauen Quellstand, die Testergebnisse, Signaturen und Dateiprüfsummen.
 
 Für dieses Alpha-Installationsimage verwendet die A/B-Prüfung eine private, als Altstand markierte Kopie des aktuellen Builds. Sie prüft Systemwechsel, Datenerhalt, Rollback und Fehlerwiederherstellung. Ein Upgrade von einem tatsächlich älteren veröffentlichten Titan-Image ist damit nicht vollständig nachgewiesen und muss separat geprüft werden.
 
