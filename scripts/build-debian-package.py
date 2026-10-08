@@ -47,6 +47,10 @@ def stage(destination):
         ('NOTICE', 'usr/share/doc/titan-debian-preview/NOTICE'),
         ('docs/DEBIAN-MIGRATION.md', 'usr/share/doc/titan-debian-preview/MIGRATION.md')):
         copy(source, target)
+    # Older frozen application commits predate these release documents.
+    for source, name in (('docs/LICENSING.md', 'LICENSING.md'), ('docs/DEBIAN-SOURCES.md', 'SOURCES.md')):
+        if (APP_ROOT/source).exists() or (APP_ROOT/source).is_symlink():
+            copy(source, 'usr/share/doc/titan-debian-preview/' + name)
     for source, name in (('scripts/component-functions.sh','component-functions.sh'),
                          ('packaging/debian/runtime.sh','install-components.sh'),
                          ('scripts/diagnose.sh','diagnose.sh')):

@@ -19,6 +19,23 @@ PYCHANGES
     fi
 fi
 python3 scripts/validate-system-evidence.py "$task_dir"
+python3 scripts/collect-debian-sources.py --verify-index "$task_dir/debian-sources.json" \
+    --inventory "$task_dir/debian-packages.json" --titan-source-ref "$TITAN_APP_SOURCE_COMMIT"
+shopt -s nullglob
+task_source_assets=("$task_dir"/debian-sources.tar.part-*)
+[[ ${#task_source_assets[@]} -gt 0 ]]
+task_source_checks=(debian-sources.json SOURCES.md)
+for task_source_index in "${!task_source_assets[@]}"; do
+    task_source_part=${task_source_assets[$task_source_index]}
+    printf -v task_source_expected 'debian-sources.tar.part-%03d' "$task_source_index"
+    [[ "$(basename "$task_source_part")" == "$task_source_expected" ]]
+    task_source_size=$(stat -c %s "$task_source_part")
+    [[ "$task_source_size" -gt 0 && "$task_source_size" -le 1800000000 ]]
+    task_source_checks+=("$task_source_expected")
+done
+python3 scripts/verify-debian-source-archive.py --index "$task_dir/debian-sources.json" \
+    --parts "${task_source_assets[@]}"
+cp docs/DEBIAN-SOURCES.md "$task_dir/SOURCES.md"
 TITAN_PACKAGE_CHANGES="$task_dir/package-changes.json" python3 scripts/system-release-metadata.py manifest --version "$TITAN_SYSTEM_VERSION" \
     --accounts "$task_dir/ab-input/system-accounts.json" --output "$task_dir/manifest.json" --bundle "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
     --rootfs "$task_dir/bundle/rootfs.ext4" --evidence "$task_dir/release-evidence.json"
@@ -57,7 +74,8 @@ fi
 (
     cd "$task_dir"
     sha256sum "${task_image_checks[@]}" "titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
-        manifest.json manifest.json.sig runtime-test.json ab-test.json INSTALLATION.md debian-base.json debian-packages.json rauc-root.pem > SHA256SUMS
+        manifest.json manifest.json.sig runtime-test.json ab-test.json INSTALLATION.md debian-base.json debian-packages.json rauc-root.pem \
+        "${task_source_checks[@]}" > SHA256SUMS
     openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/titan-signing/root.key" -in SHA256SUMS -out SHA256SUMS.sig
     openssl pkeyutl -verify -rawin -pubin -inkey release-public.pem -in SHA256SUMS -sigfile SHA256SUMS.sig
 )
@@ -73,4 +91,5 @@ gh release create "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" --target 
     "${task_image_assets[@]}" "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
     "$task_dir/manifest.json" "$task_dir/manifest.json.sig" "$task_dir/SHA256SUMS" "$task_dir/SHA256SUMS.sig" \
     "$task_dir/release-public.pem" "$task_dir/rauc-root.pem" "$task_dir/runtime-test.json" "$task_dir/ab-test.json" \
-    "$task_dir/INSTALLATION.md" "$task_dir/debian-base.json" "$task_dir/debian-packages.json"
+    "$task_dir/INSTALLATION.md" "$task_dir/debian-base.json" "$task_dir/debian-packages.json" \
+    "$task_dir/debian-sources.json" "$task_dir/SOURCES.md" "${task_source_assets[@]}"

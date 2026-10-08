@@ -114,3 +114,29 @@ class DebianWorkflowTests(unittest.TestCase):
             self.assertEqual(result.returncode,0,result.stderr)
             self.assertIn('no maintenance release is published',result.stdout)
             self.assertEqual(list((work/'dist/debian-image').iterdir()),[work/'dist/debian-image/package-changes.json'])
+
+    def test_publication_requires_a_complete_bounded_source_archive_sequence(self):
+        # Fake only the already-independent metadata/evidence validators. This
+        # exercises the actual publisher's rejection before signing or upload.
+        for parts, expected in (([], 1), ([(1, 10)], 1),
+                                ([(0, 10), (2, 10)], 1),
+                                ([(0, 1800000001)], 1), ([(0, 0)], 1),
+                                ([(0, 10), (1, 10)], 73)):
+            with self.subTest(parts=parts), tempfile.TemporaryDirectory() as temporary:
+                work=Path(temporary); release=work/'dist/debian-image'
+                release.mkdir(parents=True); (work/'bin').mkdir()
+                (work/'docs').mkdir(); (work/'docs/DEBIAN-SOURCES.md').write_text('sources')
+                validator=work/'bin/python3'
+                validator.write_text('#!/bin/sh\ncase "$1" in *system-release-metadata.py) exit 73;; *) exit 0;; esac\n')
+                validator.chmod(0o755)
+                for index, size in parts:
+                    with (release/f'debian-sources.tar.part-{index:03d}').open('wb') as stream:
+                        stream.truncate(size)
+                environment={**os.environ,'PATH':str(work/'bin')+os.pathsep+os.environ['PATH'],
+                             'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY':'ra5on/Titan',
+                             'TITAN_SYSTEM_VERSION':'0.6.0-alpha.1','TITAN_UPDATE_KIND':'titan',
+                             'TITAN_APP_SOURCE_COMMIT':'a'*40}
+                result=subprocess.run(['bash',str(ROOT/'scripts/publish-debian-system.sh')],cwd=work,
+                                      env=environment,text=True,capture_output=True)
+                self.assertEqual(result.returncode,expected,result.stderr)
+                self.assertFalse((release/'SHA256SUMS').exists())

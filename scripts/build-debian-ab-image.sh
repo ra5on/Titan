@@ -31,16 +31,25 @@ if [[ -f dist/debian-input/previous-packages.json ]]; then
 fi
 virt-customize -a "$task_base" --memsize 4096 "${task_previous[@]}" \
     --run-command 'set -eu; python3 /tmp/titan-package-state.py guard --output /tmp/titan-package-guard.json; python3 /tmp/titan-package-state.py inventory --output /usr/share/titan/debian-packages.json; task_before=/tmp/titan-before-packages.json; if test -f /tmp/titan-previous-packages.json; then task_before=/tmp/titan-previous-packages.json; fi; python3 /tmp/titan-package-state.py changes --before "$task_before" --output /tmp/titan-package-changes.json' \
+    --run-command "set -eu; df -h /tmp; python3 /tmp/titan-collect-debian-sources.py --output /tmp/titan-debian-sources --titan-source-ref '$TITAN_APP_SOURCE_COMMIT' --confirm-disposable-guest; du -sh /tmp/titan-debian-sources; df -h /tmp" \
     --run-command 'rm -f /tmp/titan-before-packages.json /tmp/titan-previous-packages.json /tmp/titan-package-state.py; rm -rf /var/lib/apt/lists/*; apt-get clean'
 guestfish --ro -a "$task_base" -m /dev/sda3 download /usr/share/titan/debian-packages.json "$task_dir/debian-packages.json"
 guestfish --ro -a "$task_base" -m /dev/sda3 download /tmp/titan-package-changes.json "$task_dir/package-changes.json"
+# Export exact upstream sources separately, below GitHub's per-asset size limit.
+# tar-out streams without a second full copy on the runner. The installed image
+# retains copyright notices but does not need these build-time source archives.
+guestfish --ro -a "$task_base" -m /dev/sda3 download /tmp/titan-debian-sources/index.json "$task_dir/debian-sources.json"
+guestfish --ro -a "$task_base" -m /dev/sda3 tar-out /tmp/titan-debian-sources - | \
+    split --bytes=1800000000 --numeric-suffixes=0 --suffix-length=3 - "$task_dir/debian-sources.tar.part-"
+guestfish -a "$task_base" -m /dev/sda3 rm-rf /tmp/titan-debian-sources
 # Identity is signed after the measured Debian changes are available. The root
 # filesystem receives the same metadata that later goes into the public offer.
 TITAN_PACKAGE_CHANGES="$task_dir/package-changes.json" python3 scripts/system-release-metadata.py identity --version "$TITAN_SYSTEM_VERSION" --accounts "$task_work/system-accounts.json" --output "$task_work/image-info.json"
 virt-customize -a "$task_base" --memsize 4096 \
     --upload "$task_work/image-info.json:/usr/share/titan/image-info.json" \
     --upload "$task_work/image-info.json.sig:/usr/share/titan/image-info.json.sig" \
-    --delete /tmp/titan-package-changes.json --delete /tmp/titan-package-guard.json
+    --delete /tmp/titan-package-changes.json --delete /tmp/titan-package-guard.json \
+    --delete /tmp/titan-collect-debian-sources.py
 # virt-resize renumbers the official cloud root from partition 1 to 3.
 # Later virt-customize calls can generate a machine ID again; clear it only
 # after the last customization so every installed NAS gets its own identity.
@@ -49,6 +58,10 @@ truncate /etc/machine-id
 rm-f /var/lib/dbus/machine-id
 rm-f /var/lib/systemd/random-seed
 IDENTITY
+# Downloaded source archives occupied rootfs blocks before export. Deleting
+# files alone leaves their compressed bytes in free blocks and bloats both the
+# image and RAUC bundle. Zero only the unmounted disposable ext4 root.
+guestfish -a "$task_base" run : zerofree /dev/sda3
 task_root=$(guestfish --ro -a "$task_base" run : inspect-os : inspect-get-roots | tail -n 1)
 [[ "$task_root" == /dev/sda3 ]] || { echo "Unexpected expanded root: $task_root" >&2; exit 1; }
 guestfish --ro -a "$task_base" -m /dev/sda3 download /tmp/titan-BOOTX64.EFI "$task_dir/BOOTX64.EFI"

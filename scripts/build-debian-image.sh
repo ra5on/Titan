@@ -28,6 +28,7 @@ virt-customize -a "$task_dir/titan.qcow2" --memsize 4096 \
     --upload "$(realpath image/debian/grow-root.sh):/tmp/titan-grow-root.sh" \
     --upload "$(realpath image/debian/configure-guest.sh):/tmp/titan-configure-guest.sh" \
     --upload "$(realpath scripts/debian-package-state.py):/tmp/titan-package-state.py" \
+    --upload "$(realpath scripts/collect-debian-sources.py):/tmp/titan-collect-debian-sources.py" \
     --upload "$(realpath image/debian/zfs-components.py):/tmp/titan-zfs-components.py" \
     --run-command '/bin/bash /tmp/titan-configure-guest.sh' \
     --delete /tmp/titan-configure-guest.sh

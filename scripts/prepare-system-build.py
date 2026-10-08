@@ -57,7 +57,7 @@ def validate(app_root, environment, build_root=ROOT):
                'image/titan-firstboot.service', 'image/titan-runtime.service', 'image/titan-service-containment.service', 'packaging/titan-agent.service',
                'packaging/titan-web.service', 'packaging/titan-proxy.service', 'scripts/component-functions.sh',
                'scripts/diagnose.sh', 'packaging/debian/runtime.sh', 'packaging/release-public.pem',
-               'LICENSE', 'NOTICE', 'docs/DEBIAN-MIGRATION.md']
+               'LICENSE', 'NOTICE', 'docs/DEBIAN-MIGRATION.md', 'docs/LICENSING.md', 'docs/DEBIAN-SOURCES.md']
     if subprocess.run(['git', '-C', str(app_root), 'diff', '--quiet', 'HEAD', '--', *payload], check=False).returncode:
         raise ValueError('Application payload differs from its frozen commit')
     if subprocess.check_output(['git', '-C', str(app_root), 'ls-files', '--others', '--exclude-standard', '--', *payload], text=True).strip():

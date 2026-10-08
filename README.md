@@ -133,3 +133,5 @@ TitanOS dient ausschließlich als visuelle Orientierung. Titan verwendet eigenen
 ## Lizenz
 
 Der eigene Titan-Code ist für nichtkommerzielle Nutzung, Änderungen und kostenlose Weitergabe freigegeben. Der Rechteinhaber kann für sein eigenes Material gesonderte kommerzielle Rechte erteilen. Das hält den späteren Verkauf von Titan offen; fremde Komponenten und Beiträge benötigen ihre jeweiligen Rechte. Drittkomponenten behalten ihre jeweiligen Lizenzen. [Lizenz](LICENSE) · [Kommerzielle Zukunft und Herkunft](docs/LICENSING.md)
+
+Neue Debian-Systemreleases enthalten neben dem Image auch versionsgenaue Debian-Quellarchive mit Index und signierten Prüfsummen. [Quellarchive prüfen und entpacken](docs/DEBIAN-SOURCES.md). Optionale Appcontainer und nachgeladene ML-Modelle haben eigene Lizenzbedingungen; insbesondere ist Immichs standardmäßiges Gesichtserkennungsmodell vor einem kommerziellen Angebot gesondert zu klären.

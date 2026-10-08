@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0: include matching Debian sources with the independently implemented desktop.
+# Build Titan 0.6.0: publish verified matching Debian source archives with the image.
 on:
   workflow_dispatch:
   push:
