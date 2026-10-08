@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0 alpha.2: reconcile App Store state after Docker container removal.
+# Build Titan 0.6.0 alpha.3: absorb local backend connection bursts on desktop load.
 on:
   workflow_dispatch:
   push:

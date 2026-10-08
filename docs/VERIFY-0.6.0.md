@@ -4,7 +4,7 @@ Stand: 8. Oktober 2026. Diese Ergebnisse betreffen den Quellstand und die isolie
 
 | Prüfung | Ergebnis |
 | --- | --- |
-| Python-Suite | 1.874 Tests, erfolgreich, 12 ausdrücklich übersprungen |
+| Python-Suite | 1.875 Tests, erfolgreich, 12 ausdrücklich übersprungen |
 | UI-Testdateien | 73 Dateien erfolgreich; einschließlich neuer Desktop-, Store-, Dateiansicht-, Settings- und Konsolenregressionen |
 | JavaScript und Shellsyntax | 47 Frontendmodule und vorhandene Shellskripte erfolgreich geprüft |
 | Debian-Paket | `titan-debian-preview_0.6.0+debian1_amd64.deb` erfolgreich gebaut |
@@ -17,6 +17,8 @@ Im Browser geprüft: frischer Desktop mit Begrüßung, Widgetreihe und Dock; Hin
 Für 0.6.0-alpha.2 ergänzte Regressionen prüfen den entfernten letzten App-Container, erhaltene Konfiguration und Nutzdaten, teilweise vorhandene Verbünde, gestoppte Container und Fehler bei Docker-Abfragen. UI-Tests prüfen den Vorrang des aktuellen Status gegenüber alten Registry-Einträgen, den Filter „Installiert“, bewusstes Wiedererstellen mit gespeicherten Einstellungen, den Statusabgleich vor der Aktion und vertrauensgebundene Aktualisierungen geöffneter Store-Fenster. Eingaben, Fokus und Scrollposition bleiben dabei erhalten. Eine isolierte Browseransicht mit Beispieldaten bestätigte die Darstellung „Container entfernt“ mit „Neu erstellen“, „Noch nicht installiert“ und „App gestoppt“ ohne JavaScript-Fehler; diese Vorschau selbst führt keine Docker-Aktionen aus.
 
 Der Cloudflare-Release-Smoke prüft zusätzlich die Entfernung über den produktiven Docker-HTTP-Job, den anschließenden Store-Status, unveränderte Konfigurations-/Token-Dateien samt Dateirechten und den Erhalt eines Nutzdatenmarkers. Eine erneute Store-Installation muss einen frischen Container erstellen. Der absichtlich ungültige Testtoken darf dabei keine erfolgreiche externe Verbindung vortäuschen. Fünf zusätzliche Harness-Tests prüfen auch, dass falsche Statusangaben, Datenverlust und unzutreffende Erfolgsnachweise diesen Gate-Test scheitern lassen. Der echte Docker-Lauf muss im Release-Workflow erfolgreich sein.
+
+Für 0.6.0-alpha.3 nutzt auch die HTTP-Suite die produktive Webserverklasse. Ein zusätzlicher Netzwerktest baut bei pausierter Annahmeschleife 64 echte Loopback-Verbindungen auf, stellt danach HTTP/1.1-Anfragen an den produktiven Handler und prüft alle 64 Session-Antworten. Die kontrollierte Gegenprobe mit dem bisherigen Backlog von fünf scheitert nach sechs Verbindungen; mit 128 besteht sie. Der Test bestätigt die Warteschlangenkapazität und vollständige HTTP-Antworten, nicht das Ausbleiben jeder Kernelwarnung auf beliebiger Hardware. Alle Clients, Server und Testthreads werden geschlossen.
 
 README-Abbildungen wurden aus dieser Titan-Demo aufgenommen. Beispieldaten sind erkennbar. Die neuen Landschaften, Toolbar-Grafiken und Store-Illustrationen wurden eigenständig erstellt; UmbrelOS/TitanOS-Code und Assets wurden für diesen Umbau nicht kopiert. Ein Hashvergleich der Webdateien fand keine vollständig identischen Webdateien im lokalen TitanOS-Bestand. Das ist ein begrenzter technischer Herkunftscheck und keine vollständige Lizenz- oder Gestaltungsrechtsprüfung; siehe [LICENSING.md](LICENSING.md).
 

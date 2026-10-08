@@ -4,9 +4,9 @@
 
 Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläche verbindet einen persönlichen Desktop mit Dateimanager, Speicherverwaltung, Freigaben, Docker-Compose-Apps, virtuellen Maschinen und signierten Systemupdates.
 
-**Version 0.6.0-alpha.2 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
+**Version 0.6.0-alpha.3 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
 
-[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.2/titan-0.6.0-alpha.2-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.2) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
+[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.3/titan-0.6.0-alpha.3-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.3) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
 
 ![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
 

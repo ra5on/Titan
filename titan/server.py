@@ -260,6 +260,13 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
                 self.store.audit("system", "update_check", str(exc))
 
 
+class WebServer(ThreadingHTTPServer):
+    # Caddy can open many upstream connections at once when loading desktop
+    # assets. Python 3.13's default backlog of five can stall ordinary local bursts.
+    # Set this before the constructor binds and starts listening.
+    request_queue_size = 128
+
+
 class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -995,7 +1002,7 @@ def main():
     app = Application(args.data, args.demo, args.origin)
     threading.Thread(target=app.updater, daemon=True).start()
     threading.Thread(target=app.housekeeping, daemon=True).start()
-    with ThreadingHTTPServer((args.host, args.port), Handler) as server:
+    with WebServer((args.host, args.port), Handler) as server:
         server.app = app
         server.daemon_threads = True
         server.timeout = 30

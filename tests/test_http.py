@@ -1,13 +1,14 @@
 import base64
-from http.server import ThreadingHTTPServer
+from http.client import HTTPResponse
 import json
 from pathlib import Path
+import socket
 import tempfile
 import threading
 import unittest
 import urllib.error
 import urllib.request
-from titan.server import Application, Handler
+from titan.server import Application, Handler, WebServer
 
 
 class HTTPTests(unittest.TestCase):
@@ -15,7 +16,7 @@ class HTTPTests(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
         cls.app = Application(cls.temp.name, demo=True)
-        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        cls.server = WebServer(("127.0.0.1", 0), Handler)
         cls.server.app = cls.app
         cls.server.daemon_threads = True
         cls.url = f"http://127.0.0.1:{cls.server.server_port}"
@@ -23,7 +24,13 @@ class HTTPTests(unittest.TestCase):
         cls.thread.start()
     @classmethod
     def tearDownClass(cls):
-        cls.server.shutdown(); cls.server.server_close(); cls.temp.cleanup()
+        cls.app.stop.set()
+        cls.server.shutdown()
+        cls.thread.join(timeout=5)
+        cls.server.server_close()
+        cls.app.close_all_terminals()
+        cls.app.agent.terminals.close_all()
+        cls.temp.cleanup()
     def request(self, path, body=None, csrf="demo-only", extra=None):
         headers = {"X-CSRF-Token": csrf, **(extra or {})}
         request = urllib.request.Request(self.url + path, data=json.dumps(body).encode() if body is not None else None,
@@ -36,6 +43,45 @@ class HTTPTests(unittest.TestCase):
     def test_all_pages_backing_endpoints(self):
         for path in ("/", "/app.js", "/style.css", "/api/session", "/api/status", "/api/catalog", "/api/storage", "/api/snapshots", "/api/apps", "/api/shares", "/api/managed-shares", "/api/vms", "/api/isos", "/api/users", "/api/settings", "/api/updates", "/api/logs", "/api/jobs", "/api/backups", "/api/backup/settings", "/api/monitoring"):
             self.assertEqual(self.request(path)[0], 200, path)
+    def test_startup_connection_burst_is_queued_and_served(self):
+        # Pause acceptance while a proxy's initial asset burst arrives. The
+        # old listen backlog of five stalls before all 64 handshakes finish;
+        # this test then also proves the queued sockets reach the real handler.
+        server = WebServer(("127.0.0.1", 0), Handler)
+        server.app = self.app
+        clients = []
+        thread = None
+        try:
+            for index in range(64):
+                try:
+                    client = socket.create_connection(server.server_address, timeout=1)
+                except OSError as exc:
+                    self.fail(f"Startup listener could queue only {index} of 64 connections: {exc}")
+                clients.append(client)
+            request = (b"GET /api/session HTTP/1.1\r\nHost: localhost\r\n"
+                       b"Connection: close\r\n\r\n")
+            for client in clients:
+                client.settimeout(10)
+                client.sendall(request)
+            thread = threading.Thread(target=server.serve_forever,
+                                      kwargs={"poll_interval": .01}, daemon=True)
+            thread.start()
+            for index, client in enumerate(clients):
+                with self.subTest(connection=index), HTTPResponse(client) as response:
+                    response.begin()
+                    self.assertEqual(response.status, 200)
+                    payload = json.loads(response.read())
+                    self.assertTrue(payload["demo"])
+                    self.assertEqual(payload["user"]["name"], "demo")
+        finally:
+            for client in clients:
+                client.close()
+            if thread is not None:
+                server.shutdown()
+                thread.join(timeout=5)
+            server.server_close()
+        if thread is not None:
+            self.assertFalse(thread.is_alive(), "Burst server thread did not shut down.")
     def test_mutations_require_csrf(self):
         self.assertEqual(self.request("/api/settings", {"auto_check":False}, csrf="wrong")[0], 403)
     def test_cross_origin_rejected(self):
