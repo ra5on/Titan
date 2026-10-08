@@ -57,6 +57,13 @@ class DebianSourceCollectionTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        # APT and downloads are already mocked in collection unit tests. Their
+        # Debian keyring fixture must not depend on the Ubuntu runner's packages.
+        self.real_is_file = Path.is_file
+        keyring = patch.object(Path, 'is_file',
+                               new=lambda path: str(path) == sources.KEYRING or self.real_is_file(path))
+        keyring.start()
+        self.addCleanup(keyring.stop)
         self.available = patch.object(sources, 'available_sources', return_value={('foo-source', '1.0-1'), ('foo-source', '1.0-2')})
         self.available.start()
         self.addCleanup(self.available.stop)
@@ -197,6 +204,18 @@ class DebianSourceCollectionTests(unittest.TestCase):
                 patch.object(sources.subprocess, 'run'), \
                 patch.object(sources, 'download_source', side_effect=subprocess.CalledProcessError(100, 'apt-get')):
             with self.assertRaises(subprocess.CalledProcessError): sources.collect(output, REF)
+        self.assertFalse(output.exists())
+        self.assertFalse(any(p.name.startswith('.titan-source-collect-') for p in self.root.iterdir()))
+
+    def test_collection_without_debian_keyring_stops_before_apt_or_output(self):
+        output = self.root / 'missing-keyring'
+        with patch.object(sources.subprocess, 'check_output', return_value=package()), \
+                patch.object(Path, 'is_file',
+                             new=lambda path: str(path) != sources.KEYRING and self.real_is_file(path)), \
+                patch.object(sources.subprocess, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'Official Debian archive keyring is required'):
+                sources.collect(output, REF)
+        run.assert_not_called()
         self.assertFalse(output.exists())
         self.assertFalse(any(p.name.startswith('.titan-source-collect-') for p in self.root.iterdir()))
 
