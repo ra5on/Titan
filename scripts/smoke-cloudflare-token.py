@@ -42,6 +42,64 @@ def command(argv, timeout=120):
     return result.stdout
 
 
+def verify_docker_remove_reinstall(host, request, wait_job, credential):
+    """Exercise Store recovery after the last container is removed in Docker.
+
+    The disposable fixture deliberately cannot authenticate with Cloudflare.
+    Reinstallation must still create a fresh, registered container and retain
+    the private configuration and data, without claiming a working tunnel.
+    """
+    status_path = '/api/app-install?app=' + CONNECTOR
+    before = request(status_path)
+    require(before['installed'] and before['configured'], 'Docker removal fixture is not installed.')
+    record = host.managed_app(CONNECTOR)
+    container = host._app_container(CONNECTOR, record)
+    require(container is not None and not container['State']['Running'], 'Docker removal fixture must be stopped.')
+    control = host.directory / 'apps' / CONNECTOR
+    private = host._app_config_path(CONNECTOR, record) / 'credentials' / 'token'
+    retained = {path: (path.read_bytes(), stat.S_IMODE(path.stat().st_mode))
+                for path in (control / 'options.json', control / 'compose.json', private)}
+    marker = Path(record['data']) / 'docker-removal-smoke.txt'
+    require(not marker.exists(), 'Disposable data marker already exists.')
+    marker.write_bytes(b'Titan Docker removal must preserve app data.\n')
+    marker_bytes = marker.read_bytes()
+
+    def require_retained():
+        require(marker.read_bytes() == marker_bytes, 'Docker lifecycle destroyed retained app data.')
+        for path, (content, mode) in retained.items():
+            require(path.read_bytes() == content and stat.S_IMODE(path.stat().st_mode) == mode,
+                    'Docker lifecycle changed retained private configuration or its permissions.')
+
+    removed = wait_job(request('/api/actions', {'operation': 'docker_container_action',
+        'arguments': {'container': container['Id'], 'action': 'remove'}})['job'])
+    require(removed['result'].get('app_removed') is True and removed['result'].get('data_retained') is True,
+            'Removing the last Docker container did not unregister its app safely.')
+    missing = request(status_path)
+    require(not missing['installed'] and not missing['configured'] and missing['runtime']['state'] == 'missing',
+            'App Store still reports the Docker-removed connector as installed.')
+    require(not missing['resumable'], 'Removed installation retained stale private retry inputs.')
+    engine = request('/api/docker-engine')
+    require(engine['available'] and not any(row.get('managed_app') == CONNECTOR for row in engine['containers']),
+            'Docker removal left a connector container behind.')
+    require_retained()
+
+    queued = request('/api/app-install', {'app': CONNECTOR,
+        'options': {'tunnel_token': credential, 'public_origin': before['runtime']['public_origin']},
+        'expected_revision': missing['revision']})
+    wait_job(queued['job'], expect_failure=True)
+    recreated = request(status_path)
+    require(recreated['installed'] and recreated['configured'] and recreated['status'] == 'failed',
+            'A Docker-removed app could not be installed again through the App Store.')
+    fresh = host._app_container(CONNECTOR, host.managed_app(CONNECTOR))
+    require(fresh is not None and fresh['Id'] != container['Id'] and not fresh['State']['Running'],
+            'Reinstallation did not create and safely stop a fresh connector.')
+    require(not recreated['runtime']['cloudflare_connected'] and not recreated['runtime']['public_ready'],
+            'Reinstalled dummy credential falsely reported a working external tunnel.')
+    require_retained()
+    return {'docker_last_container_unregisters': True, 'docker_removal_retains_private_config_and_data': True,
+            'store_reinstall_after_docker_removal': True}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--confirm-disposable-runner', action='store_true')
@@ -178,6 +236,10 @@ def main():
                          '/api/package-logs?app=' + CONNECTOR + '&service=' + CONNECTOR):
                 request(path)
             require(credential.encode() not in web.store.path.read_bytes(), 'Job/audit database contains the tunnel credential.')
+            docker_recovery = verify_docker_remove_reinstall(host, request, wait_job, credential)
+            for path, content in local_files.items():
+                require(path.read_bytes() == content, 'Reinstallation changed the retained LAN/proxy configuration.')
+            require(credential.encode() not in web.store.path.read_bytes(), 'Reinstallation job exposed the tunnel credential.')
             action('remove')
             require(not any(row['id'] == CONNECTOR for row in host.load('apps', [])), 'App removal retained a registered runner.')
             require(not command(['docker', 'ps', '-aq', '--filter', 'name=^/' + name + '$']).strip(),
@@ -187,6 +249,7 @@ def main():
                 'host_network': True, 'root_0600_token_file': True, 'no_secret_api_argv_env_database': True,
                 'invalid_token_never_ready': True, 'failed_setup_lan_preserved': True,
                 'normal_start_stop_remove': True, 'native_install_steps_verified': True, 'tokenless_retry_verified': True,
+                **docker_recovery,
                 'external_tunnel_tested': False,
                 'reason': 'No live Cloudflare account token is used.', 'observed_phases': sorted(observed)}))
         finally:

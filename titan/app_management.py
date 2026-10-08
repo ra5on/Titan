@@ -146,6 +146,24 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         state = container.get("State") or {}
         return bool(state.get("Running") or state.get("Status") in ("running", "paused", "restarting"))
 
+    def _app_unregister(self, app):
+        """Forget an explicitly removed installation, retaining private app data."""
+        self._app_patch_record(app, remove=True)
+        from .native_catalog import AVAILABLE_APP_IDS
+        if app in AVAILABLE_APP_IDS:
+            from .app_installation import AppInstallationMixin
+            AppInstallationMixin._installation_path(self, app, private=True).unlink(missing_ok=True)
+
+    def _app_unregister_if_empty(self, app):
+        # The caller holds the same package lifecycle lock as install/start.
+        # A missing dependency is not an uninstall. Failure to inspect Docker
+        # must never be treated as proof that the package has disappeared.
+        if self._app_lifecycle_snapshot(app):
+            return False
+        self._app_firewall(app, enabled=False)
+        self._app_unregister(app)
+        return True
+
     def _app_stop_or_remove(self, app, action, unregister=True):
         """Contain a degraded package by immutable owned IDs; never delete data.
 
@@ -172,13 +190,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             if self._app_lifecycle_snapshot(app):
                 raise Error("Paket konnte noch nicht vollständig entfernt werden. Daten bleiben erhalten.", 503)
             if unregister:
-                self._app_patch_record(app, remove=True)
-                from .native_catalog import AVAILABLE_APP_IDS
-                if app in AVAILABLE_APP_IDS:
-                    # A deliberate uninstall invalidates only the temporary
-                    # retry input. Existing private app configuration stays.
-                    from .app_installation import AppInstallationMixin
-                    AppInstallationMixin._installation_path(self, app, private=True).unlink(missing_ok=True)
+                self._app_unregister(app)
             else:
                 self._app_patch_record(app, {"phase": "stopped", "last_error": "", "changed": time.time()})
         else:

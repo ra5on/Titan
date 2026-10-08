@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0: verified Debian sources with temporary appliance networking.
+# Build Titan 0.6.0 alpha.2: reconcile App Store state after Docker container removal.
 on:
   workflow_dispatch:
   push:

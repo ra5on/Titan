@@ -185,12 +185,14 @@ class DockerEngineMixin:
                     if not self.engine_active(row):
                         raise Error('Container ist nach der Aktion nicht gestartet. Logs prüfen.', 503)
                 state = row.get('State', {}).get('Status', 'unknown')
-            if managed:
+            app_removed = bool(managed and action == 'remove' and self._app_unregister_if_empty(managed))
+            if managed and not app_removed:
                 self._app_firewall_observed(managed)
             return {'ok': True, 'scope': 'container', 'container': container, 'app': managed,
-                    'action': action, 'state': state, 'data_retained': True,
+                    'action': action, 'state': state, 'data_retained': True, 'app_removed': app_removed,
                     'output': '\n'.join(value for value in output if value),
-                    'message': 'Container entfernt. Seine Volumes und Nutzdaten bleiben erhalten.' if action == 'remove' else
+                    'message': 'Letzten Paketcontainer entfernt und App deinstalliert. Konfiguration und Nutzdaten bleiben erhalten.' if app_removed else
+                        'Container entfernt. Seine Volumes und Nutzdaten bleiben erhalten.' if action == 'remove' else
                         'Container ist gestoppt.' if action == 'stop' else 'Container ist gestartet.'}
 
     def op_docker_image_pull(self, image):

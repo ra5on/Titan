@@ -138,6 +138,29 @@ class RecipeTests(unittest.TestCase):
 
 
 class NativeJournalTests(unittest.TestCase):
+    def test_all_removed_services_keep_configuration_but_are_not_installed(self):
+        self.install('titan-immich')
+        options = self.host._app_options('titan-immich')
+        self.host.container = None
+        current = self.status('titan-immich')
+        self.assertTrue(current['configured'])
+        self.assertFalse(current['installed'])
+        self.assertEqual(current['runtime']['state'], 'missing')
+        self.assertTrue(all(row['state'] == 'missing' for row in current['runtime']['services']))
+        self.assertEqual(self.host._app_options('titan-immich'), options)
+
+    def test_missing_primary_with_existing_peer_and_unknown_docker_state_stay_registered(self):
+        self.install('titan-immich')
+        with patch.object(self.host, 'op_package_details', return_value={
+                'primary_state': 'missing', 'ready': False, 'services': [
+                    {'id': 'titan-immich', 'state': 'missing'},
+                    {'id': 'titan-immich-database', 'state': 'exited'}]}):
+            self.assertTrue(self.status('titan-immich')['installed'])
+        with patch.object(self.host, 'op_package_details', side_effect=Error('Docker unavailable')):
+            current = self.status('titan-immich')
+        self.assertTrue(current['installed'])
+        self.assertEqual(current['runtime']['state'], 'blocked')
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

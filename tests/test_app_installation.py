@@ -110,6 +110,31 @@ class NativeInstallationTests(unittest.TestCase):
         self.assertFalse(current['runtime']['public_ready'])
         self.assertEqual(current['setup']['phase'], 'disconnected')
 
+    def test_external_container_removal_reports_configuration_only_without_deleting_secrets(self):
+        self.install()
+        path = self.host.directory / 'apps' / CONNECTOR / 'options.json'
+        before = path.read_bytes()
+        self.host.container = None
+        current = self.status()
+        self.assertFalse(current['installed'])
+        self.assertTrue(current['configured'])
+        self.assertEqual(current['runtime']['state'], 'missing')
+        self.assertEqual(current['status'], 'completed')  # Keep the historical journal.
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(len(self.host.load('apps', [])), 1)
+        self.assertNotIn(self.credential, json.dumps(current))
+
+    def test_stopped_container_and_docker_error_do_not_become_an_uninstall(self):
+        self.install()
+        self.host.container['State'].update(Running=False, Status='exited')
+        self.assertTrue(self.status()['installed'])
+        self.assertEqual(self.status()['runtime']['state'], 'stopped')
+        with patch.object(self.host, '_app_container', side_effect=Error('Docker unavailable')):
+            current = self.status()
+        self.assertTrue(current['installed'])
+        self.assertTrue(current['configured'])
+        self.assertEqual(current['runtime']['state'], 'blocked')
+
     def test_running_container_without_cloudflare_connection_is_failed_and_never_ready(self):
         self.ready.return_value = False
         with patch('titan.remote_access.time.monotonic', side_effect=[0, 30]), self.assertRaises(Error):

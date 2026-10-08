@@ -172,13 +172,15 @@ class AppInstallationMixin:
             journal['steps'] = [dict(row, status='failed', message='Durch Dienstneustart unterbrochen.') if row['status'] == 'running' else row for row in journal['steps']]
         config = self.web_access.config()
         remote = validate_remote(config.get('remote'))
-        installed = any(row['id'] == app for row in self.load('apps', []))
+        configured = any(row['id'] == app for row in self.load('apps', []))
+        installed = configured
         state, connected = 'missing', False
         if installed:
             try:
                 record = self.managed_app(app)
                 container = self._app_container(app, record)
-                state = 'running' if container and container.get('State', {}).get('Running') else 'stopped'
+                state = 'missing' if container is None else 'running' if container.get('State', {}).get('Running') else 'stopped'
+                installed = container is not None
                 connected = connector_ready(container)
             except Error:
                 state = 'blocked'
@@ -197,7 +199,7 @@ class AppInstallationMixin:
                   'started_at', 'finished_at', 'updated_at', 'message')}
         public['steps'] = [{key: row.get(key) for key in ('id', 'label', 'status', 'message', 'started_at', 'finished_at')} for row in journal['steps']]
         return {**public, 'revision': self._installation_revision(journal), 'resumable': resumable,
-                'installed': installed, 'available': True, 'demo': False, 'setup': setup,
+                'installed': installed, 'configured': configured, 'available': True, 'demo': False, 'setup': setup,
                 'remote': remote, 'remote_revision': config['revision'],
                 'diagnosis': diagnosis if diagnosis.get('revision') == config['revision'] else {},
                 'runtime': {'state': state, 'cloudflare_connected': connected, 'public_origin': remote['public_origin'],
@@ -210,17 +212,21 @@ class AppInstallationMixin:
         if journal['status'] == 'running' and app not in getattr(self, '_installation_active', set()):
             journal = {**journal, 'status': 'interrupted', 'message': 'Installation durch Dienstneustart unterbrochen. Schritte prüfen und fortsetzen.',
                 'steps': [dict(row, status='failed', message='Durch Dienstneustart unterbrochen.') if row['status'] == 'running' else row for row in journal['steps']]}
-        installed = any(row['id'] == app for row in self.load('apps', []))
+        configured = any(row['id'] == app for row in self.load('apps', []))
+        installed = configured
         details = {}
         if installed:
             try:
                 details = self.op_package_details(app)
             except (Error, OSError, ValueError, KeyError):
                 details = {'primary_state': 'blocked', 'ready': False}
+        services = details.get('services', [])
+        if services and all(row.get('state') == 'missing' for row in services):
+            installed = False
         runtime = {'state': details.get('primary_state', 'missing'), 'ready': details.get('ready') is True,
                    'services': [{key: row.get(key) for key in ('id', 'name', 'state', 'health', 'ready')} for row in details.get('services', [])]}
         configuration = None
-        if app == 'titan-tailscale' and installed:
+        if app == 'titan-tailscale' and configured:
             try:
                 from .native_apps import advertised_routes, tailscale_runtime
                 record = self.managed_app(app)
@@ -241,7 +247,7 @@ class AppInstallationMixin:
         public = {key: journal.get(key) for key in ('app', 'status', 'operation', 'installation', 'current_step', 'started_at', 'finished_at', 'updated_at', 'message')}
         public['steps'] = [{key: row.get(key) for key in ('id', 'label', 'status', 'message', 'started_at', 'finished_at')} for row in journal['steps']]
         return {**public, 'revision': self._installation_revision(journal), 'resumable': resumable,
-                'installed': installed, 'available': True, 'demo': False, 'runtime': runtime,
+                'installed': installed, 'configured': configured, 'available': True, 'demo': False, 'runtime': runtime,
                 **({'configuration': configuration} if configuration is not None else {}),
                 'setup': {'instructions': PACKAGES[app]['first_login']['instructions'], 'note': PACKAGES[app].get('note', ''),
                           'documentation': PACKAGES[app]['documentation']}}

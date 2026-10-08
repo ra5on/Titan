@@ -228,6 +228,50 @@ class AppLifecycleSafetyTests(unittest.TestCase):
         self.assertTrue((self.host.directory / 'apps/jellyfin/options.json').is_file())
         self.assertFalse(any('--force' in call or '-v' in call for call in self.calls))
 
+    def test_removing_last_cloudflare_container_unregisters_only_that_app_and_retains_files(self):
+        from test_cloudflare_tunnel import token
+        from titan.core import atomic_json
+        app = 'titan-cloudflared'
+        self.install()
+        # The production agent is root; this fixture runs as the developer.
+        # Only root ownership changes during recipe preparation are simulated.
+        with patch('titan.app_management.os.fchown'):
+            self.host._prepare_app_install(app, 0, options={'tunnel_token': token()})
+        row = self.member(app, app)
+        record = self.host.managed_app(app)
+        control = self.host.directory / 'apps' / app
+        before = (control / 'options.json').read_bytes()
+        data = Path(record['data']) / 'retained.txt'
+        data.write_text('user data')
+        private = self.host._installation_path(app, private=True)
+        private.parent.mkdir(mode=0o700, exist_ok=True)
+        atomic_json(private, {'operation': 'install', 'options': {'tunnel_token': token()}})
+        result = self.host.dispatch('docker_container_action', container=row['Id'], action='remove', stop_before_remove=True)
+        self.assertTrue(result['app_removed'])
+        self.assertTrue(result['data_retained'])
+        self.assertEqual([item['id'] for item in self.host.load('apps', [])], ['jellyfin'])
+        self.assertEqual((control / 'options.json').read_bytes(), before)
+        self.assertTrue((control / 'compose.json').is_file())
+        self.assertEqual(data.read_text(), 'user data')
+        self.assertFalse(private.exists())
+        status = self.host.op_app_install_status(app)
+        self.assertFalse(status['installed'])
+        self.assertFalse(status['configured'])
+
+    def test_removing_primary_with_remaining_dependency_does_not_unregister_stack(self):
+        app, redis, _ = self.legacy_redis()
+        primary = self.containers[app]['Id']
+        result = self.host.dispatch('docker_container_action', container=primary, action='remove', stop_before_remove=True)
+        self.assertFalse(result['app_removed'])
+        self.assertEqual([item['id'] for item in self.host.load('apps', [])], [app])
+        self.assertIn(app + '-redis', self.containers)
+
+    def test_failed_empty_package_inspection_keeps_registration(self):
+        self.install()
+        with patch.object(self.host, '_app_lifecycle_snapshot', side_effect=Error('Docker unavailable')):
+            with self.assertRaises(Error): self.host._app_unregister_if_empty('jellyfin')
+        self.assertEqual([item['id'] for item in self.host.load('apps', [])], ['jellyfin'])
+
     def test_preflight_needs_no_credentials_and_is_read_only_with_truthful_denial(self):
         from titan.app_memory import GIB
         before = sorted(str(path.relative_to(self.root)) for path in self.root.rglob('*'))

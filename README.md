@@ -4,9 +4,9 @@
 
 Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläche verbindet einen persönlichen Desktop mit Dateimanager, Speicherverwaltung, Freigaben, Docker-Compose-Apps, virtuellen Maschinen und signierten Systemupdates.
 
-**Version 0.6.0-alpha.1 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
+**Version 0.6.0-alpha.2 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
 
-[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.1/titan-0.6.0-alpha.1-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.1) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
+[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.2/titan-0.6.0-alpha.2-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.2) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
 
 ![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
 
@@ -58,6 +58,8 @@ Datei- und Ordnermenüs bieten Aktionen passend zur Auswahl und den Zugriffsrech
 Der App Store kombiniert Suche und Kategorien mit illustrierten Empfehlungen und kompakten App-Karten. Einrichten öffnet eine eigene Detailansicht mit Konfiguration und Installationsverlauf; die Rückkehr erhält die Store-Ansicht. Der gesamte Store scrollt gemeinsam. Titan bietet lokal gepflegte Compose-Rezepte an. **BigBear und externe Store-Downloads sind entfernt.** Vorhandene, früher installierte Anwendungen behalten ihre gespeicherte Vorlage, Konfiguration und Daten und bleiben verwaltbar.
 
 Die Einrichtung zeigt echte Schritte wie Docker prüfen, Dateien vorbereiten, Images laden, Container erstellen, starten und Bereitschaft prüfen. Der Verlauf bleibt nach einem Fensterwechsel erhalten. Fehler und unterbrochene Schritte bleiben sichtbar und lassen sich fortsetzen. Ein gestarteter Container allein wird nicht als erfolgreiche Einrichtung ausgegeben.
+
+Der Store gleicht den Installationsstatus mit den tatsächlichen Containern ab. Wird der letzte Container einer App in der Dockeransicht entfernt, wird auch ihre Installation abgemeldet; Konfiguration und Nutzdaten bleiben erhalten. Bei außerhalb von Titan entfernten Containern zeigt die Einrichtung „Container entfernt“, erklärt den Erhalt der Konfiguration und bietet **Neu erstellen** mit den gespeicherten Einstellungen an. Gestoppte Container und teilweise vorhandene Verbünde bleiben als installiert erkennbar; ein Fehler bei der Docker-Abfrage gilt nicht als Deinstallation.
 
 | App | Enthalten und Einrichtung |
 | --- | --- |

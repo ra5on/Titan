@@ -93,5 +93,16 @@ function fixture(saved){const doc=new Element();doc.body=new Element();doc.docum
  const animationCount=animations.length;af.view.matchMedia=query=>({matches:query.includes('prefers-reduced-motion')});animated.nodes['[data-frame-minimize]'].onclick();assert(animated.hidden);assert.equal(animations.length,animationCount,'Reduced motion applies the state directly');ad.route('#files');assert(!animated.hidden);assert.equal(animations.length,animationCount);
  af.view.matchMedia=()=>({matches:false});await animated.nodes['[data-frame-close]'].onclick();assert.equal(af.layer().children.length,1,'Closing waits for the exit animation');animations.at(-1).finish();await Promise.resolve();assert.equal(af.layer().children.length,0);ad.destroy();
  const emptyDock=fixture({dock_version:1,pins:[]}),ed=ui.mount({...options,doc:emptyDock.doc});ed.route('#files');assert.deepEqual(JSON.parse(emptyDock.values.get('titan-desktop-v2:alice')).pins,[],'An intentionally empty dock remains empty after the one-time migration');ed.destroy();
+ const changed=fixture(),cd=ui.mount({...options,doc:changed.doc,tools:[['apps','Apps','tool'],['docker','Docker','tool']]});
+ cd.route('#apps');cd.route('#docker');
+ const appFrame=changed.layer().children.find(node=>node.dataset.frame==='apps').nodes.iframe;
+ const sourceFrame=changed.layer().children.find(node=>node.dataset.frame==='docker').nodes.iframe;
+ changed.view.events.message({origin:'https://attacker',source:sourceFrame.contentWindow,data:{type:'titan-apps-changed'}});
+ changed.view.events.message({origin:'https://nas:5000',source:{},data:{type:'titan-apps-changed'}});
+ assert.equal(appFrame.contentWindow.messages.length,0,'Untrusted messages cannot invalidate the Store');
+ changed.view.events.message({origin:'https://nas:5000',source:sourceFrame.contentWindow,data:{type:'titan-apps-changed'}});
+ assert.deepEqual(appFrame.contentWindow.messages,[{value:{type:'titan-apps-invalidated'},origin:'https://nas:5000'}],'Docker changes refresh the retained App Store window');
+ assert.equal(sourceFrame.contentWindow.messages.length,0,'The mutation source is not reloaded');
+ cd.destroy();
  console.log('Desktop workspace: simultaneous retained documents, minimize/maximize/pin, per-user restore, bounds, role allowlist, trusted frame messages, unsaved-close confirmation and cleanup passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

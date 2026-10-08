@@ -2,6 +2,8 @@
 
 Titan 0.6.0 verbindet den persönlichen Desktop und seine Verwaltungsfenster mit einer gemeinsamen Gestaltung: eigene Landschaftsgrafiken, transparente Widgets, ein kompaktes Dock, ruhige Farben und zusammenhängende Fensterübergänge. **Titan bleibt Alpha.**
 
+**Korrektur in 0.6.0-alpha.2:** Nach dem Entfernen des letzten App-Containers in der Dockeransicht wird die Installation auch im App Store abgemeldet. Bereits geöffnete Store-Fenster erhalten den neuen Status. Bei außerhalb von Titan entfernten Containern zeigt der Store die erhaltene Konfiguration und bietet „Neu erstellen“ mit gespeicherten Einstellungen an. Gestoppte Container, teilweise entfernte Verbünde und fehlgeschlagene Docker-Abfragen werden nicht als vollständig deinstalliert gewertet. Konfiguration, Tokens und Nutzdaten bleiben beim Entfernen erhalten.
+
 - **Desktop:** persönliche Begrüßung, eigene SVG-Hintergründe und kompakte Apps ohne zusätzliche Symbolrahmen. Öffnen, Minimieren, Wiederherstellen und Maximieren folgen einer gemeinsamen Bewegung; reduzierte Bewegung wird berücksichtigt. Gespeicherte Positionen und Kontoeinstellungen bleiben erhalten.
 - **App Store:** horizontale Kategorien und Suche, eigene illustrierte Empfehlungen, kompakte App-Sammlungen und getrennte Einrichtungsansichten. Der Store scrollt gemeinsam. Native Compose-Apps und ihre echten Installationsschritte bleiben erhalten.
 - **Dateien:** eine schmale Pfad- und Werkzeugleiste, verstellbare Seitenleiste, Symbol-/Listenansicht und ein Ansichtsmenü für Größe, Abstand, Sortierung und Zusatzinformationen. Upload-Abbruch, Drag-and-drop und Dateiaktionen bleiben integriert.
@@ -15,4 +17,4 @@ Die lokale Demo zeigt Beispieldaten. Automatisierte Quellen- und UI-Prüfungen e
 
 Die A/B-Prüfung verwendet eine als Altstand markierte Kopie des aktuellen Builds; sie ersetzt keine nachgewiesene Migration von einem älteren veröffentlichten Image. Echte Hardware, externe Cloudflare-/Tailscale-Konten und die dynamische Auflösung beziehungsweise Zwischenablage konkreter Grafikgäste benötigen praktische Abnahme. Ein System-Rollback setzt gemeinsame App-Daten nicht zurück.
 
-[README mit eigenen Screenshots](../README.md) · [Lizenz und kommerzielle Zukunft](LICENSING.md) · [Installation](INSTALL.md) · [Release](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.1)
+[README mit eigenen Screenshots](../README.md) · [Lizenz und kommerzielle Zukunft](LICENSING.md) · [Installation](INSTALL.md) · [Release](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.2)
