@@ -236,6 +236,67 @@ class BackupTests(unittest.TestCase):
             self.backups.restore(backup["id"], "data", "restore-one")
         self.assertEqual((self.host.share_root / "data" / "hello.txt").read_text(), "valuable file")
 
+    def test_verified_archive_refreshes_plan_but_failed_archive_keeps_previous_success(self):
+        from titan.backup_freshness import overdue
+        enabled = datetime.datetime(2026, 10, 8, 2).timestamp()
+        finished = datetime.datetime(2026, 10, 8, 6).timestamp()
+        with patch("titan.backup_freshness.time.time", return_value=enabled):
+            self.backups.save_settings({"auto_backup": True, "window_hour": 3})
+        with patch("titan.backup_freshness.time.time", return_value=finished):
+            backup = self.backups.create()
+        self.assertEqual(self.host.load("backup-freshness", {})["last_success"], finished)
+        self.assertFalse(self.backups.running)
+        failed = datetime.datetime(2026, 10, 9, 6).timestamp()
+        with patch("titan.backup_freshness.time.time", return_value=failed), \
+                patch.object(self.backups, "verify", side_effect=Error("Archivprüfung fehlgeschlagen")):
+            with self.assertRaises(Error):
+                self.backups.create()
+        self.assertFalse(self.backups.running)
+        self.assertEqual(self.host.load("backup-freshness", {})["last_success"], finished)
+        self.assertEqual(self.backups.state()["last_success"]["backup"], backup["id"])
+        self.assertIsNotNone(overdue(self.host, self.backups.settings(), failed))
+
+    def test_retention_failure_does_not_record_deleted_first_archive_as_success(self):
+        from titan.backup_freshness import overdue
+        enabled = datetime.datetime(2026, 10, 8, 2).timestamp()
+        failed = datetime.datetime(2026, 10, 8, 6).timestamp()
+        with patch("titan.backup_freshness.time.time", return_value=enabled):
+            self.backups.save_settings({"auto_backup": True, "window_hour": 3})
+        with patch("titan.backup_freshness.time.time", return_value=failed), \
+                patch.object(self.backups, "retention", side_effect=OSError("Aufbewahrung fehlgeschlagen")) as retention:
+            with self.assertRaisesRegex(Error, "Aufbewahrung fehlgeschlagen"):
+                self.backups.create()
+        retention.assert_called_once_with()
+        self.assertFalse(self.backups.running)
+        self.assertEqual(self.backups.list(), [])
+        state = self.backups.state()
+        self.assertFalse(state["last"]["ok"])
+        self.assertNotIn("last_success", state)
+        self.assertNotIn("last_success", self.host.load("backup-freshness", {}))
+        self.assertIsNotNone(overdue(self.host, self.backups.settings(), failed))
+
+    def test_retention_failure_preserves_previous_archive_success_and_overdue_warning(self):
+        from titan.backup_freshness import overdue
+        enabled = datetime.datetime(2026, 10, 8, 2).timestamp()
+        finished = datetime.datetime(2026, 10, 8, 6).timestamp()
+        failed = datetime.datetime(2026, 10, 9, 6).timestamp()
+        with patch("titan.backup_freshness.time.time", return_value=enabled):
+            self.backups.save_settings({"auto_backup": True, "window_hour": 3})
+        with patch("titan.backup_freshness.time.time", return_value=finished):
+            backup = self.backups.create()
+        previous_success = self.backups.state()["last_success"]
+        with patch("titan.backup_freshness.time.time", return_value=failed), \
+                patch.object(self.backups, "retention", side_effect=Error("Aufbewahrung fehlgeschlagen")):
+            with self.assertRaisesRegex(Error, "Aufbewahrung fehlgeschlagen"):
+                self.backups.create()
+        self.assertFalse(self.backups.running)
+        self.assertEqual([item["id"] for item in self.backups.list()], [backup["id"]])
+        self.assertTrue(self.backups.verify(backup["id"])["ok"])
+        self.assertFalse(self.backups.state()["last"]["ok"])
+        self.assertEqual(self.backups.state()["last_success"], previous_success)
+        self.assertEqual(self.host.load("backup-freshness", {})["last_success"], finished)
+        self.assertIsNotNone(overdue(self.host, self.backups.settings(), failed))
+
     def test_unmounted_source_volume_aborts_backup_without_an_archive(self):
         with patch.object(self.host.storage_locations, "required_path", side_effect=Error("Volume nicht eingehängt", 503)), self.assertRaises(Error):
             self.backups.create(include_config=False)

@@ -114,7 +114,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove", "identity_apply", "identity_home", "user_quota"}
         read_ops = {"app_office_runtime", "identity_capabilities", "identity_baseline", "identity_homes", "user_quotas", "storage_maintenance", "backup_browse", "notification_settings", "vm_extensions", "package_details", "package_diagnose", "package_logs", "docker_engine", "docker_metrics", "docker_container_details","services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
                     "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "app_devices", "app_metrics", "shares_access"}
-        read_ops |= {'root_terminal_create', 'root_terminal_poll', 'root_terminal_write', 'root_terminal_resize', 'root_terminal_close'}
+        read_ops |= {'root_terminal_create', 'root_terminal_poll', 'root_terminal_write', 'root_terminal_resize', 'root_terminal_close', 'pool_recovery'}
         file_read = operation in {"file", "admin_file", "system_file", "root_system_file"} and args.get("action") in {"list", "read", "trash_list"}
         share_ops = {"share_create", "share_update", "share_user_permission", "share_remove", "identity_apply", "identity_home", "user_quota"}
         independent = job_resources(operation, args)
@@ -268,10 +268,21 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         mountpoint = self.share_root / name
         run(["zpool", "create", "-o", "ashift=12", "-O", "compression=lz4", "-O", "acltype=posixacl",
              "-O", "xattr=sa", "-O", "mountpoint=" + str(mountpoint), name, layout, *disks])
+        # Remember actual identity for later replacement, rather than trusting
+        # a pool with the same name after an administrator's external import.
+        from .storage_recovery import GUID
+        try:
+            guid = run(["zpool", "get", "-H", "-o", "value", "guid", name]).strip()
+            guid = guid if GUID.fullmatch(guid) and int(guid) < 2**64 else None
+        except Error:
+            guid = None
         remembered = self.load("pools", [])
-        if not any(item.get("name") == name for item in remembered):
-            self.save("pools", remembered + [{"name": name, "mountpoint": str(mountpoint)}])
-        return {"ok": True}
+        # A newly created name can have an older, externally removed record.
+        # Never retain that former pool's GUID or silently treat a failed GUID
+        # probe as a legacy record without an identity requirement.
+        self.save("pools", [item for item in remembered if item.get("name") != name] +
+                  [{"name": name, "mountpoint": str(mountpoint), "guid": guid or ""}])
+        return {"ok": True, "identity_recorded": bool(guid)}
 
     def dataset(self, name):
         if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{0,30}(?:/[a-z][a-z0-9_-]{0,30})*", name):

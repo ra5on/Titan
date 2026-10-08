@@ -1,6 +1,7 @@
 """Read-only hardware/service monitoring and persistent local UI notifications."""
 from .platforms import current as host_platform
 import hashlib
+import datetime
 import json
 from pathlib import Path
 import shutil
@@ -18,6 +19,35 @@ SERVICES = {"web": ("titan-web.service", "python3"), "agent": ("titan-agent.serv
             "https": ("titan-proxy.service", "caddy"), "samba": ("smb.service", "smbd"),
             "docker": ("docker.service", "docker"), "vms": ("virtqemud.socket", "virsh"),
             "zfs": ("zfs.target", "zpool")}
+
+
+def self_test_failure(data):
+    """Use explicit latest ATA/NVMe results, never old failures or text guesses.
+
+    smartmontools marks aborted/running ATA tests as unknown; NVMe result
+    codes 5, 6 and 7 report actual test errors. A user-aborted test is not a
+    failing disk. See the upstream ataprint.cpp/nvmeprint.cpp JSON writers.
+    """
+    status = data.get("ata_smart_data", {}).get("self_test", {}).get("status", {})
+    if type(status.get("passed")) is bool:
+        return str(status.get("string", "ATA-Selbsttest fehlgeschlagen"))[:200] if status["passed"] is False else None
+    logs = data.get("ata_smart_self_test_log", {})
+    for kind in ("extended", "standard"):
+        table = logs.get(kind, {}).get("table", [])
+        if table and isinstance(table[0], dict):
+            status = table[0].get("status", {})
+            value = status.get("value")
+            if type(value) is int and value >> 4 == 15:
+                return None
+            if type(status.get("passed")) is bool:
+                return str(status.get("string", "ATA-Selbsttest fehlgeschlagen"))[:200] if status["passed"] is False else None
+    table = data.get("nvme_self_test_log", {}).get("table", [])
+    latest = next((item for item in table if isinstance(item, dict)), None)
+    if latest:
+        result = latest.get("self_test_result", {})
+        if type(result.get("value")) is int and result["value"] in (5, 6, 7):
+            return str(result.get("string", "NVMe-Selbsttest fehlgeschlagen"))[:200]
+    return None
 
 
 class Monitor:
@@ -181,7 +211,7 @@ class Monitor:
         try:
             # smartctl exit codes are a bitmask: a health warning is useful output,
             # not a generic process failure. Never request a destructive SMART test.
-            result = subprocess.run(["smartctl", "-a", "-j", disk], text=True, capture_output=True, timeout=30,
+            result = subprocess.run(["smartctl", "-a", "-l", "selftest", "-j", disk], text=True, capture_output=True, timeout=30,
                                     env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C.UTF-8"})
             data = json.loads(result.stdout)
             health = data.get("smart_status", {}).get("passed")
@@ -191,6 +221,9 @@ class Monitor:
             if not isinstance(temperature, (int, float)) or not -40 <= temperature <= 200:
                 temperature = None
             value = {"name": disk, "health": "passed" if health is True else "failed" if health is False else "unknown", "temperature": temperature}
+            failure = self_test_failure(data)
+            if failure:
+                value["self_test_error"] = failure
             if result.returncode & 7:
                 value["error"] = "; ".join(item.get("string", "SMART-Abfrage fehlgeschlagen") for item in data.get("smartctl", {}).get("messages", []))[:500] or "SMART wird von diesem Laufwerk nicht unterstützt oder ist nicht erreichbar."
             return value
@@ -271,6 +304,9 @@ class Monitor:
                 for disk in state["disks"]:
                     if disk["health"] == "failed":
                         warn("smart:" + disk["name"], "Laufwerk meldet SMART-Fehler", disk["name"])
+                    if disk.get("self_test_error"):
+                        warn("smart:self-test:" + disk["name"], "Laufwerks-Selbsttest meldet einen Fehler",
+                             disk["name"] + ": " + disk["self_test_error"] + ". Daten sichern und Laufwerk prüfen.")
                     if disk.get("temperature") is not None and disk["temperature"] >= 55:
                         warn("temperature:" + disk["name"], "Laufwerk ist zu warm", f"{disk['name']}: {disk['temperature']} °C", "warning")
             except (Error, OSError, ValueError) as exc:
@@ -287,6 +323,18 @@ class Monitor:
             backup = self.host.load("backup-state", {}).get("last", {})
             if backup.get("ok") is False:
                 warn("backup:last", "Letztes Backup fehlgeschlagen", backup.get("error", "Unbekannter Backupfehler."))
+            from .backup_freshness import overdue
+            from .backups import DEFAULTS
+            backup_settings = {**DEFAULTS, **self.host.load("backup-settings", {})}
+            running = getattr(getattr(self.host, "_backups", None), "running", False) is True
+            missed = overdue(self.host, backup_settings, running=running)
+            if missed:
+                scheduled = datetime.datetime.fromtimestamp(missed["scheduled"]).strftime("%d.%m.%Y %H:%M")
+                last = (datetime.datetime.fromtimestamp(missed["last_success"]).strftime("%d.%m.%Y %H:%M")
+                        if missed["last_success"] is not None else "noch keine passende erfolgreiche Sicherung")
+                warn("backup:overdue", "Geplante Sicherung fehlt oder ist veraltet",
+                     "Seit dem geplanten Termin am " + scheduled + " wurde der ausgewählte Inhalt nicht vollständig erfolgreich gesichert. "
+                     "Zwei Stunden Kulanz sind abgelaufen. Letzter passender Erfolg: " + last + ". Backupziel und Zeitplan prüfen.", "warning")
             restored = self.host.load("config-restore-result", {})
             if restored.get("ok") is False:
                 warn("backup:config-restore", "Konfigurationswiederherstellung fehlgeschlagen",

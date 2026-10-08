@@ -45,6 +45,46 @@ class MonitoringTests(unittest.TestCase):
         self.assertTrue(alerts["smart:/dev/sda"]["active"])
         self.assertEqual(alerts["temperature:/dev/sda"]["severity"], "warning")
 
+    def test_latest_ata_self_test_failure_alerts_even_when_overall_health_passes_and_resolves(self):
+        smart = {"smart_status": {"passed": True}, "temperature": {"current": 30},
+                 "ata_smart_data": {"self_test": {"status": {"value": 112, "passed": False, "string": "read test error"}}}}
+        with patch("titan.monitoring.subprocess.run", return_value=SimpleNamespace(stdout=json.dumps(smart), returncode=128)):
+            state = self.monitor.check(force=True)
+        self.assertEqual(state["disks"][0]["health"], "passed")
+        alert = next(item for item in state["alerts"] if item["key"] == "smart:self-test:/dev/sda")
+        self.assertTrue(alert["active"])
+        self.assertEqual(alert["route"], "storage")
+        smart["ata_smart_data"]["self_test"]["status"] = {"value": 0, "passed": True, "string": "completed without error"}
+        with patch("titan.monitoring.subprocess.run", return_value=SimpleNamespace(stdout=json.dumps(smart), returncode=0)):
+            healthy = self.monitor.check(force=True)
+        self.assertFalse(next(item for item in healthy["alerts"] if item["id"] == alert["id"])["active"])
+
+    def test_nvme_latest_failure_is_distinct_from_aborted_successful_and_old_tests(self):
+        for value, failed in ((5, True), (6, True), (7, True), (0, False), (1, False), (2, False), (8, False), (15, False)):
+            with self.subTest(value=value):
+                smart = {"smart_status": {"passed": True}, "nvme_self_test_log": {"table": [
+                    {"self_test_result": {"value": value, "string": "latest result"}},
+                    {"self_test_result": {"value": 7, "string": "old error"}}]}}
+                with patch("titan.monitoring.subprocess.run", return_value=SimpleNamespace(stdout=json.dumps(smart), returncode=0)):
+                    measured = self.monitor._smart("/dev/nvme0n1")
+                self.assertEqual(bool(measured.get("self_test_error")), failed)
+
+    def test_ata_current_aborted_and_running_tests_are_not_guessed_to_be_failed(self):
+        for status in ({"value": 16, "string": "aborted by host"}, {"value": 240, "string": "in progress"}, {}):
+            with self.subTest(status=status):
+                smart = {"smart_status": {"passed": True}, "ata_smart_data": {"self_test": {"status": status}}}
+                with patch("titan.monitoring.subprocess.run", return_value=SimpleNamespace(stdout=json.dumps(smart), returncode=0)):
+                    self.assertNotIn("self_test_error", self.monitor._smart("/dev/sda"))
+
+    def test_ata_log_uses_latest_completed_result_and_ignores_historical_error(self):
+        for passed in (True, False):
+            with self.subTest(passed=passed):
+                smart = {"smart_status": {"passed": True}, "ata_smart_self_test_log": {"standard": {"table": [
+                    {"status": {"value": 0 if passed else 112, "passed": passed, "string": "latest result"}},
+                    {"status": {"value": 112, "passed": False, "string": "old error"}}]}}}
+                with patch("titan.monitoring.subprocess.run", return_value=SimpleNamespace(stdout=json.dumps(smart), returncode=128)):
+                    self.assertEqual(bool(self.monitor._smart("/dev/sda").get("self_test_error")), not passed)
+
     def test_hardware_temperature_warns_against_reported_limit_and_recovers(self):
         self.host.telemetry = Mock()
         sensor = {"id": "hwmon0:temp1", "label": "coretemp · Package", "kind": "cpu", "current": 92, "critical": 100}

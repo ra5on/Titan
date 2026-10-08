@@ -1,6 +1,6 @@
 # Titan: Dashboard und Verwaltung
 
-Stand: 8. Oktober 2026, Entwicklung für 0.6.0-alpha.1. Titan bleibt Alpha. Die älteren Abschnitte dokumentieren die Entwicklung der Oberfläche; die aktuelle Ergänzung steht unter [Desktop und Dialoge ab 0.5.6](#desktop-und-dialoge-ab-056). „VDSM“ verstehen wir hier als die Bedienidee von Synology DSM bzw. Virtual DSM, nicht als eine zusätzliche Titan-Laufzeit.
+Stand: 8. Oktober 2026, lokale Design- und Funktionsentwicklung nach 0.6.0-alpha.3. Titan bleibt Alpha. Die älteren Abschnitte dokumentieren die Entwicklung der Oberfläche; die aktuelle Ergänzung steht unter [Carbon als gemeinsame Gestaltung](#carbon-als-gemeinsame-gestaltung). „VDSM“ verstehen wir hier als die Bedienidee von Synology DSM bzw. Virtual DSM, nicht als eine zusätzliche Titan-Laufzeit.
 
 ## Was die Recherche hergibt
 
@@ -161,3 +161,51 @@ Der Dateimanager bündelt Navigation, Pfad und Ansichtsschalter in einer Werkzeu
 VM-Kacheln und Details verwenden dieselben Farben, Abstände und Übergänge. Polls animieren keine bestehenden Messwertkarten neu. Die noVNC-Konsole erhält maximale Arbeitsfläche und kleine überlagerte Aktionen. Der Standardmodus passt die feste Gastauflösung proportional ein; ein ausdrücklich ausgewählter Grafikmodus fordert zusätzlich eine Gastauflösung an. Das setzt einen unterstützten Grafikgast voraus und ersetzt keine Gasttreiber.
 
 UmbrelOS/TitanOS-Quellcode und Assets werden nicht übernommen. Die kommerzielle Entwicklungsgrenze und Pflichten für Fremdkomponenten sind in [LICENSING.md](LICENSING.md) festgehalten.
+
+## Design-Nacharbeit nach alpha.3
+
+Der Desktop erhält einen eigenen, mit Imagegen erzeugten Fjordhintergrund. Die drei vorhandenen SVG-Landschaften und gespeicherte persönliche Auswahlen bleiben erhalten. [Herkunft und vollständiger Prompt](../titan/web/wallpapers/README.md) dokumentieren das neue Asset. Die Widget-Galerie zeigt eigene SVG-Symbole und konkrete Beispielwerte; Systemstatus und Dock sind kompakter und folgen Hell/Dunkel.
+
+Die gemeinsame Fensterbasis verwendet semantische Farben. Eingebettete Arbeitsflächen lassen das Glas des Desktopfensters sichtbar; Karten, Menüs und Eingaben behalten eigene lesbare Flächen. Bei reduzierter Transparenz, erhöhtem Kontrast oder fehlender Unterstützung für Hintergrundunschärfe wird eine deckende Fläche verwendet. VM-Kacheln und Detailflächen folgen diesem Material; der Konsolenhintergrund bleibt für den Gast geeignet.
+
+Der App Store ordnet Cloudflare und die anderen eigenen Apps in einem gemeinsamen Raster an. Kleinere Empfehlungen, Suchleiste und Kategorien schaffen mehr Platz für Apps. Eine alte Mobilregel darf nur noch eigenständige Seiten auf Dokumentscrollen umstellen; eingebettete Apps behalten ihren begrenzten Scrollbereich. Cloudflare-Statusabfragen erhalten aktive Formularknoten, Entwürfe, geöffnete Hilfen, Fokus und Scrollposition. Geprüfte öffentliche Zugangslinks werden weiterhin aktualisiert.
+
+Dateimanager und Systemeinstellungen haben engere Abstände und klarere Hierarchien. Die Dateiansicht verwendet eigene geschichtete Ordnersymbole und eine gemeinsame untere Leiste für Pfad und Seiteninformationen. Die Einstellungen gruppieren kompakte Zeilen neben der Geräteübersicht. Docker bündelt seine Kennzahlen und verwendet niedrigere Listenzeilen und ruhigere Detailflächen.
+
+Diese Nacharbeit ist lokal überprüft; das veröffentlichte alpha.3-Image enthält sie noch nicht. Die Browsernachweise und Grenzen stehen in [VERIFY-0.6.0.md](VERIFY-0.6.0.md).
+
+## Carbon als gemeinsame Gestaltung
+
+Das vom Nutzer bestätigte Titan-Symbol und der TITAN-Schriftzug bleiben die Grundlage. 17 eigene Werkzeug-SVGs und das allgemeine Containersymbol verwenden jetzt dunkle Carbonflächen, silberne Funktionszeichen und zurückhaltende Lichtkanten. Unterschiedliche Aufgaben bleiben an ihren Formen erkennbar, etwa Benutzer und Gruppen oder Ressourcen und Monitoring. Die Einstellungen verwenden dieselben Symbole wie Desktop und Hauptmenü. Herkunft und Dateien stehen unter [branding/README.md](branding/README.md).
+
+Gemeinsame semantische Farben verbinden Graphit und Silber im Dunkelmodus mit Platinflächen und dunklem Text im Hellmodus. Das feine Carbonmuster bleibt auf Fensterköpfe, Dock, Menüs, Widgets und andere Rahmenelemente begrenzt; Daten, Formulare und Texte behalten ruhige lesbare Hintergründe. Anmeldung, App Store, Dateimanager, Docker, VM-Verwaltung, Speicher, Einstellungen und die Titan-Kopfzeile des Office-Fensters folgen dieser Palette. Persönliche Transparenz und die Fallbacks für reduzierte Transparenz, erhöhten Kontrast oder fehlende Hintergrundunschärfe bleiben wirksam.
+
+Dock und Live-Widgets verwenden in beiden Darstellungsmodi dunkles transparentes Rauchglas mit silberner Schrift. Die gemeinsame Tönung folgt dem persönlichen Transparenzregler; reduzierte Transparenz und fehlende Hintergrundunschärfe erhalten eine deckende dunkle Fläche.
+
+Die Originaldateien fremder App-Symbole werden nicht umgezeichnet oder ersetzt. CSS stellt sie in den betroffenen Titan-Ansichten in Graustufen dar; Appnamen und Zuordnung bleiben sichtbar. Ordner, Dateitypen und eigene Illustrationen verwenden ebenfalls neutrale Flächen. Zustandsfarben für Erfolg, Warnung und Fehler bleiben erhalten; Tastaturfokus und Auswahl verwenden eigene erkennbare Konturen und Flächen.
+
+Auch die eigenen Konsolen-Bedienelemente folgen Graphit beziehungsweise Platin: Titelleiste, Schnellaktionen, Verbindungsanzeige und Zwischenablage. Eingebettete VM-Konsolen übernehmen Änderungen live vom Desktop; eigenständige Tabs lesen die gespeicherte Kontodarstellung einmal beim Öffnen. Die Terminalfläche verwendet Graphit mit silberner Grundschrift und Cursor. ANSI-Ausgabefarben und das Bild des VM-Gasts bleiben erhalten. [Hauptmenü](images/titan-main-menu.jpg) und [Terminal](images/titan-terminal.jpg) zeigen den gemeinsamen Stil.
+
+Die Footer-Ausblendung des äußeren Desktoprahmens ist auf genau diesen Rahmen begrenzt. Footer innerhalb einer Anwendung, etwa Dockerstatus oder die Aktionen im RAID-Dialog, bleiben erreichbar. Kompakte Abstände und bestehende Scrollbereiche halten Daten und Aktionen auch in kleineren Fenstern zugänglich.
+
+Der neue RAID-Dialog trennt Zustandsanzeige, Prüfung der Ersatzplatten und bestätigten Start. Ausgeschlossene Platten erhalten einen konkreten Grund. Poolname und Gerätepfad müssen selbst eingegeben werden; Ja steht links, Nein rechts. Nach dem Start bleibt die tatsächliche ZFS-Statusanzeige sichtbar, während die Austauschfelder entfallen. Schließen beendet die Anzeigeabfragen, nicht den ZFS-Wiederaufbau. [RAID-RECOVERY.md](RAID-RECOVERY.md) beschreibt den vollständigen Ablauf und die unterstützten Fälle.
+
+Überfällige Sicherungen und explizite Fehler des letzten SMART-Selbsttests erscheinen über den vorhandenen Meldungskanal. Die [NAS-Funktionsprüfung](NAS-FUNCTION-AUDIT.md) benennt zusätzlich die offenen Wiederherstellungs-, USV- und Sicherungsfunktionen. Automatisierte Nachweise und Hardwaregrenzen stehen in [VERIFY-0.6.0.md](VERIFY-0.6.0.md). Dieser Stand ist noch nicht als neues Image veröffentlicht.
+
+
+## Menüführung und Scrollen in alpha.4
+
+Das Hauptmenü verwendet kleinere Symbolflächen und weniger Zeilenabstand.
+Einstellungsgruppen und Zeilen sind verdichtet; Abschnittsnavigation und
+Übersicht verwenden eigene Carbon-Symbole. Der gemeinsame Name lautet
+„Einstellungen“. Seitenaktionen scrollen mit; niedrige Datei-, Speicher- und
+VM-Detailfenster führen ihre Werkzeuge im selben Scrollbereich. Die Gastkonsole
+behält ihren eigenen Anzeigebereich. Mobile Speicher-Tabs bilden eine einzelne
+horizontal verschiebbare Zeile. Details, Tastaturfokus und Katalogpositionen
+gehen bei Aktualisierung beziehungsweise Rückkehr nicht verloren.
+
+Fensterzustand und Dock hängen beim Schließen nicht vom Ende einer Animation
+ab. Ausblendende Fenster sind sofort für Eingaben gesperrt; Animationen haben
+eine kurze Abschlussfrist und werden im Hintergrund übersprungen.
+
+[Prüfumfang und Browserbeobachtungen](UI-NAVIGATION-AUDIT.md).

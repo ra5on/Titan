@@ -4,13 +4,13 @@
 
 Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläche verbindet einen persönlichen Desktop mit Dateimanager, Speicherverwaltung, Freigaben, Docker-Compose-Apps, virtuellen Maschinen und signierten Systemupdates.
 
-**Version 0.6.0-alpha.3 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
+**Version 0.6.0-alpha.4 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
 
-[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.3/titan-0.6.0-alpha.3-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.3) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
+[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.4/titan-0.6.0-alpha.4-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.4) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
 
 ![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
 
-*Die Screenshots zeigen die lokale Demo mit Beispieldaten. Die Demo führt keine Installationen oder Änderungen am echten NAS aus.*
+*Die Screenshots zeigen die Carbon-Oberfläche von 0.6.0-alpha.4 mit Beispieldaten. Die Demo führt keine Installationen oder Änderungen am echten NAS aus.*
 
 ## Installieren und öffnen
 
@@ -21,23 +21,29 @@ Für eine neue Test-VM: **UEFI/OVMF, Secure Boot aus, 8 GiB RAM, mindestens 2 CP
 3. Titan starten und im eigenen Netz `https://<NAS-IP>` öffnen.
 4. Den Administrator selbst einrichten. Es gibt kein vorgegebenes Kennwort.
 
-Neuinstallationen verwenden **HTTPS auf Port 443**; HTTP auf Port 80 leitet dorthin weiter. Das lokale Zertifikat ist selbstsigniert. Bestehende Installationen behalten bei einem Update ihre bisherigen Webports. Unter **Systemsteuerung → Allgemein → Webzugriff** können Protokoll und Ports geändert werden. Die neue Adresse muss innerhalb von **120 Sekunden** bestätigt werden; sonst stellt Titan die bisherige Einstellung wieder her.
+Neuinstallationen verwenden **HTTPS auf Port 443**; HTTP auf Port 80 leitet dorthin weiter. Das lokale Zertifikat ist selbstsigniert. Bestehende Installationen behalten bei einem Update ihre bisherigen Webports. Unter **Einstellungen → Allgemein → Webzugriff** können Protokoll und Ports geändert werden. Die neue Adresse muss innerhalb von **120 Sekunden** bestätigt werden; sonst stellt Titan die bisherige Einstellung wieder her.
 
 [Installationsanleitung](docs/INSTALL.md) · [Image, Partitionen und Proxmox](docs/TITAN-IMAGE.md)
 
 ## Persönlicher Desktop
 
-Ein eigener Landschaftshintergrund, eine persönliche Begrüßung, frei platzierbare Apps und transparente Live-Widgets bilden den Desktop. Das kompakte Dock hält die Werkzeuge erreichbar. Jedes Konto erhält eigene Verknüpfungen, Widgetpositionen und Darstellungsoptionen. Fenster lassen sich öffnen, verschieben, verkleinern und minimieren. Die Seitenleisten in Dateimanager, VM-Verwaltung, Docker, Speicher und Systemsteuerung können am Trenner breiter oder schmaler gezogen werden.
+Ein eigener Landschaftshintergrund, eine persönliche Begrüßung, frei platzierbare Apps und transparente Live-Widgets bilden den Desktop. Das kompakte Dock hält die Werkzeuge erreichbar. Jedes Konto erhält eigene Verknüpfungen, Widgetpositionen und Darstellungsoptionen. Fenster lassen sich öffnen, verschieben, verkleinern und minimieren. Die Seitenleisten in Dateimanager, VM-Verwaltung, Docker, Speicher und Einstellungen können am Trenner breiter oder schmaler gezogen werden.
 
-Öffnen, Minimieren, Wiederherstellen und Maximieren verwenden zusammenhängende Fensterübergänge. Bei reduzierter Bewegung entfallen die Animationen. Live-Messwerte lösen keine neue Einblendanimation aus.
+Die neue Hintergrundoption **Fjord** wurde eigens für Titan mit Imagegen erzeugt. Vorhandene Hintergrundauswahlen bleiben erhalten. Herkunft und Generierungsprompt stehen bei den [Hintergründen](titan/web/wallpapers/README.md).
 
-Im Kontomenü stehen **Hell, Dunkel und Automatisch** sowie ein globaler Transparenzregler für den eigenen Desktop bereit. Automatisch folgt dem Betriebssystem. Bereits geöffnete Titan-Fenster und Konsolen wechseln mit. Für einen Klick auf freien Desktop lässt sich auswählen, ob die Fenster minimiert werden oder nichts geschieht.
+Das kantige Titan-Symbol und der TITAN-Schriftzug bestimmen die Gestaltung: 18 eigene schwarze Carbon-Symbole für Titan-Werkzeuge und Container, Graphit- und Silberflächen, feine Lichtkanten und ein heller Platinmodus. Dock, Widgets, Fenster, App Store, Dateimanager, Einstellungen und Titan-Kopfzeilen folgen derselben Formsprache. Fremde App-Symbole erscheinen über CSS in Graustufen; ihre Originaldateien bleiben unverändert. Warnungen und Fehler behalten ihre erkennbaren Zustandsfarben. [Dateien, Herkunft und Entwurf](docs/branding/README.md) sind separat dokumentiert.
+
+Öffnen, Minimieren, Wiederherstellen und Maximieren verwenden zusammenhängende Fensterübergänge. Bei reduzierter Bewegung entfallen die Animationen. Live-Messwerte lösen keine neue Einblendanimation aus. Beim Schließen ändern sich Dock und gespeicherter Zustand sofort; die Bedienung wartet nicht auf eine Hintergrundanimation.
+
+Im Kontomenü stehen **Hell, Dunkel und Automatisch** sowie ein globaler Transparenzregler für den eigenen Desktop bereit. Automatisch folgt dem Betriebssystem. Bereits geöffnete Titan-Fenster und eingebettete Konsolen wechseln mit; eigenständige VM-Konsolentabs laden die gespeicherte Darstellung beim Öffnen. Für einen Klick auf freien Desktop lässt sich auswählen, ob die Fenster minimiert werden oder nichts geschieht.
 
 Über **Widgets hinzufügen** öffnet sich eine Galerie für Uhr, CPU, RAM, Systemstatus, Meldungen und Aktivität. Die Karten lassen sich einzeln platzieren. Regelmäßige Messwertupdates ändern die Werte innerhalb der bestehenden Karten; die Widgets werden dabei nicht neu aufgebaut. Systemmesswerte bleiben Administratoren vorbehalten.
 
 Rechtsklick, längeres Drücken oder **Umschalt+F10** öffnen passende Schnellaktionen. Auf Desktop und im Hauptmenü können Verknüpfungen hinzugefügt oder entfernt und Appaktionen geöffnet werden. Innerhalb von Anwendungen greifen die Menüs auf die jeweiligen vorhandenen Aktionen zu. Das Entfernen einer Desktop-Verknüpfung deinstalliert keine App. Bestätigungen zeigen die positive Aktion links und **Nein/Abbrechen rechts**.
 
 ![Widget-Galerie zum Hinzufügen und Entfernen einzelner Karten](docs/images/titan-widgets.jpg)
+
+[Menüführung, Platzverteilung und Browserprüfung](docs/UI-NAVIGATION-AUDIT.md)
 
 ## Dateien verwalten
 
@@ -55,7 +61,7 @@ Datei- und Ordnermenüs bieten Aktionen passend zur Auswahl und den Zugriffsrech
 
 ![Titan Apps mit eigenen Docker-Compose-Rezepten](docs/images/titan-apps.jpg)
 
-Der App Store kombiniert Suche und Kategorien mit illustrierten Empfehlungen und kompakten App-Karten. Einrichten öffnet eine eigene Detailansicht mit Konfiguration und Installationsverlauf; die Rückkehr erhält die Store-Ansicht. Der gesamte Store scrollt gemeinsam. Titan bietet lokal gepflegte Compose-Rezepte an. **BigBear und externe Store-Downloads sind entfernt.** Vorhandene, früher installierte Anwendungen behalten ihre gespeicherte Vorlage, Konfiguration und Daten und bleiben verwaltbar.
+Der App Store kombiniert Suche und Kategorien mit illustrierten Empfehlungen und kompakten App-Karten. Einrichten öffnet eine eigene Detailansicht mit Konfiguration und Installationsverlauf; die Rückkehr erhält die Store-Ansicht. Der gesamte Store scrollt gemeinsam. Details beginnen oben; Zurück erhält Scrollposition und Fokus. Titan bietet lokal gepflegte Compose-Rezepte an. **BigBear und externe Store-Downloads sind entfernt.** Vorhandene, früher installierte Anwendungen behalten ihre gespeicherte Vorlage, Konfiguration und Daten und bleiben verwaltbar.
 
 Die Einrichtung zeigt echte Schritte wie Docker prüfen, Dateien vorbereiten, Images laden, Container erstellen, starten und Bereitschaft prüfen. Der Verlauf bleibt nach einem Fensterwechsel erhalten. Fehler und unterbrochene Schritte bleiben sichtbar und lassen sich fortsetzen. Ein gestarteter Container allein wird nicht als erfolgreiche Einrichtung ausgegeben.
 
@@ -100,6 +106,16 @@ Das **Titan-Terminal** und die **VM-Konsole** besitzen kompakte Werkzeugleisten,
 
 ![Titan-Terminal mit Schnellaktionen](docs/images/titan-terminal.jpg)
 
+## Speicher, RAID und Sicherungen
+
+Unter **Speicher → Speicherbereiche → Pool auswählen → RAID-Zustand / Reparatur** zeigt Titan Mitglieder, Fehlerzähler und Wiederaufbaustatus eines ZFS-Pools. Für einfache verwaltete **Mirror-, RAIDZ1- und RAIDZ2-Verbünde** mit ausreichender Restredundanz kann ein ausgefallenes Mitglied durch eine geprüfte leere Platte ersetzt werden. Titan prüft unter anderem Größe, eindeutige Laufwerksidentität, Belegung und SMART-Zustand und verlangt die ausdrückliche Bestätigung von Poolname und Ersatzplatte. Ein geänderter Zustand sperrt eine veraltete Bestätigung. Der Dialog zeigt den von ZFS gemeldeten Resilverfortschritt; der Auftragsstart allein gilt noch nicht als abgeschlossene Wiederherstellung.
+
+RAID0, einzelne Ext4-/XFS-Platten, nicht mehr zugängliche Pools und komplexe ZFS-Topologien erhalten keinen automatischen Wiederaufbau. RAID und Snapshots ersetzen keine unabhängige Sicherung. [Ablauf, Voraussetzungen und Grenzen](docs/RAID-RECOVERY.md) erklären den geführten Laufwerkstausch. Dieser wurde automatisiert und in einer isolierten Demo geprüft; ein echter Plattenausfall und Wiederaufbau auf Testhardware sind noch nachzuweisen.
+
+Der tägliche oder wöchentliche Sicherungsplan erhält eine Warnung, wenn nach dem fälligen Termin und zwei Stunden Kulanz keine passende verifizierte Sicherung vorliegt. Teil- und reine VM-Sicherungen erfüllen einen umfassenderen Plan nicht. Ein laufender Kopiervorgang löst keine solche Warnung aus. Die bestehende optionale E-Mail-Zustellung kann die Meldung versenden. Das Laufwerksmonitoring meldet zusätzlich explizite Fehler des letzten ATA-/NVMe-Selbsttests, auch wenn der SMART-Gesamtzustand noch positiv ist.
+
+Die [NAS-Funktionsprüfung](docs/NAS-FUNCTION-AUDIT.md) hält vorhandene Funktionen und offene Lücken fest. Besonders wichtig bleiben der geführte Wiederanlauf nach Verlust der Systemplatte, USV-Einbindung, verschlüsselte inkrementelle Sicherungen und wiederkehrende VM-Sicherungen. Diese Funktionen sind noch nicht vollständig umgesetzt.
+
 ## Anmeldung, Verwaltung und Updates
 
 ![Titan Anmeldung](docs/images/titan-login.jpg)
@@ -110,9 +126,9 @@ Die Anmeldung unterstützt Passwort, optionalen zweiten Faktor und Anmeldeschutz
 
 Titan verwendet zwei Systembereiche. Ein Update schreibt den inaktiven Bereich; ein bestätigter vorheriger Systemstand kann wieder ausgewählt werden. **Ein System-Rollback setzt gemeinsam genutzte App-Daten und Datenbanken nicht zurück.** Unabhängige Sicherungen und eine praktisch geprüfte Wiederherstellung bleiben erforderlich. Eine App-Wiederherstellung benötigt ein gestopptes, weiterhin passendes installiertes Paket und lässt die App anschließend gestoppt.
 
-Die Systemsteuerung zeigt links Geräteinformationen und Live-Ressourcen, rechts durchsuchbare Einstellungsgruppen. Einzelne Bereiche öffnen mit ihrer passenden Navigation; Favoriten und Ansicht bleiben persönlich gespeichert.
+Die Einstellungen zeigt links Geräteinformationen und Live-Ressourcen, rechts durchsuchbare Einstellungsgruppen. Einzelne Bereiche öffnen mit ihrer passenden Navigation; Favoriten und Ansicht bleiben persönlich gespeichert.
 
-![Systemsteuerung mit Geräteübersicht und gruppierten Einstellungen](docs/images/titan-settings.jpg)
+![Einstellungen mit Geräteübersicht und gruppierten Einstellungen](docs/images/titan-settings.jpg)
 
 Weitere Bereiche umfassen Ext4/XFS/ZFS-Speicher, Laufwerksstatus, Dienste, Freigaben und Systemressourcen. Destruktive Aktionen und Änderungen an Netzwerk oder Systemschutz bleiben ausdrücklich bestätigungspflichtig.
 

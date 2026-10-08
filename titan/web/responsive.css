@@ -21,11 +21,12 @@
 
 .app-live-grid{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:11px;margin-top:8px}.app-live-grid span{display:flex;gap:5px;color:var(--muted)}.app-live-grid strong{color:var(--text);font-variant-numeric:tabular-nums}
 .tile-handle{cursor:grab;touch-action:none}.tile-handle:active{cursor:grabbing}.layout-placeholder{opacity:.25;outline:2px dashed #4188da;outline-offset:-4px}.layout-floating{pointer-events:none!important;opacity:.94;box-shadow:0 18px 48px #203a6544!important;border:2px solid #458cdd!important;border-radius:16px;background:#fff;z-index:10000!important}
-/* Mobile pages have one scrolling surface, leaving the screen for content. */
+/* Standalone mobile pages scroll as a document. Embedded apps keep their own
+   bounded scroll surface inside the desktop window. */
 @media(max-width:700px){
- #shell:not([data-page=files]):not([data-page=terminal]):not([data-page=vms]) main{display:block;overflow:auto;overscroll-behavior:contain;padding:6px}
- #shell:not([data-page=files]):not([data-page=terminal]):not([data-page=vms]) .nas-window{height:auto!important;max-height:none;min-height:calc(100dvh - 78px);overflow:visible;display:block}
- #shell:not([data-page=files]):not([data-page=terminal]):not([data-page=vms]) .nas-window-content{height:auto;max-height:none;overflow:visible;display:block}
+ html:not([data-desktop-embedded=true]) #shell:not([data-page=files]):not([data-page=terminal]):not([data-page=vms]) main{display:block;overflow:auto;overscroll-behavior:contain;padding:6px}
+ html:not([data-desktop-embedded=true]) #shell:not([data-page=files]):not([data-page=terminal]):not([data-page=vms]) .nas-window{height:auto!important;max-height:none;min-height:calc(100dvh - 78px);overflow:visible;display:block}
+ html:not([data-desktop-embedded=true]) #shell:not([data-page=files]):not([data-page=terminal]):not([data-page=vms]) .nas-window-content{height:auto;max-height:none;overflow:visible;display:block}
  #shell .nas-window-bar{padding:4px 10px;min-height:44px}.window-control{min-height:36px}
  #shell .mv-manager[data-manager=docker]{min-height:0;display:flex;flex-direction:column;overflow:visible;border:0}
  #shell [data-manager=docker] .mv-sidebar{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:4px 8px;scrollbar-width:thin;align-items:center;position:static}

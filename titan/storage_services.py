@@ -5,6 +5,20 @@ from .notification_delivery import NotificationDelivery
 
 class StorageServicesMixin:
     @property
+    def storage_recovery(self):
+        if not hasattr(self, "_storage_recovery"):
+            from .host import run
+            from .storage_recovery import StorageRecovery
+            self._storage_recovery = StorageRecovery(self, lambda *args, **kwargs: run(*args, **kwargs))
+        return self._storage_recovery
+
+    def op_pool_recovery(self, pool):
+        return self.storage_recovery.status(pool)
+
+    def op_pool_replace(self, **arguments):
+        return self.storage_recovery.replace(**arguments)
+
+    @property
     def maintenance(self):
         if not hasattr(self, "_maintenance"):
             from .host import run

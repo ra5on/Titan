@@ -33,7 +33,7 @@ from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal
 from .root_access import RootAccessApplicationMixin, RootAccessHTTPMixin
 
 WEB = Path(__file__).parent / "web"
-MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
+MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "pool_replace", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
              "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
              "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "backup_app_restore", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore_new", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
@@ -124,6 +124,9 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
             raise Error("Administratorrechte sind nicht mehr gültig.", 403)
         if operation == "system_disk_grow":
             validate_system_disk_growth(arguments)
+        if operation == "pool_replace":
+            from .storage_recovery import validate_replace
+            validate_replace(arguments)
         if application == "backups" and current["role"] != "admin":
             from .backup_authorization import web_authorize
             current = web_authorize(self.store, self.agent, current, operation, arguments)
@@ -572,6 +575,9 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             if path == "/api/storage/maintenance":
                 if query: raise Error("Speicherprüfungen unterstützen keine Optionen.")
                 return self.reply(self.app.agent.call("storage_maintenance"))
+            if path == "/api/storage/recovery":
+                if set(query) != {"pool"}: raise Error("Genau einen ZFS-Pool auswählen.")
+                return self.reply(self.app.agent.call("pool_recovery", pool=identifier(query["pool"])))
             if path == "/api/backup/browse":
                 if set(query) - {"backup", "path", "offset", "limit"} or "backup" not in query:
                     raise Error("Sicherung auswählen.")
@@ -875,6 +881,9 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 validate_system_action(operation, arguments)
             if operation == "system_disk_grow":
                 validate_system_disk_growth(arguments)
+            if operation == "pool_replace":
+                from .storage_recovery import validate_replace
+                validate_replace(arguments)
             if operation == "app_network_create":
                 from .app_networks import validate_create
                 if "name" not in arguments or set(arguments) - {"name", "subnet", "gateway", "internal"}:

@@ -264,7 +264,7 @@
    }
   };
   try {
-   const options = {cols:80, rows:24, cursorBlink:true, scrollback:5000, fontFamily:'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize:14, disableStdin:true, allowProposedApi:false, theme:{background:'#101820', foreground:'#d9e5ea', cursor:'#83d1c4', selectionBackground:'#426a7780'}};
+   const options = {cols:80, rows:24, cursorBlink:true, scrollback:5000, fontFamily:'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize:14, disableStdin:true, allowProposedApi:false, theme:{background:'#101214', foreground:'#eef0f2', cursor:'#c7cdd4', selectionBackground:'#69717d80'}};
    term = ctx.terminalFactory ? ctx.terminalFactory(options) : new view.Terminal(options);
    fit = ctx.fitFactory ? ctx.fitFactory() : view.FitAddon?.FitAddon ? new view.FitAddon.FitAddon() : null;
    if (fit) term.loadAddon(fit);

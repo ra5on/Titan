@@ -60,7 +60,6 @@ for(const [file,selector,property,expected]of [
  ['storage_backup.css','.storage-navigation','background','var(--panel-soft)'],
  ['storage_backup.css','.storage-health-summary.warning','background','var(--warning-bg)'],
  ['apps_center.css','.ac-status','background','var(--panel-soft)'],
- ['apps_center.css','.ac-app-card','background','var(--panel)'],
  ['apps_center.css','.ac-app-icon','background','var(--selected)'],
  ['compact_ui.css','.security-tabs button[aria-selected=true]','color','var(--selected-text)'],
  ['package_center.css','.package-summary','background','var(--panel-soft)'],
@@ -73,6 +72,7 @@ for(const [file,selector,property,expected]of [
  ['nas_desktop.css','.meter.teal span','background','var(--success)'],
  ['nas_desktop.css','.legend span:before','background','var(--accent)'],
 ])assert.equal(value(file,selector,property),expected,`${file}: ${selector} ${property}`);
+assert.match(value('apps_center.css','.ac-app-card','background'),/linear-gradient\(.*var\(--panel\).*var\(--panel-soft\)/,'Store glass surfaces keep the semantic light/dark palette');
 assert.match(value('nas_desktop.css','dialog::backdrop','background'),/transparent/,'The modal backdrop remains translucent in both modes');
 const actionSurfaces=rules('responsive.css').filter(rule=>rule.selector==='.form-actions'&&Object.hasOwn(rule.properties,'background'));
 assert(actionSurfaces.length,'Responsive form action surfaces are explicitly defined');

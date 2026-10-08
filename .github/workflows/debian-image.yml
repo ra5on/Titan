@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0 alpha.3: absorb local backend connection bursts on desktop load.
+# Build Titan 0.6.0 alpha.4: Carbon desktop, compact navigation and NAS recovery.
 on:
   workflow_dispatch:
   push:

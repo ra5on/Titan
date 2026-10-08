@@ -1,6 +1,8 @@
 'use strict';
 (async function(){
  const status=document.getElementById('office-status'),session=new URLSearchParams(location.search).get('session');let editor;
+ // The document editor owns its canvas; Titan owns the surrounding chrome.
+ void fetch('/api/launcher-layout',{credentials:'same-origin'}).then(response=>response.ok?response.json():null).then(layout=>{if(layout?.desktop)window.TitanTheme?.set(layout.desktop);}).catch(()=>{});
  document.getElementById('office-close').addEventListener('click',()=>{editor?.destroyEditor?.();window.close();status.textContent='Dokument geschlossen. Du kannst diese Ansicht schließen.';});
  try{
   if(!session)throw Error('Dokument erneut aus dem Dateimanager öffnen.');

@@ -121,6 +121,7 @@ class Backups:
     def __init__(self, host, run, web_db="/var/lib/titan/titan.sqlite3"):
         self.host, self.run, self.web_db = host, run, Path(web_db)
         self.lock = threading.RLock()
+        self.running = False
 
     @contextlib.contextmanager
     def _data_fd(self, path):
@@ -172,8 +173,11 @@ class Backups:
 
     def save_settings(self, value):
         with self.lock:
+            previous = self.settings()
             result = self.validate_settings(value)
             self.host.save("backup-settings", result)
+            from .backup_freshness import activate
+            activate(self.host, result, force=not previous["auto_backup"])
             return result
 
     def selected_shares(self, names):
@@ -340,6 +344,8 @@ class Backups:
             state["last"]["error"] = str(error)[:1000]
         if backup:
             state["last"]["backup"] = backup
+        if ok:
+            state["last_success"] = dict(state["last"])
         self.host.save("backup-state", state)
 
     def list(self):
@@ -557,6 +563,7 @@ class Backups:
 
     def _create(self, kind, details, write):
         destination = None
+        self.running = True
         try:
             base = self.namespace(create=True)
             backup = "b-" + datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + secrets.token_hex(6)
@@ -584,8 +591,13 @@ class Backups:
                 self._target_fd(fd)
                 fd_json(fd, "manifest.json", manifest)
             self.verify(backup)
-            self._last(True, backup=backup)
+            # Retention is part of creating a usable backup. If it fails, the
+            # exception path removes this archive, so it must not count as a
+            # successful copy or satisfy the automatic plan's deadline.
             self.retention()
+            self._last(True, backup=backup)
+            from .backup_freshness import completed
+            completed(self.host, self.settings(), kind, details)
             return manifest
         except Exception as exc:
             self._last(False, exc)
@@ -594,6 +606,8 @@ class Backups:
             if isinstance(exc, Error):
                 raise
             raise Error("Backup fehlgeschlagen: " + str(exc)) from exc
+        finally:
+            self.running = False
 
     def _members(self, archive, manifest):
         seen, nodes, links, required_directories, size = {}, {}, {}, set(), 0

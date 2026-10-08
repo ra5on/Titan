@@ -15,13 +15,66 @@ from .files import operate
 from .notification_delivery import NotificationDelivery
 from .storage_maintenance import StorageMaintenance
 
-OPERATIONS = {"storage_maintenance", "storage_maintenance_save", "storage_maintenance_remove",
+OPERATIONS = {"pool_recovery", "pool_replace", "storage_maintenance", "storage_maintenance_save", "storage_maintenance_remove",
               "storage_maintenance_scheduled", "smart_test", "snapshot_restore", "snapshot_remove",
               "backup_browse", "backup_restore_selection", "notification_settings",
               "notification_save_settings", "notification_test"}
 
 
 class DemoStorageMixin:
+    def op_pool_recovery(self, pool):
+        from .storage_recovery import revision_for
+        pool = identifier(pool)
+        item = next((item for item in self.pools if item["name"] == pool), None)
+        if item is None:
+            raise Error("ZFS-Pool nicht gefunden.", 404)
+        failed = bool(getattr(self, "_demo_recovery_failed", False))
+        started = getattr(self, "_demo_recovery_started", None)
+        progress = min(100, int((time.time() - started) / 60 * 100)) if started else 0
+        rebuilding = started is not None and progress < 100
+        if started is not None and not rebuilding:
+            self._demo_recovery_failed = False
+            failed = False
+        if failed or started is not None:
+            item["health"] = "DEGRADED" if failed else "ONLINE"
+        member_path = getattr(self, "_demo_recovery_disk", "/dev/sdb")
+        members = [{"guid": "1000000000000000001", "path": "/dev/sda", "state": "ONLINE", "read_errors": 0, "write_errors": 0, "checksum_errors": 0, "replaceable": False},
+                   {"guid": "1000000000000000002", "path": member_path, "state": "ONLINE" if not failed or rebuilding else "FAULTED", "read_errors": 0, "write_errors": 0, "checksum_errors": 0, "replaceable": failed and not rebuilding}]
+        reason = "Ein Wiederaufbau läuft bereits. Abschluss abwarten." if rebuilding else "" if failed else "Kein ausgefallenes Poolmitglied erkannt. Gesunde Laufwerke werden nicht ausgetauscht."
+        used = {row["path"] for row in members if row["state"] == "ONLINE"}
+        candidates = [{"disk": disk["name"], "device_path": disk["name"], "model": disk.get("model") or "NAS HDD",
+                       "serial": disk.get("serial") or "DEMO-" + disk["name"].rsplit('/', 1)[-1].upper(), "size": disk["size"], "maj:min": disk.get("maj:min", "demo:" + str(index)),
+                       "smart_health": "passed", "eligible": disk["name"] not in used and not disk.get("fstype") and not disk.get("children") and not any(disk.get("mountpoints") or []) and not disk.get("ro") and disk["size"] >= 4 * 1024**4,
+                       "reason": "Laufwerk gehört bereits zum aktiven Pool." if disk["name"] in used else "Laufwerk ist belegt oder zu klein." if disk.get("fstype") or disk.get("children") or any(disk.get("mountpoints") or []) or disk.get("ro") or disk["size"] < 4 * 1024**4 else ""}
+                      for index, disk in enumerate(self.demo_disks)]
+        if failed or rebuilding:
+            candidates.extend([{"disk": "/dev/nvme0n1", "device_path": "/dev/nvme0n1", "model": "Systemdisk (Demo)", "serial": "DEMO-SYSTEM", "size": 128 * 1024**3, "maj:min": "demo:system", "smart_health": "unknown", "eligible": False, "reason": "Systemlaufwerk ist eingehängt und enthält vorhandene Daten."},
+                               {"disk": "/dev/sdd", "device_path": "/dev/sdd", "model": "Kleine Ersatzplatte (Demo)", "serial": "DEMO-SMALL", "size": 1024**4, "maj:min": "demo:small", "smart_health": "passed", "eligible": False, "reason": "Ersatzlaufwerk ist kleiner als die verbleibenden Poollaufwerke."}])
+        value = {"pool": pool, "pool_guid": "1000000000000000000", "health": "DEGRADED" if failed else "ONLINE", "managed": True, "identity_confirmed": True,
+                 "layout": "mirror", "supported": True, "reason": reason, "minimum_size": 4 * 1024**4, "members": members, "candidates": candidates,
+                 "scan": {"kind": "resilver" if rebuilding else "none", "active": rebuilding, "progress_percent": progress if rebuilding else None,
+                          "detail": f"Demo: Wiederaufbau {progress}% (ausschließlich im Arbeitsspeicher simuliert)." if rebuilding else "Demo: Kein Wiederaufbau aktiv."},
+                 "raw_status": "Demo: ZFS-Poolstatus nur simuliert. Es werden keine Hostlaufwerke angesprochen.", "demo": True}
+        value["revision"] = revision_for(value)
+        return value
+
+    def op_pool_replace(self, **arguments):
+        from .storage_recovery import validate_replace
+        validate_replace(arguments)
+        with self._account_lock:
+            value = self.op_pool_recovery(arguments["pool"])
+            if arguments["expected_revision"] != value["revision"]:
+                raise Error("Demo-Poolzustand hat sich geändert. Vorschau aktualisieren.", 409)
+            if not any(item["guid"] == arguments["member_guid"] and item["replaceable"] for item in value["members"]):
+                raise Error(value["reason"] or "Nur ein ausgefallenes Poolmitglied auswählen.", 409)
+            if not any(item["disk"] == arguments["disk"] and item["eligible"] for item in value["candidates"]):
+                raise Error("Ersatzlaufwerk ist belegt, zu klein oder nicht verfügbar.", 409)
+            self._demo_recovery_disk = arguments["disk"]
+            self._demo_recovery_started = time.time()
+            next(item for item in self.demo_disks if item["name"] == arguments["disk"]).update(fstype="zfs_member")
+            return {"ok": True, "simulation": True, "pool": arguments["pool"], "member_guid": arguments["member_guid"], "disk": arguments["disk"],
+                    "resilver_started": True, "completed": False, "message": "Demo: Laufwerkstausch und Wiederaufbau werden ausschließlich im Arbeitsspeicher simuliert. Kein Hostlaufwerk wird verändert."}
+
     def _storage_helpers(self):
         with self._account_lock:
             if not hasattr(self, "_demo_storage_settings"):

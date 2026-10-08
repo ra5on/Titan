@@ -2,7 +2,7 @@
 #shell[data-desktop=true]{height:100dvh;overflow:hidden}
 #shell[data-desktop=true]>.workspace{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 #shell[data-desktop=true] main{display:block;flex:1;min-height:0;padding:16px;overflow:hidden}
-#shell[data-desktop=true] footer{display:none}
+#shell[data-desktop=true]>.workspace>footer{display:none}
 #shell[data-desktop=true] .topbar{flex-shrink:0}
 .desktop-surface{position:relative;width:100%;height:100%;min-height:0;overflow:auto;isolation:isolate}
 .desktop-shortcut{position:absolute;width:104px;height:104px;border-radius:14px;user-select:none;touch-action:none}

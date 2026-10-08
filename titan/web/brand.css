@@ -1,0 +1,31 @@
+/* Original Titan carbon identity. Keep functional app artwork unchanged. */
+.desktop-welcome .desktop-welcome-mark{
+ width:220px;
+ height:44px;
+ margin-bottom:0;
+ object-fit:contain;
+ filter:drop-shadow(0 2px 4px #0004);
+}
+#auth .auth-brand img.auth-wordmark{
+ display:block;
+ width:160px;
+ height:32px;
+ object-fit:contain;
+}
+#auth .auth-emblem{
+ background:none;
+ border-radius:0;
+ box-shadow:none;
+}
+#auth .auth-emblem img{
+ display:block;
+ width:100%;
+ height:100%;
+ object-fit:contain;
+}
+@media(max-width:760px){
+ .desktop-welcome .desktop-welcome-mark{width:200px;height:40px}
+}
+@media(max-width:520px){
+ #auth .auth-brand img.auth-wordmark{width:145px;height:29px}
+}

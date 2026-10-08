@@ -20,7 +20,17 @@ function settleLayout(){
 function setDisplayMode(value){displayMode=value==='graphical'?'graphical':'fixed';try{window.localStorage?.setItem(displayKey,displayMode);}catch{}settleLayout();feedback(displayMode==='graphical'?'Gastauflösung folgt dem Fenster, sofern der Gast dies unterstützt.':'Feste Gastauflösung für Textkonsolen, Alpine und Android.');}
 const controls=window.TitanVMConsole?.mount({doc:document,win:window,client:()=>rfb,connected:()=>connected,status:feedback,displayMode:()=>displayMode,setDisplayMode});
 function connection(value){connected=value;controls?.update();}
-if(new URLSearchParams(location.search).get('embedded')==='1')document.body.dataset.embedded='true';
+const embeddedConsole=new URLSearchParams(location.search).get('embedded')==='1';
+if(embeddedConsole)document.body.dataset.embedded='true';
+// Embedded consoles receive live preferences from their parent. Separate tabs
+// read the signed-in user's saved appearance without writing account settings.
+let accountThemeAbort=null;
+if(!embeddedConsole&&window.TitanTheme){
+ accountThemeAbort=window.AbortController?new window.AbortController():null;
+ fetch('/api/launcher-layout',{credentials:'same-origin',cache:'no-store',...(accountThemeAbort?{signal:accountThemeAbort.signal}:{})})
+  .then(async response=>{if(!response.ok)return;const layout=await response.json();if(!closed&&layout?.desktop&&typeof layout.desktop==='object')window.TitanTheme.set(layout.desktop);})
+  .catch(()=>{});
+}
 function wake(){if(rfb){rfb.sendKey(0xffe1,'ShiftLeft',true);rfb.sendKey(0xffe1,'ShiftLeft',false);rfb.focus();}}
 function later(message){if(closed)return;showConnection('error','Getrennt',message);clearTimeout(timer);timer=setTimeout(()=>connect(),Math.min(15000,1500*2**Math.min(attempt++,3)));}
 async function connect(){
@@ -42,5 +52,5 @@ async function connect(){
 const layoutObserver=window.ResizeObserver?new window.ResizeObserver(settleLayout):null;layoutObserver?.observe(screen);
 window.addEventListener('resize',settleLayout);document.addEventListener('fullscreenchange',settleLayout);
 retry.addEventListener('click',()=>{attempt=0;connect();});
-window.addEventListener('pagehide',()=>{closed=true;generation++;clearTimeout(timer);clearTimeout(messageTimer);clearTimeout(layoutTimer);layoutObserver?.disconnect();window.removeEventListener('resize',settleLayout);document.removeEventListener('fullscreenchange',settleLayout);controls?.destroy();rfb?.disconnect();});
+window.addEventListener('pagehide',()=>{closed=true;generation++;accountThemeAbort?.abort();clearTimeout(timer);clearTimeout(messageTimer);clearTimeout(layoutTimer);layoutObserver?.disconnect();window.removeEventListener('resize',settleLayout);document.removeEventListener('fullscreenchange',settleLayout);controls?.destroy();rfb?.disconnect();});
 connect();

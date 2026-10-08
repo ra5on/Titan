@@ -63,7 +63,7 @@ async function main(){
  await recovery.click('start','a'.repeat(64));assert.equal(unwantedAction,false);
  failInventory=false;await recovery.click('refresh','');assert.match(recovery.container.innerHTML,/Docker bereit/);assert.doesNotMatch(recovery.container.innerHTML,/Verbindung unterbrochen/);assert.match(recovery.metricNode.innerHTML,/98765/);
  assert.match(recovery.container.innerHTML,/<p hidden class="engine-feedback/,'Idle guidance no longer consumes vertical space');assert.doesNotMatch(recovery.container.innerHTML,/engine-overview-heading/);
- failMetrics=true;await recovery.poll();assert.match(recovery.container.innerHTML,/Livewerte nicht verfügbar: Messung ausgefallen/);assert.doesNotMatch(recovery.container.innerHTML,/98765/);assert.match(recovery.container.innerHTML,/RAM gesamt <strong>—/);
+ failMetrics=true;await recovery.poll();assert.match(recovery.container.innerHTML,/Livewerte nicht verfügbar: Messung ausgefallen/);assert.doesNotMatch(recovery.container.innerHTML,/98765/);assert.match(recovery.container.innerHTML,/RAM <strong>—/);
  failMetrics='unavailable';await recovery.poll();assert.match(recovery.container.innerHTML,/Docker liefert zurzeit keine Messwerte/);assert.doesNotMatch(recovery.container.innerHTML,/98765/);
  failMetrics=false;await recovery.poll();assert.doesNotMatch(recovery.container.innerHTML,/keine Messwerte/);assert.match(recovery.container.innerHTML,/98765/);recovery.ui.dispose();
 
@@ -73,7 +73,7 @@ async function main(){
   const logs=harness();let resolveLogs;const originalApi=logs.context.api;
   logs.context.api=path=>path.startsWith('/api/docker-container?')?new Promise(resolve=>resolveLogs=resolve):originalApi(path);
   await logs.ui.mount(logs.container,logs.context);await logs.click('select','a'.repeat(64));
-  const request=logs.click('logs','a'.repeat(64));await flush();assert.match(logs.container.innerHTML,/Logs werden geladen …/);
+  const request=logs.click('logs','a'.repeat(64));await flush();assert.match(logs.container.innerHTML,/Protokoll wird geladen …/);
   if(navigate==='other')await logs.click('select','b'.repeat(64));else if(navigate==='tab')await logs.tab('images');else await logs.click('drawer-close','');
   resolveLogs({logs:'OLD CONTAINER SECRET'});await request;
   assert.doesNotMatch(logs.container.innerHTML,/OLD CONTAINER SECRET/);

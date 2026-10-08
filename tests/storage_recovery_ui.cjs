@@ -1,0 +1,42 @@
+'use strict';
+const assert=require('node:assert/strict');
+const ui=require('../titan/web/storage_recovery.js');
+const {fixture,Element}=require('./desktop_test_dom.cjs');
+const data={pool:'tank',health:'DEGRADED',layout:'mirror',supported:true,revision:'a'.repeat(64),reason:'',members:[{guid:'101',path:'/dev/sdb1',state:'ONLINE',replaceable:false},{guid:'102',path:'/dev/sdd1',state:'FAULTED',replaceable:true}],candidates:[{disk:'/dev/sdc',model:'Replacement',serial:'SN123',size:4*1024**4,eligible:true},{disk:'/dev/sda',model:'System',size:128*1024**3,eligible:false,reason:'Systemlaufwerk'}],scan:{kind:'none',active:false,progress_percent:null,detail:'No scan'}};
+const fields={member_guid:'102',disk:'/dev/sdc',confirmation_pool:'tank',confirmation_disk:'/dev/sdc'};
+assert.deepEqual(ui.argumentsFor(data,fields),{pool:'tank',...fields,expected_revision:'a'.repeat(64)});
+for(const bad of [{member_guid:'101'},{disk:'/dev/sda'},{confirmation_pool:'wrong'},{confirmation_disk:''}])assert.throws(()=>ui.argumentsFor(data,{...fields,...bad}));
+assert.throws(()=>ui.argumentsFor({...data,supported:false},fields));
+assert.throws(()=>ui.argumentsFor({...data,revision:''},fields));
+assert.throws(()=>ui.argumentsFor({...data,scan:{active:true}},fields));
+let html=ui.render(data);
+assert(html.includes('SN123'));assert(html.includes('Systemlaufwerk'));assert(!html.includes('<option value="/dev/sda"'));
+assert(html.indexOf('Ja, Wiederaufbau starten')<html.indexOf('>Nein</button>'));
+assert(!ui.render({...data,supported:false,reason:'Pool nicht zugänglich'}).includes('<form'));
+assert(!ui.render({...data,candidates:[]}).includes('<form'));
+const blockedReason='Die gespeicherte ZFS-Poolkennung stimmt nicht überein.';
+const blocked={...data,reason:blockedReason,members:data.members.map(member=>({...member,replaceable:false}))};
+const blockedHtml=ui.render(blocked);assert(blockedHtml.includes(blockedReason),'A supported topology still shows the reason that blocks replacement');assert(!blockedHtml.includes('<form'));assert.throws(()=>ui.argumentsFor(blocked,fields));
+assert(ui.render({...data,scan:{active:true,kind:'resilver',progress_percent:null}}).includes('<progress max="100" '));
+const hostile=ui.render({...data,pool:'<script>',raw_status:'<img onerror="bad">',reason:'<script>',members:[{guid:'<script>',state:'<script>',path:'<script>'}],candidates:[{disk:'<script>',model:'<script>',reason:'<script>'}]});
+assert(!hostile.includes('<script>'));assert(!hostile.includes('<img '));assert(hostile.includes('&lt;script&gt;'));
+const flush=()=>new Promise(resolve=>setImmediate(resolve));
+(async()=>{
+ const f=fixture(),container=new Element(f.doc),modal=new Element(f.doc,'dialog');f.doc.body.append(modal);modal.append(container);modal.open=true;
+ let finish,reads=0,failRead=false,actions=[],notices=[],intervals=new Map(),nextTimer=0;
+ f.win.setInterval=fn=>{const id=++nextTimer;intervals.set(id,fn);return id;};f.win.clearInterval=id=>intervals.delete(id);
+ const ctx={api:async()=>{reads++;if(failRead)throw Error('Unavailable');return {...data,supported:false,reason:'Wiederaufbau läuft',scan:{active:true,kind:'resilver',progress_percent:42,detail:'42% done'}};},action:(operation,args,options)=>{actions.push({operation,args,options});return new Promise(resolve=>finish=resolve);},toast:value=>notices.push(value)};
+ const mounted=ui.mount(container,data,ctx);
+ const fill=values=>{for(const [name,value]of Object.entries(values))container.querySelector(`[name="${name}"]`).value=value;f.doc.dispatch(container.querySelector('input'),'input');};
+ fill({...fields,confirmation_disk:'wrong'});assert.equal(container.querySelector('[data-recovery-submit]').disabled,true);
+ fill(fields);assert.equal(container.querySelector('[data-recovery-submit]').disabled,false);
+ let form=container.querySelector('form');f.doc.dispatch(form,'submit');f.doc.dispatch(form,'submit');
+ assert.equal(actions.length,1,'duplicate submissions never start a second disk replacement');assert.equal(actions[0].operation,'pool_replace');assert.deepEqual(actions[0].args,ui.argumentsFor(data,fields));assert.equal(actions[0].options.wait,true);assert.equal(container.querySelector('[data-recovery-submit]').disabled,true);
+ finish({status:'done'});await flush();assert.equal(reads,1);assert.equal(notices.length,1);assert(!container.querySelector('form'),'the accepted replacement turns into live status, not another replacement form');assert.equal(container.querySelector('progress').getAttribute('value'),'42');assert.equal(intervals.size,1);
+ mounted.destroy();assert.equal(intervals.size,0,'closing tears down status polling');
+ // Failed freshness reads invalidate the previously valid mutation form.
+ const other=ui.mount(container,data,ctx);fill(fields);failRead=true;await other.refresh();assert.equal(container.querySelector('[data-recovery-submit]').disabled,true);assert.match(container.querySelector('[data-recovery-error]').textContent,/Unavailable/);f.doc.dispatch(container.querySelector('form'),'submit');assert.equal(actions.length,1);other.destroy();
+ // A read that resolves after close cannot replace content or install a timer.
+ let resolveRead;const last=ui.mount(container,data,{...ctx,api:()=>new Promise(resolve=>resolveRead=resolve)});const pending=last.refresh();last.destroy();const before=container.innerHTML;resolveRead({...data,scan:{active:true,kind:'resilver'}});await pending;assert.equal(container.innerHTML,before);assert.equal(intervals.size,0);
+ console.log('Storage recovery UI: explicit disk confirmations, unsuitable-member rejection, read-failure lockout, duplicate prevention, real progress and lifecycle cleanup passed.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -14,7 +14,7 @@ for(const file of [...components,...shared])for(const rule of rules(file)){
 }
 function value(file,selector,property){const matches=rules(file).filter(rule=>rule.selector===selector&&Object.hasOwn(rule.properties,property));assert(matches.length,`${file}: missing ${selector} ${property}`);return matches.at(-1).properties[property];}
 for(const [file,selector,property,expected]of [
- ['file_browser.css','#shell .fb-browser.panel','background','var(--panel)'],
+ ['file_browser.css','#shell .fb-browser.panel','background','var(--bg)'],
  ['file_browser.css','.fb-table thead th','background','var(--panel-soft)'],
  ['file_browser.css','.fb-table thead th','color','var(--muted)'],
  ['file_browser.css','.fb-place','color','var(--text)'],

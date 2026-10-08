@@ -1,6 +1,6 @@
-/* Titan semantic palette: neutral surfaces, readable glass and a single sea-green accent. */
-:root,html[data-color-theme=light]{--bg:#f4f5f7;--panel:#ffffff;--panel-soft:#f0f1f4;--surface-0:#f4f5f7;--text:#252a31;--muted:#646d7a;--line:#dfe3e9;--border:#dfe3e9;--accent:#167d73;--purple:#167d73;--green:#16754d;--red:#b13d52;--focus:#167d73;--theme-hover:#e7efed;--theme-selected:#deeeea;--theme-glass:248 250 250;--theme-shadow:#142c3b22;--theme-top:247 249 250;--theme-strong:#176357;--primary-bg:#197d70;--primary-text:#fff;--success:#16754d;--success-bg:#e4f4ed;--warning:#8b550c;--warning-bg:#fff1d7;--danger:#b13d52;--danger-bg:#fbe5eb;--info:#365eb5;--info-bg:#e6edfb;color-scheme:light}
-html[data-color-theme=dark]{--bg:#15171c;--panel:#1d2026;--panel-soft:#242830;--surface-0:#15171c;--text:#eceef2;--muted:#9da5b3;--line:#ffffff12;--border:#ffffff14;--accent:#77d6c2;--purple:#77d6c2;--green:#8ad7b2;--red:#f399a8;--focus:#77d6c2;--theme-hover:#ffffff0c;--theme-selected:#2b4844;--theme-glass:24 29 34;--theme-shadow:#02060b65;--theme-top:24 29 34;--theme-strong:#a4e8d9;--primary-bg:#82dbc9;--primary-text:#12332b;--success:#8ad7b2;--success-bg:#213c36;--warning:#f2c47e;--warning-bg:#3d3427;--danger:#f399a8;--danger-bg:#422d38;--info:#a9c3ff;--info-bg:#29364c;color-scheme:dark}
+/* Titan carbon palette: graphite, silver and platinum; status colors retain meaning. */
+:root,html[data-color-theme=light]{--bg:#eceeef;--panel:#f8f9fa;--panel-soft:#e6e8ea;--surface-0:#eceeef;--text:#202327;--muted:#60656c;--line:#cdd1d5;--border:#cdd1d5;--accent:#444b54;--purple:#444b54;--green:#16754d;--red:#b13d52;--focus:#414954;--theme-hover:#dfe3e7;--theme-selected:#d7dce1;--theme-glass:237 240 242;--theme-shadow:#0a0d1226;--theme-top:237 240 242;--theme-strong:#262b31;--primary-bg:#30363e;--primary-text:#f7f8fa;--success:#16754d;--success-bg:#e4f4ed;--warning:#8b550c;--warning-bg:#fff1d7;--danger:#b13d52;--danger-bg:#fbe5eb;--info:#3e596f;--info-bg:#e2eaf0;--folder-back:#30363e;--folder-front:#424a55;--folder-rim:#929ca8;color-scheme:light}
+html[data-color-theme=dark]{--bg:#101214;--panel:#1c1f23;--panel-soft:#25292e;--surface-0:#101214;--text:#eef0f2;--muted:#b0b5bc;--line:#ffffff1c;--border:#ffffff1c;--accent:#c6cbd2;--purple:#c6cbd2;--green:#8ad7b2;--red:#f399a8;--focus:#e3e7ec;--theme-hover:#ffffff0d;--theme-selected:#363c44;--theme-glass:24 27 31;--theme-shadow:#02030570;--theme-top:24 27 31;--theme-strong:#eef1f5;--primary-bg:#c7cdd4;--primary-text:#161a1f;--success:#8ad7b2;--success-bg:#213c30;--warning:#f2c47e;--warning-bg:#3d3427;--danger:#f399a8;--danger-bg:#422d38;--info:#b9c5d2;--info-bg:#2c343e;--folder-back:#30363e;--folder-front:#424a55;--folder-rim:#a9b1bc;color-scheme:dark}
 html[data-color-theme] body{background:var(--bg);color:var(--text)}
 html[data-color-theme] #shell[data-desktop=true]{background:radial-gradient(ellipse at 80% 10%,#bbd9fb 0,transparent 56%),radial-gradient(ellipse at 5% 95%,#c6c8ed 0,transparent 55%),linear-gradient(125deg,#d8e3f5,#b8cae5)}
 html[data-color-theme=dark] #shell[data-desktop=true]{background:radial-gradient(ellipse at 85% 10%,#20466c 0,transparent 55%),radial-gradient(ellipse at 10% 90%,#3a335d 0,transparent 55%),linear-gradient(125deg,#101827,#142438)}
@@ -38,7 +38,10 @@ html[data-color-theme] :is(.desktop-search input,.desktop-preferences select,.de
 html[data-color-theme] .desktop-menu-dialog::backdrop{background:#09182f40;backdrop-filter:blur(5px)}
 html[data-color-theme=dark] .desktop-menu-dialog::backdrop{background:#02071270}
 html[data-color-theme] .desktop-search{color:var(--muted)}
-html[data-color-theme][data-desktop-embedded=true] #shell>.workspace{background:var(--bg)}
+/* The parent window supplies the blurred glass. Embedded app canvases must not
+   paint an opaque sheet over it; cards and inputs retain their readable palette. */
+html[data-color-theme][data-desktop-embedded=true]{--bg:transparent}
+html[data-color-theme][data-desktop-embedded=true] body,html[data-color-theme][data-desktop-embedded=true] #shell>.workspace{background:var(--bg)}
 html[data-color-theme]{--surface-soft:var(--panel-soft);--surface-alt:var(--panel-soft);--surface-muted:var(--panel-soft)}
 /* Long management dialogs scroll as one document, including heading and actions. */
 #dialog:not(:has([data-file-editor-form])) .dialog-title{position:static;top:auto;padding:0 0 12px;margin-bottom:14px;background:transparent}
@@ -52,6 +55,8 @@ html[data-color-theme] *{scrollbar-color:var(--line) transparent}
 @media(hover:hover){html[data-color-theme] .desktop-menu-more{opacity:0}html[data-color-theme] .desktop-menu-entry:hover .desktop-menu-more,html[data-color-theme] .desktop-menu-entry:focus-within .desktop-menu-more{opacity:1}}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){html[data-color-theme] :is(.desktop-window,.desktop-window-titlebar,.desktop-menu-dialog,.desktop-account,.shortcut-context,.desktop-folder-dialog,.widget-settings,.desktop-widget){background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}html[data-color-theme] #shell[data-desktop=true] .topbar{background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html[data-color-theme] :is(.desktop-window-titlebar,.desktop-menu-dialog,.desktop-account,.shortcut-context,.desktop-folder-dialog,.widget-settings,.desktop-widget){background:var(--panel)}html[data-color-theme] #shell[data-desktop=true] .topbar{background:var(--panel)}}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){html[data-color-theme][data-desktop-embedded=true]{--bg:var(--surface-0)}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html[data-color-theme][data-desktop-embedded=true]{--bg:var(--surface-0)}}
 
 /* Shared semantic colors are consumed by components in both modes. */
 :root{--hover:var(--theme-hover);--selected:var(--theme-selected);--selected-text:var(--theme-strong);--focus-ring:color-mix(in srgb,var(--accent) 24%,transparent)}

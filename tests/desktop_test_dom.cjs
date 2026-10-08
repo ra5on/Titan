@@ -10,6 +10,8 @@ class Element {
  getAttribute(k){return this.attrs[k]??null;} hasAttribute(k){return Object.hasOwn(this.attrs,k);} removeAttribute(k){delete this.attrs[k];}
  get isConnected(){return this===this.ownerDocument||!!this.parentElement?.isConnected;}
  append(...nodes){for(const node of nodes){node.remove();node.parentElement=this;this.children.push(node);}}
+ insertBefore(node,before){if(before===null||before===undefined){this.append(node);return node;}if(before.parentElement!==this)throw Error('Reference node is not a child');if(node===before)return node;node.remove();node.parentElement=this;this.children.splice(this.children.indexOf(before),0,node);return node;}
+ replaceWith(node){const parent=this.parentElement;if(!parent||node===this)return;parent.insertBefore(node,this);this.remove();}
  remove(){if(this.parentElement){this.parentElement.children=this.parentElement.children.filter(n=>n!==this);this.parentElement=null;}}
  contains(node){return node===this||this.children.some(child=>child.contains(node));}
  matches(selector){return selector.split(',').some(part=>{let s=part.trim();if(s.endsWith(':not(:disabled)')){if(this.disabled)return false;s=s.replace(':not(:disabled)','');}if(s===':disabled')return this.disabled;const tag=s.match(/^[a-z]+/i)?.[0];if(tag&&this.tagName!==tag.toUpperCase())return false;for(const [,name,value] of s.matchAll(/\[([^=\]]+)(?:="([^"]*)")?\]/g)){if(!this.hasAttribute(name)||value!==undefined&&this.getAttribute(name)!==value)return false;}for(const [,name]of s.matchAll(/\.([\w-]+)/g))if(!this.classList.contains(name))return false;for(const [,id]of s.matchAll(/#([\w-]+)/g))if(this.attrs.id!==id)return false;return true;});}

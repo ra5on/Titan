@@ -15,7 +15,7 @@ function store(options={}){
 }
 async function main(){
  let f=store({demo:true});assert.equal(f.query('[data-store-search]').disabled,false,'Search stays usable in preview');assert.equal(f.query('[data-store-category="network"]').disabled,false);
- assert.equal(f.query('[data-store-result]').textContent,'4 Apps');
+ assert.equal(f.query('[data-store-result]').textContent,'4 Apps');assert.equal(f.query('[data-store-grid]').querySelectorAll('[data-store-card]').length,4,'All curated apps share the same compact catalog grid');
  f.click('[data-store-category="network"]');assert.equal(f.query('[data-store-result]').textContent,'2 Apps');assert.equal(f.query('[data-store-card="titan-immich"]').hidden,true);assert.equal(f.query('[data-store-card="titan-tailscale"]').hidden,false);assert.equal(f.query('[data-store-featured]').hidden,true);assert.equal(f.query('[data-store-category="network"]').getAttribute('aria-pressed'),'true');
  f.click('[data-store-category="all"]');const input=f.query('[data-store-search]');input.value='Erinnerungen';f.doc.dispatch(input,'input');assert.equal(f.query('[data-store-result]').textContent,'1 App');assert.equal(f.query('[data-store-card="titan-immich"]').hidden,false);
  input.value='finde-ich-nicht';f.doc.dispatch(input,'input');assert.equal(f.query('[data-store-empty]').hidden,false);input.value='';f.doc.dispatch(input,'input');
@@ -27,11 +27,12 @@ async function main(){
  // an enter animation on every Cloudflare status update.
  f=store();for(let n=0;n<3;n++){f.calls[n].resolve({status:'idle',installed:ids[n]==='titan-adguard',runtime:{}});await settle();}
  f.click('[data-store-category="network"]');f.query('[data-store-search]').value='Tunnel';f.doc.dispatch(f.query('[data-store-search]'),'input');f.click('[data-apps-open]');assert(f.query('[data-apps-detail]').classList.contains('is-entering'));
- const refreshing=f.controller.refresh();f.calls[3].resolve(installation);await refreshing;assert.equal(f.query('[data-store-search]').value,'Tunnel');assert.equal(f.query('[data-store-category="network"]').getAttribute('aria-pressed'),'true');assert.equal(f.query('[data-store-result]').textContent,'1 App');assert.equal(f.query('[data-apps-center]').getAttribute('data-store-detail'),'titan-cloudflared');assert(!f.query('[data-apps-detail]').classList.contains('is-entering'),'Polling does not fade the detail view out and in');assert.match(f.lastMarkup,/ac-feature-photos/,'Local feature availability survives whitelisted Cloudflare hydration');ui.dispose();
+ const refreshing=f.controller.refresh();f.calls[3].resolve(installation);for(let n=0;n<3;n++)f.calls[4+n].resolve({status:'idle',installed:ids[n]==='titan-adguard',runtime:{}});await refreshing;assert.equal(f.query('[data-store-search]').value,'Tunnel');assert.equal(f.query('[data-store-category="network"]').getAttribute('aria-pressed'),'true');assert.equal(f.query('[data-store-result]').textContent,'1 App');assert.equal(f.query('[data-apps-center]').getAttribute('data-store-detail'),'titan-cloudflared');assert(!f.query('[data-apps-detail]').classList.contains('is-entering'),'Polling does not fade the detail view out and in');assert.match(f.lastMarkup,/ac-feature-photos/,'Local feature availability survives whitelisted Cloudflare hydration');ui.dispose();
  const restricted=store({admin:false});restricted.click('[data-store-open="titan-immich"]');assert.equal(restricted.query('[data-native-back]').disabled,false);restricted.click('[data-native-back]');assert.equal(restricted.query('[data-apps-center]').getAttribute('data-store-detail'),null);assert.equal(restricted.calls.length,0);ui.dispose();
  assert.equal(ui.matchesApp('titan-adguard','AdGuard','',true,'dns','privacy'),true);
  assert.equal(ui.matchesApp('titan-adguard','AdGuard','',false,'','installed'),false);
  assert.match(fs.readFileSync('titan/web/apps_center.css','utf8'),/\.ac-categories\{display:flex;flex-direction:row;/);
  console.log('Storefront: local features, real search/category/installed filters, empty result, focused detail/back navigation with demo/rights, retained search/category/feature state and no repeated poll animation passed.');
 }
-main().catch(error=>{ui.dispose();console.error(error);process.exitCode=1;});
+const watchdog=setTimeout(()=>{console.error('Storefront checks did not complete.');process.exit(1);},5000);
+main().catch(error=>{ui.dispose();console.error(error);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));
