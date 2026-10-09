@@ -7,7 +7,7 @@ const {fixture}=require('./desktop_test_dom.cjs');
  const api=path=>path==='/api/launcher-layout'?Promise.resolve({version:2,items:['tool:files']}):new Promise(resolve=>pending.set(path,resolve));
  const desk=await Promise.race([
   ui.mount(f.surface,{tools:[['files','Dateien','']],user:{role:'admin'},icon:()=>'',esc:String,api,toast(){},open(){},menu(){}}),
-  new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error('Slow host discovery blocked desktop startup')),1000);timer.unref();})
+  new Promise((_,reject)=>{setTimeout(()=>reject(Error('Slow host discovery blocked desktop startup')),1000);})
  ]);
  try{
   assert(f.surface.querySelector('[data-shortcut-open="tool:files"]'));

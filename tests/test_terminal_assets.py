@@ -42,6 +42,7 @@ def static_response(relative):
     # Use actual Handler.static/send_headers and HTTP serialization, avoiding
     # BaseHTTPRequestHandler.__init__ because it creates a live connection.
     handler = Handler.__new__(Handler)
+    handler.headers = message_from_bytes(b"Host: localhost\r\n")
     handler.wfile = io.BytesIO()
     handler.request_version = "HTTP/1.1"
     handler.requestline = "GET /" + relative + " HTTP/1.1"
