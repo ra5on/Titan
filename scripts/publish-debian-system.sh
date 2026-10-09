@@ -87,6 +87,9 @@ fi
     openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/titan-signing/root.key" -in SHA256SUMS -out SHA256SUMS.sig
     openssl pkeyutl -verify -rawin -pubin -inkey release-public.pem -in SHA256SUMS -sigfile SHA256SUMS.sig
 )
+# Bind and verify the tag independently. GitHub may reject an explicit old
+# target_commitish even when the tag exists; --verify-tag avoids that API path.
+python3 "$(dirname "${BASH_SOURCE[0]}")/reserve-release-tag.py" "v$TITAN_SYSTEM_VERSION" --commit "${TITAN_BUILD_SOURCE_COMMIT:-$GITHUB_SHA}"
 # A tag is immutable once published. A rerun must never replace user downloads.
 if gh release view "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
     echo 'Release already exists; choose a new version instead of replacing downloads.' >&2
@@ -94,7 +97,7 @@ if gh release view "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/nu
 fi
 task_stage=()
 if [[ "$TITAN_SYSTEM_VERSION" == *-alpha.* || "$TITAN_SYSTEM_VERSION" == *-beta.* ]]; then task_stage=(--prerelease); fi
-gh release create "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" --target "${TITAN_BUILD_SOURCE_COMMIT:-$GITHUB_SHA}" "${task_stage[@]}" --latest=false \
+gh release create "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag "${task_stage[@]}" --latest=false \
     --title "Titan $TITAN_SYSTEM_VERSION · Debian A/B" --notes-file "$task_release_notes" \
     "${task_image_assets[@]}" "${task_web_assets[@]}" "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
     "$task_dir/manifest.json" "$task_dir/manifest.json.sig" "$task_dir/SHA256SUMS" "$task_dir/SHA256SUMS.sig" \

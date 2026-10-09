@@ -5,6 +5,10 @@ on:
       version:
         required: true
         type: string
+      build_ref:
+        description: Optional exact frozen builder for retrying publication without retagging
+        type: string
+        default: ''
       source_ref:
         description: Exact application commit; frozen for Debian-only maintenance
         required: true
@@ -55,7 +59,7 @@ jobs:
       TITAN_APP_VERSION: ${{ inputs.app_version }}
       TITAN_APP_STAGE: ${{ inputs.app_stage }}
       TITAN_APP_SOURCE_COMMIT: ${{ inputs.source_ref }}
-      TITAN_BUILD_SOURCE_COMMIT: ${{ github.sha }}
+      TITAN_BUILD_SOURCE_COMMIT: ${{ inputs.build_ref || github.sha }}
       TITAN_SYSTEM_REVISION: ${{ inputs.system_revision }}
       TITAN_PREVIOUS_TAG: ${{ inputs.previous_tag }}
     steps:
@@ -67,7 +71,17 @@ jobs:
         if: inputs.update_kind != 'system'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/reserve-release-tag.py "v$TITAN_SYSTEM_VERSION"
+        run: python3 scripts/reserve-release-tag.py "v$TITAN_SYSTEM_VERSION" --commit "$TITAN_BUILD_SOURCE_COMMIT"
+      - name: Keep current publication code outside the frozen checkout
+        run: |
+          mkdir -p "$RUNNER_TEMP/titan-publisher"
+          cp scripts/publish-debian-system.sh scripts/reserve-release-tag.py "$RUNNER_TEMP/titan-publisher/"
+      - name: Check out exact builder for a publication retry
+        if: inputs.build_ref != ''
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.build_ref }}
+          persist-credentials: false
       - name: Prepare disposable system builder
         run: |
           bash scripts/ci-ubuntu-dependencies.sh --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient rauc grub2-common python3-yaml
@@ -134,7 +148,7 @@ jobs:
       - name: Publish only tested signed update bundle
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash scripts/publish-debian-system.sh
+        run: bash "$RUNNER_TEMP/titan-publisher/publish-debian-system.sh"
       - name: Remove temporary private signing material
         if: always()
         run: rm -rf "$RUNNER_TEMP/titan-signing"

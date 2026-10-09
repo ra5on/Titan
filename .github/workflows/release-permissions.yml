@@ -28,10 +28,10 @@ jobs:
             echo 'Release already exists; refusing to modify it.' >&2
             exit 1
           fi
-          task_release_id=$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
-            -f tag_name="$RELEASE_TAG" -f target_commitish="$task_commit" -f name='Temporary publication permission check' \
-            -f body='Temporary private draft; removed by this permission check.' \
-            -F draft=true -f make_latest=false --jq .id)
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --latest=false \
+            --title 'Temporary publication permission check' \
+            --notes 'Temporary private draft; removed by this permission check.'
+          task_release_id=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json apiUrl --jq '(.apiUrl | split("/") | last)')
           [[ "$task_release_id" =~ ^[0-9]+$ ]]
           gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$task_release_id"
           echo 'Release creation verified. Temporary draft removed; tag preserved.'

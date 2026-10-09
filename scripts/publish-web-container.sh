@@ -43,7 +43,7 @@ openssl pkeyutl -sign -rawin -inkey "$task_key" -in "$task_dir/manifest.json" -o
 openssl pkeyutl -verify -rawin -pubin -inkey packaging/release-public.pem -in "$task_dir/manifest.json" -sigfile "$task_dir/manifest.json.sig"
 cp packaging/release-public.pem "$task_dir/release-public.pem"
 cp docs/WEB-CONTAINER.md "$task_dir/WEB-CONTAINER.md"
-gh release create "web-v$task_version" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+gh release create "web-v$task_version" --repo "$GITHUB_REPOSITORY" --verify-tag --latest=false \
     --title "Titan Web $task_version" --notes-file "$task_dir/WEB-CONTAINER.md" \
     "$task_dir/web-container.tar.xz" "$task_dir/web-image.json" "$task_dir/manifest.json" \
     "$task_dir/manifest.json.sig" "$task_dir/release-public.pem" \

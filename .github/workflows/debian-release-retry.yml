@@ -1,0 +1,31 @@
+name: Retry publication from exact frozen system sources
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact 40-character application and builder commit of the unpublished release
+        required: true
+        type: string
+      version:
+        description: Unpublished x.x.x release version matching that source
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: titan-debian-release-queue
+  cancel-in-progress: false
+jobs:
+  build:
+    uses: ./.github/workflows/debian-system-build.yml
+    with:
+      version: ${{ inputs.version }}
+      source_ref: ${{ inputs.source_ref }}
+      build_ref: ${{ inputs.source_ref }}
+      app_version: ${{ inputs.version }}
+      app_stage: stable
+      update_kind: titan
+      include_image: true
+      initial_image: true
+    secrets:
+      TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}

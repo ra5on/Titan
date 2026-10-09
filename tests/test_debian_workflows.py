@@ -55,7 +55,10 @@ class DebianWorkflowTests(unittest.TestCase):
         frozen=[step for step in reusable['jobs']['system']['steps'] if step.get('name')=='Check out the frozen application source'][0]
         self.assertEqual(frozen['with']['ref'],'${{ inputs.source_ref }}')
         self.assertEqual(frozen['if'],"inputs.update_kind == 'system'")
-        self.assertEqual(reusable['jobs']['system']['env']['TITAN_BUILD_SOURCE_COMMIT'],'${{ github.sha }}')
+        self.assertEqual(reusable['jobs']['system']['env']['TITAN_BUILD_SOURCE_COMMIT'],'${{ inputs.build_ref || github.sha }}')
+        frozen_builder=next(row for row in reusable['jobs']['system']['steps'] if row.get('name')=='Check out exact builder for a publication retry')
+        self.assertEqual(frozen_builder['with']['ref'],'${{ inputs.build_ref }}')
+        self.assertEqual(frozen_builder['if'],"inputs.build_ref != ''")
 
     def test_real_boot_runtime_and_published_baseline_checks_precede_publication(self):
         steps=self.load('debian-system-build.yml')['jobs']['system']['steps']

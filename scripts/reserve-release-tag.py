@@ -33,10 +33,11 @@ def reserve(tag, commit, invoke=subprocess.run):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('tag')
+    parser.add_argument('--commit', help='Exact frozen builder commit; defaults to the workflow commit')
     args = parser.parse_args()
     if os.environ.get('GITHUB_ACTIONS') != 'true' or os.environ.get('GITHUB_REPOSITORY') != 'ra5on/Titan':
         parser.error('Only the Titan release workflow may reserve release tags')
-    reserve(args.tag, os.environ.get('GITHUB_SHA', ''))
+    reserve(args.tag, args.commit or os.environ.get('GITHUB_SHA', ''))
     print('Release tag is bound to the exact workflow commit.')
 
 
