@@ -8,17 +8,21 @@ Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläc
 
 [**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.1/titan-0.6.1-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.1) · [Änderungen in 0.6.1](docs/RELEASE-0.6.1.md)
 
-![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
+![Titan 0.7.0 Horizon mit persönlichen Widgets](docs/images/titan-070-desktop.jpg)
 
-*Die Screenshots zeigen die Carbon-Oberfläche von 0.6.0 mit Beispieldaten. Die Demo führt keine Installationen oder Änderungen am echten NAS aus.*
+*Die neuen Desktop-, Datei- und Einstellungsbilder zeigen Titan 0.7.0 mit Beispieldaten. Die Demo verändert kein echtes NAS. Ältere Abbildungen anderer Bereiche sind separat gekennzeichnet.*
 
-> Separates Webupdate: **0.6.3** beschleunigt Datei-Uploads durch binäre Übertragung und größere Blöcke, ergänzt MB/s und Restzeit und enthält die Verbesserungen am Desktopstart und Dateimanager aus 0.6.2. [Änderungen](docs/RELEASE-0.6.3.md) · [Webupdate](https://github.com/ra5on/Titan/releases/tag/web-v0.6.3). Die Neuinstallationsbasis bleibt **0.6.1**.
+> Separates Webupdate: **0.7.0 · Horizon** ist veröffentlicht. Es ergänzt einen eigenständig gestalteten Desktop, farbige Werkzeuge, ein Systemmenü und eine authentifizierte Fotogalerie. [Änderungen](docs/RELEASE-0.7.0.md) · [Signiertes Webupdate](https://github.com/ra5on/Titan/releases/tag/web-v0.7.0) · [Prüfnachweise und Grenzen](docs/VERIFY-0.7.0.md). Die bisherige Neuinstallationsbasis bleibt verfügbar, solange das neue Image geprüft wird.
 
-## Verfeinerte Oberfläche
+## Horizon: Dateien, Fotos und Einstellungen
 
-Die Anmeldung zeigt den unveränderten Titan-Schriftzug über einer kleinen transparenten Fläche. Das Hauptmenü trennt Dateien & Apps, System und Verwaltung; die Suche blendet leere Gruppen aus. Helle Arbeitsflächen, matte App-Karten und weniger sichtbare Carbon-Struktur geben Texten und Daten mehr Ruhe. VM-Details zeigen die Live-Werte ohne doppelte CPU-/RAM-Karten und bieten „Konsole öffnen“ direkt an.
+Der Desktop verbindet einen eigenen Landschaftshintergrund mit dunklen Glasflächen, klaren Titeln und farbigen Werkzeugen. Das Systemmenü oben links bündelt persönliche Darstellung, Widgets und Konto. Die Anwendungssuche ist auf dem Desktop und mit **Strg/Cmd+K** auch aus App-Fenstern erreichbar. Bereits gespeicherte Farbmodi bleiben erhalten.
 
-![Kompakte Titan-Anmeldung](docs/images/titan-login.jpg)
+Die neue **Fotos**-Anwendung durchsucht eine ausgewählte Freigabe mit Ordner- und Dateinamensfilter. Sie bietet eine paginierte Galerie, große Vorschau, Tastaturnavigation und den Originaldownload. Es gelten dieselben Dateirechte wie im Dateimanager. Bilder werden nicht an einen Fotodienst übertragen. Größen- und Formatgrenzen stehen in den [Release-Hinweisen](docs/RELEASE-0.7.0.md).
+
+![Titan 0.7.0 Einstellungen](docs/images/titan-070-settings.jpg)
+
+Die Bedienorientierung stammt aus öffentlichen TitanOS-Beschreibungen und Screenshots. Dafür wurden weder TitanOS-Quellcode noch dessen Bilder oder Icons importiert. [Umsetzungsplan und Herkunft](docs/RELEASE-PLAN-0.7.0.md).
 
 ## Neue Installationsbasis 0.6.1
 
@@ -45,9 +49,9 @@ Neuinstallationen verwenden **HTTPS auf Port 443**; HTTP auf Port 80 leitet dort
 
 Ein eigener Landschaftshintergrund, eine persönliche Begrüßung, frei platzierbare Apps und transparente Live-Widgets bilden den Desktop. Das kompakte Dock hält die Werkzeuge erreichbar. Jedes Konto erhält eigene Verknüpfungen, Widgetpositionen und Darstellungsoptionen. Fenster lassen sich öffnen, verschieben, verkleinern und minimieren. Die Seitenleisten in Dateimanager, VM-Verwaltung, Docker, Speicher und Einstellungen können am Trenner breiter oder schmaler gezogen werden.
 
-Die neue Hintergrundoption **Fjord** wurde eigens für Titan mit Imagegen erzeugt. Vorhandene Hintergrundauswahlen bleiben erhalten. Herkunft und Generierungsprompt stehen bei den [Hintergründen](titan/web/wallpapers/README.md).
+Das neue Motiv **Horizon** wurde eigens für Titan mit Imagegen erzeugt; es verwendet den bisherigen internen Hintergrundschlüssel. Vorhandene Hintergrundauswahlen bleiben erhalten. Herkunft und Generierungsprompt stehen bei den [Hintergründen](titan/web/wallpapers/README.md).
 
-Das kantige Titan-Symbol und der TITAN-Schriftzug bestimmen die Gestaltung: 18 eigene schwarze Carbon-Symbole für Titan-Werkzeuge und Container, Graphit- und Silberflächen, feine Lichtkanten und ein heller Platinmodus. Dock, Widgets, Fenster, App Store, Dateimanager, Einstellungen und Titan-Kopfzeilen folgen derselben Formsprache. Fremde App-Symbole erscheinen über CSS in Graustufen; ihre Originaldateien bleiben unverändert. Warnungen und Fehler behalten ihre erkennbaren Zustandsfarben. [Dateien, Herkunft und Entwurf](docs/branding/README.md) sind separat dokumentiert.
+Das Titan-Symbol und der TITAN-Schriftzug bleiben erhalten. Farbige eigene Werkzeug-Symbole, dunkle Glasflächen und warme Akzente bilden die neue Gestaltung. Warnungen und Fehler behalten ihre erkennbaren Zustandsfarben. [Dateien, Herkunft und Entwurf](docs/branding/README.md) sind separat dokumentiert.
 
 Öffnen, Minimieren, Wiederherstellen und Maximieren verwenden zusammenhängende Fensterübergänge. Bei reduzierter Bewegung entfallen die Animationen. Live-Messwerte lösen keine neue Einblendanimation aus. Beim Schließen ändern sich Dock und gespeicherter Zustand sofort; die Bedienung wartet nicht auf eine Hintergrundanimation.
 
@@ -63,7 +67,7 @@ Rechtsklick, längeres Drücken oder **Umschalt+F10** öffnen passende Schnellak
 
 ## Dateien verwalten
 
-![Dateimanager mit kompakter Werkzeugleiste und einblendbaren Details](docs/images/titan-files.jpg)
+![Titan 0.7.0 Dateimanager](docs/images/titan-070-files.jpg)
 
 Der Dateimanager bietet Listen- und Symbolansicht, eine anpassbare Seitenleiste und eine schmale Werkzeugleiste mit Pfad, Navigation und Suche. Ein Ansichtsmenü stellt Symbolgröße, Abstände, Sortierung, versteckte Dateien, Pfadleiste und Dateigrößen ein; die Auswahl bleibt pro Konto gespeichert. Vorschau und Detailbereich öffnen bei Bedarf. Dateien und Ordner lassen sich kopieren, verschieben, umbenennen und über den Papierkorb entfernen. UTF-8-Dateien bis 1 MiB können direkt bearbeitet werden; unterstützte Bilder, Medien und Textdateien erhalten eine Vorschau.
 
