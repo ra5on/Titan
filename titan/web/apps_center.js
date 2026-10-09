@@ -1,6 +1,6 @@
 'use strict';
 (function(root,factory){const ui=factory();if(typeof module==='object'&&module.exports)module.exports=ui;if(root)root.TitanAppsCenter=ui;})(typeof window==='undefined'?null:window,function(){
- const NATIVE_IDS=['titan-immich','titan-adguard','titan-tailscale'];
+ const NATIVE_IDS=['titan-immich','titan-jellyfin','titan-adguard','titan-tailscale'];
  const APP='titan-cloudflared',PATH='/api/app-install',STATUS=PATH+'?app='+APP;
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const cloud='<svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M10 29h20a6 6 0 0 0 .3-12 10 10 0 0 0-19-3A7.5 7.5 0 0 0 10 29Z" stroke="currentColor" stroke-width="2"/><path d="m16 23 4-4 4 4m-4-4v15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -8,11 +8,12 @@
  const APP_META={
   'titan-cloudflared':{category:'network',name:'Cloudflare Tunnel',description:'Dein NAS sicher von überall erreichen'},
   'titan-immich':{category:'photos',name:'Immich',description:'Fotos Videos Erinnerungen Bilderkennung'},
+  'titan-jellyfin':{category:'media',name:'Jellyfin',description:'Filme Serien Musik Streaming Mediathek'},
   'titan-adguard':{category:'privacy',name:'AdGuard Home',description:'Werbung Tracking DNS Netzwerk Schutz'},
   'titan-tailscale':{category:'network',name:'Tailscale',description:'Privates Netzwerk VPN Heimnetz Subnet Routing'}
  };
- const categories=[['all','Entdecken'],['photos','Fotos & Videos'],['network','Netzwerk'],['privacy','Privatsphäre'],['installed','Installiert']];
- const symbol=(id)=>id===APP?cloud:id==='titan-immich'?'<img src="/app-icons/immich.svg" alt="" width="44" height="44">':id==='titan-adguard'?'<img src="/app-icons/adguard.svg" alt="" width="44" height="44">':'<svg viewBox="0 0 36 36" fill="currentColor" aria-hidden="true">'+[8,18,28].map(y=>[8,18,28].map(x=>`<circle cx="${x}" cy="${y}" r="3"/>`).join('')).join('')+'</svg>';
+ const categories=[['all','Entdecken'],['photos','Fotos & Videos'],['media','Filme & Musik'],['network','Netzwerk'],['privacy','Privatsphäre'],['installed','Installiert']];
+ const symbol=(id)=>id===APP?cloud:id==='titan-immich'?'<img src="/app-icons/immich.svg" alt="" width="44" height="44">':id==='titan-adguard'?'<img src="/app-icons/adguard.svg" alt="" width="44" height="44">':id==='titan-jellyfin'?'<img src="/app-icons/jellyfin.svg" alt="" width="44" height="44">':'<svg viewBox="0 0 36 36" fill="currentColor" aria-hidden="true">'+[8,18,28].map(y=>[8,18,28].map(x=>`<circle cx="${x}" cy="${y}" r="3"/>`).join('')).join('')+'</svg>';
  function matchesApp(id,name,description,installed,query,category){const meta=APP_META[id]||{};return(category==='all'||category==='installed'&&installed||meta.category===category)&&[name,description,meta.name,meta.description].join(' ').toLocaleLowerCase('de').includes(String(query||'').trim().toLocaleLowerCase('de'));}
  function featured(includePhotos=true){return `<section class="ac-featured" data-store-featured aria-label="Apps entdecken">${includePhotos?`<button class="ac-feature ac-feature-photos" type="button" data-store-open="titan-immich" data-store-control aria-label="Immich entdecken"><span class="ac-feature-copy"><span class="ac-eyebrow">DEINE ERINNERUNGEN</span><strong>Ein Zuhause für<br>alle deine Fotos.</strong><span>Immich · Deine eigene Fotobibliothek</span><span class="ac-feature-link">Entdecken <span aria-hidden="true">↗</span></span></span><span class="ac-photo-scene" aria-hidden="true"><span></span><span></span><span></span><span></span><i>${symbol('titan-immich')}</i></span></button>`:''}<button class="ac-feature ac-feature-cloud" type="button" data-store-open="${APP}" data-store-control aria-label="Cloudflare Tunnel einrichten"><span class="ac-feature-copy"><span class="ac-eyebrow">SICHER VERBUNDEN</span><strong>Dein Titan.<br>Überall dabei.</strong><span>Cloudflare Tunnel · Zugang per Token</span><span class="ac-feature-link">Einrichten <span aria-hidden="true">↗</span></span></span><span class="ac-cloud-scene" aria-hidden="true"><i>${cloud}</i><span></span><span></span><span></span></span></button></section>`;}
  const stepStatus={pending:'Ausstehend',running:'Läuft',completed:'Erledigt',failed:'Fehlgeschlagen',skipped:'Übersprungen'};

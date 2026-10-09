@@ -73,6 +73,13 @@ PACKAGES = {
   }, 3000, 3000, '512m', [], 'https://github.com/AdguardTeam/AdGuardHome/wiki/Docker',
   'Im ersten Assistenten Benutzername und Passwort wählen. Für die Weboberfläche „Alle Schnittstellen“ und internen Port 3000 beibehalten, für DNS Port 53. Danach im Router die NAS-IP als DNS-Server eintragen.',
   note='DNS benötigt Port 53/TCP und UDP. AdGuard und Pi-hole können diesen Port auf derselben NAS-IP nicht gleichzeitig verwenden.'),
+ 'titan-jellyfin': recipe('Jellyfin', 'Medien', 'Filme, Serien, Musik und Fotos auf dem NAS verwalten und auf Fernseher, Handy und Browser streamen.', 'jellyfin', {
+   'jellyfin': {'image': 'jellyfin/jellyfin:12.2@sha256:357724bf0ae27a672c7cbaa899db2d9abeb13dbd8657ccce750258a4c059d037', 'environment': {'TZ': 'Europe/Berlin'},
+               'mounts': [mount('config', '/config'), mount('cache', '/cache'), mount('data', '/media')], 'ports': [port(8096)],
+               'healthcheck': {'test': ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8096/health | grep -q Healthy'], 'interval': '15s', 'timeout': '5s', 'start_period': '30s', 'retries': 12}}
+  }, 8096, 8096, '2g', [], 'https://jellyfin.org/docs/general/installation/container/',
+  'Beim ersten Öffnen im Assistenten Sprache und eigenes Administratorkonto wählen. Danach unter „Bibliotheken“ den Ordner /media hinzufügen; dort liegen die Dateien des gewählten Speichers.',
+  note='Medien liegen im gewählten Speicher unter /media und werden von Jellyfin nur gelesen und katalogisiert. Hardware-Transkodierung wird nicht automatisch eingerichtet; ohne sie wandelt die CPU um, was bei mehreren gleichzeitigen Streams viel Leistung braucht.'),
  'titan-pihole': recipe('Pi-hole', 'Netzwerk', 'DNS-Werbeblocker mit eigenen Filterlisten und Statistiken.', 'pihole', {
    'pihole': {'image': 'pihole/pihole:2026.09.0', 'environment': {'TZ': 'Europe/Berlin', 'FTLCONF_webserver_api_password': '@option:password', 'FTLCONF_dns_listeningMode': 'ALL'},
              'mounts': [mount('config', '/etc/pihole')], 'ports': [port(80), port(53, protocol='tcp'), port(53, protocol='udp')]}
@@ -189,6 +196,7 @@ RESOURCE_LIMITS = {
         'performance': {'nextcloud': '4g', 'cron': '1g', 'database': '1536m', 'redis': '512m', 'office-init': '512m', 'eurooffice': '4g'},
     },
     'titan-adguard': {'balanced': {'adguard': '512m'}, 'performance': {'adguard': '512m'}},
+    'titan-jellyfin': {'balanced': {'jellyfin': '2g'}, 'performance': {'jellyfin': '4g'}},
     'titan-pihole': {'balanced': {'pihole': '512m'}, 'performance': {'pihole': '512m'}},
     'titan-cloudflared': {'balanced': {'cloudflared': '256m'}, 'performance': {'cloudflared': '256m'}},
     'titan-tailscale': {'balanced': {'tailscale': '256m'}, 'performance': {'tailscale': '512m'}},
