@@ -29,6 +29,10 @@ sudo systemd-run --unit=titan-web-switch --collect /usr/bin/python3 /usr/share/t
 
 Der Controller unterstützt außerdem einen expliziten GHCR-Digest mit Versionsangabe für Administratoren. Die normale Oberfläche verwendet ausschließlich signierte Release-Artefakte; sie fordert keinen Registry-Zugang an.
 
+## Unabhängige Veröffentlichung
+
+Der Workflow **Titan Web container** baut, testet und veröffentlicht Webversionen unabhängig vom NAS-Image. GitHub-Tags `web-v0.6.1` kennzeichnen den Webkanal; in Titan erscheint die Version als `0.6.1`. Die Systemupdate-Suche ignoriert diesen eigenen Namensraum. Das signierte Manifest und das Containerarchiv werden direkt an die Webveröffentlichung angehängt. Dadurch benötigt eine reine Oberflächenkorrektur keinen erneuten Betriebssystem-Build. Bereits veröffentlichte Webversionen werden nicht ersetzt.
+
 ## Grenzen des Vertrags
 
 Ein gesundes HTTP-Frontend beweist keine korrekte Funktion jeder NAS-Aktion. Daher bleiben reale QEMU-/NAS-Prüfungen erforderlich. Web-Rollback ist kein Datenbank-Restore. Neue Versionen müssen das vorherige Datenformat weiterhin unterstützen. Änderungen am Host-Agenten, Kernel oder Speicherbackend gehören in ein Systemupdate. Ein OS-Rollback und ein Web-Rollback sind getrennte Vorgänge.

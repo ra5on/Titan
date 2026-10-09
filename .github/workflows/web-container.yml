@@ -2,7 +2,7 @@ name: Titan Web container
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
   packages: write
 concurrency:
   group: titan-web-publish
@@ -32,6 +32,11 @@ jobs:
           docker push "$task_image:sha-$GITHUB_SHA"
           docker image inspect "$task_image:$task_version" --format '{{json .RepoDigests}}' > dist/web-container/registry-digests.json
           docker logout ghcr.io
+      - name: Publish signed standalone web update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}
+        run: bash scripts/publish-web-container.sh
       - name: Record image identity
         uses: actions/upload-artifact@v4
         with:
