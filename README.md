@@ -6,7 +6,7 @@ Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläc
 
 **Version 0.6.1 · Entwicklungsstand.** Zunächst in einer separaten VM und mit Testdaten verwenden.
 
-[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.1/titan-0.6.1-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.1) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
+[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.1/titan-0.6.1-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.1) · [Änderungen in 0.6.1](docs/RELEASE-0.6.1.md)
 
 ![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
 
@@ -21,6 +21,10 @@ Die Anmeldung zeigt den unveränderten Titan-Schriftzug über einer kleinen tran
 ## Neue Installationsbasis 0.6.1
 
 Für diese Version ist eine Neuinstallation vorgesehen. Die Weboberfläche läuft als vorinstallierter Docker-Container und lässt sich künftig unabhängig vom Betriebssystem aktualisieren. Daten und Einstellungen bleiben außerhalb des Containers. [Container und Updates](docs/WEB-CONTAINER.md) · [Änderungen](docs/RELEASE-0.6.1.md).
+
+![Separate Prüfung und Installation der Titan-Weboberfläche](docs/images/titan-web-updates.jpg)
+
+*Updateansicht von 0.6.1 mit ausdrücklich gekennzeichneten Demodaten. Webupdates und Systemupdates haben getrennte Bedienelemente.*
 
 ## Installieren und öffnen
 
