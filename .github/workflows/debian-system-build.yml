@@ -146,12 +146,39 @@ jobs:
           fi
           python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" "${task_args[@]}" --confirm-disposable-guest
       - name: Publish only tested signed update bundle
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash "$RUNNER_TEMP/titan-publisher/publish-debian-system.sh"
       - name: Remove temporary private signing material
         if: always()
         run: rm -rf "$RUNNER_TEMP/titan-signing"
+      - name: Preserve public release files if publication fails
+        if: failure() && steps.publish.outcome == 'failure'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: titan-release-recovery-${{ inputs.version }}-${{ github.run_attempt }}
+          retention-days: 1
+          compression-level: 0
+          path: |
+            dist/debian-image/*.img.xz
+            dist/debian-image/*.raucb
+            dist/debian-image/manifest.json
+            dist/debian-image/manifest.json.sig
+            dist/debian-image/SHA256SUMS
+            dist/debian-image/SHA256SUMS.sig
+            dist/debian-image/release-public.pem
+            dist/debian-image/rauc-root.pem
+            dist/debian-image/runtime-test.json
+            dist/debian-image/ab-test.json
+            dist/debian-image/INSTALLATION.md
+            dist/debian-image/debian-base.json
+            dist/debian-image/debian-packages.json
+            dist/debian-image/debian-sources.json
+            dist/debian-image/debian-sources.tar.part-*
+            dist/debian-image/SOURCES.md
+            dist/debian-image/web-container.tar.xz
+            dist/debian-image/web-image.json
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
