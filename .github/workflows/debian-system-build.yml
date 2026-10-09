@@ -63,6 +63,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Reserve immutable release tag before building
+        if: inputs.update_kind != 'system'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/reserve-release-tag.py "v$TITAN_SYSTEM_VERSION"
       - name: Prepare disposable system builder
         run: |
           bash scripts/ci-ubuntu-dependencies.sh --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient rauc grub2-common python3-yaml
