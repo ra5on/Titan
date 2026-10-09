@@ -21,6 +21,8 @@ jobs:
         run: bash scripts/build-web-container.sh .
       - name: Exercise container startup and persistence
         run: bash scripts/smoke-web-container.sh
+      - name: Reject unhealthy candidate and recover previous web image
+        run: python3 scripts/smoke-web-container-lifecycle.py
       - name: Publish immutable version and commit images
         env:
           GH_TOKEN: ${{ github.token }}
