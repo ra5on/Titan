@@ -1,5 +1,6 @@
 import argparse
 import base64
+import hashlib
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -356,7 +357,7 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(size))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", (extra or {}).get("Cache-Control", "no-store"))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "same-origin")
@@ -366,7 +367,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                          "img-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; "
                          "base-uri 'none'; frame-ancestors 'self'; form-action 'self'")
         for key, value in (extra or {}).items():
-            self.send_header(key, value)
+            if key.lower() != "cache-control":
+                self.send_header(key, value)
         self.end_headers()
 
     def reply(self, value, status=200, extra=None):
@@ -654,7 +656,17 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         if target == (WEB / 'index.html').resolve():
             nonce = secrets.token_urlsafe(24)
             data = data.replace(b'__TITAN_STYLE_NONCE__', nonce.encode())
-        self.send_headers(200, len(data), content_type, style_nonce=nonce)
+        extra = None
+        # Revalidate static assets on each use: unchanged windows reuse bytes,
+        # while a web update is visible immediately. HTML keeps its fresh nonce.
+        if target.suffix.lower() in {'.js', '.css', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.woff', '.woff2', '.ico'}:
+            etag = '"' + hashlib.sha256(data).hexdigest() + '"'
+            extra = {"Cache-Control": "private, no-cache", "ETag": etag}
+            candidates = [value.strip().removeprefix('W/') for value in self.headers.get("If-None-Match", "").split(',')]
+            if etag in candidates or '*' in candidates:
+                self.send_headers(304, len(data), content_type, extra=extra)
+                return
+        self.send_headers(200, len(data), content_type, extra=extra, style_nonce=nonce)
         self.wfile.write(data)
 
     def post(self):

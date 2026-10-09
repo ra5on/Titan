@@ -12,6 +12,8 @@ Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläc
 
 *Die Screenshots zeigen die Carbon-Oberfläche von 0.6.0 mit Beispieldaten. Die Demo führt keine Installationen oder Änderungen am echten NAS aus.*
 
+> Separates Webupdate: **0.6.2** verbessert Desktopstart, Fensterladezeiten und die Fehlerbehandlung im Dateimanager. [Änderungen](docs/RELEASE-0.6.2.md). Die Neuinstallationsbasis bleibt **0.6.1**.
+
 ## Verfeinerte Oberfläche
 
 Die Anmeldung zeigt den unveränderten Titan-Schriftzug über einer kleinen transparenten Fläche. Das Hauptmenü trennt Dateien & Apps, System und Verwaltung; die Suche blendet leere Gruppen aus. Helle Arbeitsflächen, matte App-Karten und weniger sichtbare Carbon-Struktur geben Texten und Daten mehr Ruhe. VM-Details zeigen die Live-Werte ohne doppelte CPU-/RAM-Karten und bieten „Konsole öffnen“ direkt an.

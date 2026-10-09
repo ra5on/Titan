@@ -43,6 +43,25 @@ class HTTPTests(unittest.TestCase):
     def test_all_pages_backing_endpoints(self):
         for path in ("/", "/app.js", "/style.css", "/api/session", "/api/status", "/api/catalog", "/api/storage", "/api/snapshots", "/api/apps", "/api/shares", "/api/managed-shares", "/api/vms", "/api/isos", "/api/users", "/api/settings", "/api/updates", "/api/logs", "/api/jobs", "/api/backups", "/api/backup/settings", "/api/monitoring"):
             self.assertEqual(self.request(path)[0], 200, path)
+    def test_static_assets_revalidate_but_html_and_api_are_not_cached(self):
+        for path in ('/app.js', '/style.css', '/logo.svg'):
+            with self.subTest(path=path):
+                status, data, headers = self.request(path)
+                self.assertEqual(status, 200)
+                self.assertEqual(headers.get_all('Cache-Control'), ['private, no-cache'])
+                etag = headers['ETag']
+                self.assertTrue(etag)
+                status, body, again = self.request(path, extra={'If-None-Match': etag})
+                self.assertEqual(status, 304)
+                self.assertEqual(body, b'')
+                self.assertEqual(again['ETag'], etag)
+                self.assertEqual(self.request(path, extra={'If-None-Match': '"old-version"'})[0], 200)
+        for path in ('/', '/api/session'):
+            status, data, headers = self.request(path)
+            self.assertEqual(status, 200)
+            self.assertEqual(headers['Cache-Control'], 'no-store')
+            self.assertIsNone(headers['ETag'])
+
     def test_startup_connection_burst_is_queued_and_served(self):
         # Pause acceptance while a proxy's initial asset burst arrives. The
         # old listen backlog of five stalls before all 64 handshakes finish;

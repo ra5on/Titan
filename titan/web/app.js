@@ -50,7 +50,7 @@ async function api(path, body, {signal} = {}) {
  if (!response.ok) { if (response.status === 401 && session?.user && path !== '/api/login') { session.user = null; renderAuth(false); } const error = new Error(data.error || 'Anfrage fehlgeschlagen.'); error.status = response.status;if(response.status===429&&Number.isInteger(data.retry_after)&&data.retry_after>0&&data.retry_after<=604800)error.retryAfter=data.retry_after;throw error; }
  return data;
  };
- if(!body&&!signal&&['/api/jobs','/api/monitoring'].includes(path)&&window.TitanSharedPolling)return window.TitanSharedPolling.read(path,load);
+ if(!body&&!signal&&['/api/jobs','/api/monitoring','/api/status'].includes(path)&&window.TitanSharedPolling)return window.TitanSharedPolling.read(path,load);
  return load();
 }
 function toast(message, error = false) {
@@ -199,7 +199,7 @@ async function boot({login=false}={}) {
  }
  $('#alerts-button').hidden = session.user.role!=='admin';
  if (!polling) {polling = setInterval(()=>{if(!document.hidden)void pollJobs();},3000);if(!desktopEmbedded)setInterval(()=>{if(!document.hidden)void pollAlerts();},30000);}
- await pollAlerts();
+ // Monitoring must not delay the desktop or embedded application startup.
  if(desktopEmbedded){await navigate();const appId=new URLSearchParams(location.hash.split('?')[1]||'').get('app');try{if(page==='docker'&&appId&&/^[a-zA-Z0-9_-]{1,64}$/.test(appId))await actions['app-manage']({dataset:{id:appId}});}catch(error){toast(error.message,true);}embeddedReady=true;window.parent.postMessage({type:'titan-app-ready'},location.origin);return;}
  desktopWidgets?.destroy();desktopShortcuts?.destroy();desktopWorkspace?.destroy();
  const initial=location.hash;history.replaceState(null,'','#dashboard');page='dashboard';
@@ -330,14 +330,15 @@ const pages = {
    `<div class="notice">Freigaben sind im lokalen Netzwerk über <strong>\\\\${esc(location.hostname)}\\Freigabename</strong> erreichbar. Melde dich mit einem angelegten SMB-Benutzer an.</div><section class="panel"><div class="table-wrap"><table><thead><tr><th>FREIGABE</th><th>LESEN</th><th>SCHREIBEN</th><th></th></tr></thead><tbody>${managedShares.map(share=>`<tr><td><div class="table-name"><span class="row-icon">▱</span><div><button class="text-link" data-action="share-edit" data-name="${esc(share.name)}"><strong>${esc(share.name)}</strong></button><div class="hint">${esc(share.path)}</div></div></div></td><td>${esc(share.readers.join(', ') || '—')}</td><td>${esc(share.writers.join(', ') || '—')}</td><td class="table-actions">${button('Zugänge und Rechte','share-edit',`data-name="${esc(share.name)}"`,'small')}${button('Freigabe entfernen','share-remove',`data-name="${esc(share.name)}"`,'small danger')}</td></tr>`).join('')}</tbody></table>${managedShares.length?'':empty('Lege deine erste Freigabe an.')}</div></section>`;
  },
  async files() {
-  rootAccessData=session.user.role==='admin'&&window.TitanRootAccess?await api('/api/root-access'):{enabled:false};
-  const [availableShares,locations]=await Promise.all([api('/api/shares'),session.user.role==='admin'?api('/api/storage-locations'):Promise.resolve({})]);fileStorageData=locations;
+  const [access,availableShares,locations]=await Promise.all([session.user.role==='admin'&&window.TitanRootAccess?api('/api/root-access'):Promise.resolve({enabled:false}),api('/api/shares'),session.user.role==='admin'?api('/api/storage-locations'):Promise.resolve({})]);rootAccessData=access;fileStorageData=locations;
   const shares=fileLocations(availableShares);
   if (!shares.some(item=>item.name===currentShare)) {currentShare=shares[0]?.name || '';currentPath=currentShare==='@system'?(window.TitanLocations.preferred(fileStorageData)?.path||'').slice(1):'';fileOffset=0;fileSearch='';}
   if(currentShare==='@system'&&!rootAccessData.enabled&&!window.TitanLocations.rootFor(fileStorageData,currentPath)){currentPath=(window.TitanLocations.preferred(fileStorageData)?.path||'').slice(1);fileOffset=0;fileSearch='';}
   const selectedStorage=currentShare==='@system'?window.TitanLocations.rootFor(fileStorageData,currentPath):null,blocked=shares.find(item=>item.name===currentShare)?.blocked||selectedStorage?.available===false||currentShare==='@system'&&!currentPath&&!rootAccessData.enabled;
   let data = {entries:[],total:0,limit:200,offset:0,...(blocked?{error:'Dieser Speicher ist momentan nicht verfügbar. Wähle links einen verbundenen Speicherbereich.'}:{})};
-  if(currentShare&&!blocked&&!(currentShare==='@system'&&!currentPath&&!rootAccessData.enabled)) data=await api(`/api/files?${fileQuery()}`);
+  if(currentShare&&!blocked&&!(currentShare==='@system'&&!currentPath&&!rootAccessData.enabled)){
+   try{data=await api(`/api/files?${fileQuery()}`);}catch(error){data={...data,writable:false,error:'Ordner konnte nicht geöffnet werden. Wähle links einen verfügbaren Speicherbereich oder eine Freigabe. '+error.message};}
+  }
   if(data.total&&fileOffset>=data.total){fileOffset=Math.floor((data.total-1)/data.limit)*data.limit;data=await api(`/api/files?${fileQuery()}`);}
   if(selectedStorage?.status==='full')data.error='Dieser Speicher ist voll. Du kannst Dateien ansehen und löschen, um Platz freizugeben.';
   if(!data.total)fileOffset=0;
