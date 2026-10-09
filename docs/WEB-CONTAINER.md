@@ -31,7 +31,7 @@ Der Controller unterstützt außerdem einen expliziten GHCR-Digest mit Versionsa
 
 ## Unabhängige Veröffentlichung
 
-Der Workflow **Titan Web container** baut, testet und veröffentlicht Webversionen unabhängig vom NAS-Image. GitHub-Tags `web-v0.6.1` kennzeichnen den Webkanal; in Titan erscheint die Version als `0.6.1`. Die Systemupdate-Suche ignoriert diesen eigenen Namensraum. Das signierte Manifest und das Containerarchiv werden direkt an die Webveröffentlichung angehängt. Dadurch benötigt eine reine Oberflächenkorrektur keinen erneuten Betriebssystem-Build. Bereits veröffentlichte Webversionen werden nicht ersetzt. Jede eigenständige Webveröffentlichung enthält außerdem einen Index und ein Archiv der exakten Debian-Quellpakete des Containers; deren Prüfsumme ist im signierten Manifest gebunden.
+Der Workflow **Titan Web container** baut, testet und veröffentlicht Webversionen unabhängig vom NAS-Image. GitHub-Tags wie `web-v0.7.0` kennzeichnen den Webkanal; in Titan erscheint diese Version als `0.7.0`. Die Systemupdate-Suche ignoriert diesen eigenen Namensraum. Das signierte Manifest und das Containerarchiv werden direkt an die Webveröffentlichung angehängt. Dadurch benötigt eine reine Oberflächenkorrektur keinen erneuten Betriebssystem-Build. Bereits veröffentlichte Webversionen werden nicht ersetzt. Jede eigenständige Webveröffentlichung enthält außerdem einen Index und ein Archiv der exakten Debian-Quellpakete des Containers; deren Prüfsumme ist im signierten Manifest gebunden.
 
 ## Grenzen des Vertrags
 

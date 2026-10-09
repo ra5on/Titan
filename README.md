@@ -4,15 +4,15 @@
 
 Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläche verbindet einen persönlichen Desktop mit Dateimanager, Speicherverwaltung, Freigaben, Docker-Compose-Apps, virtuellen Maschinen und signierten Systemupdates.
 
-**Version 0.6.1 · Entwicklungsstand.** Zunächst in einer separaten VM und mit Testdaten verwenden.
+**Version 0.7.0 · Horizon · Stable-Kanal.** Boot, NAS-Laufzeit und A/B-Wiederherstellung sind in einer AMD64/UEFI-VM geprüft. Physische NAS-Hardware, USV und Langzeitbetrieb sind damit nicht abgenommen. [Prüfumfang und Grenzen](docs/VERIFY-0.7.0.md).
 
-[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.1/titan-0.6.1-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.1) · [Änderungen in 0.6.1](docs/RELEASE-0.6.1.md)
+[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.7.0/titan-0.7.0-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.7.0) · [Änderungen in 0.7.0](docs/RELEASE-0.7.0.md)
 
 ![Titan 0.7.0 Horizon mit persönlichen Widgets](docs/images/titan-070-desktop.jpg)
 
 *Die neuen Desktop-, Datei- und Einstellungsbilder zeigen Titan 0.7.0 mit Beispieldaten. Die Demo verändert kein echtes NAS. Ältere Abbildungen anderer Bereiche sind separat gekennzeichnet.*
 
-> Separates Webupdate: **0.7.0 · Horizon** ist veröffentlicht. Es ergänzt einen eigenständig gestalteten Desktop, farbige Werkzeuge, ein Systemmenü und eine authentifizierte Fotogalerie. [Änderungen](docs/RELEASE-0.7.0.md) · [Signiertes Webupdate](https://github.com/ra5on/Titan/releases/tag/web-v0.7.0) · [Prüfnachweise und Grenzen](docs/VERIFY-0.7.0.md). Die bisherige Neuinstallationsbasis bleibt verfügbar, solange das neue Image geprüft wird.
+> Separates Webupdate: **0.7.0 · Horizon** ist veröffentlicht. Es ergänzt einen eigenständig gestalteten Desktop, farbige Werkzeuge, ein Systemmenü und eine authentifizierte Fotogalerie. [Änderungen](docs/RELEASE-0.7.0.md) · [Signiertes Webupdate](https://github.com/ra5on/Titan/releases/tag/web-v0.7.0) · [Prüfnachweise und Grenzen](docs/VERIFY-0.7.0.md). Für bestehende Container-Installationen ab Systembasis 0.6.1; für eine Neuinstallation steht das vollständige Image 0.7.0 bereit.
 
 ## Horizon: Dateien, Fotos und Einstellungen
 
@@ -24,9 +24,9 @@ Die neue **Fotos**-Anwendung durchsucht eine ausgewählte Freigabe mit Ordner- u
 
 Die Bedienorientierung stammt aus öffentlichen TitanOS-Beschreibungen und Screenshots. Dafür wurden weder TitanOS-Quellcode noch dessen Bilder oder Icons importiert. [Umsetzungsplan und Herkunft](docs/RELEASE-PLAN-0.7.0.md).
 
-## Neue Installationsbasis 0.6.1
+## Installationsbasis 0.7.0
 
-Für diese Version ist eine Neuinstallation vorgesehen. Die Weboberfläche läuft als vorinstallierter Docker-Container und lässt sich künftig unabhängig vom Betriebssystem aktualisieren. Daten und Einstellungen bleiben außerhalb des Containers. [Container und Updates](docs/WEB-CONTAINER.md) · [Änderungen](docs/RELEASE-0.6.1.md).
+Das Image enthält das vollständige Debian-System und Titan Web 0.7.0 als vorinstallierten Docker-Container. Es ist für Neuinstallationen vorgesehen. Bestehende Container-Installationen ab 0.6.1 können die Weboberfläche separat aktualisieren; Daten und Einstellungen bleiben außerhalb des Containers. [Container und Updates](docs/WEB-CONTAINER.md) · [Änderungen](docs/RELEASE-0.7.0.md).
 
 ![Separate Prüfung und Installation der Titan-Weboberfläche](docs/images/titan-web-updates.jpg)
 

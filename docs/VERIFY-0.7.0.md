@@ -1,7 +1,7 @@
 # Prüfnachweis Titan 0.7.0
 
-Release-Vorbereitung vom 9. Oktober 2026. Dieser Bericht wird nach den tatsächlichen
-Builds aktualisiert; die Versionskennung allein ist kein Prüfnachweis.
+Abgeschlossene Release-Prüfung vom 9. Oktober 2026. Die Versionskennung allein
+ist kein Prüfnachweis; die folgenden Ergebnisse gehören zum veröffentlichten Stand.
 
 ## Herkunft und Umfang
 
@@ -30,10 +30,10 @@ README-Änderungen ändern nicht den eingefrorenen Produktcode der Downloads.
 
 | Prüfung | Ergebnis |
 | --- | --- |
-| [Quell-CI](https://github.com/ra5on/Titan/actions/runs/37986917717) | Bestanden; Python/API, Shell-/JS-Syntax und alle UI-Suiten |
+| [Quell-CI](https://github.com/ra5on/Titan/actions/runs/37986917717) | Bestanden; 1.937 Python-/API-Tests, davon 26 umgebungsbedingt übersprungen; Shell-/JS-Syntax und alle 79 UI-Suiten |
 | [Webcontainer](https://github.com/ra5on/Titan/actions/runs/37986930284) | Bestanden; realer Containerstart, Neustart, Kompatibilität und fehlgeschlagenes Update mit Rücknahme |
 | [Signiertes Webupdate](https://github.com/ra5on/Titan/releases/tag/web-v0.7.0) | Veröffentlicht; erneut heruntergeladen, Signatur gegen den öffentlichen Repository-Schlüssel verifiziert, Größe und SHA-256 geprüft |
-| [Systemimage und Recovery](https://github.com/ra5on/Titan/actions/runs/37986926687) | Läuft; AdGuard, Immich, Cloudflare, Tailscale und eigener Compose-Verbund bereits bestanden. Image-/Boot-/Recovery-Ergebnis noch ausstehend |
+| [Systemimage und Recovery](https://github.com/ra5on/Titan/actions/runs/37986926687) | Bestanden und als [v0.7.0](https://github.com/ra5on/Titan/releases/tag/v0.7.0) veröffentlicht; alle fünf aktiven App-Abnahmen sowie Image, UEFI/HTTPS, NAS-Laufzeit und A/B-Recovery erfolgreich |
 
 Das heruntergeladene Webpaket enthält exakt die getesteten Dateien `photos.js`,
 `horizon.css` und `wallpapers/horizon.png` (Byte-Prüfsummen abgeglichen).
@@ -43,12 +43,43 @@ Das heruntergeladene Webpaket enthält exakt die getesteten Dateien `photos.js`,
 - Container: `sha256:7acaee1ed3cbf33830d603987b45425b9665aaa50b2e9312da7336156ccdcd7c`
 - Kompatibilität: Agent-API 1, Zustandsschema 1
 
+## Vollständiges Systemimage
+
+Signiertes Manifest und signierte `SHA256SUMS` wurden nach dem Download gegen den
+Repository-Schlüssel verifiziert. Die heruntergeladenen Laufzeit-/A/B-Berichte
+stimmen mit ihren signierten Prüfsummen überein. Quelle und Version stimmen mit
+dem eingefrorenen Produktstand überein. Image und A/B-Updatepaket wurden vollständig
+über HTTPS heruntergeladen und dabei Größe und SHA-256 gegen die signierten
+Prüfsummen verifiziert (ohne die großen Dateien lokal zu speichern).
+
+- [Installationsimage](https://github.com/ra5on/Titan/releases/download/v0.7.0/titan-0.7.0-amd64.img.xz): 674.467.348 Bytes
+- Image-SHA-256: `5178b5c632eb92be206aa7f7ca4235e0b054248fbffa356e5dfa6f9ca3e34479`
+- A/B-Updatepaket: 834.143.540 Bytes
+- Bundle-SHA-256: `cc82ab292a7e1df4181a5635b39bf7353d169bbcef9b8f9bdfec6b11e184665f`
+
+Der Laufzeitbericht enthält 15 bestandene Prüfgruppen: unter anderem Ersteinrichtung,
+Anmeldeschutz, Trennung von NAS-Daten und Betriebssystem, Speicherkomponenten,
+SMB-Mehrbenutzerrechte, Docker-Lebenszyklus/Netze/Datenerhalt und VM-Verwaltung.
+Eine Gruppe zur Datenträgervergrößerung ist dort ausdrücklich ausgelassen, weil
+sie im separaten A/B-Test tatsächlich geprüft wird. Der VM-Test startete eine
+Domain einschließlich UEFI und authentifizierter RFB-Konsole; ein installiertes
+Gastbetriebssystem wurde dabei **nicht** gebootet.
+
+Alle sieben A/B-Prüfungen bestanden: Baseline-Start, Datenbereich-Vergrößerung,
+signierte Vorbereitung ohne automatischen Neustart, Update mit Konten/ACLs/Daten,
+slotabhängige Grundeinstellungen, manuelles Rollback und Rückfall nach fehlerhaftem
+Kandidaten. Das verteilte Rohimage und die Testbaseline blieben unverändert.
+
 ## Nachweisgrenzen
 
 Keine Ergebnisse früherer Releases werden als Nachweis für 0.7.0 ausgegeben.
 Der lokale Host hat keinen nutzbaren KVM-Zugang und zu wenig freien Plattenplatz
-für den vollständigen Image-Build. Hardware-/USV-Abnahme und Langzeitbetrieb sind
-nicht durchgeführt. Der Systemworkflow verwendet für seine A/B-Prüfung eine
-kontrolliert erzeugte Testbaseline; das ersetzt keinen Nachweis einer Migration
-von jeder älteren veröffentlichten Installation. Die Grenzen der
-[NAS-Funktionsprüfung](NAS-FUNCTION-AUDIT.md) bleiben bestehen.
+für den vollständigen Image-Build; diese Tests liefen auf GitHub.
+Hardware-/USV-Abnahme, Windows-/macOS-SMB-Clients, RAID-Ausfall auf echten Platten,
+ein vollständiges Gastbetriebssystem und NAS-Langzeitbetrieb sind nicht geprüft.
+Der Systemworkflow verwendet für seine A/B-Prüfung eine kontrolliert erzeugte
+Testbaseline (`generated-current-build`, Testkennung `0.4.5-alpha.1`); das ersetzt
+keinen Nachweis einer Migration von jeder älteren veröffentlichten Installation.
+Die weiter offenen Funktionsgrenzen der [NAS-Funktionsprüfung](NAS-FUNCTION-AUDIT.md)
+bleiben bestehen. Die Kennzeichnung **Stable-Kanal** ist keine pauschale
+Hardware- oder Dauerbetriebsfreigabe.

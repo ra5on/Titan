@@ -1,5 +1,10 @@
 # NAS-Funktionsprüfung · 8. Oktober 2026
 
+> Historischer Audit vom 8. Oktober. Titan 0.7.0 ist inzwischen im Stable-Kanal
+> veröffentlicht; die neuen Nachweise stehen in [VERIFY-0.7.0.md](VERIFY-0.7.0.md).
+> Die hier aufgeführten offenen Funktions- und Hardwaregrenzen sind dadurch
+> nicht behoben. Die damalige Alpha-/Beta-Einstufung unten beschreibt den alten Stand.
+
 Geprüft wurde der lokale Titan-Quellstand nach `v0.6.0-alpha.3`, einschließlich der noch nicht veröffentlichten Designarbeit. Dies ist eine Quellcode- und Testprüfung, keine Abnahme auf einem echten NAS. Der ergänzte RAID-Laufwerkstausch ist unter [RAID-RECOVERY.md](RAID-RECOVERY.md) beschrieben.
 
 ## Bereits vorhanden

@@ -1,8 +1,9 @@
 # Titan installieren
 
-Das Titan-Debian-A/B-Image ist eine **Alpha für eine neue Test-VM**.
+Titan **0.7.0 Horizon** ist im Stable-Kanal veröffentlicht. Das Debian-A/B-Image ist
+für eine neue AMD64/UEFI-Installation vorgesehen. [Prüfumfang und Grenzen](VERIFY-0.7.0.md).
 
-[IMG herunterladen](https://github.com/ra5on/Titan/releases/download/v0.5.9-alpha.1/titan-0.5.9-alpha.1-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.5.9-alpha.1)
+[IMG herunterladen](https://github.com/ra5on/Titan/releases/download/v0.7.0/titan-0.7.0-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.7.0)
 
 Die Datei entpacken und als Systemplatte einer neuen Proxmox-VM importieren:
 x86-64, UEFI/OVMF ohne Secure Boot, 8 GiB RAM und 2 CPUs. Das entpackte Image ist
@@ -22,5 +23,5 @@ die bisherige Einstellung wiederhergestellt.
 [Ausführliche Anleitung](TITAN-IMAGE.md) · [Updates und Rollback](UPDATES.md)
 
 Nach dieser Neuinstallation kommen weitere kompatible Versionen über den
-Alpha-Update-Kanal. Bestehende andere NAS-Systeme werden nicht automatisch
+gewählten Update-Kanal (0.7.0: Stable). Bestehende andere NAS-Systeme werden nicht automatisch
 konvertiert; das Image nicht über deren Datenplatten schreiben.
