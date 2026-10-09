@@ -10,6 +10,17 @@ if gh release view "web-v$task_version" --repo "$GITHUB_REPOSITORY" >/dev/null 2
     echo 'This immutable web release already exists; increment the version.' >&2
     exit 1
 fi
+# Collect the exact Debian sources from the shipped container, not the runner.
+# The collector verifies signed APT metadata and each source file checksum.
+mkdir -p "$task_dir/source-output"
+docker run --rm --user 0:0 --entrypoint python3 \
+    --mount "type=bind,src=$(realpath scripts/collect-debian-sources.py),dst=/collect.py,readonly" \
+    --mount "type=bind,src=$task_dir/source-output,dst=/output" \
+    "titan-web:$task_version" /collect.py --output /output/sources \
+    --titan-source-ref "$GITHUB_SHA" --confirm-disposable-guest
+cp "$task_dir/source-output/sources/index.json" "$task_dir/web-debian-sources.json"
+tar -C "$task_dir/source-output/sources" -cf - . | xz -T2 -1 > "$task_dir/web-debian-sources.tar.xz"
+[[ $(stat -c %s "$task_dir/web-debian-sources.tar.xz") -lt 2147483648 ]]
 umask 077
 task_key=$(mktemp "$RUNNER_TEMP/titan-web-signing.XXXXXX")
 trap 'rm -f "$task_key" "$task_key.pub"' EXIT
@@ -22,7 +33,9 @@ import hashlib,json,sys
 from pathlib import Path
 p=Path(sys.argv[1]);image=json.loads((p/'web-image.json').read_text());archive=p/'web-container.tar.xz'
 with archive.open('rb') as stream: digest=hashlib.file_digest(stream,'sha256').hexdigest()
-manifest={'format':'titan-web-v1','source_commit':sys.argv[2],
+sources=p/'web-debian-sources.tar.xz'
+with sources.open('rb') as stream: source_digest=hashlib.file_digest(stream,'sha256').hexdigest()
+manifest={'sources':{'name':sources.name,'size':sources.stat().st_size,'sha256':source_digest},'format':'titan-web-v1','source_commit':sys.argv[2],
           'web_container':{**image,'agent_api':1,'state_schema':1,'size':archive.stat().st_size,'sha256':digest}}
 (p/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 PY
@@ -33,4 +46,5 @@ cp docs/WEB-CONTAINER.md "$task_dir/WEB-CONTAINER.md"
 gh release create "web-v$task_version" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
     --title "Titan Web $task_version" --notes-file "$task_dir/WEB-CONTAINER.md" \
     "$task_dir/web-container.tar.xz" "$task_dir/web-image.json" "$task_dir/manifest.json" \
-    "$task_dir/manifest.json.sig" "$task_dir/release-public.pem"
+    "$task_dir/manifest.json.sig" "$task_dir/release-public.pem" \
+    "$task_dir/web-debian-sources.json" "$task_dir/web-debian-sources.tar.xz"
