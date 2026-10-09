@@ -1,0 +1,36 @@
+name: Verify release publication permissions
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing unpublished release tag to verify
+        required: true
+        type: string
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Verify release creation using an existing tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == ra5on/Titan ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing to modify it.' >&2
+            exit 1
+          fi
+          task_release_id=$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
+            -f tag_name="$RELEASE_TAG" -f name='Temporary publication permission check' \
+            -f body='Temporary private draft; removed by this permission check.' \
+            -F draft=true -f make_latest=false --jq .id)
+          [[ "$task_release_id" =~ ^[0-9]+$ ]]
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$task_release_id"
+          echo 'Release creation verified. Temporary draft removed; tag preserved.'
