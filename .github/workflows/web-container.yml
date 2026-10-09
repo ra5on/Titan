@@ -17,12 +17,8 @@ jobs:
         run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml
       - name: Check lifecycle and compatibility
         run: python3 -m unittest discover -s tests -p 'test_web_container.py' -v
-      - name: Build offline-capable web image
+      - name: Build and verify offline-capable web image
         run: bash scripts/build-web-container.sh .
-      - name: Exercise container startup and persistence
-        run: bash scripts/smoke-web-container.sh
-      - name: Reject unhealthy candidate and recover previous web image
-        run: python3 scripts/smoke-web-container-lifecycle.py
       - name: Publish immutable version and commit images
         env:
           GH_TOKEN: ${{ github.token }}

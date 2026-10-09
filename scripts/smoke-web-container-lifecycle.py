@@ -21,6 +21,7 @@ m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 import sys
 sys.path.insert(0,str(root))
 from titan import __version__
+__version__ = os.environ.get("TITAN_WEB_VERSION", __version__)
 if subprocess.run(['docker','inspect','titan-web'],capture_output=True).returncode==0:
     raise SystemExit('Refusing to replace an existing titan-web container')
 with tempfile.TemporaryDirectory(prefix='titan-web-lifecycle-') as folder:

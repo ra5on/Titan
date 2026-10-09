@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 [[ "${GITHUB_ACTIONS:-}" == true ]] || exit 1
-task_version=$(python3 -c 'from titan import __version__; print(__version__)')
+task_version=${TITAN_WEB_VERSION:-$(python3 -c 'from titan import __version__; print(__version__)')}
 task_data=$(mktemp -d)
 chmod 0700 "$task_data"
 cleanup() { docker logs titan-web-smoke || true; docker rm -f titan-web-smoke >/dev/null 2>&1 || true; }

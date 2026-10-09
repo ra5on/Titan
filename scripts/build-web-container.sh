@@ -9,6 +9,8 @@ mkdir -p dist/web-container
 docker build --file "$task_source/packaging/container/Containerfile" \
     --build-arg "TITAN_VERSION=$task_version" --build-arg "TITAN_REVISION=$task_revision" \
     --tag "titan-web:$task_version" "$task_source"
+TITAN_WEB_VERSION="$task_version" bash scripts/smoke-web-container.sh
+TITAN_WEB_VERSION="$task_version" python3 scripts/smoke-web-container-lifecycle.py
 docker save --output dist/web-container/web-image.tar "titan-web:$task_version"
 python3 - "$task_version" <<'PY'
 import json, subprocess, sys
