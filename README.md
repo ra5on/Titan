@@ -154,9 +154,9 @@ python3 -m unittest discover -s tests
 python3 -m titan.server --demo --host 127.0.0.1 --port 5089
 ```
 
-Die Demo ist eine Vorschau mit simulierten Hostfunktionen. Sie ersetzt keine Prüfung auf echter Hardware oder mit echten Cloudflare-/Tailscale-Konten. Der [Release-Workflow für 0.6.0-alpha.6](https://github.com/ra5on/Titan/actions/runs/37885572225) ist erfolgreich abgeschlossen; Installationsimage, signiertes Update und Prüfberichte sind [veröffentlicht](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.6). Der [Prüfnachweis](docs/VERIFY-0.6.0.md#veröffentlichter-image-nachweis--alpha6) dokumentiert den genauen Quellstand, die Testergebnisse, Signaturen und Dateiprüfsummen.
+Die Demo ist eine Vorschau mit simulierten Hostfunktionen. Sie ersetzt keine Prüfung auf echter Hardware oder mit echten Cloudflare-/Tailscale-Konten. Der [Release-Workflow für 0.6.1](https://github.com/ra5on/Titan/actions/runs/37943811929) ist erfolgreich abgeschlossen; Installationsimage, signiertes Update und Prüfberichte sind [veröffentlicht](https://github.com/ra5on/Titan/releases/tag/v0.6.1). Der [Prüfnachweis](docs/VERIFY-0.6.1.md) dokumentiert Quellstände, Containerprüfung, QEMU-Laufzeit- und A/B-Tests sowie verifizierte Signaturen und Dateiprüfsummen.
 
-Für dieses Alpha-Installationsimage verwendet die A/B-Prüfung eine private, als Altstand markierte Kopie des aktuellen Builds. Sie prüft Systemwechsel, Datenerhalt, Rollback und Fehlerwiederherstellung. Ein Upgrade von einem tatsächlich älteren veröffentlichten Titan-Image ist damit nicht vollständig nachgewiesen und muss separat geprüft werden.
+Für dieses Installationsimage verwendet die A/B-Prüfung eine private, als Altstand markierte Kopie des aktuellen Builds. Sie prüft Systemwechsel, Datenerhalt, Rollback und Fehlerwiederherstellung. Ein Upgrade von einem tatsächlich älteren veröffentlichten Titan-Image ist damit nicht vollständig nachgewiesen und muss separat geprüft werden.
 
 [Entwicklung und Testgrenzen](docs/DEVELOPMENT.md) · [Bedienung und Layout](docs/UI-DESIGN.md) · [Updates](docs/UPDATES.md)
 
