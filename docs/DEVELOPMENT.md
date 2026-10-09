@@ -3,7 +3,7 @@
 ```sh
 python3 -m pip install PyYAML
 python3 -m unittest discover -s tests
-python3 -m titan.server --demo --host 127.0.0.1 --port 5089
+python3 -m titan.server --demo --host 127.0.0.1 --port 5089 --data /tmp/titan-demo
 python3 scripts/build-debian-package.py
 ```
 

@@ -2,7 +2,7 @@
 (function(root,factory){const ui=factory();if(typeof module==='object'&&module.exports)module.exports=ui;if(root)root.TitanShortcuts=ui;})(typeof window==='undefined'?null:window,function(){
  const validKey=key=>typeof key==='string'&&/^(?:(tool|app):[a-zA-Z0-9_-]{1,64}|vm:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/.test(key);
  const idOf=row=>typeof row==='string'?row:row.id;
- const desktopPreferences=value=>({background_click:value?.background_click==='minimize'?'minimize':'none',dock_auto_hide:value?.dock_auto_hide===true,transparency:Number.isInteger(value?.transparency)&&value.transparency>=0&&value.transparency<=100?value.transparency:40,color_mode:['light','dark','system'].includes(value?.color_mode)?value.color_mode:'light'});
+ const desktopPreferences=value=>({background_click:value?.background_click==='minimize'?'minimize':'none',dock_auto_hide:value?.dock_auto_hide===true,transparency:Number.isInteger(value?.transparency)&&value.transparency>=0&&value.transparency<=100?value.transparency:40,color_mode:['light','dark','system'].includes(value?.color_mode)?value.color_mode:'dark'});
  const defaults=['tool:files','tool:docker','tool:settings','tool:apps','tool:storage'];
  function normalize(value={},allowed=[]){
   const seen=new Set(),folders=new Set(),tools=new Set(allowed),hidden=new Set(value.hidden||[]);

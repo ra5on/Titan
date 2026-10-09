@@ -1,7 +1,7 @@
 'use strict';
 // Theme messages are confined to Titan's own application windows.
 (function(root,factory){const ui=factory();if(typeof module==='object'&&module.exports)module.exports=ui;if(root){root.TitanTheme=ui.init(root);}})(typeof window==='undefined'?null:window,function(){
- function normalize(value={}){return {color_mode:['light','dark','system'].includes(value?.color_mode)?value.color_mode:'light',transparency:Number.isInteger(value?.transparency)&&value.transparency>=0&&value.transparency<=100?value.transparency:40};}
+ function normalize(value={}){return {color_mode:['light','dark','system'].includes(value?.color_mode)?value.color_mode:'dark',transparency:Number.isInteger(value?.transparency)&&value.transparency>=0&&value.transparency<=100?value.transparency:40};}
  function init(win){
   const doc=win.document,media=win.matchMedia?.('(prefers-color-scheme: dark)'),embedded=win.parent!==win&&new URLSearchParams(win.location.search).get('desktop-app')==='1'||win.parent!==win&&new URLSearchParams(win.location.search).get('embedded')==='1';let prefs=normalize();
   function frames(){return [...doc.querySelectorAll('iframe.desktop-app-frame,iframe.vm-console-frame')].map(node=>node.contentWindow).filter(Boolean);}
