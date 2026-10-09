@@ -402,16 +402,17 @@ function fileBreadcrumbs() {
  const resource=currentShare==='@system'&&!rootAccessData.enabled?window.TitanLocations.rootFor(fileStorageData,currentPath):null,base=resource?.path.slice(1)||'',relative=resource?currentPath.slice(base.length).replace(/^\/+/, ''):currentPath,parts=relative.split('/').filter(Boolean);
  return `<div class="file-breadcrumbs" aria-label="Ordnerpfad">${button(esc(rootAccessData.enabled&&currentShare==='@system'?'System /':resource?.label||currentShare||'Dateien'),'folder-open',`data-path="${esc(base)}"`,'small')}${parts.map((part,index)=>`<span aria-hidden="true">/</span>${button(esc(part),'folder-open',`data-path="${esc([base,...parts.slice(0,index+1)].filter(Boolean).join('/'))}"`,'small')}`).join('')}</div>`;
 }
+function uploadLabel(item){return item.name+' · '+(item.committing?'Wird gespeichert …':Math.floor(item.overallPercent??item.percent)+' %')+(item.total>1?' · Datei '+item.index+' von '+item.total:'');}
 function uploadStatus() {
  const item=activeUpload;
- return item?`<div class="upload-status" role="status"><span data-upload-name>${esc(item.name)} · ${Math.floor(item.percent)} %${item.total>1?' · '+item.index+' / '+item.total:''}</span><progress data-upload-progress value="${item.percent}" max="100" aria-label="Upload-Fortschritt"></progress><button type="button" class="button small" data-action="upload-cancel" ${item.controller.signal.aborted?'disabled':''}>${item.controller.signal.aborted?'Wird abgebrochen …':item.committing?'Rest abbrechen':'Abbrechen'}</button></div>`:'';
+ return item?`<div class="upload-status" role="status"><span data-upload-name>${esc(uploadLabel(item))}</span><progress data-upload-progress value="${item.overallPercent??item.percent}" max="100" aria-label="Gesamter Upload-Fortschritt"></progress><button type="button" class="button small" data-action="upload-cancel" ${item.controller.signal.aborted?'disabled':''}>${item.controller.signal.aborted?'Wird abgebrochen …':item.committing?'Rest abbrechen':'Abbrechen'}</button></div>`:'';
 }
 function renderUploadStatus() {
  const box=$('#upload-status');if(!box)return;
  if(!activeUpload){box.innerHTML='';return;}
  const label=box.querySelector('[data-upload-name]'),progress=box.querySelector('[data-upload-progress]'),cancel=box.querySelector('[data-action="upload-cancel"]');
  if(!label||!progress||!cancel){box.innerHTML=uploadStatus();return;}
- const item=activeUpload;label.textContent=item.name+' · '+Math.floor(item.percent)+' %'+(item.total>1?' · '+item.index+' / '+item.total:'');progress.value=item.percent;cancel.disabled=item.controller.signal.aborted;cancel.textContent=item.controller.signal.aborted?'Wird abgebrochen …':item.committing?'Rest abbrechen':'Abbrechen';
+ const item=activeUpload;label.textContent=uploadLabel(item);progress.value=item.overallPercent??item.percent;cancel.disabled=item.controller.signal.aborted;cancel.textContent=item.controller.signal.aborted?'Wird abgebrochen …':item.committing?'Rest abbrechen':'Abbrechen';
 }
 function permissionsFields(accounts, readers = [], writers = [], service = 'titan-files') {
  const names=[...new Set([service,...accounts.system.filter(user=>!user.removed).map(user=>user.name),...readers,...writers])];

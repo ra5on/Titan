@@ -4,12 +4,13 @@
  const canceled=()=>Object.assign(new Error('Upload abgebrochen.'),{canceled:true});
  function leaf(value){if(typeof value!=='string'||!value||value.length>255||value.includes('/')||value.includes('\\')||value.includes('\0')||['.','..'].includes(value))throw Error('Ungültiger Dateiname.');return value;}
  async function run({files,destination,iso=false,controller=new AbortController(),request,onProgress=()=>{},createToken=token}){
-  const queue=Array.from(files||[]);destination={...destination};let completed=0;
+  const queue=Array.from(files||[]);destination={...destination};let completed=0,transferred=0;
   for(const file of queue){leaf(file.name);if(!Number.isSafeInteger(file.size)||file.size<0)throw Error('Ungültige Dateigröße.');if(iso&&(!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,120}\.iso$/.test(file.name)||!file.size))throw Error('Wähle eine nicht leere ISO-Datei mit einfachem Dateinamen.');}
+  const totalBytes=queue.reduce((sum,file)=>sum+file.size,0);
   const signal=controller.signal,check=()=>{if(signal.aborted)throw canceled();};
   try{for(let index=0;index<queue.length;index++){
    check();const file=queue[index],uploadId=iso?null:createToken(),path=[destination?.path,file.name].filter(Boolean).join('/');let offset=0,isoId=null,committed=false;
-   const notify=(committing=false)=>onProgress({name:file.name,index:index+1,total:queue.length,percent:file.size?offset/file.size*100:committing?100:0,committing,completed});notify();
+   const notify=(committing=false)=>onProgress({name:file.name,index:index+1,total:queue.length,percent:file.size?offset/file.size*100:committing?100:0,committing,completed,transferred:transferred+offset,totalBytes,overallPercent:totalBytes?(transferred+offset)/totalBytes*100:completed/Math.max(queue.length,1)*100});notify();
    try{
     do{
      check();const chunk=new Uint8Array(await file.slice(offset,offset+1024*1024).arrayBuffer());check();let binary='';for(let i=0;i<chunk.length;i+=8192)binary+=String.fromCharCode(...chunk.subarray(i,i+8192));
@@ -26,7 +27,7 @@
      const result=await request('/api/files',{share:destination.share,path,action:'upload',upload_id:uploadId,total:file.size,finish:true},{});
      if(result.atomic!==true||result.complete!==true||result.upload_id!==uploadId||result.offset!==file.size)throw Error('Server hat den Upload-Abschluss nicht bestätigt.');
     }
-    committed=true;completed++;
+    committed=true;completed++;transferred+=file.size;
    }catch(error){
     let cleanupFailed=false;
     if(!committed)try{if(iso&&isoId)await request('/api/isos/cancel',{upload_id:isoId},{});else if(!iso){const result=await request('/api/files',{share:destination.share,path,action:'upload',upload_id:uploadId,total:file.size,cancel:true},{});if(result.atomic===true&&result.complete===true&&result.upload_id===uploadId&&result.offset===file.size){committed=true;completed++;}}}catch{cleanupFailed=true;}

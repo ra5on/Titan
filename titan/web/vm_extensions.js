@@ -1,5 +1,6 @@
 'use strict';
 (function(root){
+ let pending=null;
  let current=null,currentInline=false,currentManager=null,currentSelection=null;
  const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
  const tabs=[['overview','Übersicht'],['console','Konsole'],['hardware','Hardware'],['network','Netzwerk'],['backups','Sicherungen']];
@@ -20,7 +21,7 @@
   return `<section class="vm-extension-detail" data-vmx-vm="${esc(vm.id)}"><header class="vm-detail-header">${button(tab==='console'?'←':'← Maschinen','back',tab==='console'?'aria-label="Zurück zu Maschinen" title="Zurück zu Maschinen"':'')}<div class="vm-detail-title"><h2>${esc(vm.display_name||vm.name)}</h2><span class="pill ${offline?'gray':''}">${esc(stateNames[data.state]||data.state)}</span></div>${tab!=='console'?button('Konsole öffnen','console','','primary'):''}${button('↻','refresh','aria-label="VM aktualisieren"')}${button(tab==='console'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4M12 7v7m-3-3 3 3 3-3"/></svg>':'Konsole auf Desktop','desktop','aria-label="Konsole auf Desktop" title="Konsole auf Desktop"')}<div class="vm-detail-quick-actions">${actions}</div></header>${navigation}<div class="vm-operation-status" role="status" data-vmx-status hidden></div><div class="vm-detail-content ${tab==='console'?'is-console':''}" data-vmx-content role="tabpanel" id="vmx-panel-${tab}" aria-labelledby="vmx-tab-${tab}">${!offline&&['hardware','network'].includes(tab)?'<p class="hint">Hardwareänderungen und Klonen sind nach vollständigem Herunterfahren verfügbar.</p>':''}${content}<div class="form-error" role="alert" data-vmx-error hidden></div></div>${tabs.filter(([id])=>id!==tab).map(([id])=>`<div role="tabpanel" id="vmx-panel-${id}" aria-labelledby="vmx-tab-${id}" hidden></div>`).join('')}</section>`;
  }
  function storageField(options){const choices=options.storage||options.storage_options||[],selected=options.default_storage?choices.find(item=>item.id===options.default_storage):choices.find(item=>item.available!==false&&item.status!=='full'),missing=Boolean(options.default_storage&&!selected);return `<label class="field">Speicherbereich<select name="storage" required>${missing?`<option value="${esc(options.default_storage)}" selected disabled>Standardspeicher · Nicht verfügbar</option>`:!choices.length?'<option value="">Kein Speicher verfügbar</option>':''}${choices.map(item=>`<option value="${esc(item.id)}" ${item===selected?'selected':''} ${item.available===false||item.status==='full'?'disabled':''}>${esc(item.id==='system'?'Interner Speicher':item.label||item.name||item.id)}${item.status==='full'?' · Voll':item.available===false?' · Nicht verfügbar':Number.isFinite(item.free_bytes)?' · '+new Intl.NumberFormat('de-DE',{maximumFractionDigits:1}).format(item.free_bytes/1024**3)+' GiB frei':''}</option>`).join('')}</select></label>`;}
- function dispose(){current?.abort();current=null;currentInline=false;currentManager=null;currentSelection=null;}
+ function dispose(){pending?.abort();pending=null;current?.abort();current=null;currentInline=false;currentManager=null;currentSelection=null;}
  function closeSelection(manager){
   if(currentManager===manager)dispose();
   const host=manager?.querySelector?.('[data-vm-detail-host]');if(!host)return;
@@ -32,11 +33,14 @@
  function disposeDialog(){if(!currentInline)dispose();}
  async function open(vm,context,tab='overview'){
   const alreadySelected=context.container?.dataset.vmSelected===String(vm.id);
-  dispose();const controller=new AbortController();current=controller;currentInline=Boolean(context.container);const signal=controller.signal,{api,dialog,action,askYesNo,bytes,legacy,onBack}=context;
+  pending?.abort();const controller=new AbortController();pending=controller;const signal=controller.signal,{api,dialog,action,askYesNo,bytes,legacy,onBack}=context;
   const manager=context.container,selection=manager?.querySelector?.('[data-vm-detail-host]'),container=selection||manager;
-  currentManager=selection?manager:null;
   tab=tabs.some(([id])=>id===tab)?tab:'overview';
-  const [data,options,freshList]=await Promise.all([api('/api/vm-extensions?'+new URLSearchParams({vm:vm.id})),api('/api/vm-options'),api('/api/vms').catch(()=>null)]);if(signal.aborted)return;
+  let data,options,freshList;
+  try{[data,options,freshList]=await Promise.all([api('/api/vm-extensions?'+new URLSearchParams({vm:vm.id})),api('/api/vm-options'),api('/api/vms').catch(()=>null)]);}catch(error){if(signal.aborted)return;if(pending===controller)pending=null;controller.abort();throw error;}
+  if(signal.aborted)return;
+  // Keep the previous view and its handlers alive until the next view is ready.
+  pending=null;dispose();current=controller;currentInline=Boolean(context.container);currentManager=selection?manager:null;
   vm={...vm,...(freshList?.vms||[]).find(item=>item.id===vm.id),state:data.state};
   let body,modal;
   if(container){
@@ -70,8 +74,9 @@
   const shutdownField=()=>data.state==='shut off'?'':'<label class="check-label"><input type="checkbox" name="shutdown" required> VM geordnet herunterfahren und anschließend fortfahren</label><p class="hint">Titan wartet höchstens 120 Sekunden. Bei ausbleibendem Herunterfahren wird die Aktion ohne erzwungenes Ausschalten abgebrochen. Die VM bleibt danach ausgeschaltet.</p>';
   const run=async(operation,args)=>{if(operationBusy)return;operationBusy=true;const controls=[...body.querySelectorAll('[data-vmx-command],[data-vmx-tab]')].map(node=>({node,disabled:node.disabled}));controls.forEach(({node})=>node.disabled=true);try{const result=await action(operation,{vm:vm.id,...args},{wait:true,onProgress:progress});if(signal.aborted)return;await reopen();const node=(container||root.document.getElementById('dialog-body')).querySelector('[data-vmx-status]');if(node){node.hidden=false;node.textContent=result?.message||'Aktion erfolgreich abgeschlossen.';}return result;}finally{operationBusy=false;if(!signal.aborted)controls.forEach(({node,disabled})=>node.disabled=disabled);}};
   function form(title,html,operation,args){
+   const submitLabel={vm_clone:'Klon erstellen',vm_disk_add:'Festplatte hinzufügen',vm_nic_add:'Netzwerkkarte hinzufügen',vm_snapshot_create:'Snapshot erstellen',vm_snapshot_restore_new:'Neue VM wiederherstellen'}[operation]||'Speichern';
    const content=body.querySelector('[data-vmx-content]');if(!content)return;
-   content.classList.remove('is-console');content.innerHTML=`<form data-vmx-form><h3>${esc(title)}</h3>${html}<p class="form-error" data-vmx-error role="alert" hidden></p><div class="form-actions"><button class="button primary" type="submit">Speichern</button><button class="button" type="button" data-vmx-command="cancel-form">Abbrechen</button></div></form>`;content.scrollTop=0;
+   content.classList.remove('is-console');content.innerHTML=`<form data-vmx-form><h3>${esc(title)}</h3>${html}<p class="form-error" data-vmx-error role="alert" hidden></p><div class="form-actions"><button class="button primary" type="submit">${esc(submitLabel)}</button><button class="button" type="button" data-vmx-command="cancel-form">Abbrechen</button></div></form>`;content.scrollTop=0;
    const formNode=content.querySelector('form');formNode.addEventListener('submit',async event=>{event.preventDefault();const submit=formNode.querySelector('[type=submit]');submit.disabled=true;try{await run(operation,args(new FormData(formNode)));}catch(exc){error(exc.message);}finally{submit.disabled=false;}},{signal});
   }
   body.addEventListener('click',async event=>{

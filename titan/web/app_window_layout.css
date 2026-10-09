@@ -71,3 +71,16 @@
  .terminal-panel .terminal-shortcuts{margin-block:6px}
  .fb-browser .fb-toolbar,.fb-browser .fb-selection{position:static}
 }
+
+/* Shared density is applied after the color themes; no extra overlay stylesheet. */
+.engine-content .engine-overview>h3{font-size:14px;margin:16px 0 8px}
+.engine-content .engine-summary{gap:8px;padding:10px 12px}
+.engine-content .engine-summary strong{font-size:22px}
+.vm-detail-header{gap:8px;padding:8px 12px}
+.vm-detail-title h2{font-size:18px;line-height:1.3}
+.vm-detail-content:not(.is-console){padding:12px}
+.vm-detail-content h3{font-size:15px;margin:12px 0 8px}
+.vm-detail-content [data-vmx-form]>h3:first-child{margin-top:0}
+.upload-status{flex-wrap:wrap;gap:8px}
+.upload-status [data-upload-name]{overflow-wrap:anywhere;min-width:0}
+@media(prefers-reduced-motion:reduce){.vm-detail-content,.engine-content{scroll-behavior:auto}}

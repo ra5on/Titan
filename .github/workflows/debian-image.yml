@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0 alpha.5: refined sign-in, grouped menu and optional auto-hide dock.
+# Build Titan 0.6.0 alpha.6: reliable app navigation, upload progress and VM workflows.
 on:
   workflow_dispatch:
   push:
