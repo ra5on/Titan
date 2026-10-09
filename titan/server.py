@@ -692,6 +692,10 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 raise Error('Administratorrechte erforderlich.', 403)
             if set(body) - {'action', 'version'} or body.get('action') not in ('check', 'release', 'rollback'):
                 raise Error('Ungültiges Webupdate.')
+            if self.app.demo:
+                if body['action'] != 'check':
+                    raise Error('Die Demo installiert keine Webupdates.')
+                return self.reply({'current': __version__, 'previous': None, 'available': False, 'latest': None, 'demo': True})
             if body['action'] == 'check':
                 return self.reply(self.app.agent.call('web_update_check'))
             self.app.store.audit(user['name'], 'web_update', body['action'])

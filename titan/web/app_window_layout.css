@@ -84,3 +84,7 @@
 .upload-status{flex-wrap:wrap;gap:8px}
 .upload-status [data-upload-name]{overflow-wrap:anywhere;min-width:0}
 @media(prefers-reduced-motion:reduce){.vm-detail-content,.engine-content{scroll-behavior:auto}}
+
+.web-update-panel .panel-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.web-update-panel .panel-heading h2,.web-update-panel .form-actions{margin:0}
+.web-update-panel p{margin:6px 0 0}

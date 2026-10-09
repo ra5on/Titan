@@ -3,12 +3,12 @@ set -euo pipefail
 [[ "${GITHUB_ACTIONS:-}" == true ]] || exit 1
 task_version=$(python3 -c 'from titan import __version__; print(__version__)')
 task_data=$(mktemp -d)
-chmod 0777 "$task_data"
-cleanup() { docker rm -f titan-web-smoke >/dev/null 2>&1 || true; }
+chmod 0700 "$task_data"
+cleanup() { docker logs titan-web-smoke || true; docker rm -f titan-web-smoke >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 # Demo exercises the identical HTTP service and persistent SQLite format, with
 # a simulated agent. The full NAS image suite supplies the actual agent test.
-docker run -d --name titan-web-smoke --read-only --cap-drop ALL --security-opt no-new-privileges \
+docker run -d --name titan-web-smoke --user "$(id -u):$(id -g)" --read-only --cap-drop ALL --security-opt no-new-privileges \
     --tmpfs /tmp:rw,nosuid,nodev,size=64m --mount "type=bind,src=$task_data,dst=/var/lib/titan" \
     -p 127.0.0.1:5099:5001 "titan-web:$task_version" --host 0.0.0.0 --port 5001 --demo
 for task_try in {1..45}; do
