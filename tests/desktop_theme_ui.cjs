@@ -8,10 +8,10 @@ function fixture(embedded=false){
  const child={postMessage:(...args)=>childMessages.push(args)};
  return {win,events,media,mediaEvents,messages,childMessages,frames,child,style,meta};
 }
-assert.deepEqual(ui.normalize(null),{color_mode:'light',transparency:40});
-for(const color_mode of [null,'LIGHT','javascript',true,{}])assert.equal(ui.normalize({color_mode}).color_mode,'light');
+assert.deepEqual(ui.normalize(null),{color_mode:'dark',transparency:40});
+for(const color_mode of [null,'LIGHT','javascript',true,{}])assert.equal(ui.normalize({color_mode}).color_mode,'dark');
 for(const transparency of [true,-1,101,'80',NaN])assert.equal(ui.normalize({transparency}).transparency,40);
-const f=fixture(),theme=ui.init(f.win);assert.equal(f.win.document.documentElement.dataset.colorTheme,'light');
+const f=fixture(),theme=ui.init(f.win);assert.equal(f.win.document.documentElement.dataset.colorTheme,'dark');
 f.frames.push({contentWindow:f.child});theme.set({color_mode:'dark',transparency:70});
 assert.equal(f.meta.content,'dark');assert.equal(f.style['color-scheme'],'dark');assert.equal(f.style['--desktop-glass-opacity'],String(.30000000000000004));
 assert.deepEqual(f.childMessages.at(-1),[{type:'titan-theme',preferences:{color_mode:'dark',transparency:70}},'https://nas.test']);
@@ -22,9 +22,9 @@ f.events.message({origin:'https://nas.test',source:f.child,data:{type:'titan-the
 f.events.message({origin:'https://nas.test',source:f.child,data:{type:'titan-theme',preferences:{color_mode:'light'}}});assert.equal(theme.get().color_mode,'dark','A child cannot change its parent theme');
 theme.set({color_mode:'system'});assert.equal(f.win.document.documentElement.dataset.colorTheme,'light');f.media.matches=true;f.mediaEvents.change();assert.equal(f.win.document.documentElement.dataset.colorTheme,'dark');
 theme.set({color_mode:'light'});f.mediaEvents.change();assert.equal(f.win.document.documentElement.dataset.colorTheme,'light','An explicit mode ignores OS changes');
-theme.reset();assert.deepEqual(theme.get(),{color_mode:'light',transparency:40},'Logout resets the prior account appearance');theme.destroy();assert.deepEqual(f.events,{});assert.deepEqual(f.mediaEvents,{});
+theme.reset();assert.deepEqual(theme.get(),{color_mode:'dark',transparency:40},'Logout resets the prior account appearance');theme.destroy();assert.deepEqual(f.events,{});assert.deepEqual(f.mediaEvents,{});
 const c=fixture(true),childTheme=ui.init(c.win);assert.deepEqual(c.messages,[[{type:'titan-theme-ready'},'https://nas.test']]);
-const incoming={type:'titan-theme',preferences:{color_mode:'dark',transparency:25}};
-c.events.message({origin:'https://evil.test',source:c.win.parent,data:incoming});c.events.message({origin:'https://nas.test',source:{},data:incoming});assert.equal(childTheme.get().color_mode,'light');
-c.events.message({origin:'https://nas.test',source:c.win.parent,data:incoming});assert.equal(c.win.document.documentElement.dataset.colorTheme,'dark');assert.equal(c.style['--desktop-glass-opacity'],'0.75');childTheme.destroy();
+const incoming={type:'titan-theme',preferences:{color_mode:'light',transparency:25}};
+c.events.message({origin:'https://evil.test',source:c.win.parent,data:incoming});c.events.message({origin:'https://nas.test',source:{},data:incoming});assert.equal(childTheme.get().color_mode,'dark');
+c.events.message({origin:'https://nas.test',source:c.win.parent,data:incoming});assert.equal(c.win.document.documentElement.dataset.colorTheme,'light');assert.equal(c.style['--desktop-glass-opacity'],'0.75');childTheme.destroy();
 console.log('Desktop themes: validated modes, immediate trusted frame sync, new-frame handshake, system appearance, explicit override, account reset and cleanup passed.');

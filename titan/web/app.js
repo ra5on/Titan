@@ -4,6 +4,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp
 const bytes = value => { const n = Number(value); if (!n) return '0 B'; const units = ['B','KB','MB','GB','TB']; const i = Math.min(4, Math.floor(Math.log(n) / Math.log(1024))); return `${(n / 1024 ** i).toLocaleString('de-DE', {maximumFractionDigits: i > 2 ? 2 : 0})} ${units[i]}`; };
 const date = value => new Date(Number(value) * 1000).toLocaleString('de-DE', {dateStyle:'short',timeStyle:'short'});
 const icons = {
+ photos:'<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="2"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',
  resources:'<path d="M3 12h4l3-7 4 14 3-7h4"/>',
  control:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12M6 6h.01M10 6h.01"/>',
  dashboard:'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
@@ -24,12 +25,12 @@ const icons = {
  settings:'<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.files}</svg>`;
-const nav = [['dashboard','Desktop'],['resources','Ressourcenmonitor'],['apps','Apps'],['docker','Docker'],['storage','Speicher'],['files','Dateimanager'],['shares','Freigaben'],['vms','Virtuelle Maschinen'],['services','Dienste'],['terminal','Terminal'],['users','Benutzer'],['groups','Gruppen und Rechte'],['security','Sicherheit'],['backups','Backups'],['monitoring','Meldungen'],['updates','Updates'],['logs','Protokoll'],['settings','Einstellungen']];
+const nav = [['dashboard','Desktop'],['resources','Ressourcenmonitor'],['apps','Apps'],['docker','Docker'],['storage','Speicher'],['files','Dateimanager'],['photos','Fotos'],['shares','Freigaben'],['vms','Virtuelle Maschinen'],['services','Dienste'],['terminal','Terminal'],['users','Benutzer'],['groups','Gruppen und Rechte'],['security','Sicherheit'],['backups','Backups'],['monitoring','Meldungen'],['updates','Updates'],['logs','Protokoll'],['settings','Einstellungen']];
 let session, page = 'dashboard', generation = 0, currentShare = '', currentPath = '', catalogData = [], usersData = [], managedShares = [], vmsData = [], backupData = [], jobsData = [], fileOffset = 0, fileSearch = '', watched = new Set(), polling, activeUpload = null;
 let filesView = null, servicesData = null, usersView = null, rootAccessData={enabled:false};
 let fileFilters = {};
 let identityData=null,securityData=null,loginProtectionData=null,loginProtectionError='',securityAll=false,storagePageData=null,fileStorageData={},backupCenterData=null,monitorCenterData=null;
-function pageAllowed(id){if(session?.user?.role==='admin')return true;if(['dashboard','security'].includes(id))return true;const scope={files:'files',apps:'apps',docker:'apps',vms:'vms',backups:'backups'}[id];return Boolean(scope&&(session?.permissions?.[scope]?.allowed??scope==='files'));}
+function pageAllowed(id){if(session?.user?.role==='admin')return true;if(['dashboard','security'].includes(id))return true;const scope={photos:'files',files:'files',apps:'apps',docker:'apps',vms:'vms',backups:'backups'}[id];return Boolean(scope&&(session?.permissions?.[scope]?.allowed??scope==='files'));}
 function fileQuery(){const query=new URLSearchParams({share:currentShare,path:currentPath,offset:String(fileOffset),limit:"200",search:fileSearch});if(fileFilters.recursive)query.set("recursive","1");if(fileFilters.type)query.set("type",fileFilters.type);if(fileFilters.min_size_mb!==""&&fileFilters.min_size_mb!==undefined)query.set("min_size",String(Math.floor(Number(fileFilters.min_size_mb)*1048576)));if(fileFilters.modified_after_date)query.set("modified_after",String(Math.floor(new Date(fileFilters.modified_after_date+"T00:00:00").getTime()/1000)));if(fileFilters.modified_before_date)query.set("modified_before",String(Math.floor(new Date(fileFilters.modified_before_date+"T23:59:59").getTime()/1000)));return query;}
 let desktopWorkspace=null,desktopShortcuts=null,desktopWidgets=null;
 const foregroundJobs=new Set();
@@ -39,7 +40,8 @@ const desktopEmbedded=Boolean(window.parent&&window.parent!==window&&typeof URLS
 let embeddedReady=false,loginUpdateController=null,loginUpdateOffer=null;
 if(desktopEmbedded)document.documentElement.dataset.desktopEmbedded='true';
 const desktopDirty=new Set();
-document.addEventListener('input',event=>{if(event.target.closest('form,#dialog'))desktopDirty.add(event.target);});
+if(desktopEmbedded)document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='k'){event.preventDefault();window.parent.postMessage({type:'titan-open-menu'},location.origin);}});
+document.addEventListener('input',event=>{if(event.target.closest('form,#dialog')&&!event.target.closest('[data-photo-filters]'))desktopDirty.add(event.target);});
 window.titanHasUnsavedWork=()=>[...desktopDirty].some(el=>el.isConnected)||Boolean(activeUpload)||Boolean(document.querySelector('.vm-console-frame'))||Boolean(document.querySelector('[data-terminal-action=close]:not([disabled])'));
 
 async function api(path, body, {signal} = {}) {
@@ -224,7 +226,7 @@ async function navigate() {
  controlRoute=session.user.role==='admin'?window.TitanControlPanel?.resolve(incoming):null;
 
  fileDialogRequest++;
- window.TitanStorage?.dispose();window.TitanBackupCenter?.dispose();window.TitanMonitoring?.dispose();window.TitanLocations?.disposeWithin($('#main')); window.TitanUpdates?.dispose(); window.TitanSecurity?.dispose(); window.TitanSystemDisk?.dispose();
+ window.TitanPhotos?.dispose();window.TitanStorage?.dispose();window.TitanBackupCenter?.dispose();window.TitanMonitoring?.dispose();window.TitanLocations?.disposeWithin($('#main')); window.TitanUpdates?.dispose(); window.TitanSecurity?.dispose(); window.TitanSystemDisk?.dispose();
 
  window.TitanSidebarLayout?.dispose();window.TitanDocker?.dispose();window.TitanVMExtensions?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose(); window.TitanSettingsCenter?.dispose();window.TitanControlPanel?.dispose();window.TitanWebAccess?.dispose();window.TitanAppsCenter?.dispose(); window.TitanResources?.dispose(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose();window.TitanRootAccess?.dispose(); window.TitanServices?.dispose(); filesView=null;
  const requested = location.hash.slice(1).split('?')[0] || (session.user.role === 'admin' ? 'dashboard' : 'files');
@@ -329,6 +331,7 @@ const pages = {
   return heading('Freigaben','SMB-Freigaben mit klaren Lese- und Schreibrechten.',button('+ Freigabe erstellen','share-create','','primary'),'FREIGABEN')+
    `<div class="notice">Freigaben sind im lokalen Netzwerk über <strong>\\\\${esc(location.hostname)}\\Freigabename</strong> erreichbar. Melde dich mit einem angelegten SMB-Benutzer an.</div><section class="panel"><div class="table-wrap"><table><thead><tr><th>FREIGABE</th><th>LESEN</th><th>SCHREIBEN</th><th></th></tr></thead><tbody>${managedShares.map(share=>`<tr><td><div class="table-name"><span class="row-icon">▱</span><div><button class="text-link" data-action="share-edit" data-name="${esc(share.name)}"><strong>${esc(share.name)}</strong></button><div class="hint">${esc(share.path)}</div></div></div></td><td>${esc(share.readers.join(', ') || '—')}</td><td>${esc(share.writers.join(', ') || '—')}</td><td class="table-actions">${button('Zugänge und Rechte','share-edit',`data-name="${esc(share.name)}"`,'small')}${button('Freigabe entfernen','share-remove',`data-name="${esc(share.name)}"`,'small danger')}</td></tr>`).join('')}</tbody></table>${managedShares.length?'':empty('Lege deine erste Freigabe an.')}</div></section>`;
  },
+ async photos() {return window.TitanPhotos.render();},
  async files() {
   const [access,availableShares,locations]=await Promise.all([session.user.role==='admin'&&window.TitanRootAccess?api('/api/root-access'):Promise.resolve({enabled:false}),api('/api/shares'),session.user.role==='admin'?api('/api/storage-locations'):Promise.resolve({})]);rootAccessData=access;fileStorageData=locations;
   const shares=fileLocations(availableShares);
@@ -450,6 +453,7 @@ async function refreshVMWorkspace(){
  await navigate();
 }
 function bindPage({retained=false}={}) {
+ if(page==='photos')window.TitanPhotos.mount($('#main'),{api,toast});
  if(page==='updates')window.TitanWebUpdates?.mount($('#main'),{api,toast});
  window.TitanControlPanel?.mount($('#main'),{userName:session.user.name,api,session});
  if(page==='docker')window.TitanDocker?.mount($('#main').querySelector('[data-docker-workbench]'),{api,action,dialog,askYesNo,toast,bytes});
@@ -579,7 +583,7 @@ const actions = {
  'security-center'(){if(desktopWorkspace)desktopWorkspace.route('#security');else location.hash='#security';},
  'profile-menu'(){dialog('Dein Konto',`<p class="subtitle">${esc(session.user.name)} · ${session.user.role==='admin'?'Administrator':'Dateizugriff'}</p>${desktopWorkspace?.controls()||''}<div class="form-actions">${button('Passwort ändern','password-change','','primary')}${button('Sicherheit und Sitzungen','security-center')}${session.demo?'':button('Abmelden','logout')}</div>${session.demo?'<p class="hint">Demo: Konten und Kennwörter werden ausschließlich simuliert.</p>':''}`);},
  'password-change'(){dialog('Dein Passwort ändern',`<form>${field('Bisheriges Passwort','current_password','password','','required maxlength="256" autocomplete="current-password"')}${field('Neues Passwort','password','password','','required minlength="12" maxlength="256" autocomplete="new-password"')}${field('Neues Passwort wiederholen','repeat','password','','required minlength="12" maxlength="256" autocomplete="new-password"')}<p class="hint">Nach erfolgreicher Änderung werden alle deine Websitzungen beendet. Melde dich anschließend mit dem neuen Passwort an.${session.user.system_user==='titan-files'?' Mit deinem bestätigten bisherigen Passwort wird ein eigenes SMB-Konto namens '+esc(session.user.name)+' eingerichtet. Ausdrücklich dem App-Servicekonto zugewiesene Rechte auf verfügbaren Freigaben werden für dein Konto übernommen. Das App-Servicekonto behält seinen Zugriff und erhält keinen SMB-Login.':' Das neue Passwort gilt auch für SMB.'}</p>${session.demo?'<div class="notice">Demo: Dieser Vorgang wird simuliert. Das Demo-Anmeldepasswort bleibt erhalten.</div>':''}${formEnd('Passwort ändern')}`,async data=>{if(data.get('password')!==data.get('repeat'))throw new Error('Die neuen Passwörter stimmen nicht überein.');const result=await api('/api/password',{current_password:data.get('current_password'),password:data.get('password')});if(result.job)watched.add(result.job);toast(session.demo?'Passwortänderung wird simuliert.':'Passwortänderung gestartet. Danach erneut anmelden.');});},
- async logout(){await api('/api/logout',{});$('#dialog').close();session.user=null;renderAuth(false);},
+ async logout(){if(!await askYesNo('Von Titan abmelden? Speichere vorher deine offenen Arbeiten.'))return;await api('/api/logout',{});$('#dialog').close();session.user=null;renderAuth(false);},
  'user-create'(){dialog('Benutzer erstellen',`<p class="subtitle">Ein Konto für die Weboberfläche und SMB. Freigabenrechte wählst du anschließend unter Bearbeiten → Freigaben.</p><form>${field('Benutzername','name','text','','required pattern="[a-z][a-z0-9_-]{0,30}" autocomplete="off"')}${window.TitanUsers.profileFields({},{field})}${field('Passwort','password','password','','required minlength="12" maxlength="256" autocomplete="new-password"')}${selectField('Rolle','role',[['user','Benutzer · eigene Dateien'],['admin','Administrator · vollständige Verwaltung']])}${formEnd()}`,async data=>{const result=await api('/api/users',Object.fromEntries(data));watched.add(result.job);toast('Benutzer wird angelegt. Freigabenrechte kannst du nach erfolgreicher Anlage festlegen.');});},
  'file-page'(target){fileOffset=Number(target.dataset.offset);navigate();},
  'file-search-clear'(){fileSearch='';fileFilters={};fileOffset=0;navigate();},

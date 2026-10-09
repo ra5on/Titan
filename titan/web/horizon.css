@@ -1,0 +1,47 @@
+/* Horizon: independently authored surfaces; no TitanOS code or artwork. */
+:root{--titan-wallpaper-image:url('/wallpapers/horizon.png')}
+html[data-color-theme=dark]{--bg:#171920;--panel:#21232c;--panel-soft:#2a2c36;--text:#f5f3f1;--muted:#bdc0cb;--line:#ffffff20;--accent:#f3b681;--focus:#ffc998;--theme-selected:#554334;--theme-hover:#ffffff0c;--primary-bg:#edb17d;--primary-text:#291a11;--theme-glass:28 29 39;--theme-top:28 29 39;--theme-strong:#fff5ed;--folder-front:#ba794e;--folder-back:#8b5439;--folder-rim:#ebbd92}
+html[data-color-theme=light]{--accent:#955227;--focus:#9a5428;--primary-bg:#a66032;--primary-text:#fff;--theme-selected:#f3e3d5;--theme-hover:#ac6b3610}
+html[data-color-theme] #shell[data-desktop=true][data-wallpaper=fjord]{background-image:url('/wallpapers/horizon.png')}
+#auth{background-image:linear-gradient(#10162722,#10162777),url('/wallpapers/horizon.png')}
+html[data-color-theme] #shell[data-desktop=true] .topbar{height:58px;min-height:58px;flex-basis:58px;padding-inline:22px}
+html[data-color-theme] #shell[data-desktop=true] .topbar .desktop-brand{display:inline-flex;align-items:center;gap:9px;min-height:38px;padding:7px 13px;border:1px solid #ffffff20;border-radius:22px;background:#15172744;backdrop-filter:blur(18px);color:#fff;font:inherit;font-size:13px;cursor:pointer}
+#shell[data-desktop=true] .topbar .desktop-brand span{display:inline}#shell[data-desktop=true] .topbar .desktop-brand img{width:22px;height:22px}
+html[data-color-theme] .desktop-account[data-anchor=system-menu]{left:22px;right:auto;top:62px}
+html[data-color-theme] :is(.desktop-dock,.desktop-widget-card,.desktop-account,.desktop-menu-dialog){background:rgb(var(--theme-glass) / calc(.35 + var(--desktop-glass-opacity,.6)*.6));background-image:none;border:1px solid #ffffff24;backdrop-filter:blur(28px) saturate(130%);-webkit-backdrop-filter:blur(28px) saturate(130%);box-shadow:0 16px 50px #080e2430,0 1px 0 #ffffff15 inset}
+html[data-color-theme] .desktop-window{background:rgb(var(--theme-glass) / calc(.55 + var(--desktop-glass-opacity,.6)*.4));border-radius:22px;backdrop-filter:blur(30px) saturate(115%);-webkit-backdrop-filter:blur(30px) saturate(115%);border-color:#ffffff25}
+html[data-color-theme] .desktop-window-titlebar{background:transparent;padding-inline:18px;min-height:44px;border-bottom:1px solid var(--line)}
+html[data-color-theme][data-desktop-embedded=true] :is(body,#shell>.workspace,#shell .nas-window-content){background:transparent}
+html[data-color-theme] .desktop-window iframe{background:transparent}
+html[data-color-theme] .desktop-dock{border-radius:24px;padding:10px 14px;gap:10px}
+.desktop-welcome h1{font-size:clamp(27px,3vw,44px);letter-spacing:-.035em;font-weight:650;text-shadow:0 3px 20px #10132566}.desktop-welcome p{opacity:.85}
+html[data-color-theme] .desktop-widget-card{border-radius:22px}
+html[data-color-theme] .desktop-task .tool-artwork{border-radius:14px;filter:drop-shadow(0 3px 6px #0003)}
+html[data-color-theme] .desktop-task.is-active{background:#ffffff18;border-radius:14px}
+#shell .cp-designed .cp-layout{gap:0}#shell .cp-designed .cp-content{padding:24px}#shell .cp-designed .cp-overview-heading h1{font-size:28px;margin-bottom:4px}
+#shell .cp-designed .cp-device-sidebar{background:#ffffff03;padding:22px 18px;border-right:1px solid var(--line)}
+#shell .cp-designed .cp-tile>a{min-height:66px}#shell .cp-designed .cp-setting-copy strong{font-size:14px}#shell .cp-designed .cp-setting-copy small{font-size:12px;line-height:1.5}
+#shell .cp-designed .cp-icon-grid{background:color-mix(in srgb,var(--panel-soft) 80%,transparent);border-radius:17px}
+#shell .cp-designed .cp-category-tabs{border-radius:13px}#shell .cp-designed .cp-category-tabs button{border-radius:10px}
+#shell .cp-designed .cp-color-icon:has(>img){width:36px;height:36px}
+html[data-color-theme] .fb-browser{background:transparent}.fb-browser .fb-toolbar{background:color-mix(in srgb,var(--panel) 86%,transparent)}
+html[data-color-theme] :is(button,a,input,select,summary):focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+@media(max-width:760px){
+ html[data-color-theme] #shell[data-desktop=true] .topbar{padding-inline:12px;min-height:52px;height:52px;flex-basis:52px}
+ html[data-color-theme] .desktop-account[data-anchor=system-menu]{left:10px;top:56px;max-width:calc(100vw - 20px)}
+ html[data-color-theme] .desktop-dock{padding:8px;gap:5px;border-radius:20px;max-width:calc(100vw - 16px)}
+ html[data-color-theme] .desktop-window{border-radius:16px}
+ #shell .cp-designed .cp-content{padding:18px 14px}#shell .cp-designed .cp-device-sidebar{padding:16px;border-right:0}
+ html[data-color-theme] :is(.shell-icon,.desktop-window-controls button,.desktop-account-actions button){min-width:44px;min-height:44px}
+}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){html[data-color-theme] :is(.desktop-window,.desktop-widget-card,.desktop-dock,.desktop-account,.desktop-menu-dialog){background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}html[data-color-theme][data-desktop-embedded=true] :is(body,#shell>.workspace,#shell .nas-window-content){background:var(--panel)}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html[data-color-theme] :is(.desktop-window,.desktop-widget-card,.desktop-dock,.desktop-account,.desktop-menu-dialog){background:var(--panel)}}
+/* Wallpaper chrome stays legible in both application color modes. */
+html[data-color-theme] :is(.desktop-widget-card,.desktop-dock){--text:#f6f3f1;--muted:#dad9df;--accent:#f3bf97;--line:#ffffff28;--theme-glass:24 26 39;color:var(--text);background-color:rgb(24 26 39 / calc(.35 + var(--desktop-glass-opacity,.6)*.6))}
+html[data-color-theme] .desktop-widget-card .widget-content small{color:var(--muted);opacity:1;font-size:11px}
+.desktop-welcome-mark{filter:brightness(0) invert(1) drop-shadow(0 3px 6px #0004)!important}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){html[data-color-theme] :is(.desktop-widget-card,.desktop-dock){background:#20232e}}
+.desktop-search-trigger{position:absolute;z-index:2;bottom:112px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;min-height:40px;border:1px solid #ffffff30;background:#1d243a77;backdrop-filter:blur(15px);border-radius:24px;padding:8px 16px;color:#fff;font:inherit;font-size:13px;cursor:pointer}.desktop-search-trigger>span{font-size:22px;line-height:1}.desktop-search-trigger kbd{font:inherit;font-size:11px;opacity:.65}.desktop-search-trigger:hover{background:#26304ba0}
+#shell:has(.desktop-window:not([hidden])) .desktop-search-trigger{display:none}
+@media(max-width:760px){.desktop-search-trigger{bottom:96px;min-height:44px}.desktop-search-trigger kbd{display:none}}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.desktop-search-trigger{background:#20232e}}
