@@ -23,3 +23,13 @@ Nur Browser–WebUI ist jetzt binär. Die WebUI nutzt intern weiterhin das kompa
 - Browserprüfung der lokalen Demo: 16-MiB-Datei über den neuen binären Weg vollständig hochgeladen; SHA-256 von Quelle und gespeicherter Datei identisch. Die Demo ersetzt keinen Test des Host-Agenten auf dem NAS.
 
 Installation nach Veröffentlichung: **Systemsteuerung → Updates & Rollback → Weboberfläche → Jetzt prüfen → Aktualisieren**. Laufende Uploads vorher abschließen. Kein neues NAS-Installationsimage erforderlich.
+
+## Veröffentlichung
+
+- [Webrelease web-v0.6.3](https://github.com/ra5on/Titan/releases/tag/web-v0.6.3) aus `5323484b2626c0aaf5bdcd104ebe4078429904b2`; [Containerworkflow erfolgreich](https://github.com/ra5on/Titan/actions/runs/37971015841), einschließlich echtem Containerstart, Persistenz und Rückfallprüfung.
+- `ghcr.io/ra5on/titan-web:0.6.3` ist öffentlich abrufbar; anonymen Registry-Pull erfolgreich geprüft. Registry-Digest: `sha256:c02c52c90aa9b34d44d5e7304cdc0c9a23aa60bc77c5b25d400d7171bc4f23f8`.
+- Signatur des heruntergeladenen Manifests mit dem Repository-Vertrauensschlüssel verifiziert. GitHub-Assetgrößen und -Digests für Container und Quellarchiv stimmen mit dem Manifest überein; die großen Archive wurden nicht erneut vollständig heruntergeladen.
+- Containerarchiv: 75.922.000 Bytes, SHA-256 `e70772280f70dad2e13c9e90febbb6c49e7451e3215ff6b79d88d1f4e4869b79`.
+- Der echte Updater erkennt 0.6.3 als signiertes Update für 0.6.1. Die installierte Auswahl und der lokale Pfad zum Vertrauensschlüssel wurden für diese lesende Prüfung gesetzt. Ein zusätzlicher Live-Aufruf für 0.6.2 wurde durch das anonyme GitHub-API-Ratenlimit verhindert.
+- [Debian-Integration](https://github.com/ra5on/Titan/actions/runs/37970975900) und [App-Laufzeitprüfungen](https://github.com/ra5on/Titan/actions/runs/37970976226) bestanden.
+- Die vollständige [CI für den veröffentlichten Quellstand](https://github.com/ra5on/Titan/actions/runs/37970975742) bestand ebenfalls: Python/API, Shell- und JavaScript-Syntax sowie alle UI-Suiten.
