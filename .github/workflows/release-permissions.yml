@@ -22,13 +22,14 @@ jobs:
           set -euo pipefail
           [[ "$GITHUB_REPOSITORY" == ra5on/Titan ]]
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null
+          task_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq .object.sha)
+          [[ "$task_commit" =~ ^[a-f0-9]{40}$ ]]
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo 'Release already exists; refusing to modify it.' >&2
             exit 1
           fi
           task_release_id=$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
-            -f tag_name="$RELEASE_TAG" -f name='Temporary publication permission check' \
+            -f tag_name="$RELEASE_TAG" -f target_commitish="$task_commit" -f name='Temporary publication permission check' \
             -f body='Temporary private draft; removed by this permission check.' \
             -F draft=true -f make_latest=false --jq .id)
           [[ "$task_release_id" =~ ^[0-9]+$ ]]
