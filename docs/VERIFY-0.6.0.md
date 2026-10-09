@@ -1,6 +1,27 @@
 # Prüfungen für Titan 0.6.0
 
-Stand: 8. Oktober 2026. Die folgenden Abschnitte unterscheiden frühere lokale Prüfungen, den abschließenden Menü-Durchlauf und den [veröffentlichten Image-Nachweis für alpha.4](#veröffentlichter-image-nachweis--alpha4). Lokale Vorschau, GitHub-Tests und Prüfungen des gebooteten Images sind jeweils gesondert ausgewiesen.
+Stand: 9. Oktober 2026. Lokale Vorschau, GitHub-Tests und Prüfungen des gebooteten Images sind getrennt ausgewiesen.
+
+## Veröffentlichter Image-Nachweis – alpha.6
+
+Quellstand: `3bbb007dbbaff29d51a04b8dee801a938bbf6a93`. Veröffentlicht: `2026-10-09T05:34:58Z`.
+
+- [Image-Workflow 37885572225](https://github.com/ra5on/Titan/actions/runs/37885572225): erfolgreich einschließlich Boot-, Laufzeit-, Update- und Rollback-Prüfungen.
+- [CI](https://github.com/ra5on/Titan/actions/runs/37885571646), [Debian-Paketprüfung](https://github.com/ra5on/Titan/actions/runs/37885571672) und [App-Laufzeitprüfungen](https://github.com/ra5on/Titan/actions/runs/37885571984): erfolgreich.
+- Gebootetes Image: 15 Laufzeitprüfungen bestanden; die Datenbereichserweiterung ist an den gesonderten A/B-Test delegiert. Alle sieben A/B-Prüfungen bestanden.
+- Lokal: 1.917 Python-Tests, davon 12 umgebungsbedingt übersprungen; 75 UI-Verhaltenssuiten und JavaScript-Syntax erfolgreich.
+- Neue Regressionen: Menü-Abbruch erhält Fenster; erlaubte App-Routen synchronisieren die Browseradresse; Hintergrundstatus öffnet keine App-Details ungefragt; Upload-Gesamtfortschritt fällt beim nächsten Dateinamen nicht zurück; fehlgeschlagene VM-Navigation erhält die vorherigen Bedienfunktionen.
+- Browser: Docker über das Hauptmenü öffnen, Escape mit erhaltenem Fenster und Fokus, App-Store-Detail/Rückweg, tatsächliches Scrollen, VM-Snapshot-Formular und Abbrechen, Docker bei 390 px sowie Hell-/Dunkel-Modus. Keine JavaScript-Fehler in der abschließend geprüften Sitzung. Demo-Hostfunktionen bleiben simuliert.
+
+Manifest und SHA256SUMS wurden nach Veröffentlichung mit dem öffentlichen Repository-Schlüssel verifiziert. Die heruntergeladenen kleinen Dateien stimmen mit der signierten Prüfsummenliste überein. Für die großen Dateien stimmen die GitHub-Digests mit den signierten Prüfsummen überein; sie wurden nicht nochmals vollständig lokal heruntergeladen.
+
+| Datei | Byte | SHA-256 |
+| --- | ---: | --- |
+| `debian-sources.tar.part-000` | 1.601.105.920 | `2d718cf06b574993e056007b7083380bf4a214238ef9f34986ec25380b384eea` |
+| `titan-0.6.0-alpha.6-amd64.img.xz` | 595.025.808 | `7d13c5d93e08072b659f3e2134705dd888a0d8cadfcce29b94fc992e7e465985` |
+| `titan-0.6.0-alpha.6-amd64.raucb` | 726.205.756 | `0aaa80c07b5985df73b1188184285dc20cae9958b4f59a8a5bdc4dcaab3c980b` |
+
+Die A/B-Ausgangsbasis ist `generated-current-build`, keine tatsächlich ältere Veröffentlichung. Reale Versionsmigration, physischer Plattentausch und RAID-Wiederaufbau, echter Grafikgast und Langzeitbetrieb auf NAS-Hardware bleiben separat zu prüfen. Titan bleibt Alpha.
 
 ## Frühere Prüfungen für 0.6.0
 
