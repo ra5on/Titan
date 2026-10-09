@@ -76,8 +76,15 @@ class DebianWorkflowTests(unittest.TestCase):
         self.assertIn('--confirm-disposable-guest',ab)
         artifacts=steps[-1]['with']['path']
         self.assertNotIn('.img',artifacts)
-        self.assertEqual(steps[-2]['if'],'always()')
-        self.assertIn('titan-signing',steps[-2]['run'])
+        cleanup=steps[names.index('Remove temporary private signing material')]
+        self.assertEqual(cleanup['if'],'always()')
+        self.assertIn('titan-signing',cleanup['run'])
+        recovery=steps[names.index('Preserve public release files if publication fails')]
+        self.assertEqual(recovery['if'],"failure() && steps.publish.outcome == 'failure'")
+        self.assertEqual(recovery['with']['retention-days'],'1')
+        self.assertNotIn('titan-signing',recovery['with']['path'])
+        self.assertNotIn('*.key',recovery['with']['path'])
+        self.assertIn('SHA256SUMS.sig',recovery['with']['path'])
 
     def test_all_workflow_shell_blocks_parse(self):
         for path in (ROOT/'.github/workflows').glob('*.yml'):
