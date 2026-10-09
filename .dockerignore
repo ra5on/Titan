@@ -1,0 +1,11 @@
+**
+!titan
+!titan/**
+!packaging
+!packaging/container
+!packaging/container/**
+!LICENSE
+!NOTICE
+**/__pycache__
+**/*.pyc
+**/*.sqlite3*

@@ -8,8 +8,8 @@ import secrets
 from .core import Error
 
 
-def mount(slot, target):
-    return {'slot': slot, 'target': target, 'readonly': False}
+def mount(slot, target, readonly=False):
+    return {'slot': slot, 'target': target, 'readonly': readonly}
 
 
 def port(target, published=None, protocol='tcp'):
@@ -75,7 +75,7 @@ PACKAGES = {
   note='DNS benötigt Port 53/TCP und UDP. AdGuard und Pi-hole können diesen Port auf derselben NAS-IP nicht gleichzeitig verwenden.'),
  'titan-jellyfin': recipe('Jellyfin', 'Medien', 'Filme, Serien, Musik und Fotos auf dem NAS verwalten und auf Fernseher, Handy und Browser streamen.', 'jellyfin', {
    'jellyfin': {'image': 'jellyfin/jellyfin:12.2@sha256:357724bf0ae27a672c7cbaa899db2d9abeb13dbd8657ccce750258a4c059d037', 'environment': {'TZ': 'Europe/Berlin'},
-               'mounts': [mount('config', '/config'), mount('cache', '/cache'), mount('data', '/media')], 'ports': [port(8096)],
+               'mounts': [mount('config', '/config'), mount('cache', '/cache'), mount('data', '/media', readonly=True)], 'ports': [port(8096)],
                'healthcheck': {'test': ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8096/health | grep -q Healthy'], 'interval': '15s', 'timeout': '5s', 'start_period': '30s', 'retries': 12}}
   }, 8096, 8096, '2g', [], 'https://jellyfin.org/docs/general/installation/container/',
   'Beim ersten Öffnen im Assistenten Sprache und eigenes Administratorkonto wählen. Danach unter „Bibliotheken“ den Ordner /media hinzufügen; dort liegen die Dateien des gewählten Speichers.',

@@ -74,6 +74,11 @@ def main():
         info.update(evidence)
         info['bundle'] = {'name':args.bundle.name, 'size':args.bundle.stat().st_size, 'sha256':digest(args.bundle)}
         info['rootfs_sha256'] = digest(args.rootfs)
+        web_archive = args.output.parent / 'web-container.tar.xz'
+        if web_archive.exists():
+            web = json.loads((args.output.parent / 'web-image.json').read_text())
+            info['web_container'] = {**web, 'agent_api': 1, 'state_schema': 1,
+                                     'size': web_archive.stat().st_size, 'sha256': digest(web_archive)}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     encoded = json.dumps(info, indent=2) + '\n'
     assert len(encoded.encode()) <= 16384, 'Signed metadata exceeds updater limit'

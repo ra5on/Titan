@@ -426,6 +426,11 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             if not config.get('remote', {}).get('enabled'):
                 raise Error('Fernzugriff deaktiviert.', 404)
             return self.reply({'service': 'Titan', 'challenge': query['challenge'], 'proof': proof(config)})
+        if path == "/api/health":
+            if not self.app.demo and self.app.agent.call("web_health") != {"agent_api": 1, "state_schema": 1}:
+                raise Error("Systemdienst ist nicht kompatibel.", 503)
+            self.app.store.users()
+            return self.reply({"service": "Titan", "version": __version__, "agent_api": 1, "state_schema": 1})
         if path == "/api/session":
             setup_required = not self.app.store.users() and not self.app.demo
             user = self.user()
@@ -682,6 +687,15 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             self.app.store.audit(body["name"], "login")
             return self.reply({"ok": True, "csrf": csrf}, extra={"Set-Cookie": cookie})
         user = self.require_user(mutation=True)
+        if path == "/api/web-updates":
+            if user['role'] != 'admin':
+                raise Error('Administratorrechte erforderlich.', 403)
+            if set(body) - {'action', 'version'} or body.get('action') not in ('check', 'release', 'rollback'):
+                raise Error('Ungültiges Webupdate.')
+            if body['action'] == 'check':
+                return self.reply(self.app.agent.call('web_update_check'))
+            self.app.store.audit(user['name'], 'web_update', body['action'])
+            return self.reply(self.app.agent.call('web_update_start', **body), 202)
         if self.root_access_post(path, user, body):
             return
         if self.identity_post(path, user, body):

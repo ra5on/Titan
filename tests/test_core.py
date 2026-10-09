@@ -73,6 +73,24 @@ class StoreTests(unittest.TestCase):
         self.assertNotEqual(one, two)
         self.assertTrue(password_matches("long-enough-password", one))
         self.assertFalse(password_matches("wrong-password", one))
+    def test_legacy_password_hash_is_accepted_and_upgraded_on_login(self):
+        import hashlib
+        self.setup_admin()
+        salt = "ab" * 16
+        legacy = salt + ":" + hashlib.scrypt(b"long-enough-password", salt=bytes.fromhex(salt), n=16384, r=8, p=1).hex()
+        with self.store.connection() as db:
+            db.execute("UPDATE users SET password=? WHERE name='admin'", (legacy,))
+        self.assertTrue(password_matches("long-enough-password", legacy))
+        self.assertFalse(password_matches("incorrect-password", legacy))
+        self.store.login("admin", "long-enough-password")
+        with self.store.connection() as db:
+            upgraded = db.execute("SELECT password FROM users WHERE name='admin'").fetchone()[0]
+        self.assertTrue(upgraded.startswith("scrypt$65536$8$2$"))
+        self.assertTrue(password_matches("long-enough-password", upgraded))
+        self.assertFalse(password_matches("incorrect-password", upgraded))
+    def test_malformed_or_downgraded_hashes_never_match(self):
+        for stored in ("", "garbage", "scrypt$1$1$1$00$00", "scrypt$16384$8$1$" + "00" * 16 + "$00", None):
+            self.assertFalse(password_matches("long-enough-password", stored))
     def test_identifier_rejects_shell_and_path_payloads(self):
         for name in ("root; reboot", "../../root", "-bad", "bad\nname", "$(id)"):
             with self.assertRaises(Error): identifier(name)

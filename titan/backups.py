@@ -22,7 +22,7 @@ import time
 import xml.etree.ElementTree as ET
 import pwd
 
-from .core import Error, identifier, integer, atomic_json, configuration_lock, user_profile_text
+from .core import valid_password_hash, Error, identifier, integer, atomic_json, configuration_lock, user_profile_text
 
 
 DEFAULTS = {"target": "", "auto_backup": False, "interval": "daily", "window_day": 6,
@@ -889,7 +889,7 @@ class Backups:
                     raise Error("Ungültiger Benutzer im Konfigurationsexport.")
                 identifier(user["name"])
                 identifier(user["system_user"])
-                if user["name"] in names or user["role"] not in ("admin", "user") or not re.fullmatch(r"[a-f0-9]{32}:[a-f0-9]{128}", str(user["password"])) or user.get("enabled", 1) not in (0, 1):
+                if user["name"] in names or user["role"] not in ("admin", "user") or not valid_password_hash(user["password"]) or user.get("enabled", 1) not in (0, 1):
                     raise Error("Ungültiger Benutzer im Konfigurationsexport.")
                 for field in ("display_name", "description"):
                     if field in user:

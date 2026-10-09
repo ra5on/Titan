@@ -1,0 +1,43 @@
+name: Titan Web container
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: titan-web-publish
+  cancel-in-progress: false
+jobs:
+  container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Install test dependencies
+        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml
+      - name: Check lifecycle and compatibility
+        run: python3 -m unittest discover -s tests -p 'test_web_container.py' -v
+      - name: Build offline-capable web image
+        run: bash scripts/build-web-container.sh .
+      - name: Exercise container startup and persistence
+        run: bash scripts/smoke-web-container.sh
+      - name: Publish immutable version and commit images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          task_version=$(python3 -c 'from titan import __version__; print(__version__)')
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+          task_image=ghcr.io/ra5on/titan-web
+          docker tag "titan-web:$task_version" "$task_image:$task_version"
+          docker tag "titan-web:$task_version" "$task_image:sha-$GITHUB_SHA"
+          docker push "$task_image:$task_version"
+          docker push "$task_image:sha-$GITHUB_SHA"
+          docker image inspect "$task_image:$task_version" --format '{{json .RepoDigests}}' > dist/web-container/registry-digests.json
+          docker logout ghcr.io
+      - name: Record image identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: titan-web-identity
+          path: |
+            dist/web-container/web-image.json
+            dist/web-container/registry-digests.json

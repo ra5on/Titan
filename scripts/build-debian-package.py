@@ -53,7 +53,10 @@ def stage(destination):
             copy(source, 'usr/share/doc/titan-debian-preview/' + name)
     for source, name in (('scripts/component-functions.sh','component-functions.sh'),
                          ('packaging/debian/runtime.sh','install-components.sh'),
-                         ('scripts/diagnose.sh','diagnose.sh')):
+                         ('scripts/diagnose.sh','diagnose.sh'),
+                         ('packaging/container/web-container.py','web-container.py')):
+        if name == 'web-container.py' and not (APP_ROOT/source).exists():
+            continue
         copy(source, 'usr/share/titan/' + name, True)
     for name in ('titan-agent', 'titan-web', 'titan-proxy', 'titan-firstboot', 'titan-runtime', 'titan-service-containment'):
         source = ('packaging' if name in ('titan-agent','titan-web','titan-proxy') else 'image') + '/' + name + '.service'

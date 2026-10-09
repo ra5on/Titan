@@ -16,7 +16,7 @@ import stat
 import tempfile
 import time
 
-from .core import Error, Store, atomic_json, identifier, user_profile_text
+from .core import valid_password_hash, Error, Store, atomic_json, identifier, user_profile_text
 
 
 def validate_config(host, data):
@@ -52,7 +52,7 @@ def validate_config(host, data):
         name = identifier(user.get("name"))
         system_user = identifier(user.get("system_user"))
         if (name in names or user.get("role") not in ("admin", "user") or user.get("enabled", 1) not in (0, 1) or
-                not re.fullmatch(r"[a-f0-9]{32}:[a-f0-9]{128}", str(user.get("password", ""))) or
+                not valid_password_hash(user.get("password", "")) or
                 (system_user != "titan-files" and (system_user not in accounts or accounts[system_user].get("removed")))):
             raise Error("Webbenutzer stimmen nicht mit den gesicherten verwalteten Konten überein.")
         if user.get("enabled", 1) and system_user != "titan-files" and not accounts[system_user].get("enabled", True):

@@ -43,10 +43,15 @@ document.addEventListener('input',event=>{if(event.target.closest('form,#dialog'
 window.titanHasUnsavedWork=()=>[...desktopDirty].some(el=>el.isConnected)||Boolean(activeUpload)||Boolean(document.querySelector('.vm-console-frame'))||Boolean(document.querySelector('[data-terminal-action=close]:not([disabled])'));
 
 async function api(path, body, {signal} = {}) {
+ if(body)window.TitanSharedPolling?.clear();
+ const load=async()=>{
  const response = await fetch(path, {method: body ? 'POST' : 'GET', headers: body ? {'Content-Type':'application/json','X-CSRF-Token':(path === '/api/setup' ? session?.setup_csrf : session?.user?.csrf) || ''} : {}, body:body ? JSON.stringify(body) : undefined, signal});
  const data = await response.json();
  if (!response.ok) { if (response.status === 401 && session?.user && path !== '/api/login') { session.user = null; renderAuth(false); } const error = new Error(data.error || 'Anfrage fehlgeschlagen.'); error.status = response.status;if(response.status===429&&Number.isInteger(data.retry_after)&&data.retry_after>0&&data.retry_after<=604800)error.retryAfter=data.retry_after;throw error; }
  return data;
+ };
+ if(!body&&!signal&&['/api/jobs','/api/monitoring'].includes(path)&&window.TitanSharedPolling)return window.TitanSharedPolling.read(path,load);
+ return load();
 }
 function toast(message, error = false) {
  const item = document.createElement('div'); item.className = 'toast' + (error ? ' error' : ''); item.textContent = message; $('#toasts').append(item); setTimeout(() => item.remove(), 6500);
@@ -143,7 +148,7 @@ async function renderAuth(setup) {
  $('#shell').hidden = true;
  const auth = $('#auth'); auth.hidden = false;
  const passwordField = (label, name) => `<div class="auth-field"><label for="f-${name}">${label}</label><div class="auth-password"><input id="f-${name}" name="${name}" type="password" required minlength="12" maxlength="256" autocomplete="${setup?'new-password':'current-password'}" aria-describedby="${setup?'auth-password-hint ':''}auth-error"><button type="button" class="auth-password-toggle" data-auth-password="${name}" aria-controls="f-${name}" aria-label="${label} anzeigen" aria-pressed="false">Anzeigen</button></div></div>`;
- auth.innerHTML = `<div class="auth-content"><div class="auth-brand"><img class="auth-wordmark" src="/brand/titan-wordmark.svg" alt="Titan" width="220" height="44" draggable="false"></div><section class="auth-card" aria-labelledby="auth-title"><h1 id="auth-title">${setup?'Titan einrichten':'Anmelden'}</h1>${setup?'<p class="auth-subtitle" id="auth-subtitle">Erstelle dein Administratorkonto.</p>':''}<form class="auth-form"><div class="auth-field"><label for="f-name">Benutzername</label><input id="f-name" name="name" type="text" required pattern="[a-z][a-z0-9_-]{0,30}" maxlength="31" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="${setup?'auth-name-hint ':''}auth-error">${setup?'<small id="auth-name-hint">Kleinbuchstaben, Zahlen, Bindestrich oder Unterstrich.</small>':''}</div>${passwordField('Passwort','password')}${setup?'<p class="auth-field-hint" id="auth-password-hint">Mindestens 12 Zeichen für dein Passwort.</p>'+passwordField('Passwort bestätigen','password_confirmation'):''}${!setup?'<details class="auth-otp"><summary>Zwei-Faktor-Anmeldung</summary><div class="auth-field"><label for="f-otp">Authenticator- oder Wiederherstellungscode</label><input id="f-otp" name="otp" type="text" autocomplete="one-time-code" maxlength="64" autocapitalize="none" spellcheck="false" aria-describedby="auth-otp-hint auth-error"><small id="auth-otp-hint">Nur nötig, wenn du die Zwei-Faktor-Anmeldung aktiviert hast.</small></div></details>':''}<p class="auth-error" id="auth-error" role="alert" tabindex="-1" hidden></p><button class="auth-submit" type="submit"><span>${setup?'Administrator erstellen':'Anmelden'}</span><span aria-hidden="true">→</span></button></form>${setup?'<p class="auth-local-hint">Richte Titan nach der Installation in deinem lokalen Netz ein.</p>':''}</section><div class="auth-release" role="note"><span class="auth-release-label">Alpha</span><p>Frühe Entwicklung · Nur mit Testdaten verwenden.</p></div></div>`;
+ auth.innerHTML = `<div class="auth-content"><div class="auth-brand"><img class="auth-wordmark" src="/brand/titan-wordmark.svg" alt="Titan" width="220" height="44" draggable="false"></div><section class="auth-card" aria-labelledby="auth-title"><h1 id="auth-title">${setup?'Titan einrichten':'Anmelden'}</h1>${setup?'<p class="auth-subtitle" id="auth-subtitle">Erstelle dein Administratorkonto.</p>':''}<form class="auth-form"><div class="auth-field"><label for="f-name">Benutzername</label><input id="f-name" name="name" type="text" required pattern="[a-z][a-z0-9_-]{0,30}" maxlength="31" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="${setup?'auth-name-hint ':''}auth-error">${setup?'<small id="auth-name-hint">Kleinbuchstaben, Zahlen, Bindestrich oder Unterstrich.</small>':''}</div>${passwordField('Passwort','password')}${setup?'<p class="auth-field-hint" id="auth-password-hint">Mindestens 12 Zeichen für dein Passwort.</p>'+passwordField('Passwort bestätigen','password_confirmation'):''}${!setup?'<details class="auth-otp"><summary>Zwei-Faktor-Anmeldung</summary><div class="auth-field"><label for="f-otp">Authenticator- oder Wiederherstellungscode</label><input id="f-otp" name="otp" type="text" autocomplete="one-time-code" maxlength="64" autocapitalize="none" spellcheck="false" aria-describedby="auth-otp-hint auth-error"><small id="auth-otp-hint">Nur nötig, wenn du die Zwei-Faktor-Anmeldung aktiviert hast.</small></div></details>':''}<p class="auth-error" id="auth-error" role="alert" tabindex="-1" hidden></p><button class="auth-submit" type="submit"><span>${setup?'Administrator erstellen':'Anmelden'}</span><span aria-hidden="true">→</span></button></form>${setup?'<p class="auth-local-hint">Richte Titan nach der Installation in deinem lokalen Netz ein.</p>':''}</section><div class="auth-release" role="note"><span class="auth-release-label">Entwicklung</span><p>Frühe Entwicklung · Nur mit Testdaten verwenden.</p></div></div>`;
  for (const toggle of auth.querySelectorAll('[data-auth-password]')) toggle.addEventListener('click', () => {
   const input = $('#f-'+toggle.dataset.authPassword, auth), visible = input.type === 'password';
   input.type = visible ? 'text' : 'password';
@@ -193,7 +198,7 @@ async function boot({login=false}={}) {
   void window.TitanLoginUpdates?.check({user,api,wait:window.TitanJobs.wait,signal,onAvailable:offer=>{if(signal.aborted||session?.user?.csrf!==user.csrf)return;loginUpdateOffer=offer;toast('Titan-Update '+(offer.latest||'')+' verfügbar. Details findest du unter Updates.');void pollAlerts();}}).catch(()=>{});
  }
  $('#alerts-button').hidden = session.user.role!=='admin';
- if (!polling) {polling = setInterval(pollJobs, 3000);setInterval(pollAlerts,30000);}
+ if (!polling) {polling = setInterval(()=>{if(!document.hidden)void pollJobs();},3000);if(!desktopEmbedded)setInterval(()=>{if(!document.hidden)void pollAlerts();},30000);}
  await pollAlerts();
  if(desktopEmbedded){await navigate();const appId=new URLSearchParams(location.hash.split('?')[1]||'').get('app');try{if(page==='docker'&&appId&&/^[a-zA-Z0-9_-]{1,64}$/.test(appId))await actions['app-manage']({dataset:{id:appId}});}catch(error){toast(error.message,true);}embeddedReady=true;window.parent.postMessage({type:'titan-app-ready'},location.origin);return;}
  desktopWidgets?.destroy();desktopShortcuts?.destroy();desktopWorkspace?.destroy();
@@ -373,10 +378,10 @@ const pages = {
  async updates() {
   let system=null,systemError='';
   const [settings,update]=await Promise.all([api('/api/settings'),api('/api/updates'),api('/api/updates/system').then(value=>{system=value;}).catch(error=>{systemError=error.message;})]);
-  return heading('Updates & Rollback','Titan, Debian und Sicherheit an einem Ort. Updates werden nach deinem bestätigten Neustart aktiv.','','UPDATES')+
+  return heading('Updates & Rollback','Weboberfläche separat aktualisieren. Systemupdates werden nach einem bestätigten Neustart aktiv.','','UPDATES')+
    `<div class="notice ${settings.channel==='stable'?'':'warning'}"><strong>Gewählter Kanal: ${esc(releaseLabel(settings.channel))}</strong><br>${esc(channelNotice(settings.channel))} Ein Kanalwechsel installiert keine ältere Version.</div>`+
    (system?.reboot_scheduled?'<div class="notice warning"><strong>Neustart geplant</strong><br>Der NAS wird in etwa einer Minute geordnet neu gestartet. Die Verbindung wird kurz unterbrochen.</div>':'')+
-   `<section id="update-progress" class="panel" hidden aria-live="polite"></section><div class="update-overview">${window.TitanUpdates.offer('all',update,settings,session,system||{})}</div>${window.TitanUpdates.panel(system||{},systemError,{split:true})}<details class="panel update-settings-details"><summary>Update-Kanal, automatische Suche und Wartungsfenster</summary>${window.TitanSettingsCenter.render({section:'updates',formOnly:true,settings,session,esc,field,selectField,channelNotice,releaseLabel})}</details><section class="notice">Updates verwenden signierte Systemstände mit Rollback. Ein vorbereitetes Update wird beim bestätigten Neustart aktiv. Nutzdaten und Datenbanken werden beim System-Rollback nicht zurückgesetzt.</section>`;
+   window.TitanWebUpdates.panel()+`<section id="update-progress" class="panel" hidden aria-live="polite"></section><div class="update-overview">${window.TitanUpdates.offer('all',update,settings,session,system||{})}</div>${window.TitanUpdates.panel(system||{},systemError,{split:true})}<details class="panel update-settings-details"><summary>Update-Kanal, automatische Suche und Wartungsfenster</summary>${window.TitanSettingsCenter.render({section:'updates',formOnly:true,settings,session,esc,field,selectField,channelNotice,releaseLabel})}</details><section class="notice">Updates verwenden signierte Systemstände mit Rollback. Ein vorbereitetes Update wird beim bestätigten Neustart aktiv. Nutzdaten und Datenbanken werden beim System-Rollback nicht zurückgesetzt.</section>`;
  },
  async logs() {
   const data=await api('/api/logs');
@@ -444,6 +449,7 @@ async function refreshVMWorkspace(){
  await navigate();
 }
 function bindPage({retained=false}={}) {
+ if(page==='updates')window.TitanWebUpdates?.mount($('#main'),{api,toast});
  window.TitanControlPanel?.mount($('#main'),{userName:session.user.name,api,session});
  if(page==='docker')window.TitanDocker?.mount($('#main').querySelector('[data-docker-workbench]'),{api,action,dialog,askYesNo,toast,bytes});
  if(page==='vms')window.TitanVMLive?.mount($('#main'),{api,bytes,esc,onStateChange:()=>{if(!$('#dialog').open)refreshVMWorkspace().catch(error=>toast(error.message,true));}});if(page==='vms')window.TitanManagers?.mount($('#main'),{owner:session.user.name});

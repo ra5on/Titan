@@ -109,6 +109,19 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(self.request("/api/status")[0],401)
             self.assertIsNone(json.loads(self.request("/api/session")[1])["user"])
         finally:self.app.demo=original
+    def test_web_update_requires_admin_and_csrf(self):
+        from unittest.mock import patch
+        user={"name":"reader","role":"user","system_user":"reader","csrf":"demo-only"}
+        with patch.object(Handler, "user", return_value=user):
+            self.assertEqual(self.request('/api/web-updates', {'action':'check'})[0],403)
+        self.assertEqual(self.request('/api/web-updates', {'action':'check'}, csrf='wrong')[0],403)
+
+    def test_health_reports_web_protocol_without_credentials(self):
+        status, body, _ = self.request('/api/health')
+        self.assertEqual(status,200)
+        self.assertEqual(json.loads(body)['agent_api'],1)
+        self.assertNotIn('user',json.loads(body))
+
     def test_user_role_cannot_manage_host(self):
         user={"name":"reader","role":"user","system_user":"reader","csrf":"demo-only"}
         from unittest.mock import patch

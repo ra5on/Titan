@@ -1,0 +1,3 @@
+const assert=require('node:assert/strict');
+const {create}=require('../titan/web/shared_polling.js');
+(async()=>{const pool=create();let calls=0;const load=async()=>{calls++;return {count:calls};};const [a,b]=await Promise.all([pool.read('jobs',load),pool.read('jobs',load)]);assert.equal(calls,1);a.count=999;assert.equal(b.count,1);pool.clear();assert.equal((await pool.read('jobs',load)).count,2);await assert.rejects(pool.read('bad',()=>Promise.reject(Error('fail'))));assert.equal((await pool.read('bad',load)).count,3);console.log('Shared polling checks passed');})().catch(e=>{console.error(e);process.exitCode=1;});

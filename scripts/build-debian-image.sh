@@ -6,6 +6,10 @@ set -euo pipefail
 export LIBGUESTFS_BACKEND=direct
 mkdir -p dist/debian-image
 python3 scripts/build-debian-package.py
+# Build once on the disposable runner; the NAS can boot without registry access.
+if [[ -f "${TITAN_APP_SOURCE_ROOT:-.}/packaging/container/Containerfile" ]]; then
+    bash scripts/build-web-container.sh "${TITAN_APP_SOURCE_ROOT:-.}"
+fi
 python3 - <<'PY'
 import hashlib,json,urllib.request
 from pathlib import Path
@@ -32,5 +36,10 @@ virt-customize -a "$task_dir/titan.qcow2" --memsize 4096 \
     --upload "$(realpath image/debian/zfs-components.py):/tmp/titan-zfs-components.py" \
     --run-command '/bin/bash /tmp/titan-configure-guest.sh' \
     --delete /tmp/titan-configure-guest.sh
+if [[ -f dist/web-container/web-image.tar ]]; then
+    virt-customize -a "$task_dir/titan.qcow2" \
+        --upload "$(realpath dist/web-container/web-image.tar):/usr/share/titan/web-image.tar" \
+        --upload "$(realpath dist/web-container/web-image.json):/usr/share/titan/web-image.json"
+fi
 qemu-img convert -O raw "$task_dir/titan.qcow2" "$task_dir/titan-debian-preview-20261002-amd64.img"
 rm "$task_dir/base.qcow2" "$task_dir/titan.qcow2"

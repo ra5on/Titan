@@ -4,9 +4,9 @@
 
 Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläche verbindet einen persönlichen Desktop mit Dateimanager, Speicherverwaltung, Freigaben, Docker-Compose-Apps, virtuellen Maschinen und signierten Systemupdates.
 
-**Version 0.6.0-alpha.6 · Alpha.** Zunächst in einer separaten VM und mit Testdaten verwenden.
+**Version 0.6.1 · Entwicklungsstand.** Zunächst in einer separaten VM und mit Testdaten verwenden.
 
-[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.0-alpha.6/titan-0.6.0-alpha.6-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.0-alpha.6) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
+[**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.6.1/titan-0.6.1-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.6.1) · [Änderungen in 0.6.0](docs/RELEASE-0.6.0.md)
 
 ![Titan Desktop mit persönlichen Widgets](docs/images/titan-desktop.jpg)
 
@@ -17,6 +17,10 @@ Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläc
 Die Anmeldung zeigt den unveränderten Titan-Schriftzug über einer kleinen transparenten Fläche. Das Hauptmenü trennt Dateien & Apps, System und Verwaltung; die Suche blendet leere Gruppen aus. Helle Arbeitsflächen, matte App-Karten und weniger sichtbare Carbon-Struktur geben Texten und Daten mehr Ruhe. VM-Details zeigen die Live-Werte ohne doppelte CPU-/RAM-Karten und bieten „Konsole öffnen“ direkt an.
 
 ![Kompakte Titan-Anmeldung](docs/images/titan-login.jpg)
+
+## Neue Installationsbasis 0.6.1
+
+Für diese Version ist eine Neuinstallation vorgesehen. Die Weboberfläche läuft als vorinstallierter Docker-Container und lässt sich künftig unabhängig vom Betriebssystem aktualisieren. Daten und Einstellungen bleiben außerhalb des Containers. [Container und Updates](docs/WEB-CONTAINER.md) · [Änderungen](docs/RELEASE-0.6.1.md).
 
 ## Installieren und öffnen
 

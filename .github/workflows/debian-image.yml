@@ -1,5 +1,5 @@
 name: Titan Debian system release
-# Build Titan 0.6.0 alpha.6: reliable app navigation, upload progress and VM workflows.
+# Titan 0.6.1: fresh-install container baseline and independent web updates.
 on:
   workflow_dispatch:
   push:

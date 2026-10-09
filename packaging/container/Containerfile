@@ -1,0 +1,18 @@
+FROM debian:trixie-slim
+ARG TITAN_VERSION=0.6.1
+ARG TITAN_REVISION=unknown
+LABEL org.opencontainers.image.title="Titan Web" \
+      org.opencontainers.image.source="https://github.com/ra5on/Titan" \
+      org.opencontainers.image.version=$TITAN_VERSION \
+      org.opencontainers.image.revision=$TITAN_REVISION \
+      org.titan.agent-api="1" org.titan.state-schema="1"
+RUN apt-get update && apt-get -y dist-upgrade && apt-get install -y --no-install-recommends python3 python3-yaml openssl ca-certificates novnc && rm -rf /var/lib/apt/lists/*
+WORKDIR /usr/lib/titan
+COPY titan ./titan
+COPY LICENSE NOTICE /usr/share/doc/titan/
+COPY packaging/container/health.py /usr/local/bin/titan-web-health
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER 65534:65534
+HEALTHCHECK --interval=10s --timeout=8s --start-period=20s --retries=3 CMD ["python3", "/usr/local/bin/titan-web-health"]
+ENTRYPOINT ["python3", "-m", "titan.server"]
+CMD ["--host", "127.0.0.1", "--port", "5001", "--data", "/var/lib/titan"]

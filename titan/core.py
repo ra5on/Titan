@@ -74,21 +74,67 @@ def integer(value, minimum, maximum):
     return result
 
 
-def password_hash(password, salt=None):
+# Current scrypt cost follows the OWASP password-storage minimum (N=2**16, r=8, p=2).
+# Hashes written before the parameters were stored use the legacy cost and are
+# upgraded transparently after the next successful login. The fresh-install
+# baseline 0.6.1 is the earliest supported rollback target for new credentials.
+SCRYPT_PARAMS = (65536, 8, 2)
+LEGACY_SCRYPT_PARAMS = (16384, 8, 1)
+
+
+def _scrypt(password, salt, params):
+    n, r, p = params
+    return hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=n, r=r, p=p, maxmem=256 * 1024 * 1024).hex()
+
+
+def validate_password(password):
     if not isinstance(password, str) or not 12 <= len(password) <= 256:
         raise Error("Passwort muss 12–256 Zeichen lang sein.")
     if any(char in password for char in ("\n", "\r", "\x00")):
         raise Error("Passwort enthält ungültige Zeichen.")
+
+
+def password_hash(password, salt=None):
+    validate_password(password)
     salt = salt or secrets.token_hex(16)
-    digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1)
-    return salt + ":" + digest.hex()
+    return "scrypt${}${}${}${}${}".format(*SCRYPT_PARAMS, salt, _scrypt(password, salt, SCRYPT_PARAMS))
+
+
+def _parse_hash(stored):
+    """Return (params, salt, digest) for current and legacy ``salt:digest`` hashes."""
+    if stored.startswith("scrypt$"):
+        _, n, r, p, salt, digest = stored.split("$")
+        params = (int(n), int(r), int(p))
+        if params != SCRYPT_PARAMS:
+            raise ValueError("unsupported scrypt parameters")
+        if not re.fullmatch(r"[a-f0-9]{32}", salt) or not re.fullmatch(r"[a-f0-9]{128}", digest):
+            raise ValueError("invalid scrypt hash")
+        return params, salt, digest
+    salt, digest = stored.split(":")
+    if not re.fullmatch(r"[a-f0-9]{32}", salt) or not re.fullmatch(r"[a-f0-9]{128}", digest):
+        raise ValueError("invalid legacy hash")
+    return LEGACY_SCRYPT_PARAMS, salt, digest
+
+
+def valid_password_hash(stored):
+    try:
+        _parse_hash(stored)
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
 
 
 def password_matches(password, stored):
     try:
-        return hmac.compare_digest(password_hash(password, stored.split(":")[0]), stored)
-    except (Error, ValueError, AttributeError):
+        validate_password(password)
+        params, salt, digest = _parse_hash(stored)
+        return hmac.compare_digest(_scrypt(password, salt, params), digest)
+    except (Error, ValueError, AttributeError, TypeError):
         return False
+
+
+def password_needs_rehash(stored):
+    return isinstance(stored, str) and not stored.startswith("scrypt$")
 
 
 # Unknown usernames still perform one password verification, matching existing
@@ -294,6 +340,8 @@ class Store:
                 valid = password_matches(password, stored)
                 if valid_name and row and valid and row["enabled"]:
                     accepted = verify_factor(db, name, otp)
+                    if accepted and password_needs_rehash(stored):
+                        db.execute("UPDATE users SET password=? WHERE name=?", (password_hash(password), name))
                 if not accepted:
                     failure(db, policy, name, address, now)
             record_login(db, name, accepted, address, user_agent)

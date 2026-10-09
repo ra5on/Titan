@@ -99,6 +99,8 @@ class DockerEngineMixin:
 
     def engine_action_target(self, container, action):
         row = self.engine_container(container)
+        if (row.get('Config', {}).get('Labels') or {}).get('org.titan.system') == 'web':
+            raise Error('Die Titan-Weboberfläche wird über den Web-Updater verwaltet.', 409)
         managed = self.engine_summary(row)['managed_app']
         if managed:
             _, keys = self._app_lifecycle_services(managed)
