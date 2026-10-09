@@ -31,3 +31,5 @@ Installation: **Systemsteuerung → Updates & Rollback → Weboberfläche → Je
 - [Debian-Integration](https://github.com/ra5on/Titan/actions/runs/37967674632) und [App-Laufzeitprüfungen](https://github.com/ra5on/Titan/actions/runs/37967675173) bestanden.
 
 Die Browserprüfung bei 390 Pixel Breite zeigte keinen horizontalen Überlauf. Die tatsächliche Ladezeit auf dem Benutzer-NAS und dessen Speicherzustand bleiben gesondert zu prüfen.
+
+Die vollständige [CI nach Korrektur der HTTP-Testfixture](https://github.com/ra5on/Titan/actions/runs/37968936645) bestand ebenfalls. Die Fixture-Korrektur verändert das veröffentlichte Laufzeitverhalten nicht.

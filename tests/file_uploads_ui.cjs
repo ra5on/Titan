@@ -40,5 +40,27 @@ const deferred=()=>{let resolve;return {promise:new Promise(r=>resolve=r),resolv
  // the cancel button between pointerdown and click, which lost user clicks.
  const source=fs.readFileSync(require.resolve('../titan/web/app.js'),'utf8'),start=source.indexOf('function uploadLabel('),end=source.indexOf('function permissionsFields',start);assert(start>=0&&end>start);
  const f=fixture();f.doc.body.innerHTML='<div id="upload-status"></div>';const box=f.doc.querySelector('#upload-status'),sandbox={document:f.doc,$:selector=>f.doc.querySelector(selector),activeUpload:{name:'a.txt',index:1,total:2,percent:10,controller:new AbortController()},esc:String};vm.createContext(sandbox);vm.runInContext(source.slice(start,end),sandbox);vm.runInContext('renderUploadStatus()',sandbox);const button=box.querySelector('[data-action="upload-cancel"]'),meter=box.querySelector('[data-upload-progress]');button.focus();sandbox.activeUpload.percent=80;vm.runInContext('renderUploadStatus()',sandbox);assert.equal(box.querySelector('[data-action="upload-cancel"]'),button);assert.equal(box.querySelector('[data-upload-progress]'),meter);assert.equal(meter.value,80);assert.equal(f.doc.activeElement,button);sandbox.activeUpload.controller.abort();vm.runInContext('renderUploadStatus()',sandbox);assert(button.disabled);assert.match(button.textContent,/abgebrochen/);
+ // Larger blocks remain inside the existing agent contract and preserve
+ // byte boundaries, acknowledgements and a final atomic commit.
+ const payload='x'.repeat(9*1024*1024+17);calls=[];progress=[];let clock=0;
+ await uploads.run({files:[file('large.bin',payload)],destination,createToken:()=>TOKEN,now:()=>clock,onProgress:value=>progress.push(value),request:async(url,body)=>{calls.push(body);clock+=1000;return ack(body);}});
+ const blocks=calls.filter(body=>!body.finish);
+ assert.deepEqual(blocks.map(body=>Buffer.from(body.data,'base64').length),[4*1024*1024,4*1024*1024,1024*1024+17]);
+ assert.equal(blocks.map(body=>Buffer.from(body.data,'base64').toString()).join(''),payload);
+ assert.equal(calls.length,4,'Three blocks plus atomic commit, rather than ten blocks');
+ assert.equal(progress.at(-1).bytesPerSecond,payload.length/3);assert.equal(progress.at(-1).remainingSeconds,0);
+ // Raw HTTP mode sends the Blob directly and keeps commit as a separate
+ // JSON operation. No base64 field is constructed for the browser request.
+ const blob=new Blob([new Uint8Array([0,255,128,1])]);calls=[];
+ await uploads.run({files:[{name:'raw.bin',size:blob.size,slice:(...args)=>blob.slice(...args)}],destination,binary:true,createToken:()=>TOKEN,request:async(url,body,options)=>{calls.push({url,body,options});if(options.binary){assert.deepEqual(Object.keys(body).sort(),["offset","path","share","total","upload_id"]);assert.equal(body.data,undefined);assert.deepEqual([...new Uint8Array(await options.binary.arrayBuffer())],[0,255,128,1]);return {atomic:true,upload_id:TOKEN,offset:4};}return ack(body);}});
+ assert.equal(calls[0].url,'/api/file-upload');assert.equal(calls[1].url,'/api/files');assert(calls[1].body.finish);
+ // Native browser encoding must be byte exact and abort the reader itself.
+ const previousReader=globalThis.FileReader;let reader;
+ globalThis.FileReader=class {constructor(){reader=this;}readAsDataURL(blob){this.blob=blob;}abort(){this.aborted=true;this.onabort?.();}};
+ try{
+  controller=new AbortController();let encoded=uploads.encode({},controller.signal);reader.result='data:application/octet-stream;base64,AP+A';reader.onload();assert.equal(await encoded,'AP+A');
+  encoded=uploads.encode({},controller.signal);controller.abort();await assert.rejects(encoded,error=>error.canceled);assert(reader.aborted);assert.equal(reader.onload,null);
+  controller=new AbortController();encoded=uploads.encode({},controller.signal);reader.error=Error('Read failed');reader.onerror();await assert.rejects(encoded,/Read failed/);
+ }finally{if(previousReader===undefined)delete globalThis.FileReader;else globalThis.FileReader=previousReader;}
  console.log('Upload queue: atomic confirmation, empty files, canceled reads and late chunks, captured destination, commit preservation, compatibility refusal, cleanup failure, ISO cancellation and stable cancel button passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

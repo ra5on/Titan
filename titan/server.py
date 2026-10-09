@@ -674,6 +674,28 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         if self.office_post(path):
             return
         self.origin_check()
+        if path == "/api/file-upload":
+            user = self.require_user(mutation=True)
+            require_application(self.app.store, user, "files")
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/octet-stream":
+                raise Error("Binärer Dateiblock erforderlich.", 415)
+            metadata = self.headers.get("X-Titan-Upload", "")
+            if not metadata or len(metadata) > 60000:
+                raise Error("Ungültige Upload-Metadaten.")
+            try:
+                body = json.loads(urllib.parse.unquote(metadata, errors="strict"))
+            except (ValueError, UnicodeError):
+                raise Error("Ungültige Upload-Metadaten.") from None
+            if not isinstance(body, dict) or set(body) != {"share", "path", "upload_id", "offset", "total"}:
+                raise Error("Ungültige Upload-Metadaten.")
+            length = integer(self.headers.get("Content-Length", ""), 0, 4 * 1024 * 1024)
+            data = self.rfile.read(length)
+            if len(data) != length:
+                raise Error("Dateiblock wurde unvollständig übertragen.")
+            # Preserve the installed agent's authorization, private staging,
+            # offset checks and atomic commit protocol. Only HTTP is binary.
+            return self.reply(self.file_call(user, action="upload", **body,
+                                            data=base64.b64encode(data).decode("ascii")))
         body = self.body()
         if path == "/api/setup":
             self.app.rate_limit(self.authentication_address())

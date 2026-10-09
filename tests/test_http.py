@@ -40,6 +40,47 @@ class HTTPTests(unittest.TestCase):
                 return response.status, response.read(), response.headers
         except urllib.error.HTTPError as response:
             return response.code, response.read(), response.headers
+    def binary_upload(self, metadata, data=b"", extra=None):
+        headers = {"X-CSRF-Token": "demo-only", "Content-Type": "application/octet-stream",
+                   "X-Titan-Upload": urllib.parse.quote(json.dumps(metadata)), **(extra or {})}
+        request = urllib.request.Request(self.url + "/api/file-upload", data=data, headers=headers)
+        try:
+            with urllib.request.urlopen(request) as response:
+                return response.status, response.read()
+        except urllib.error.HTTPError as response:
+            return response.code, response.read()
+
+    def test_binary_upload_preserves_bytes_and_requires_explicit_commit(self):
+        metadata = {"share": "dokumente", "path": "Grüße-测试.bin", "upload_id": "e" * 64,
+                    "offset": 0, "total": 4 * 1024 * 1024}
+        payload = bytes(range(256)) * 16384
+        status, result = self.binary_upload(metadata, payload)
+        self.assertEqual(status, 200, result)
+        self.assertEqual(json.loads(result)["offset"], len(payload))
+        path = "/api/file?" + urllib.parse.urlencode({"share": metadata["share"], "path": metadata["path"]})
+        self.assertFalse((Path(self.app.agent._share_paths[metadata["share"]]) / metadata["path"]).exists())
+        commit = {key: value for key, value in metadata.items() if key != "offset"}
+        status, body, _ = self.request("/api/files", {**commit, "action": "upload", "finish": True})
+        self.assertEqual(status, 200, body)
+        self.assertEqual(self.request(path)[1], payload)
+
+    def test_binary_upload_keeps_csrf_origin_and_size_guards(self):
+        metadata = {"share": "dokumente", "path": "never.bin", "upload_id": "f" * 64, "offset": 0, "total": 1}
+        self.assertEqual(self.binary_upload(metadata, b"x", {"X-CSRF-Token": "wrong"})[0], 403)
+        self.assertEqual(self.binary_upload(metadata, b"x", {"Origin": "https://evil.example"})[0], 403)
+        self.assertEqual(self.binary_upload(metadata, b"x", {"Content-Type": "text/plain"})[0], 415)
+        self.assertEqual(self.binary_upload({**metadata, "finish": True}, b"x")[0], 400)
+        self.assertEqual(self.binary_upload(metadata, b"x", {"X-Titan-Upload": "%FF"})[0], 400)
+        # Send oversized headers alone: rejection must precede reading the body.
+        with socket.create_connection(self.server.server_address, timeout=5) as client:
+            client.sendall(("POST /api/file-upload HTTP/1.1\r\nHost: localhost\r\n"
+                            "Content-Type: application/octet-stream\r\nX-CSRF-Token: demo-only\r\n"
+                            "X-Titan-Upload: " + urllib.parse.quote(json.dumps(metadata)) +
+                            "\r\nContent-Length: 4194305\r\nConnection: close\r\n\r\n").encode())
+            with HTTPResponse(client) as response:
+                response.begin()
+                self.assertEqual(response.status, 400)
+
     def test_all_pages_backing_endpoints(self):
         for path in ("/", "/app.js", "/style.css", "/api/session", "/api/status", "/api/catalog", "/api/storage", "/api/snapshots", "/api/apps", "/api/shares", "/api/managed-shares", "/api/vms", "/api/isos", "/api/users", "/api/settings", "/api/updates", "/api/logs", "/api/jobs", "/api/backups", "/api/backup/settings", "/api/monitoring"):
             self.assertEqual(self.request(path)[0], 200, path)

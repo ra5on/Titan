@@ -31,10 +31,10 @@ const evaluate=expression=>vm.runInContext(expression,context);
  // A file upload must retain its original share/folder across an in-flight navigation.
  evaluate("session={user:{csrf:'synthetic-csrf',role:'admin',system_user:'titan-files'}}; currentShare='original'; currentPath='folder';");
  const requests=[];
- context.fetch=async(url,options)=>{const body=JSON.parse(options.body);requests.push({url,body});evaluate("currentShare='other'; currentPath='changed';");return {ok:true,json:async()=>({atomic:true,upload_id:body.upload_id,complete:!!body.finish,offset:body.finish?body.total:body.offset+Buffer.from(body.data,'base64').length})};};
+ context.fetch=async(url,options)=>{const raw=url==='/api/file-upload',body=raw?JSON.parse(decodeURIComponent(options.headers['X-Titan-Upload'])):JSON.parse(options.body);assert.equal(options.headers['X-CSRF-Token'],'synthetic-csrf');requests.push({url,body});evaluate("currentShare='other'; currentPath='changed';");return {ok:true,json:async()=>({atomic:true,upload_id:body.upload_id,complete:!!body.finish,offset:body.finish?body.total:body.offset+(await options.body.arrayBuffer()).byteLength})};};
  context.file={name:'big.bin',size:1048577,slice:(start,end)=>({arrayBuffer:async()=>new Uint8Array(Math.min(end,1048577)-start).buffer})};
  await evaluate('upload(file,false)');
- assert.equal(requests.length,3);assert.equal(requests[2].body.finish,true);
+ assert.equal(requests.length,2);assert.equal(requests[0].url,'/api/file-upload');assert.equal(requests[1].body.finish,true);
  for(const {body} of requests){assert.equal(body.share,'original');assert.equal(body.path,'folder/big.bin');}
  assert.equal(evaluate('activeUpload'),null);
  // ISO uploads explicitly finalize total size and reuse the server-issued upload token.
