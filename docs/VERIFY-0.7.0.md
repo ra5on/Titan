@@ -12,10 +12,14 @@ bleiben erhalten. [Plan](RELEASE-PLAN-0.7.0.md), [Hintergrundherkunft und Prompt
 
 ## Lokale Prüfung
 
-- UI-Suiten einschließlich neuer Foto-Tests: in Prüfung.
-- Python-/API-Suite: in Prüfung.
-- Browser: Desktop und Galerie mit authentifizierter Bilddatei in isolierter Demo
-  geöffnet; direkte Vorschau funktioniert. Weitere mobile und Dialogprüfungen laufen.
+- Alle 79 UI-Suiten einschließlich neuer Foto-Tests bestanden.
+- Python-/API-Suite: 1.937 Tests, 12 übersprungen, keine Fehler (291,584 Sekunden).
+- Browser: Desktop, Systemmenü, Galerie und Einstellungen in isolierter Demo geprüft;
+  Bildvorschau, Escape mit Fokus-Rückgabe, globale Suche aus einem App-Fenster,
+  Abmeldebestätigung mit Abbruch funktionieren. 390 px ohne horizontalen Überlauf.
+- Originaldownload tatsächlich im Browser ausgeführt; SHA-256 stimmt mit der
+  Beispieldatei überein. Keine Browser-Konsolenfehler beobachtet.
+- JavaScript- und Shell-Syntax sowie `git diff --check` bestanden.
 - Alle sichtbaren Hardwarewerte der Demo sind simuliert.
 
 ## Veröffentlichungsprüfung
