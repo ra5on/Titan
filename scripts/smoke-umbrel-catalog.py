@@ -77,6 +77,26 @@ def main():
         docker('up', '-d')
         wait_http()
         checks.append('web-reachable')
+        if args.app == 'uptime-kuma':
+            # Follow the app's browser setup API; v2 intentionally waits for
+            # this choice before creating any database.
+            request = urllib.request.Request('http://127.0.0.1:18088/setup-database',
+                data=json.dumps({'dbConfig': {'type': 'sqlite'}}).encode(),
+                headers={'Content-Type': 'application/json'})
+            with urllib.request.urlopen(request, timeout=30) as response:
+                if json.load(response).get('ok') is not True:
+                    raise RuntimeError('Database setup was not accepted.')
+            for attempt in range(90):
+                try:
+                    with urllib.request.urlopen('http://127.0.0.1:18088/setup-database-info', timeout=3) as response:
+                        if json.load(response).get('needSetup') is False:
+                            break
+                except (OSError, ValueError):
+                    pass
+                time.sleep(2)
+            else:
+                raise RuntimeError('Database setup did not complete.')
+            checks.append('browser-database-setup')
         docker('stop', '--timeout', '60')
         databases = [p for p in (root/'private').rglob('*') if p.is_file() and p.suffix in ('.db','.sqlite','.sqlite3')]
         database = next((p for p in databases if p.open('rb').read(16) == b'SQLite format 3\x00'), None)
