@@ -134,3 +134,28 @@ class ColdRecoveryTests(unittest.TestCase):
             with self.assertRaises(dr.RecoveryError):
                 with dr.pin_disks(self.disks[:1],{'disk-001':disk['identity']},writing=True):pass
             opening.assert_not_called()
+
+
+class RecoveryExtentTests(unittest.TestCase):
+    def test_primary_and_backup_headers_across_multiple_transfer_chunks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);root.chmod(0o700)
+            for size in (2*dr.HEADER, 2*dr.CHUNK+512):
+                with self.subTest(size=size):
+                    source=os.open(root/('source-'+str(size)),os.O_RDWR|os.O_CREAT|os.O_EXCL,0o600)
+                    target=os.open(root/('target-'+str(size)),os.O_RDWR|os.O_CREAT|os.O_EXCL,0o600)
+                    try:
+                        os.ftruncate(source,size);os.ftruncate(target,size)
+                        for offset in (0,dr.HEADER-4,dr.HEADER,size-dr.HEADER-4,size-dr.HEADER,size-4):
+                            os.pwrite(source,b'DATA',offset)
+                        disks=[{'id':'disk-001','identity':'serial:source','size':size,'sector':512,'system':True}]
+                        folder=root/('packet-'+str(size))
+                        dr.backup(folder,{'disks':disks},{'disk-001':source})
+                        def check(state,value):
+                            if state=='committing':
+                                self.assertEqual(os.pread(target,dr.HEADER,0),bytes(dr.HEADER))
+                                self.assertEqual(os.pread(target,dr.HEADER,size-dr.HEADER),bytes(dr.HEADER))
+                        dr.restore(dr.Packet(folder),{'disk-001':target},{'disk-001':'serial:target'},root/('journal-'+str(size)),sparse_files=True,checkpoint=check)
+                        self.assertEqual(dr.digest_fd(source,size),dr.digest_fd(target,size))
+                    finally:
+                        os.close(source);os.close(target)

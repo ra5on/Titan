@@ -585,7 +585,7 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 return self.reply({"web": self.app.store.users(), "system": accounts, "service_user": "titan-files"})
             if path in ('/api/recovery/inventory', '/api/recovery/kit'):
                 if user['role'] != 'admin': raise Error('Administratorrechte erforderlich.', 403)
-                if query: raise Error('Rettungsplan unterstützt keine zusätzlichen Parameter.')
+                if parts.query: raise Error('Rettungsplan unterstützt keine zusätzlichen Parameter.')
                 if self.app.demo: raise Error('Rettungspläne benötigen ein echtes NAS mit angeschlossenem Sicherungslaufwerk.', 409)
                 inventory = self.app.agent.call('recovery_inventory')
                 if path.endswith('/inventory'):

@@ -11,7 +11,8 @@ class ColdRecoveryHTTPTests(HTTPFixture, unittest.TestCase):
             path = '/api/recovery/' + endpoint
             for actor, status in ((None, 401), ('reader', 403)):
                 self.assertEqual(self.request(path, actor=actor)[0], status)
-            self.assertEqual(self.request(path + '?target=/dev/sda')[0], 400)
+            for query in ('?target=/dev/sda', '?target='):
+                self.assertEqual(self.request(path + query)[0], 400)
         self.agent.call.assert_not_called()
 
     def test_inventory_is_uncached_and_kit_contains_exact_inventory_and_reader(self):
