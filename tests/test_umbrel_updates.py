@@ -1,5 +1,6 @@
 import copy
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 import unittest
@@ -20,6 +21,7 @@ class UpdateTests(unittest.TestCase):
 
     def install_catalog_app(self):
         self.inventory = archive_inventory(archive(), REVISION)
+        self.inventory['packages']['example']['compose']['services']['web']['user'] = f'{os.getuid()}:{os.getgid()}'
         with patch('titan.umbrel_store.fetch_inventory', return_value=self.inventory):
             self.host.op_app_store_refresh('umbrel')
         key = next(key for key, value in APPS.items() if value.get('umbrel_catalog'))
