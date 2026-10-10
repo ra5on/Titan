@@ -1018,7 +1018,9 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         self._app_record_result(app)
         return {"ok": True, "scope": "package", "app": app, "action": action, **result}
 
-    def op_app_backup(self, app):
+    def op_app_backup(self, app, keep_stopped=False):
+        if type(keep_stopped) is not bool:
+            raise Error('Ungültige Sicherungsoption.')
         self.app_storage_ready(app)
         record = self.managed_app(app)
         container = self._app_container(app, record)
@@ -1041,19 +1043,21 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         destination = self.directory / "backups"
         destination.mkdir(exist_ok=True, mode=0o700)
         backup = destination / f"{app}-{time.time_ns()}.tar.gz"
+        completed = False
         try:
             arguments = ["tar", "-czf", str(backup), "-C", str(self.directory / "apps"), app]
             config = self._app_config_path(app, record)
             if config != self.directory / "apps" / app / "config":
                 arguments += ["--transform=s,^config," + app + "/package-config,", "-C", str(config.parent), "config"]
             _run(arguments, timeout=600)
+            completed = True
         except Exception:
             backup.unlink(missing_ok=True)
             raise
         finally:
-            if package_running:
+            if package_running and (not keep_stopped or not completed):
                 # Restore only services that were running before the cold backup.
                 _run(['docker', 'start', *package_running], timeout=180)
-            elif running:
+            elif running and (not keep_stopped or not completed):
                 self.docker(app, "up", "-d")
-        return {"path": str(backup), "scope": "App-Konfiguration; Nutzdaten separat sichern.", "kept_stopped": not running}
+        return {"path": str(backup), "scope": "App-Konfiguration; Nutzdaten separat sichern.", "kept_stopped": keep_stopped or not running}

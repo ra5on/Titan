@@ -240,7 +240,7 @@ class PackageCenterMixin:
         # This cold backup includes the managed configuration tree, database,
         # application configuration and generated secrets. User files outside
         # the package tree are deliberately identified as a separate backup.
-        backup = self.op_app_backup(app)
+        backup = self.op_app_backup(app, keep_stopped=True)
         from .host import pwd, run
         owner = pwd.getpwnam('titan-files')
         path = self.directory / 'apps' / app / 'compose.json'

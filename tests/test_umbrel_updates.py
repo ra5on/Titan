@@ -56,6 +56,19 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(saved['services'][key]['image'], 'example/web:2')
         self.assertFalse(self.host.op_package_details(key)['update']['available'])
 
+    def test_running_app_cannot_write_between_backup_and_update(self):
+        key = self.install_catalog_app()
+        self.containers[key]['State']['Status'] = 'running'
+        self.offer()
+        self.calls.clear()
+        with patch('titan.app_package_setup.provision'):
+            result = self.host.op_package_update(key)
+        self.assertFalse(result['kept_stopped'])
+        backup = next(i for i, call in enumerate(self.calls) if call[0] == 'tar')
+        remove = next(i for i, call in enumerate(self.calls) if call[:2] == ['docker','rm'])
+        self.assertLess(backup, remove)
+        self.assertFalse(any(call[:2] == ['docker','start'] or 'up' in call for call in self.calls[backup:remove]))
+
     def test_mount_migration_blocks_before_backup_or_container_changes(self):
         key = self.install_catalog_app()
         self.inventory['packages']['example']['compose']['services']['web']['volumes'] = ['${APP_DATA_DIR}/new:/new']
