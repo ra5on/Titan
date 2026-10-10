@@ -69,6 +69,28 @@ class CatalogTests(unittest.TestCase):
                 self.assertEqual(document['apps'], [])
                 self.assertEqual(blocked[0]['code'], code)
 
+    def test_private_mount_identity_survives_order_changes(self):
+        files = package(); doc = json.loads(files['example/docker-compose.yml'])
+        doc['services']['web']['volumes'] = ['${APP_DATA_DIR}/one:/one', '${APP_DATA_DIR}/two:/two']
+        def mounts(document):
+            files['example/docker-compose.yml'] = json.dumps(document)
+            result, blocked = compile_inventory(archive_inventory(archive(files), REVISION))
+            self.assertEqual(blocked, [])
+            return {row['target']: row['slot'] for row in result['apps'][0]['stack']['services']['web']['mounts']}
+        before = mounts(doc)
+        doc['services']['web']['volumes'].reverse()
+        self.assertEqual(mounts(doc), before)
+        doc['services']['web']['volumes'] = ['${APP_DATA_DIR}/different:/one', '${APP_DATA_DIR}/two:/two']
+        self.assertNotEqual(mounts(doc)['/one'], before['/one'])
+
+    def test_overlapping_source_mounts_are_not_split_into_unrelated_directories(self):
+        files = package(); doc = json.loads(files['example/docker-compose.yml'])
+        doc['services']['web']['volumes'] = ['${APP_DATA_DIR}/data:/data', '${APP_DATA_DIR}/data/config:/config']
+        files['example/docker-compose.yml'] = json.dumps(doc)
+        result, blocked = compile_inventory(archive_inventory(archive(files), REVISION))
+        self.assertEqual(result['apps'], [])
+        self.assertEqual(blocked[0]['code'], 'nested_mounts')
+
     def test_proxy_auth_is_never_silently_removed(self):
         files = package(); doc = json.loads(files['example/docker-compose.yml'])
         del doc['services']['app_proxy']['environment']['PROXY_AUTH_ADD']

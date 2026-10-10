@@ -84,3 +84,11 @@ Ein grüner Lauf allein gibt deshalb weder den Store noch das neue Systemimage f
 Die ersten beiden Compose-Laufzeittests bestanden auf GitHub:
 https://github.com/ra5on/Titan/actions/runs/38038517761
 Die Host-/HTTP-Erweiterung und nachfolgende Änderungen sind davon getrennt zu prüfen.
+
+Auch der echte Host-/HTTP-Lauf für Memos bestand:
+https://github.com/ra5on/Titan/actions/runs/38039178969
+Geprüft wurden Installation, Start/Stop/Neustart einzelner Container und des Pakets,
+Dateizugriff während der Installation und Deinstallation bei erhaltenen Daten.
+Die gesamte Python-Suite vor den Appupdate-Ergänzungen bestand lokal mit
+2.004 Tests (12 übersprungen); die anschließenden Katalog-/Updateprüfungen
+werden zusätzlich separat und in CI ausgeführt.
