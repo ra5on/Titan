@@ -40,6 +40,8 @@ if [[ -f "${TITAN_APP_SOURCE_ROOT:-.}/titan/umbrel_catalog.py" ]]; then
         [[ "$task_recovery_size" -gt 0 && "$task_recovery_size" -le 1800000000 ]]
         task_product_checks+=("$task_recovery_expected")
     done
+    python3 scripts/verify-debian-source-archive.py --index "$task_dir/recovery-sources.json" \
+        --parts "${task_recovery_sources[@]}"
     [[ $(stat -c %s "$task_dir/titan-$TITAN_SYSTEM_VERSION-recovery-amd64.iso") -lt 2147483648 ]]
     for task_product_file in "${task_product_checks[@]}"; do
         task_product_assets+=("$task_dir/$task_product_file")

@@ -7,15 +7,17 @@ on:
       - 'titan/disaster_recovery.py'
       - 'scripts/build-recovery-image.sh'
       - 'scripts/smoke-recovery-image.py'
+      - 'scripts/collect-recovery-sources.sh'
       - '.github/workflows/recovery-image.yml'
 permissions:
   contents: read
 jobs:
   recovery:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       TITAN_SYSTEM_VERSION: 0.8.0-candidate
+      TITAN_APP_SOURCE_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -30,6 +32,8 @@ jobs:
         run: bash scripts/build-recovery-image.sh --disposable-runner
       - name: UEFI boot and real block-device replacement recovery
         run: python3 scripts/smoke-recovery-image.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-recovery-amd64.iso" --confirm-disposable-guest
+      - name: Collect and verify exact rescue sources from the completed ISO
+        run: bash scripts/collect-recovery-sources.sh --disposable-runner
       - uses: actions/upload-artifact@v6.0.0
         if: always()
         with:
@@ -39,4 +43,6 @@ jobs:
             dist/debian-image/recovery-console*.log
             dist/debian-image/recovery-screen*.ppm
             dist/debian-image/recovery-packages.txt
+            dist/debian-image/recovery-packages.json
+            dist/debian-image/recovery-sources.json
           retention-days: 7

@@ -35,6 +35,7 @@ live-boot
 live-config
 systemd-sysv
 python3
+ca-certificates
 util-linux
 e2fsprogs
 xfsprogs
