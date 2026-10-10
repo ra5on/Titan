@@ -936,9 +936,10 @@ class GuestClient:
 
 
 class RuntimeSmoke:
-    def __init__(self, client, containment_fixture=None):
+    def __init__(self, client, containment_fixture=None, qcow2_guest=None):
         self.client = client
         self.containment_fixture = containment_fixture
+        self.qcow2_guest = qcow2_guest
         self.report = {"format": "titan-runtime-smoke-v1", "target": "disposable-qemu-overlay",
                        "tested_at": datetime.now(timezone.utc).isoformat(), "ok": False,
                        "checks": [], "limitations": ["VM lifecycle checks do not boot an installed guest operating system.",
@@ -2028,6 +2029,15 @@ class RuntimeSmoke:
                 self.run_check("vm_domain_lifecycle", self.vm)
             else:
                 self.record("vm_domain_lifecycle", "skipped", "Nested KVM is unavailable in this disposable guest; VM start requires a Proxmox or hardware test.")
+        if self.qcow2_guest:
+            def real_guest():
+                import importlib.util
+                spec = importlib.util.spec_from_file_location('qcow2_guest_smoke', Path(__file__).with_name('smoke-qcow2-guest.py'))
+                module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                return module.run(self, self.qcow2_guest)
+            if self.run_check('qcow2_real_guest_boot', real_guest):
+                self.report['limitations'] = [item for item in self.report['limitations'] if not item.startswith('VM lifecycle checks do not boot')]
+                self.report['limitations'].append('QCOW2 guests boot and restart; restart of the NAS with these guests is checked separately.')
         self.report["ok"] = all(item["status"] != "failed" for item in self.report["checks"])
         return self.report
 
@@ -2040,12 +2050,13 @@ def main(argv=None):
     parser.add_argument("--report", type=Path, default=Path("dist/runtime-test.json"))
     parser.add_argument("--qmp-socket", type=Path)
     parser.add_argument("--containment-fixture")
+    parser.add_argument("--qcow2-guest", type=Path)
     options = parser.parse_args(argv)
     if os.environ.get("GITHUB_ACTIONS") != "true" or not options.confirm_disposable_guest:
         parser.error("This mutating smoke is restricted to GitHub Actions and an explicitly confirmed disposable QEMU guest.")
     if options.qmp_socket is None:
         parser.error("The disposable image smoke requires its private QMP socket.")
-    report = RuntimeSmoke(GuestClient(options.qmp_socket), options.containment_fixture).run(debian_preview=options.debian_preview, debian_ab=options.debian_ab)
+    report = RuntimeSmoke(GuestClient(options.qmp_socket), options.containment_fixture, options.qcow2_guest).run(debian_preview=options.debian_preview, debian_ab=options.debian_ab)
     options.report.parent.mkdir(parents=True, exist_ok=True)
     options.report.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     return 0 if report["ok"] else 1

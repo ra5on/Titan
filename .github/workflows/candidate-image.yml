@@ -21,6 +21,7 @@ jobs:
       TITAN_BUILD_SOURCE_COMMIT: ${{ github.sha }}
       TITAN_SYSTEM_REVISION: '1'
       TITAN_PREVIOUS_TAG: ''
+      TITAN_QCOW2_TEST_GUEST: dist/guest-acceptance/bootable.qcow2
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -50,6 +51,8 @@ jobs:
         run: bash scripts/prepare-system-signing.sh
       - name: Build signed Debian system in new regular image files
         run: bash scripts/build-debian-ab-image.sh --disposable-runner
+      - name: Build checksum-verified Debian QCOW2 guest fixture
+        run: bash scripts/build-qcow2-test-guest.sh --disposable-runner
       - name: Boot, HTTPS, UEFI, VNC and complete runtime checks
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
       - name: Update, rollback and boot health on disposable overlays
@@ -68,4 +71,5 @@ jobs:
             dist/debian-image/runtime-test.json
             dist/debian-image/ab-test.json
             dist/debian-image/ab-console.log
+            dist/guest-acceptance/provenance.json
           retention-days: 7
