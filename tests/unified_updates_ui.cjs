@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict');
+const ui=require('../titan/web/unified_updates.js');
+assert.equal(ui.view({state:'ready'}).action,'install');
+assert.equal(ui.view({state:'restart_required'}).action,'reboot');
+for(const state of ['queued','web_starting','web_wait','system_queued','system_running'])assert.equal(ui.view({state}).disabled,true);
+assert.equal(ui.view({state:'failed'}).action,'check');
+assert.equal(ui.view({state:'check_failed'}).title,'Update benötigt Aufmerksamkeit');
+assert(!ui.panel({message:'<img src=x onerror=alert(1)>',details:['<script>'],target:'<b>'}).includes('<script>'));
+const nodes={};for(const name of ['primary','title','message','target','errors'])nodes[name]={textContent:'',disabled:false,hidden:false,querySelector:()=>({innerHTML:''})};
+const box={querySelector:s=>nodes[s.match(/data-unified-(.+?)\]/)[1]]};
+const root={querySelector:()=>box};
+const events=[];let respond, reload=0;
+ui.mount(root,{api:()=>new Promise(resolve=>respond=resolve),version:'0.8.0',reload:()=>reload++});
+ui.dispose();respond({state:'ready',current:'0.9.0'});
+setImmediate(()=>{assert.equal(reload,0);assert.equal(nodes.primary.onclick,null);console.log('Unified updates: one action, running/reboot states, escaped details and disposed late responses passed.');});

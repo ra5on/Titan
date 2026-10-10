@@ -176,6 +176,21 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(self.request('/api/web-updates', {'action':'check'})[0],403)
         self.assertEqual(self.request('/api/web-updates', {'action':'check'}, csrf='wrong')[0],403)
 
+    def test_unified_updates_require_admin_csrf_and_exact_payload(self):
+        from unittest.mock import patch
+        user={"name":"reader","role":"user","system_user":"reader","csrf":"demo-only"}
+        with patch.object(Handler, "user", return_value=user):
+            self.assertEqual(self.request('/api/updates/unified')[0],403)
+            self.assertEqual(self.request('/api/updates/unified', {'action':'check'})[0],403)
+        self.assertEqual(self.request('/api/updates/unified', {'action':'check'}, csrf='wrong')[0],403)
+        self.assertEqual(self.request('/api/updates/unified', {'action':'check'}, extra={'Origin':'https://evil.example'})[0],403)
+        self.assertEqual(self.request('/api/updates/unified?unexpected=1')[0],400)
+        self.assertEqual(self.request('/api/updates/unified', {'action':'check','force':True})[0],400)
+        self.assertEqual(self.request('/api/updates/unified', {'action':'install','plan':'stale'})[0],409)
+        status,body,headers=self.request('/api/updates/unified')
+        self.assertEqual(status,200);self.assertEqual(headers['Cache-Control'],'no-store')
+        self.assertNotIn('actor',json.loads(body))
+
     def test_health_reports_web_protocol_without_credentials(self):
         status, body, _ = self.request('/api/health')
         self.assertEqual(status,200)

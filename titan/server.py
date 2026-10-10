@@ -81,7 +81,9 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
         self.terminal_stream_lock = threading.Lock()
         self.terminal_streams = set()
         self.setup_csrf = secrets.token_urlsafe(32)
-        self.update_lock = threading.Lock()
+        self.update_lock = threading.RLock()
+        from .unified_updates import UnifiedUpdates
+        self.unified_updates = UnifiedUpdates(self)
         self.stop = threading.Event()
         self.initialize_terminals()
         self.initialize_root_access()
@@ -164,6 +166,11 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
             if not current["enabled"] or current["role"] != "admin":
                 raise Error("Administratorrechte sind nicht mehr gültig.", 403)
             validate_system_action(operation, arguments)
+            plan = self.unified_updates.load()
+            if self.unified_updates.active() and (operation != 'system_reboot'
+                    or plan.get('state') != 'restart_required'
+                    or arguments.get('expected_digest') != plan.get('next_digest')):
+                raise Error('Der gemeinsame Updateauftrag muss zuerst abgeschlossen werden.', 409)
             settings = self.store.settings()
             return self.agent.call(operation, repository=settings["repository"], **arguments)
 
@@ -182,9 +189,11 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
                         "message": "Update-Quelle geändert. Bitte erneut prüfen; die installierte Version bleibt erhalten."})
             return settings
 
-    def install_update(self, actor, expected_version, automatic=False, update_kind="all"):
+    def install_update(self, actor, expected_version, automatic=False, update_kind="all", unified_token=None):
         kind = validate_update_kind(update_kind)
         with self.update_lock:
+            if self.unified_updates.active() and unified_token != self.unified_updates.load().get('id'):
+                raise Error('Ein gemeinsamer Updateauftrag läuft bereits.', 409)
             settings = self.store.settings()
             policy = settings if kind == "all" else settings["update_streams"][kind]
             if automatic:
@@ -234,6 +243,8 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
             return result
 
     def updater_tick(self):
+        if self.unified_updates.active():
+            return
         # Feature and Debian maintenance bundles use one offer, one policy and
         # one signed A/B installation path. Separate kind queries are retained
         # solely for backwards-compatible API clients.
@@ -257,8 +268,13 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
                 self.install_update("system", expected, automatic=True))
 
     def updater(self):
-        while not self.stop.wait(60):
+        last_check = 0
+        while not self.stop.wait(3):
             try:
+                self.unified_updates.reconcile()
+                if time.monotonic() - last_check < 60:
+                    continue
+                last_check = time.monotonic()
                 self.updater_tick()
             except Exception as exc:
                 self.store.audit("system", "update_check", str(exc))
@@ -602,6 +618,11 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 if set(query) != {"path"}:
                     raise Error("Ein Image-Dateipfad ist erforderlich.")
                 return self.reply(self.app.agent.call("vm_image_details", path=query["path"]))
+            if path == "/api/updates/unified":
+                self.require_user(admin=True)
+                if query:
+                    raise Error('Updateübersicht unterstützt keine zusätzlichen Optionen.')
+                return self.reply(self.app.unified_updates.status(), extra={'Cache-Control': 'no-store'})
             if path == "/api/updates/progress":
                 if query:
                     raise Error("Fortschritt unterstützt keine zusätzlichen Optionen.")
@@ -721,6 +742,15 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             self.app.store.audit(body["name"], "login")
             return self.reply({"ok": True, "csrf": csrf}, extra={"Set-Cookie": cookie})
         user = self.require_user(mutation=True)
+        if path == "/api/updates/unified":
+            if user['role'] != 'admin':
+                raise Error('Administratorrechte erforderlich.', 403)
+            if body == {'action': 'check'}:
+                return self.reply(self.app.jobs.submit(user['name'], 'unified_update_check',
+                    lambda: self.app.unified_updates.check(user['name'])), 202)
+            if set(body) == {'action', 'plan'} and body['action'] == 'install' and isinstance(body['plan'], str):
+                return self.reply(self.app.unified_updates.start(user['name'], body['plan']), 202)
+            raise Error('Ungültiger Updateauftrag.')
         if path == "/api/web-updates":
             if user['role'] != 'admin':
                 raise Error('Administratorrechte erforderlich.', 403)
@@ -732,6 +762,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 return self.reply({'current': __version__, 'previous': None, 'available': False, 'latest': None, 'demo': True})
             if body['action'] == 'check':
                 return self.reply(self.app.agent.call('web_update_check'))
+            if self.app.unified_updates.active():
+                raise Error('Ein gemeinsamer Updateauftrag läuft bereits.', 409)
             self.app.store.audit(user['name'], 'web_update', body['action'])
             return self.reply(self.app.agent.call('web_update_start', **body), 202)
         if self.root_access_post(path, user, body):
