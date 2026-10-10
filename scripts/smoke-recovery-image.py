@@ -46,7 +46,7 @@ def main():
                 vars_source = next(Path('/usr/share/OVMF').glob('OVMF_VARS_4M.fd'))
                 shutil.copyfile(vars_source, work/'vars.fd')
                 socket = work/'qga.sock'; socket.unlink(missing_ok=True)
-                command = ['qemu-system-x86_64','-machine','q35','-accel','kvm:tcg','-m','2048','-smp','2',
+                command = ['qemu-system-x86_64','-machine','q35,accel=kvm:tcg','-m','2048','-smp','2',
                            '-display','none','-no-reboot','-nic','none','-boot','d',
                            '-drive','if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd',
                            '-drive','if=pflash,format=raw,file='+str(work/'vars.fd'),
