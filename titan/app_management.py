@@ -148,6 +148,12 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
 
     def _app_unregister(self, app):
         """Forget an explicitly removed installation, retaining private app data."""
+        if APPS.get(app, {}).get('umbrel_catalog'):
+            record = next((item for item in self.load('apps', []) if item['id'] == app), None)
+            if record is not None:
+                retained = self.load('retained-app-installations-v1', {})
+                retained[app] = record
+                self.save('retained-app-installations-v1', retained)
         self._app_patch_record(app, remove=True)
         from .native_catalog import AVAILABLE_APP_IDS
         if app in AVAILABLE_APP_IDS:
@@ -873,6 +879,18 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             raise Error("App-Vorlage nicht gefunden.")
         if APPS[app].get("catalog_status")=="preparation":
             raise Error("Diese Titan-Vorlage ist noch in Vorbereitung. Neue Installation ist nicht freigegeben.")
+        retained = self.load('retained-app-installations-v1', {}).get(app) if APPS[app].get('umbrel_catalog') else None
+        if retained:
+            if storage_id is not None and storage_id != retained.get('storage_id'):
+                raise Error('Vorhandene App-Daten liegen auf einem anderen Speicher. Für die Wiederinstallation den bisherigen Speicher auswählen.', 409)
+            storage_id = retained.get('storage_id')
+            frozen = self.load('installed-app-recipes-v1', {}).get(app)
+            if not frozen or not frozen.get('umbrel_catalog'):
+                raise Error('Die gespeicherte App-Version fehlt. Vorhandene Daten bleiben unverändert.', 409)
+            from .app_credentials import private_recipe
+            APPS[app] = private_recipe(frozen)
+            if network is None:
+                network = retained.get('network')
         available_devices=app_devices_inventory()
         hardware_ids=validate_devices(hardware,available_devices)
         hardware=[item for item in available_devices if item["id"] in hardware_ids]
@@ -880,6 +898,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         port = self._app_valid_port(app, port, network)
         from .app_packages import prepare_options
         previous = self._app_options(app) if (self.directory / "apps" / app / "options.json").exists() else None
+        if retained:
+            options = {**(previous or {}), **(options or {})}
         options = validate_options(app, prepare_options(app, options, previous))
         if APPS[app].get('provision') == 'nextcloud-office':
             from .app_package_setup import validate_host
@@ -936,6 +956,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             record["network_id"] = network_id
         self._app_container(app, record, rows, options)
         proposed = compose(app,str(path),owner.pw_uid,owner.pw_gid,port,str(data),options,network,record.get("hardware"), config_path=record.get("config_path"))
+        if retained and (any(record.get(key) != retained.get(key) for key in ('data', 'config_path', 'storage_id', 'storage_uuid'))):
+            raise Error('Der bisherige App-Speicher oder Datenpfad stimmt nicht mehr überein. Keine Daten wurden verändert.', 409)
         for service_key in proposed["services"]:
             if service_key != app: self._app_container(app,record,rows,options,service_key)
         from .app_memory import check_install_memory

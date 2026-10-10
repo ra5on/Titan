@@ -80,6 +80,33 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(APPS[key]['image'], 'example/web:1')
         self.assertIn('Migration', self.host.op_package_details(key)['update']['blocked'])
 
+    def test_reinstall_after_catalog_refresh_and_restart_keeps_previous_recipe_and_data(self):
+        key = self.install_catalog_app()
+        before = self.host.load('apps', [])[0]
+        sentinel = Path(before['config_path']) / 'retained-database'
+        sentinel.write_bytes(b'previous database version')
+        self.host.dispatch('app_action', app=key, action='remove')
+        self.offer('example/web:2')
+        APPS.pop(key)
+        self.host.initialize_app_stores()
+        self.assertEqual(APPS[key]['image'], 'example/web:1')
+        self.assertTrue(APPS[key]['retained_installation'])
+        with patch('titan.app_package_setup.provision'):
+            self.host.dispatch('app_install', app=key, port=8088)
+        self.assertEqual(APPS[key]['image'], 'example/web:1')
+        self.assertEqual(sentinel.read_bytes(), b'previous database version')
+        after = self.host.load('apps', [])[0]
+        self.assertEqual(after['config_path'], before['config_path'])
+        self.assertTrue(self.host.op_package_details(key)['update']['available'])
+
+    def test_retained_data_cannot_be_silently_replaced_by_a_different_storage(self):
+        key = self.install_catalog_app()
+        self.host.dispatch('app_action', app=key, action='remove')
+        self.calls.clear()
+        with self.assertRaisesRegex(Error, 'bisherigen Speicher'):
+            self.host.dispatch('app_install', app=key, port=8088, storage_id='volume:other')
+        self.assertEqual(self.calls, [])
+
     def test_removed_catalog_app_cannot_appear_updated(self):
         key = self.install_catalog_app()
         self.inventory['packages']['example']['files']['hooks/pre-start'] = {'size': 4}

@@ -25,13 +25,22 @@ def load(host):
 
 def activate(host, parsed):
     from .catalog import APPS
-    host._umbrel_offer_ids = frozenset(parsed)
+    from .app_credentials import private_recipe
+    retained = {key: recipe for key, recipe in host.load('installed-app-recipes-v1', {}).items()
+                if recipe.get('umbrel_catalog')}
+    host._umbrel_offer_ids = frozenset(parsed) | frozenset(retained)
     installed = {row['id'] for row in host.load('apps', [])}
     stale = {key for key, recipe in APPS.items() if recipe.get('umbrel_catalog')}
-    for key in stale - set(parsed) - installed:
+    for key in stale - set(parsed) - installed - set(retained):
         APPS.pop(key, None)
     # Installed snapshots remain authoritative until an explicit update.
-    APPS.update({key: recipe for key, recipe in parsed.items() if key not in installed})
+    APPS.update({key: recipe for key, recipe in parsed.items() if key not in installed and key not in retained})
+    # Removal preserves databases. Reinstallation must not silently apply the
+    # latest package layout/migration to those retained databases after restart.
+    locations = host.load('retained-app-installations-v1', {})
+    APPS.update({key: {**private_recipe(recipe), 'retained_installation': True,
+                      'retained_storage_id': locations.get(key, {}).get('storage_id')}
+                 for key, recipe in retained.items() if key not in installed})
 
 
 def refresh(host):

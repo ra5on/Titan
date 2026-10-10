@@ -18,6 +18,15 @@ lb config --mode debian --distribution trixie --architectures amd64 \
   --archive-areas 'main contrib non-free non-free-firmware' --apt-recommends false \
   --bootappend-live 'boot=live components hostname=titan-recovery username=recovery console=tty0 console=ttyS0,115200' \
   --iso-application "Titan Recovery $TITAN_SYSTEM_VERSION" --iso-volume TITAN_RECOVERY
+# live-build uses the grub-pc template directory for both BIOS and EFI.
+# Its stock menu has no timeout; the recovery medium must boot unattended.
+mkdir -p config/bootloaders/grub-pc
+cp /usr/share/live/build/bootloaders/grub-pc/config.cfg config/bootloaders/grub-pc/config.cfg
+cat >> config/bootloaders/grub-pc/config.cfg <<'GRUB'
+set default=0
+set timeout_style=menu
+set timeout=5
+GRUB
 mkdir -p config/package-lists config/includes.chroot/usr/local/bin \
   config/includes.chroot/etc/systemd/system/multi-user.target.wants
 cat > config/package-lists/titan.list.chroot <<'PACKAGES'
