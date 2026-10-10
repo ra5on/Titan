@@ -2,6 +2,8 @@
 import base64
 import binascii
 import contextlib
+import ctypes
+import errno
 import hashlib
 import os
 from pathlib import Path
@@ -48,6 +50,19 @@ def validate(rows):
                 raise Error('Paketdatei enthält keinen unterstützten Sitzungsschlüssel.')
         decoded.append((name, raw, row['mode']))
     return decoded
+
+
+def publish(parent, staging, destination):
+    # Linux atomic no-replace rename has no intermediate hard-link state. A
+    # crash leaves either a complete destination or an unreferenced temp file.
+    libc = ctypes.CDLL(None, use_errno=True)
+    rename = libc.renameat2
+    rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    rename.restype = ctypes.c_int
+    if rename(parent, os.fsencode(staging), parent, os.fsencode(destination), 1):
+        number = ctypes.get_errno()
+        if number == errno.EEXIST: raise FileExistsError(number, os.strerror(number))
+        raise OSError(number, os.strerror(number))
 
 
 def install(config, rows, definition, uid, gid):
@@ -110,8 +125,10 @@ def install(config, rows, definition, uid, gid):
                         os.fchown(stream.fileno(), file_uid, file_gid)
                         os.fchmod(stream.fileno(), mode); os.fsync(stream.fileno())
                     try:
-                        os.link(staging, parts[-1], src_dir_fd=parent, dst_dir_fd=parent, follow_symlinks=False)
+                        publish(parent, staging, parts[-1])
                     except FileExistsError:
                         existing()
                 finally:
-                    os.unlink(staging, dir_fd=parent); os.fsync(parent)
+                    try: os.unlink(staging, dir_fd=parent)
+                    except FileNotFoundError: pass
+                    os.fsync(parent)

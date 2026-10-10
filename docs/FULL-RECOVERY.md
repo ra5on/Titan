@@ -69,3 +69,14 @@ mit den gespeicherten Prüfsummen verglichen.
   Die Freigabeprüfung verlangt diese Nachweise für dieselben Image-, Rettungsmedium-
   und Katalog-Prüfsummen. Der derzeitige reine Rettungsmedium-Test erfüllt diese
   weitergehende Abnahme ausdrücklich noch nicht.
+
+Der Rettungsmedium-Lauf vom 10. Oktober 2026 bestand für Commit
+`d9ce56813eca9c228cd83bf20c134799d7e31a0d`:
+https://github.com/ra5on/Titan/actions/runs/38043121166
+UEFI-Boot, echte GPT-Blockgeräte, geänderter Controller, unterbrochene
+Wiederherstellung mit zurückgehaltenen GPT-Kopien, Wiederaufnahme auf größere
+Platten und byteweiser Vergleich wurden ausgeführt. UID/GID, ACLs, xattrs,
+SQLite- und QCOW2-Dateien blieben erhalten; Originalplatten und ISO unverändert.
+Die zum fertigen ISO gehörenden Debian-Quellpakete wurden anschließend gesammelt
+und gegen Paketbestand sowie Archivbytes geprüft. Der Bericht weist ausdrücklich
+`installed_nas_boot_verified: false` aus; er ersetzt den vollständigen NAS-Test nicht.

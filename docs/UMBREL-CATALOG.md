@@ -11,8 +11,8 @@ und seine Oberfläche sind keine Implementierungsbasis dieses Adapters.
 als Daten. Der Bericht nennt Commit und Archiv-SHA256. Alle Manifeste werden
 gezählt; fehlende Abhängigkeiten und Zyklen führen vor Installationsänderungen
 zum Fehler. Metadaten, Compose und erforderliche Begleitdateien bleiben als
-Anforderungen sichtbar. Dateien werden nicht aus dem Archiv auf den Host
-extrahiert, Hooks und Exporte werden nicht ausgeführt.
+Anforderungen sichtbar. Benötigte Dateien werden anhand ihrer Prüfsumme in
+private App-Verzeichnisse übernommen. Hooks und Exporte werden nicht ausgeführt.
 
 YAML-Merge-Anker werden mit Begrenzungen für Größe, Verschachtelung und
 Graphauswertung verarbeitet. Doppelte Schlüssel, rekursive Aliase, unsichere
@@ -29,21 +29,20 @@ Quelle: https://github.com/getumbrel/umbrel-apps
 ## Prüfstand vom 10. Oktober 2026
 
 Referenz: `aa3c4e9fba032796d15ec09dc1a217aa6566ce8f`.
-Alle 393 Pakete werden erfasst. 11 lassen sich bereits in Titans vorhandenes
+Alle 393 Pakete werden erfasst. 14 lassen sich bereits in Titans vorhandenes
 Compose-Modell übersetzen. Das ist keine Laufzeitfreigabe und keine vollständige
 Katalogunterstützung. Die übrigen Pakete bleiben ausdrücklich gesperrt:
 
 | Erste fehlende Voraussetzung pro Paket | Anzahl |
 | --- | ---: |
 | Lebenszyklusschritte/Exporte | 138 |
-| Anmeldung vor der App | 84 |
-| Zusätzliche Paketdateien | 73 |
+| Anmeldung vor der App | 133 |
 | Andere installierte Apps | 46 |
-| Besondere App-Proxy-Konfiguration | 21 |
-| Laufzeitvariablen | 13 |
+| Besondere App-Proxy-Konfiguration | 25 |
+| Laufzeitvariablen | 23 |
 | Verwaltete Zugangsdaten | 2 |
-| Zusätzliche Speicherzuordnungen | 2 |
-| Compose-Kommandos, HTTPS oder Einstiegspfad | 3 |
+| Zusätzliche Speicherzuordnungen | 6 |
+| Compose-Kommandos, HTTPS oder Einstiegspfad | 6 |
 
 Ein Paket kann mehrere Anforderungen haben; die Tabelle zählt jeweils den
 ersten Hinderungsgrund. Die Entwicklungsoberfläche bietet die übersetzbaren Pakete nach ausdrücklich
@@ -99,3 +98,11 @@ Installierte Umbrel-Pakete erscheinen dabei einmal. Der Katalog wird beim ersten
 eine manuelle Wiederholung möglich. Gleichzeitige Abrufe werden zusammenhängend
 gesperrt, ohne den zuletzt verwendbaren Katalog zu ersetzen. Diese Bedienverbesserung
 ändert die oben ausgewiesene Kompatibilitätsgrenze nicht.
+
+Paketdateien werden vor dem Schreiben vollständig auf Größe, Pfad und SHA256
+geprüft. Neue Dateien werden atomar ohne Überschreiben veröffentlicht; vorhandene
+Konfiguration bleibt bei Wiederinstallation unverändert. Links und Verzeichnisse
+an einem Dateiziel werden abgelehnt. Doneticks öffentlicher JWT-Vorgabeschlüssel
+wird bei der ersten Installation durch einen zufälligen privaten Schlüssel ersetzt.
+Der Donetick-Lauf prüft diesen Pfad zusätzlich in Compose und im HTTP-Installer;
+der erste Lauf dieser Erweiterung ist noch abzuwarten.

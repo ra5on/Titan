@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from titan.core import Error
 from titan.umbrel_files import validate, install
@@ -76,6 +77,25 @@ class SeedFilesTests(unittest.TestCase):
                 with self.assertRaises((Error, OSError)):
                     install(root,[seed()],definition,os.getuid(),os.getgid())
                 self.assertEqual(secret.read_bytes(), b'private')
+
+    def test_publish_race_preserves_app_file_and_interrupted_publish_can_retry(self):
+        from titan import umbrel_files
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp);definition={'services':{'web':{'volumes':[{'source':str(root/SLOT)}]}}}
+            real_publish = umbrel_files.publish
+            def race(parent, staging, destination):
+                descriptor=os.open(destination, os.O_WRONLY|os.O_CREAT|os.O_EXCL, 0o600, dir_fd=parent)
+                with os.fdopen(descriptor,'wb') as stream:stream.write(b'created by app')
+                real_publish(parent, staging, destination)
+            with patch('titan.umbrel_files.publish',side_effect=race):
+                install(root,[seed()],definition,os.getuid(),os.getgid())
+            self.assertEqual((root/SLOT/'config.json').read_bytes(),b'created by app')
+            with patch('titan.umbrel_files.publish',side_effect=OSError('interrupted')):
+                with self.assertRaises(OSError):install(root,[seed('second.json')],definition,os.getuid(),os.getgid())
+            self.assertFalse((root/SLOT/'second.json').exists())
+            install(root,[seed('second.json')],definition,os.getuid(),os.getgid())
+            self.assertEqual((root/SLOT/'second.json').read_bytes(),b'{"enabled":true}')
+            self.assertFalse(list(root.rglob('.titan-seed-*')))
 
     def test_private_signing_identity_is_generated_once_per_installation(self):
         import yaml
