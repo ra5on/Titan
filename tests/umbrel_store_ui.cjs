@@ -34,6 +34,7 @@ function fixture(extra={}){
  const sharedSearch=f.scope.querySelector('[data-store-search]');sharedSearch.value='private notes';f.doc.dispatch(sharedSearch,'input');
  assert.equal(f.scope.querySelector('[data-store-result]').textContent,'1 App');
  assert.equal(f.scope.querySelector('[data-umbrel-card]').hidden,false);
+ assert.equal(f.scope.querySelector('[data-store-grid]').hidden,true,'Empty native grid must not leave a gap above catalog results');
  sharedSearch.value='';f.doc.dispatch(sharedSearch,'input');
  f.doc.dispatch(f.scope.querySelector('[data-store-category="network"]'),'click');
  assert.equal(f.scope.querySelector('[data-umbrel-card]').hidden,true);
@@ -41,5 +42,9 @@ function fixture(extra={}){
  assert.equal(f.scope.querySelector('[data-umbrel-card]').hidden,false);
  assert.equal(f.scope.querySelector('[data-store-result]').textContent,'1 App');
  mainUI.dispose();ui.dispose();
+ f=fixture({demo:true,catalog:{apps:[{...app,category:'social'}],umbrel:{loaded:true}}});ui.dispose();
+ f.scope.innerHTML=mainUI.render(f.context)+ui.render({...f.context,integrated:true});mainUI.mount(f.scope,{admin:true,demo:true});ui.mount(f.scope,f.ctx);
+ f.doc.dispatch(f.scope.querySelector('[data-store-category="social"]'),'click');assert.equal(f.scope.querySelector('[data-umbrel-card]').hidden,false);
+ f.doc.dispatch(f.scope.querySelector('[data-store-category="productivity"]'),'click');assert.equal(f.scope.querySelector('[data-umbrel-card]').hidden,true);mainUI.dispose();ui.dispose();
  console.log('Umbrel storefront: escaping, refresh, installation, management, permissions, search and disposal passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

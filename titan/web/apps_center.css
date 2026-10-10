@@ -108,3 +108,8 @@ html[data-desktop-embedded=true] #shell[data-page=apps] .nas-window{flex:1 1 0;m
 .umbrel-store details ul{max-height:240px;overflow:auto;padding-inline-start:22px}
 .umbrel-store details li{margin-block:8px;color:var(--muted)}
 @container app-store (max-width:560px){.umbrel-store .ac-app-card>[data-umbrel-app]{grid-column:3;grid-row:1}}
+
+.apps-center[data-store-filtered=true]{padding-bottom:0}
+.apps-center[data-store-filtered=true]+.umbrel-store{margin-top:12px;padding-top:0;border-top:0}
+.apps-center[data-store-filtered=true]+.umbrel-store>.ac-heading{display:none}
+.apps-center[data-store-detail]+.umbrel-store{display:none}
