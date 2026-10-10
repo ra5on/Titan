@@ -241,6 +241,71 @@ def app_backup_restore_smoke(base, host, request, action, ready, app, installed,
             request('/api/backup/settings', previous_settings)
 
 
+def umbrel_app_backup(base, host, request, action, ready, app, installed, run, app_port):
+    """Real catalog database, package update transaction and external restore."""
+    import sqlite3
+    config = Path(installed['config_path'])
+    action('app_action', app=app, action='stop')
+    databases=[]
+    for path in config.rglob('*'):
+        if path.is_file():
+            with path.open('rb') as stream:
+                if stream.read(16) == b'SQLite format 3\x00': databases.append(path)
+    if len(databases) != 1: raise Error('Expected exactly one real catalog application database.')
+    database=databases[0]
+    def marker(value=None):
+        with contextlib.closing(sqlite3.connect(database)) as connection, connection:
+            if connection.execute('pragma integrity_check').fetchone()[0] != 'ok':
+                raise Error('Catalog application database integrity failed.')
+            if value is not None:
+                connection.execute('CREATE TABLE IF NOT EXISTS titan_lifecycle_probe (value TEXT)')
+                connection.execute('DELETE FROM titan_lifecycle_probe')
+                connection.execute('INSERT INTO titan_lifecycle_probe VALUES (?)',(value,))
+            return connection.execute('SELECT value FROM titan_lifecycle_probe').fetchone()[0]
+    marker('before-external-backup')
+    from titan.catalog import APPS
+    seeded = {str(config/row['slot']/row['path']): (config/row['slot']/row['path']).read_bytes()
+              for row in APPS[app].get('seed_files', [])}
+    private=host.directory/'apps'/app/'options.json';private_before=private.read_bytes()
+    action('app_action',app=app,action='start');ready()
+    settings=request('/api/backup/settings')
+    with disposable_backup_disk(base,run) as disk:
+        try:
+            request('/api/backup/settings',{'target':str(disk),'shares':[],'include_config':False,
+                'apps':[app],'app_data':[app],'auto_backup':False,'retention':2})
+            backup=action('backup_create',shares=[],include_config=False,apps=[app],app_data=[app])
+            ready()
+            # Deliberately reinstall the SAME pinned image through the real
+            # update path. This proves the transaction, not a version migration.
+            update=action('app_action',app=app,action='update')
+            if not update.get('backup',{}).get('path'):raise Error('Package update did not create its cold backup.')
+            ready();action('app_action',app=app,action='stop')
+            if marker() != 'before-external-backup':raise Error('Package update lost its database.')
+            marker('changed-after-backup')
+            restore=action('backup_app_restore',backup=backup['id'],app=app,confirmation=backup['id'],include_data=True)
+            if not restore.get('kept_stopped') or any(host._app_container_active(row) for row in host._app_lifecycle_snapshot(app)):
+                raise Error('Restore must leave the catalog app stopped.')
+            if marker() != 'before-external-backup' or private.read_bytes()!=private_before:
+                raise Error('Catalog app restore did not restore database and private settings.')
+            if any(Path(path).read_bytes()!=raw for path,raw in seeded.items()):
+                raise Error('Catalog app restore changed its seeded private configuration.')
+            action('app_action',app=app,action='start');ready()
+            with urllib.request.urlopen('http://127.0.0.1:'+str(app_port)+'/',timeout=15) as response:
+                if response.status != 200:raise Error('Restored app HTTP endpoint is unavailable.')
+            action('app_action',app=app,action='remove')
+            action('app_install',app=app,port=app_port);ready()
+            action('app_action',app=app,action='stop')
+            if marker()!='before-external-backup' or any(Path(path).read_bytes()!=raw for path,raw in seeded.items()):
+                raise Error('Reinstallation changed retained database or signing identity.')
+            action('app_action',app=app,action='start');ready()
+            return {'external_ext4_target':True,'real_application_database_restored':True,
+                'same_image_update_transaction':True,'version_migration_verified':False,
+                'restore_kept_stopped':True,'restored_http_ready':True,'reinstallation_preserves_data':True,
+                'seeded_configuration_preserved':True}
+        finally:
+            request('/api/backup/settings',settings)
+
+
 def compose_fixture_backup(base, host, request, action, ready, app, installed, run, app_port):
     """Cold backup/restore of two real containers, Unix metadata and SQLite data."""
     import sqlite3
@@ -387,8 +452,8 @@ def main():
     cloudflared_web = args.package == 'bigbear:cloudflared-web'
     if args.cloudflared_auth is not None and not cloudflared_web:
         parser.error('--cloudflared-auth requires bigbear:cloudflared-web.')
-    if args.app_backup_smoke and args.package not in ('bigbear:nextcloud', 'titan-ci-compose-fixture'):
-        parser.error('--app-backup-smoke requires the owned Compose fixture or legacy Nextcloud.')
+    if args.app_backup_smoke and args.package not in ('bigbear:nextcloud', 'titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick'):
+        parser.error('--app-backup-smoke requires an app with a defined database acceptance check.')
     cloudflared_auth = args.cloudflared_auth or 'disabled'
     if not args.confirm_disposable_runner or os.environ.get('GITHUB_ACTIONS') != 'true':
         parser.error('This test is restricted to an explicitly confirmed disposable GitHub runner.')
@@ -709,7 +774,7 @@ def main():
             keep.write_text('persistent-user-data')
             private = host.directory / 'apps' / app / 'options.json'
             private_before = private.read_bytes()
-            backup_check = compose_fixture_backup if fixture_document is not None else app_backup_restore_smoke
+            backup_check = umbrel_app_backup if args.package.startswith('umbrel:') else compose_fixture_backup if fixture_document is not None else app_backup_restore_smoke
             app_backup = (backup_check(base, host, request, action, ready, app, installed, run, app_port)
                           if args.app_backup_smoke else None)
             removed = action('app_action', app=app, action='remove')

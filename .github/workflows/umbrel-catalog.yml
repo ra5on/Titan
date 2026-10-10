@@ -73,4 +73,4 @@ jobs:
       - name: Install host acceptance dependencies
         run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
       - name: Real Titan HTTP installer, catalog, lifecycle and retained data
-        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py 'umbrel:${{ matrix.app }}' --umbrel-revision "$UMBREL_REVISION" --confirm-disposable-runner
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py 'umbrel:${{ matrix.app }}' --umbrel-revision "$UMBREL_REVISION" --app-backup-smoke --confirm-disposable-runner
