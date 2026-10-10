@@ -18,6 +18,7 @@ import stat
 import subprocess
 import sys
 import time
+import zipfile
 
 FORMAT = 'titan-cold-recovery-v1'
 CHUNK = 4 * 1024 * 1024
@@ -373,6 +374,30 @@ def load_inventory(path):
     return value
 
 
+def inventory_from_kit(path):
+    """Read the exported plan without extracting or executing bundled files."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 4*1024*1024:
+            raise RecoveryError('Rettungsplan ist keine reguläre ZIP-Datei unter 4 MiB.')
+        with os.fdopen(fd, 'rb', closefd=False) as stream, zipfile.ZipFile(stream) as archive:
+            members = archive.infolist()
+            if len(members) > 16 or sum(row.filename == 'inventory.json' for row in members) != 1:
+                raise RecoveryError('Rettungsplan enthält keine eindeutige Laufwerksliste.')
+            if archive.getinfo('inventory.json').file_size > 1024*1024:
+                raise RecoveryError('Rettungsplan ist zu groß.')
+            inventory = strict_json(archive.read('inventory.json'))
+        if not isinstance(inventory, dict) or inventory.get('format') != FORMAT or inventory.get('architecture') != 'x86_64':
+            raise RecoveryError('Ungültiger Rettungsplan.')
+        validate_disks(inventory.get('disks'))
+        return inventory
+    except zipfile.BadZipFile as exc:
+        raise RecoveryError('Rettungsplan ist beschädigt.') from exc
+    finally:
+        os.close(fd)
+
+
 def choose(title, items, label):
     if not items: raise RecoveryError('Keine passenden Einträge verfügbar: ' + title)
     print('\n' + title)
@@ -408,13 +433,8 @@ def wizard():
         command(['mount','-o','nosuid,nodev,noexec',volume['name'],str(mount)])
     try:
         if action == 'backup':
-            import zipfile
             kit = choose('Aus Titan heruntergeladenen Rettungsplan auswählen', list(mount.glob('*.zip')), lambda p:p.name)
-            with zipfile.ZipFile(kit) as archive:
-                if archive.getinfo('inventory.json').file_size > 1024*1024: raise RecoveryError('Rettungsplan ist zu groß.')
-                inventory = strict_json(archive.read('inventory.json'))
-            if inventory.get('format') != FORMAT or inventory.get('architecture') != 'x86_64': raise RecoveryError('Ungültiger Rettungsplan.')
-            validate_disks(inventory.get('disks'))
+            inventory = inventory_from_kit(kit)
             target = disk_for_device(block_inventory(), mount.stat().st_dev)
             sources = {d['identity'] for d in inventory['disks']}
             if target['identity'] in sources: raise RecoveryError('Sicherungsziel ist eine Quellplatte.')

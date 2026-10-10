@@ -51,6 +51,21 @@ class StoreTests(unittest.TestCase):
             with self.assertRaises(Error): self.host.op_app_store_refresh('umbrel')
         self.assertEqual(self.host.data, before)
 
+    def test_concurrent_refresh_does_not_start_a_second_download(self):
+        self.host._umbrel_refresh_lock = threading.Lock()
+        self.host._umbrel_refresh_lock.acquire()
+        with patch('titan.umbrel_store.fetch_inventory') as fetch:
+            with self.assertRaises(Error) as caught:
+                self.host.op_app_store_refresh('umbrel')
+            self.assertEqual(caught.exception.status, 409)
+            fetch.assert_not_called()
+        self.host._umbrel_refresh_lock.release()
+        with patch('titan.umbrel_store.fetch_inventory', side_effect=Error('offline')):
+            with self.assertRaises(Error):
+                self.host.op_app_store_refresh('umbrel')
+        # A failed attempt cannot permanently lock the store.
+        self.assertEqual(self.refresh()['apps'], 1)
+
     def test_refresh_preserves_installed_recipe_and_persists_new_offer(self):
         self.refresh()
         key = next(key for key, value in APPS.items() if value.get('umbrel_catalog'))

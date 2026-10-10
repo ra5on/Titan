@@ -1,5 +1,6 @@
 """Persist and expose Umbrel catalog offers without replacing installed recipes."""
 import copy
+import threading
 from datetime import datetime, timezone
 
 from .core import Error
@@ -34,6 +35,19 @@ def activate(host, parsed):
 
 
 def refresh(host):
+    with host._catalog_guard():
+        if not hasattr(host, '_umbrel_refresh_lock'):
+            host._umbrel_refresh_lock = threading.Lock()
+        lock = host._umbrel_refresh_lock
+    if not lock.acquire(blocking=False):
+        raise Error('Der Umbrel-Katalog wird bereits geladen. Gleich erneut aktualisieren.', 409)
+    try:
+        return _refresh(host)
+    finally:
+        lock.release()
+
+
+def _refresh(host):
     inventory = fetch_inventory()
     document, blocked = compile_inventory(inventory)
     saved = {'schema': 1, 'revision': inventory['revision'],

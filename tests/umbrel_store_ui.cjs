@@ -20,6 +20,7 @@ function fixture(extra={}){
  for(const extra of [{admin:false},{demo:true}]){f=fixture(extra);assert(f.scope.querySelector('[data-umbrel-refresh]').disabled);f.click('[data-umbrel-app]');await settle();assert.equal(f.requests.length,0);ui.dispose();}
  f=fixture();const input=f.scope.querySelector('[data-umbrel-search]');input.value='missing';f.doc.dispatch(input,'input');assert(f.scope.querySelector('[data-umbrel-card]').hidden);assert(!f.scope.querySelector('[data-umbrel-empty]').hidden);input.value='notes';f.doc.dispatch(input,'input');assert(!f.scope.querySelector('[data-umbrel-card]').hidden);ui.dispose();
  f=fixture();let finish;f.ctx.action=()=>new Promise(resolve=>finish=resolve);f.click('[data-umbrel-refresh]');ui.dispose();finish({ok:true});await settle();assert.equal(f.reloads,0);
+ f=fixture({catalog:{apps:[],umbrel:{loaded:false,total:0}}});await settle();assert.equal(f.calls.length,1);assert.equal(f.calls[0][0],'app_store_refresh');assert.equal(f.reloads,1);ui.dispose();
  // One main search/category/installed filter covers both store sources.
  const mainUI=require('../titan/web/apps_center.js');
  f=fixture({demo:true,installed:{installed:[{id:'example',name:'Example'}]}});ui.dispose();

@@ -41,6 +41,19 @@ Arbeitsbasis: 0.7.0, `e0b8a80`. Nutzerauftrag vom 10. Oktober 2026:
 Ersatzhardware-Wiederherstellung und ein gemeinsamer Update-Button. Keine USV
 vorhanden; USV-Hardwareabnahme ist keine Voraussetzung dieses Auftrags.
 
+## Freigabesicherung
+
+Der Publisher verlangt bei Anwendungen mit dem neuen Umbrel-Adapter zusätzlich
+`product-acceptance.json` und `umbrel-coverage.json`. Der Produktbericht muss an
+Quellcommit und tatsächliche NAS-/Rettungsmedium-Prüfsummen gebunden sein. Ein
+Rettungsmedium-Bericht ohne Boot des wiederhergestellten NAS wird abgelehnt;
+ein unvollständig übersetzter Katalog ebenso. Der Validator erzeugt keine
+positiven Berichte selbst. Der neue Prüfworkflow veröffentlicht keine Testimages
+unter einem vorhandenen Stable-Tag.
+
+Der kalte Recovery-Ablauf und seine Nachweisgrenzen stehen in
+[FULL-RECOVERY.md](FULL-RECOVERY.md).
+
 ## Zielbetrieb: Titan direkt auf der Hardware
 
 Am 10. Oktober konkretisiert: Titan soll direkt auf dem Rechner laufen und

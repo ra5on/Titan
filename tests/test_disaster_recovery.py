@@ -159,3 +159,25 @@ class RecoveryExtentTests(unittest.TestCase):
                         self.assertEqual(dr.digest_fd(source,size),dr.digest_fd(target,size))
                     finally:
                         os.close(source);os.close(target)
+
+
+class RecoveryKitTests(unittest.TestCase):
+    def test_kit_is_bounded_and_never_extracts_or_executes_files(self):
+        import zipfile
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);kit=root/'plan.zip'
+            plan={'format':dr.FORMAT,'architecture':'x86_64','disks':[{'id':'disk-001','identity':'serial:a','size':2*dr.HEADER,'sector':512,'system':True}]}
+            with zipfile.ZipFile(kit,'w') as archive:
+                archive.writestr('inventory.json',json.dumps(plan))
+                archive.writestr('titan-recovery.py','raise Exception("must not execute")')
+                archive.writestr('../outside','must not extract')
+            self.assertEqual(dr.inventory_from_kit(kit),plan)
+            self.assertEqual(set(root.iterdir()),{kit})
+            linked=root/'linked.zip';linked.symlink_to(kit)
+            with self.assertRaises(OSError):dr.inventory_from_kit(linked)
+            with zipfile.ZipFile(kit,'w') as archive:archive.writestr('inventory.json',' '* (1024*1024+1))
+            with self.assertRaises(dr.RecoveryError):dr.inventory_from_kit(kit)
+            with kit.open('wb') as stream:stream.truncate(4*1024*1024+1)
+            with self.assertRaises(dr.RecoveryError):dr.inventory_from_kit(kit)
+            kit.write_bytes(b'broken')
+            with self.assertRaises(dr.RecoveryError):dr.inventory_from_kit(kit)

@@ -92,3 +92,10 @@ Dateizugriff während der Installation und Deinstallation bei erhaltenen Daten.
 Die gesamte Python-Suite vor den Appupdate-Ergänzungen bestand lokal mit
 2.004 Tests (12 übersprungen); die anschließenden Katalog-/Updateprüfungen
 werden zusätzlich separat und in CI ausgeführt.
+
+Die Store-Suche und die Kategorien erfassen jetzt beide Quellen gemeinsam.
+Installierte Umbrel-Pakete erscheinen dabei einmal. Der Katalog wird beim ersten
+Öffnen durch einen Administrator automatisch geladen; bei einem Fehler bleibt
+eine manuelle Wiederholung möglich. Gleichzeitige Abrufe werden zusammenhängend
+gesperrt, ohne den zuletzt verwendbaren Katalog zu ersetzen. Diese Bedienverbesserung
+ändert die oben ausgewiesene Kompatibilitätsgrenze nicht.
