@@ -4,6 +4,42 @@ Arbeitsbasis: 0.7.0, `e0b8a80`. Nutzerauftrag vom 10. Oktober 2026:
 Ersatzhardware-Wiederherstellung und ein gemeinsamer Update-Button. Keine USV
 vorhanden; USV-Hardwareabnahme ist keine Voraussetzung dieses Auftrags.
 
+## Zielbetrieb: Titan direkt auf der Hardware
+
+Am 10. Oktober konkretisiert: Titan soll direkt auf dem Rechner laufen und
+Proxmox ersetzen. Testausstattung ist laut Nutzer vorhanden. Anschließend präzisiert: breite
+Hardware-Kompatibilität, keine Bindung an einen bestimmten Testrechner. Die
+Entwicklung hängt daher nicht von weiteren Angaben zu einem einzelnen Host ab. Eine
+Proxmox-VM bleibt eine isolierte Entwicklungsumgebung, nicht die abschließende
+Abnahme des Zielbetriebs. Es wird keine bestehende Proxmox-Installation aufgrund
+dieser allgemeinen Zielbeschreibung überschrieben.
+
+Für die Abnahme werden repräsentative AMD64-Konfigurationen und unterschiedliche
+Speicher-/Netzwerkgeräte benötigt. Eine universelle Kompatibilitätszusage für
+alle Architekturen oder Controller ergibt sich daraus nicht. Zu prüfen sind:
+
+- Installation und UEFI-Start von der freigegebenen Systemplatte; Kaltstart,
+  geordneter Neustart sowie Auswahl und Rückfall der A/B-Systemstände.
+- Erkennung von Netzwerkadaptern und Speichercontrollern, tatsächlich nutzbare
+  Datenlaufwerke und stabile Laufwerkszuordnung auch nach geändertem Anschluss.
+- Netzwerkzugang nach Neuinstallation und Wiederherstellung, einschließlich
+  einer erreichbaren lokalen Fehlerbehebung bei geänderter Netzwerkkarte.
+- Native KVM-Virtualisierung: ein tatsächlich installiertes Gastbetriebssystem
+  starten, geordnet herunterfahren und nach einem Hostneustart erneut starten.
+  USB-/PCI-Durchreichung nur für die konkret benötigten Geräte zusagen und prüfen.
+- Vollständige Wiederherstellung auf leerer Ersatzhardware mit abgetrennter
+  Originalsystemplatte: Konten, SMB-Rechte, ACLs, App-Datenbanken und VM-Platten
+  prüfen; Anwendungen und einen Gast tatsächlich starten. Geänderte
+  Laufwerkskennungen und Netzwerkkarten gehören ausdrücklich in den Test.
+- Unterbrechung der Wiederherstellung in einer entbehrlichen Testumgebung:
+  unvollständige Daten dürfen nicht als erfolgreich wiederhergestellt gelten
+  oder unkontrolliert mit gestarteten Anwendungen verwendet werden.
+
+Das Ablösen von Proxmox ist keine Zusage, vorhandene Proxmox-Konfigurationen,
+LXC-Container oder Clusterfunktionen automatisch zu übernehmen. Falls vorhandene
+Workloads migriert werden sollen, werden deren Sicherungen und Importpfade vor
+Änderungen am bisherigen Host gesondert geprüft.
+
 ## Geplante Umsetzung und Abnahme
 
 1. Ein Updateangebot für Titan. Beide signierten Veröffentlichungswege werden
@@ -62,3 +98,30 @@ erstellt; Version und bestehende Releases bleiben unverändert.
 - Browser: gemeinsame Suche in der isolierten Demo ausgeführt; die Oberfläche
   zeigte anschließend ausdrücklich den Demo-Status. Eine echte Installation
   und die Wiederherstellung eines vollständigen NAS sind damit nicht belegt.
+
+### GitHub-Quellprüfung
+
+Der Entwurfsstand `7b42c59` bestand sowohl den Push- als auch den PR-Lauf:
+[Push-CI](https://github.com/ra5on/Titan/actions/runs/38033859681),
+[PR-CI](https://github.com/ra5on/Titan/actions/runs/38033874817).
+Dies sind Quell-/API-/UI-Prüfungen, keine neue Image- oder Hardwareabnahme.
+
+### Breitere Hardwarebasis im Build
+
+Der Build fordert nun ausdrücklich `linux-image-amd64`, Realtek-/BNX2-/BNX2X-/
+QLogic-/sonstige Debian-Firmware sowie Intel-/AMD-Microcode an. `MODULES=most`
+fixiert die portable Initramfs-Konfiguration unabhängig von der Build-Appliance.
+Die neue Build-Prüfung `image/debian/ab/verify-initramfs.sh` verweigert einen
+Cloud-Kernel und prüft wichtige Bootmodule gegen den tatsächlich ausgelieferten
+Kernel und das erzeugte Initramfs. Eingebaute Module sowie komprimierte Module
+und usr-merged Pfade werden unterstützt.
+
+Grundlagen: [Debian Initramfs-Konfiguration](https://manpages.debian.org/trixie/initramfs-tools-core/initramfs.conf.5.en.html),
+[Realtek-Firmware](https://packages.debian.org/trixie/firmware-realtek),
+[QLogic-Firmware](https://packages.debian.org/trixie/firmware-qlogic).
+
+Sechs ausführbare Tests prüfen die neue Build-Sperre mit Modulverzeichnissen
+und Initramfs-Inventaren, einschließlich fehlendem NVMe-Treiber, falscher
+Kernelzuordnung und fehlgeschlagener Auflistung. Die 141 bestehenden Debian-Tests bestehen ebenfalls (einer übersprungen),
+einschließlich der elf Storage-Komponententests. Ein neues Image mit diesen
+Änderungen wurde noch nicht gebaut oder auf physischer Hardware gestartet.

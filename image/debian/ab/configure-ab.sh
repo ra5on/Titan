@@ -68,6 +68,7 @@ update-initramfs -u -k all
 task_kernel=$(find /boot -maxdepth 1 -type f -name 'vmlinuz-*' -printf '%f\n' | sort -V | tail -n 1)
 [[ "$task_kernel" =~ ^vmlinuz-[a-zA-Z0-9.+_-]+$ ]] || exit 1
 test -f "/boot/initrd.img-${task_kernel#vmlinuz-}"
+/bin/bash /tmp/titan-ab/verify-initramfs.sh "${task_kernel#vmlinuz-}" "/boot/initrd.img-${task_kernel#vmlinuz-}"
 ln -sfn "boot/$task_kernel" /vmlinuz
 ln -sfn "boot/initrd.img-${task_kernel#vmlinuz-}" /initrd.img
 test -e /vmlinuz
