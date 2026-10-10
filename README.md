@@ -4,6 +4,18 @@
 
 Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläche verbindet einen persönlichen Desktop mit Dateimanager, Speicherverwaltung, Freigaben, Docker-Compose-Apps, virtuellen Maschinen und signierten Systemupdates.
 
+## Aktueller Entwicklungsstand
+
+Die überarbeitete Oberfläche im Branch `codex/recovery-unified-updates` zeigt größere App-Flächen, farbige Katalogsymbole, neue Maschinenkarten und einen gemeinsamen Stil für Login und Desktop. **Noch keine neue Stable-Version:** Der vollständige Katalog und die komplette Image-/Recovery-Abnahme sind offen. Die folgenden Release-Links beziehen sich weiterhin auf das bereits veröffentlichte 0.7.0.
+
+![Aktuelle App-Store-Oberfläche mit Demodaten](docs/images/titan-next-store.jpg)
+
+[Desktop](docs/images/titan-next-desktop.jpg) · [Login](docs/images/titan-next-login.jpg) · [Mobile Ansicht](docs/images/titan-next-store-mobile.jpg)
+
+Browserprüfung bei 1280 × 720 und 390 × 844: App-Suche, VM-Details und Rückkehr zum Desktop; 80 vorhandene UI-Testgruppen bestanden. Die Screenshots stammen aus einer isolierten Demo mit deaktivierten Installationen und belegen keine NAS-Laufzeitprüfung. Neue Oberflächenelemente und SVG-Grafiken wurden eigenständig erstellt; Referenzbilder wurden nicht in das Produkt übernommen.
+
+## Veröffentlichte Version
+
 **Version 0.7.0 · Horizon · Stable-Kanal.** Boot, NAS-Laufzeit und A/B-Wiederherstellung sind in einer AMD64/UEFI-VM geprüft. Physische NAS-Hardware, USV und Langzeitbetrieb sind damit nicht abgenommen. [Prüfumfang und Grenzen](docs/VERIFY-0.7.0.md).
 
 [**Installationsimage herunterladen (.img.xz)**](https://github.com/ra5on/Titan/releases/download/v0.7.0/titan-0.7.0-amd64.img.xz) · [Release, signiertes Update und Prüfberichte](https://github.com/ra5on/Titan/releases/tag/v0.7.0) · [Änderungen in 0.7.0](docs/RELEASE-0.7.0.md)
