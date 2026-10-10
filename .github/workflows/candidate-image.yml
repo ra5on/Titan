@@ -9,7 +9,7 @@ permissions:
 jobs:
   image:
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 240
     env:
       TITAN_SYSTEM_VERSION: 0.7.0
       TITAN_UPDATE_ONLY: 'false'
@@ -57,6 +57,10 @@ jobs:
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
       - name: Update, rollback and boot health on disposable overlays
         run: python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" --confirm-disposable-guest
+      - name: Build matching rescue medium
+        run: bash scripts/build-recovery-image.sh --disposable-runner
+      - name: Restore an installed NAS on replacement controller and boot its apps and guest
+        run: python3 scripts/smoke-nas-recovery.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-recovery-amd64.iso" "$TITAN_QCOW2_TEST_GUEST" --confirm-disposable-guest
       - name: Remove private signing material
         if: always()
         run: rm -rf "$RUNNER_TEMP/titan-signing"
@@ -72,4 +76,7 @@ jobs:
             dist/debian-image/ab-test.json
             dist/debian-image/ab-console.log
             dist/guest-acceptance/provenance.json
+            dist/debian-image/nas-recovery-test.json
+            dist/debian-image/nas-recovery-*.log
+            dist/debian-image/nas-recovery-*.ppm
           retention-days: 7

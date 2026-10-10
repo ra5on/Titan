@@ -1240,9 +1240,18 @@ class RuntimeSmoke:
         from titan.app_packages import PACKAGES
         value = self.client.request("/api/catalog")
         apps = value.get("apps") if isinstance(value, dict) else None
-        if (not isinstance(value, dict) or set(value) - {"apps", "source", "error", "installed_recipes", "store_status", "skipped"}
+        if (not isinstance(value, dict) or set(value) - {"apps", "source", "error", "installed_recipes", "store_status", "skipped", "umbrel"}
                 or not isinstance(apps, list) or len(apps) > 1000):
             raise SmokeFailure("App catalog or first-login guidance is incomplete.")
+        if 'umbrel' in value:
+            catalog_status = value['umbrel']
+            if (not isinstance(catalog_status, dict) or catalog_status.get('id') != 'umbrel'
+                    or type(catalog_status.get('loaded')) is not bool
+                    or any(type(catalog_status.get(key)) is not int or not 0 <= catalog_status[key] <= 1000 for key in ('apps', 'total'))
+                    or not isinstance(catalog_status.get('blocked'), list)
+                    or catalog_status['apps'] + len(catalog_status['blocked']) != catalog_status['total']
+                    or catalog_status.get('url') != 'https://github.com/getumbrel/umbrel-apps'):
+                raise SmokeFailure('Umbrel catalog coverage metadata is inconsistent.')
         # The offline native catalog must not start network imports. Installed
         # legacy recipes are reported separately and remain manageable.
         if NATIVE_APP_CONTRACT:
@@ -2034,7 +2043,10 @@ class RuntimeSmoke:
                 import importlib.util
                 spec = importlib.util.spec_from_file_location('qcow2_guest_smoke', Path(__file__).with_name('smoke-qcow2-guest.py'))
                 module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-                return module.run(self, self.qcow2_guest)
+                try:
+                    return module.run(self, self.qcow2_guest)
+                except RuntimeError as exc:
+                    raise SmokeFailure(str(exc)) from None
             if self.run_check('qcow2_real_guest_boot', real_guest):
                 self.report['limitations'] = [item for item in self.report['limitations'] if not item.startswith('VM lifecycle checks do not boot')]
                 self.report['limitations'].append('QCOW2 guests boot and restart; restart of the NAS with these guests is checked separately.')

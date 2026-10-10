@@ -53,7 +53,7 @@ def wait_guest(client, identifier, connected, timeout=300):
     raise RuntimeError('Imported QCOW2 guest did not ' + ('boot Linux and connect its agent.' if connected else 'shut down cleanly.'))
 
 
-def run(smoke, fixture):
+def run(smoke, fixture, *, retain=False):
     client = smoke.client
     fixture = Path(fixture)
     if not fixture.is_file() or not 1024**2 <= fixture.stat().st_size <= 2 * 1024**3:
@@ -74,6 +74,7 @@ def run(smoke, fixture):
     if image.get('format') != 'qcow2' or image.get('source_retained') is not True:
         raise RuntimeError('Uploaded guest is not a directly importable QCOW2 disk.')
     identifiers = []
+    succeeded = False
     try:
         for mode in ('uploaded', 'nas-path'):
             vm = client.action('vm_create', {'name': 'qcow-' + mode + '-' + secrets.token_hex(3),
@@ -92,13 +93,15 @@ def run(smoke, fixture):
             # The second import exercises selection of a managed NAS image.
             source = vm['disk_path']
             image = client.request('/api/vm-image-info?path=' + quote(source, safe=''))
-        return {'guest_os_boot': True, 'binary_upload': True, 'nas_path_import': True,
+        succeeded = True
+        return {'vm': identifiers[-1], 'guest_os_boot': True, 'binary_upload': True, 'nas_path_import': True,
                 'clean_guest_shutdown': True, 'restart': True, 'rfb_console': True,
                 'fixture_sha256': digest, 'host_restart_verified': False}
     finally:
-        for identifier in reversed(identifiers):
+        for identifier in ([] if retain and succeeded else reversed(identifiers)):
             details = client.request('/api/vm-extensions?vm=' + quote(identifier, safe=''))
             if details.get('state') != 'shut off':
                 client.action('vm_action', {'vm': identifier, 'action': 'poweroff'})
             client.action('vm_remove', {'vm': identifier})
-        client.action('share_remove', {'name': share})
+        if not (retain and succeeded):
+            client.action('share_remove', {'name': share})
