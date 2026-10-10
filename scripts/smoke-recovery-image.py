@@ -103,6 +103,7 @@ for name in ('source1','source2'):
     import sqlite3
     with sqlite3.connect(mount/'app.sqlite') as db:
         db.execute('create table proof(value text)');db.execute('insert into proof values (?)',(name,))
+    db.close()
     cmd('qemu-img','create','-q','-f','qcow2',str(mount/'guest.qcow2'),'8M')
     cmd('umount',str(mount))
 backup=disk('backup')['path'];cmd('mkfs.ext4','-q','-F',backup)
@@ -146,6 +147,7 @@ for i,name in enumerate(('target1','target2'),1):
     import sqlite3
     with sqlite3.connect('file:'+str(mount/'app.sqlite')+'?mode=ro',uri=True) as db:
         assert db.execute('select value from proof').fetchone()[0]=='source'+str(i)
+    db.close()
     assert json.loads(cmd('qemu-img','info','--output=json',str(mount/'guest.qcow2')))['format']=='qcow2'
     cmd('umount',str(mount))
 cmd('umount','/mnt/backup')
