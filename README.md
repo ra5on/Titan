@@ -6,13 +6,15 @@ Titan ist ein eigenständiges NAS-System auf Debian für AMD64. Die Weboberfläc
 
 ## Aktueller Entwicklungsstand
 
-Die überarbeitete Oberfläche im Branch `codex/recovery-unified-updates` zeigt größere App-Flächen, farbige Katalogsymbole, neue Maschinenkarten und einen gemeinsamen Stil für Login und Desktop. **Noch keine neue Stable-Version:** Der vollständige Katalog und die komplette Image-/Recovery-Abnahme sind offen. Die folgenden Release-Links beziehen sich weiterhin auf das bereits veröffentlichte 0.7.0.
+Die überarbeitete Oberfläche im Branch `codex/recovery-unified-updates` umfasst Desktop und Login, App Store, Maschinen, Dateimanager, Fotos, Speicher, Einstellungen samt Benutzer/Freigaben/Sicherheit, Container, Ressourcenmonitor, Datensicherung und die zentrale Updateansicht. Gemeinsame Abstände, größere Symbole, klare Überschriften und ruhigere Verwaltungsflächen verbinden die Bereiche. **Noch keine neue Stable-Version:** Der vollständige Katalog und die komplette Image-/Recovery-Abnahme sind offen. Die folgenden Release-Links beziehen sich weiterhin auf das bereits veröffentlichte 0.7.0.
 
-![Aktuelle App-Store-Oberfläche mit Demodaten](docs/images/titan-next-store.jpg)
+![Aktuelle Einstellungsübersicht mit Demodaten](docs/images/titan-next-settings.png)
 
-[Desktop](docs/images/titan-next-desktop.jpg) · [Login](docs/images/titan-next-login.jpg) · [Mobile Ansicht](docs/images/titan-next-store-mobile.jpg)
+![Aktuelle Speicherübersicht mit Demodaten](docs/images/titan-next-storage.png)
 
-Browserprüfung bei 1280 × 720 und 390 × 844: App-Suche, VM-Details und Rückkehr zum Desktop; 80 vorhandene UI-Testgruppen bestanden. Die Screenshots stammen aus einer isolierten Demo mit deaktivierten Installationen und belegen keine NAS-Laufzeitprüfung. Neue Oberflächenelemente und SVG-Grafiken wurden eigenständig erstellt; Referenzbilder wurden nicht in das Produkt übernommen.
+[Desktop](docs/images/titan-next-desktop.jpg) · [Login](docs/images/titan-next-login.jpg) · [Dateien](docs/images/titan-next-files.png) · [Maschinen](docs/images/titan-next-machines.png) · [Container](docs/images/titan-next-docker.png) · [Ressourcen](docs/images/titan-next-resources.png) · [Recovery](docs/images/titan-next-recovery.png) · [Updates](docs/images/titan-next-updates.png) · [App Store](docs/images/titan-next-store.jpg) · [Speicher mobil](docs/images/titan-next-storage-mobile.png)
+
+Browserprüfung bei 1280 × 720 und 390 × 844: Einstellungssuche und Unterseiten, Speicher-/Laufwerksnavigation, Datei- und Listenansicht, Containerdetails, Backup-Assistent und zentrale Updateprüfung. Auf Mobilgeräten wurden Speicher, Dateien und Updates geprüft; überlagerte Dateinamen und die schmale Dateifußleiste wurden korrigiert. Fotos zeigt im leeren Demo-Bestand den passenden Leerzustand; eine befüllte Galerie wurde in dieser Prüfung nicht verifiziert. 80 vorhandene UI-Testgruppen bestanden. Die Screenshots stammen aus einer isolierten Demo mit deaktivierten Installationen und belegen keine NAS-Laufzeitprüfung. Neue Oberflächenelemente und SVG-Grafiken wurden eigenständig erstellt; Referenzbilder wurden nicht in das Produkt übernommen.
 
 ## Veröffentlichte Version
 
