@@ -1,6 +1,7 @@
 import base64
 from http.client import HTTPResponse
 import json
+import re
 from pathlib import Path
 import socket
 import tempfile
@@ -102,6 +103,25 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(headers['Cache-Control'], 'no-store')
             self.assertIsNone(headers['ETag'])
+
+    def test_new_interface_is_root_and_previous_interface_stays_reachable(self):
+        status, data, headers = self.request('/')
+        self.assertEqual(status, 200)
+        asset = re.search(rb'/ui-assets/[A-Za-z0-9_.-]+\.js', data)
+        self.assertIsNotNone(asset, 'root page must load the built interface')
+        self.assertIn("script-src 'self'", headers['Content-Security-Policy'])
+        status, _, headers = self.request(asset[0].decode())
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get_all('Cache-Control'), ['private, no-cache'])
+        # Shared assets and the VM console still come from the previous web root.
+        for path in ('/logo.svg', '/console.html', '/app-icons/jellyfin.svg'):
+            self.assertEqual(self.request(path)[0], 200, path)
+        status, classic, headers = self.request('/classic')
+        self.assertEqual(status, 200)
+        self.assertIn(b'/app.js', classic)
+        self.assertNotIn(b'__TITAN_STYLE_NONCE__', classic)
+        self.assertIn("'nonce-", headers['Content-Security-Policy'])
+        self.assertEqual(self.request('/ui-assets/../server.py')[0], 404)
 
     def test_startup_connection_burst_is_queued_and_served(self):
         # Pause acceptance while a proxy's initial asset burst arrives. The

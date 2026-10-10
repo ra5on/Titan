@@ -13,6 +13,19 @@ Quellstand des Imports: RaNAS `ff828eae7d4c50662e225dbf8f7ba0d9e5e47c59`. Die Ve
 
 Private Schlüssel gehören ausschließlich in `.secrets/` und GitHub Actions Secrets. Ins Repository kommen nur öffentliche Prüfschlüssel. `TITAN_SIGNING_KEY` signiert Veröffentlichungen.
 
+## Oberfläche
+
+Die Oberfläche liegt als React-Projekt in `ui/` (Vite, TypeScript, Tailwind). Der fertige Build steht in `titan/ui/` und wird mit eingecheckt, damit Paket- und Container-Build ohne Node auskommen.
+
+```sh
+cd ui
+npm ci
+npm run dev      # http://localhost:5173, leitet /api an die Demo auf Port 5089 weiter
+npm run build    # schreibt titan/ui; das Ergebnis mit committen
+```
+
+Der Server liefert `/` aus `titan/ui/` aus. Gemeinsame Dateien (App-Symbole, Hintergründe, VM-Konsole) und die bisherige Oberfläche unter `/classic` kommen weiter aus `titan/web/`.
+
 ## App-Abnahme und eingefrorene Quellen
 
 Der Workflow **Native app runtime checks** ruft die wiederverwendbare App-Abnahme auf. Für Titan ab 0.5.8 gibt es keinen Live-BigBear-Katalog als Voraussetzung. Getrennte Wegwerf-Runner prüfen den eigenen Cloudflare-Installer und eine lokal gebündelte Compose-Fixture mit zwei Containern. Ab dem eingefrorenen Anwendungsstand 0.5.9 kommen echte Immich-/AdGuard-Installationen sowie die Tailscale-Konfiguration mit absichtlich ungültigem Auth-Key hinzu. Ältere eingefrorene Stände führen diese neuen Prüfskripte nicht aus.

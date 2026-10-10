@@ -34,6 +34,9 @@ from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal
 from .root_access import RootAccessApplicationMixin, RootAccessHTTPMixin
 
 WEB = Path(__file__).parent / "web"
+# Built interface from ui/ (npm run build). Shared assets, the VM console and
+# the previous interface under /classic are still served from WEB.
+UI = Path(__file__).parent / "ui"
 MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "pool_replace", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
              "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
@@ -644,7 +647,13 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         if path.startswith("/novnc/"):
             require_application(self.app.store, self.require_user(), "vms")
             return self.static(Path("/usr/share/novnc"), path[7:])
-        self.static(WEB, "index.html" if path == "/" else path.lstrip("/"))
+        if path == "/classic":
+            return self.static(WEB, "index.html")
+        relative = "index.html" if path == "/" else path.lstrip("/")
+        candidate = (UI / relative).resolve()
+        if candidate.is_relative_to(UI.resolve()) and candidate.is_file():
+            return self.static(UI, relative)
+        self.static(WEB, relative)
 
     def static(self, root, relative):
         target = (root / relative).resolve()
