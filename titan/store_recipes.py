@@ -20,7 +20,7 @@ def recipes(document, source):
     result = {}
     prefix = 's' + hashlib.sha256(source.encode()).hexdigest()[:10] + '-'
     for item in document['apps']:
-        allowed = {'id', 'name', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip'}
+        allowed = {'id', 'name', 'version', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip'}
         required = {'id', 'name', 'description', 'image', 'port', 'documentation', 'login_note'}
         if not isinstance(item, dict) or set(item) - allowed or required - set(item):
             raise Error('App enthält fehlende oder nicht unterstützte Felder.')
@@ -113,7 +113,7 @@ def recipes(document, source):
                     from .compose_templates import host_ip
                     host_ip(mapping['host_ip'])
             fields.extend(stack_fields);extra.extend(ports)
-        result[identifier] = {'name': text(item['name'], 80), 'description': text(item['description'], 500),
+        result[identifier] = {'name': text(item['name'], 80), **({'version': text(item['version'], 80)} if 'version' in item else {}), 'description': text(item['description'], 500),
             'image': image, 'port': port, 'scheme': scheme, 'default_port': integer(item.get('default_port', max(port, 8080) if web_available else 0), 1024 if web_available else 0, 65535 if web_available else 0),
             'web_available':web_available, **({'web_host_ip':item['web_host_ip']} if item.get('web_host_ip') else {}),
             'mount': mount, 'memory': memory, 'environment': environment, 'config_mount': item.get('config_mount', True),

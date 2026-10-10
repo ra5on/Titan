@@ -82,6 +82,9 @@ class StoreMixin:
                 APPS[key] = private_recipe(recipe)
         from .native_catalog import load_ci_fixtures
         load_ci_fixtures(self)
+        from .umbrel_store import load, activate
+        _, offers = load(self)
+        activate(self, offers)
 
     def op_catalog(self):
         with self._catalog_guard():
@@ -90,6 +93,8 @@ class StoreMixin:
             result['installed_recipes'] = [app for app in catalog(include_legacy=True)['apps'] if app['id'] in installed]
             result['store_status'] = self.catalog_status()
             result['skipped'] = []
+            from .umbrel_store import status
+            result['umbrel'] = status(self)
         return result
 
     def op_app_stores(self):
@@ -225,6 +230,9 @@ class StoreMixin:
         raise Error('Externe AppStores wurden entfernt. Nutze die eigenen Titan-Apps.', 410)
 
     def op_app_store_refresh(self, store):
+        if store == 'umbrel':
+            from .umbrel_store import refresh
+            return refresh(self)
         raise Error('Externe AppStores wurden entfernt. Nutze die eigenen Titan-Apps.', 410)
 
     def op_app_store_toggle(self, store, enabled):

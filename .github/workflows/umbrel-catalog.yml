@@ -51,3 +51,14 @@ jobs:
           name: umbrel-runtime-${{ matrix.app }}
           path: umbrel-runtime.json
           if-no-files-found: warn
+  installer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install host acceptance dependencies
+        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
+      - name: Real Titan HTTP installer, catalog, lifecycle and retained data
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py umbrel:memos --umbrel-revision "$UMBREL_REVISION" --confirm-disposable-runner

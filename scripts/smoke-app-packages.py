@@ -370,8 +370,9 @@ def check_cloudflared_api(url, credentials=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('package', choices=['titan-ci-compose-fixture', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
+    parser.add_argument('package', choices=['titan-ci-compose-fixture', 'umbrel:memos', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
+    parser.add_argument('--umbrel-revision', type=bigbear_revision, metavar='SHA')
     parser.add_argument('--bigbear-revision', type=bigbear_revision, metavar='SHA',
         help='Use one verified BigBear commit without anonymous GitHub API branch lookup.')
     parser.add_argument('--cloudflared-auth', choices=['disabled', 'password'],
@@ -381,6 +382,8 @@ def main():
     args = parser.parse_args()
     if args.bigbear_revision is not None and not args.package.startswith('bigbear:'):
         parser.error('--bigbear-revision requires a BigBear package.')
+    if args.package.startswith('umbrel:') != bool(args.umbrel_revision):
+        parser.error('Umbrel packages require --umbrel-revision, exclusively.')
     cloudflared_web = args.package == 'bigbear:cloudflared-web'
     if args.cloudflared_auth is not None and not cloudflared_web:
         parser.error('--cloudflared-auth requires bigbear:cloudflared-web.')
@@ -390,6 +393,7 @@ def main():
     if not args.confirm_disposable_runner or os.environ.get('GITHUB_ACTIONS') != 'true':
         parser.error('This test is restricted to an explicitly confirmed disposable GitHub runner.')
     fixture_document = None
+    umbrel_cache = None
     if args.package == 'titan-ci-compose-fixture':
         from titan.native_catalog import CI_SOURCE
         from titan.store_recipes import recipes
@@ -398,6 +402,19 @@ def main():
         _, imported = recipes(fixture_document, CI_SOURCE)
         app, recipe = next(iter(imported.items()))
         APPS[app] = recipe
+    elif args.package.startswith('umbrel:'):
+        from titan.umbrel_catalog import URL, fetch_inventory, compile_inventory
+        from titan.store_recipes import recipes
+        from titan.catalog import APPS
+        inventory = fetch_inventory(args.umbrel_revision)
+        document, blocked = compile_inventory(inventory)
+        _, imported = recipes(document, URL)
+        suffix = args.package.split(':', 1)[1]
+        app, recipe = next((key, value) for key, value in imported.items() if key.endswith('-' + suffix))
+        recipe.update(umbrel_catalog=True, catalog_revision=args.umbrel_revision)
+        APPS[app] = recipe
+        umbrel_cache = {'schema': 1, 'revision': args.umbrel_revision, 'archive_sha256': inventory['archive_sha256'],
+            'document': document, 'blocked': blocked, 'total': len(inventory['packages']), 'loaded_at': 'CI'}
     elif args.package.startswith('bigbear:'):
         from titan.app_stores import StoreMixin
         from titan.store_sources import BIGBEAR
@@ -460,6 +477,11 @@ def main():
             atomic_json(base / 'agent' / 'ci-compose-fixtures.json', {'schema':1,'disposable':True,'document':fixture_document,'legacy_ids':['heimdall']}, mode=0o600)
             if run(['docker','ps','-aq','--filter','label=com.docker.compose.project=titan-' + app],timeout=15).strip():
                 raise Error('Compose fixture must not replace a pre-existing project.')
+        if umbrel_cache is not None:
+            from titan.core import atomic_json
+            (base / 'agent').mkdir(mode=0o700, exist_ok=True)
+            from titan.umbrel_store import CACHE
+            atomic_json(base / 'agent' / (CACHE + '.json'), umbrel_cache)
         host = Host(base / 'agent', base / 'shares', base / 'vms', base / 'samba.conf')
         host.directory.chmod(0o700)
         host.share_root.mkdir(mode=0o755)
@@ -519,6 +541,10 @@ def main():
         config = host.directory / 'apps' / app / 'compose.json'
         command = ['docker', 'compose', '--project-name', 'titan-' + app, '-f', str(config)]
         try:
+            if umbrel_cache is not None:
+                offers = request('/api/catalog')
+                if not any(row['id'] == app for row in offers['apps']) or offers['umbrel']['revision'] != args.umbrel_revision:
+                    raise Error('The pinned catalog offer is absent from the real HTTP API.')
             native_steps = app in ('titan-immich', 'titan-adguard')
             if native_steps:
                 initial = request('/api/app-install?app=' + app)

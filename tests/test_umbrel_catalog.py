@@ -52,7 +52,7 @@ class CatalogTests(unittest.TestCase):
         service = built['services'][key]
         self.assertEqual(service['image'], 'example/web:1')
         self.assertEqual(service['ports'], ['8088:80/tcp'])
-        self.assertEqual(service['volumes'][0]['source'], '/private/app/app-data')
+        self.assertTrue(service['volumes'][0]['source'].startswith('/private/app/umbrel-'))
         self.assertEqual(service['volumes'][0]['target'], '/data')
         self.assertIn('example_web_1', service['networks']['default']['aliases'])
         self.assertNotIn('app_proxy', built['services'])

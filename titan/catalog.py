@@ -278,11 +278,11 @@ for _app_id, _login in _FIRST_LOGINS.items():
 _cache = {"time": 0, "images": {}, "error": None}
 
 
-def validate_options(app_id, options=None):
-    if app_id not in APPS:
+def validate_options(app_id, options=None, *, recipe=None):
+    if recipe is None and app_id not in APPS:
         raise Error("App-Vorlage ist nicht verfügbar.")
     options = {} if options is None else options
-    schema = APPS[app_id].get("install_schema", [])
+    schema = (recipe if recipe is not None else APPS[app_id]).get("install_schema", [])
     if not isinstance(options, dict) or set(options) - {field["key"] for field in schema}:
         raise Error("App-Einstellungen enthalten unbekannte Felder.")
     result = {}
@@ -353,7 +353,7 @@ def catalog(refresh=False, include_legacy=False):
     from .native_catalog import AVAILABLE_APP_IDS
     apps = []
     for app_id, recipe in list(APPS.items()):
-        if not include_legacy and app_id not in AVAILABLE_APP_IDS:
+        if not include_legacy and app_id not in AVAILABLE_APP_IDS and not recipe.get("umbrel_catalog"):
             continue
         remote = {}
         public_recipe = {key: value for key, value in recipe.items() if key not in ("environment", "stack")}
@@ -368,18 +368,18 @@ def catalog(refresh=False, include_legacy=False):
             if app_id == 'titan-nextcloud-office':
                 public_recipe['optional_dependencies'] = public_recipe['dependencies'][-2:]
                 public_recipe['dependencies'] = public_recipe['dependencies'][:-2]
-        apps.append({**public_recipe, "id": app_id, "version": remote.get("version", "latest"),
+        apps.append({**public_recipe, "id": app_id, "version": remote.get("version", recipe.get("version", "latest")),
                      "deprecated": remote.get("deprecated", False),
                      "architectures": remote.get("architectures", []),
                      "documentation": recipe.get("documentation") or f"https://docs.linuxserver.io/images/docker-{recipe.get('upstream_name', app_id)}/"})
     return {"apps": apps, "source": "Titan Apps", "error": None}
 
 
-def compose(app_id, directory, uid, gid, port, data_path, options=None, network=None, hardware=None, config_path=None):
-    if app_id not in APPS:
+def compose(app_id, directory, uid, gid, port, data_path, options=None, network=None, hardware=None, config_path=None, *, recipe=None):
+    if recipe is None and app_id not in APPS:
         raise Error("App-Vorlage ist nicht verfügbar.")
-    app = APPS[app_id]
-    options = validate_options(app_id, options)
+    app = recipe if recipe is not None else APPS[app_id]
+    options = validate_options(app_id, options, recipe=app)
     if app.get("stack"):
         from .app_networks import selection
         if len(app["stack"]["services"]) > 1 and selection(network)["mode"] != "default": raise Error("Containerverbünde benötigen ihr eigenes isoliertes Standardnetz.")

@@ -46,9 +46,11 @@ Katalogunterstützung. Die übrigen Pakete bleiben ausdrücklich gesperrt:
 | Compose-Kommandos, HTTPS oder Einstiegspfad | 3 |
 
 Ein Paket kann mehrere Anforderungen haben; die Tabelle zählt jeweils den
-ersten Hinderungsgrund. Der Adapter ist noch nicht als öffentlich installierbarer
-Store eingebunden, solange der vollständige Lebenszyklus nicht abgenommen ist.
-Installierte Apps werden durch diese Änderung nicht verändert.
+ersten Hinderungsgrund. Die Entwicklungsoberfläche bietet die übersetzbaren Pakete nach ausdrücklich
+gestartetem Katalogabruf an. Nicht übersetzbare Pakete zeigen ihren Hinderungsgrund.
+Dies ist noch keine Stable-Freigabe. Katalogabrufe ändern installierte Rezepte nicht.
+Ein Appupdate übernimmt neue Images erst nach kalter Sicherung; Änderungen an
+Speicherzuordnung oder Einrichtung verlangen eine geprüfte Migration und bleiben gesperrt.
 
 Reproduzierbarer Bericht:
 
@@ -62,8 +64,9 @@ python3 scripts/audit-umbrel-catalog.py \
 Zusätzlich bleiben echte Laufzeitnachweise nötig. Der separate GitHub-Workflow
 `Umbrel catalog compatibility` prüft Memos und Uptime Kuma auf isolierten Runnern:
 Compose-Installation, erreichbare Oberfläche, angelegte Anwendungsdatenbank,
-Stoppen, Entfernen und erneutes Erstellen bei erhaltenen Daten. Er prüft noch
-nicht Titans HTTP-Installer, Appupdates oder Anmeldung in der Anwendung.
+Stoppen, Entfernen und erneutes Erstellen bei erhaltenen Daten. Ein zusätzlicher Lauf prüft Memos über Titans echten HTTP-Installer und die
+Paketverwaltung. Appversionswechsel und Anmeldung in der Anwendung benötigen
+weiterhin zusätzliche Laufzeitnachweise.
 Ein grüner Lauf allein gibt deshalb weder den Store noch das neue Systemimage frei.
 
 ## Nächste Integrationsschritte
@@ -77,3 +80,7 @@ Ein grüner Lauf allein gibt deshalb weder den Store noch das neue Systemimage f
    einbinden. Installierte Rezepte bleiben bis zum ausdrücklich gestarteten Update
    unverändert; Datenbankmigrationen benötigen einen gesicherten Rückweg.
 5. Vollständige Katalog- und Laufzeitabnahme am veröffentlichten Image.
+
+Die ersten beiden Compose-Laufzeittests bestanden auf GitHub:
+https://github.com/ra5on/Titan/actions/runs/38038517761
+Die Host-/HTTP-Erweiterung und nachfolgende Änderungen sind davon getrennt zu prüfen.

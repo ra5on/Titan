@@ -8,6 +8,7 @@ import copy
 import hashlib
 import io
 import json
+import posixpath
 import re
 import stat
 import zipfile
@@ -240,12 +241,19 @@ def translate(package, name):
     result = translate_compose(document, name, REPOSITORY)
     # Every stateful volume belongs to the app's private configuration and backup.
     # Do not redirect a database /data directory into a user-facing shared folder.
-    for service in result['stack']['services'].values():
-        for mount in service.get('mounts', []):
-            if mount['slot'] == 'data': mount['slot'] = 'app-data'
+    sources = []
+    for key, service in result['stack']['services'].items():
+        for mount, original in zip(service.get('mounts', []), services[key].get('volumes', [])):
+            source = posixpath.normpath(original.split(':')[0].removeprefix('${APP_DATA_DIR}/'))
+            sources.append(source)
+            # Stable across YAML service/volume reordering, shared across services,
+            # and distinct when an upstream update actually changes a data path.
+            mount['slot'] = 'umbrel-' + hashlib.sha256(source.encode()).hexdigest()[:20]
+    if any(a != b and (a == '.' or b.startswith(a + '/')) for a in sources for b in sources):
+        raise UnsupportedTemplate('Verschachtelte App-Verzeichnisse benötigen eine gemeinsame Speicherabbildung.', 'nested_mounts')
     if any(field['type'] != 'number' for field in result['stack_fields']):
         raise UnsupportedTemplate('App benötigt automatisch verwaltete Zugangsdaten.', 'credentials')
-    result.update(category=line(meta.get('category', 'Apps'), 80),
+    result.update(version=line(meta.get('version') or 'unbekannt', 80), category=line(meta.get('category', 'Apps'), 80),
                   documentation=URL + '/tree/' + package.get('revision', 'master') + '/' + name,
                   login_note='App öffnen und die Einrichtung im Browser abschließen. ' + line(meta.get('description'), 1500))
     return result
