@@ -20,7 +20,10 @@ import json,sys
 v=json.load(open(sys.argv[1])); assert v['version']==sys.argv[2] and v['agent_api']==1
 PY
 curl --fail --silent http://127.0.0.1:5099/ > "$task_data/index.html"
-grep -q 'shared_polling.js' "$task_data/index.html"
+grep -q '/ui-assets/' "$task_data/index.html"
+# The previous interface remains available for functions not yet moved over.
+curl --fail --silent http://127.0.0.1:5099/classic > "$task_data/classic.html"
+grep -q 'shared_polling.js' "$task_data/classic.html"
 docker restart titan-web-smoke
 for task_try in {1..30}; do
     if curl --fail --silent http://127.0.0.1:5099/api/health >/dev/null; then break; fi
