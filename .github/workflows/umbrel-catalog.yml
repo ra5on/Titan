@@ -93,3 +93,15 @@ jobs:
         run: TITAN_TEST_CADDY=/usr/bin/caddy python3 -m unittest discover -s tests -p 'test_app_gateway_http.py' -v
       - name: Real protected catalog package
         run: python3 scripts/smoke-app-gateway.py --revision "$UMBREL_REVISION" --confirm-disposable-runner
+
+  protected-installer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install host and proxy dependencies
+        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml caddy e2fsprogs util-linux
+      - name: Protected app through the actual Titan installer and production bridge
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py umbrel:bentopdf --umbrel-revision "$UMBREL_REVISION" --confirm-disposable-runner

@@ -4,6 +4,8 @@ import argparse
 import base64
 import contextlib
 import hashlib
+import http.client
+from http.cookies import SimpleCookie
 import importlib.util
 import json
 import os
@@ -467,9 +469,83 @@ def check_cloudflared_api(url, credentials=None):
         raise Error('Cloudflared Web configuration API returned HTTP ' + str(response.code) + ' in the selected authentication mode.') from None
 
 
+@contextlib.contextmanager
+def protected_app_bridge(base, host, run):
+    """Production bridge configuration and restart on a disposable systemd host."""
+    from titan.web_access import WebAccess
+    unit = Path('/run/systemd/system/titan-proxy.service')
+    if unit.exists() or Path('/etc/systemd/system/titan-proxy.service').exists():
+        raise Error('Refusing to replace an existing Titan proxy service.')
+    try:
+        account = pwd.getpwnam('titan-proxy')
+    except KeyError:
+        run(['useradd', '--system', '--no-create-home', '--home-dir', '/var/lib/titan-proxy',
+             '--shell', '/usr/sbin/nologin', 'titan-proxy'])
+        account = pwd.getpwnam('titan-proxy')
+    state = Path('/var/lib/titan-proxy')
+    state.mkdir(mode=0o700, exist_ok=True)
+    os.chown(state, account.pw_uid, account.pw_gid)
+    directory = base / 'proxy'
+    directory.mkdir(mode=0o755)
+    host._web_access = WebAccess(directory, run=run, host='127.0.0.1', previous_origin='http://127.0.0.1:18081')
+    # Keep the installed service's protections; only remove absent NAS boot
+    # dependencies/SELinux context and point at this fixture's configuration.
+    template = (Path(__file__).resolve().parents[1] / 'packaging/titan-proxy.service').read_text()
+    template = '\n'.join(line for line in template.splitlines()
+        if not line.startswith(('After=', 'Wants=', 'Requires=', 'SELinuxContext=')))
+    template = template.replace('/etc/titan/Caddyfile', str(directory / 'Caddyfile'))
+    # PrivateTmp hides the test directory under /tmp. Its fixture path must be
+    # visible to the service; no app or container protection is changed.
+    template = template.replace('PrivateTmp=true', 'PrivateTmp=false')
+    unit.write_text(template + '\n')
+    try:
+        run(['systemctl', 'daemon-reload'])
+        yield
+    finally:
+        run(['systemctl', 'stop', 'titan-proxy.service'])
+        unit.unlink()
+        run(['systemctl', 'daemon-reload'])
+
+
+def protected_app_login(web, app, token, app_port, password):
+    def get(port, path, cookie=''):
+        connection = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
+        try:
+            connection.request('GET', path, headers={'Cookie': cookie})
+            response = connection.getresponse()
+            return response.status, dict(response.getheaders()), response.read(1024 * 1024)
+        finally:
+            connection.close()
+    if get(app_port, '/')[0] != 401:
+        raise Error('Installed protected app permits anonymous access.')
+    status, headers, _ = get(5001, '/api/app-open?app=' + app, 'titan_session=' + token)
+    if status != 303:
+        raise Error('Installed app handoff failed.')
+    location = urllib.parse.urlsplit(headers['Location'])
+    status, headers, _ = get(app_port, location.path + '?' + location.query)
+    if status != 303:
+        raise Error('Production bridge did not redeem app ticket.')
+    name = 'titan_app_' + app
+    cookie = name + '=' + SimpleCookie(headers['Set-Cookie'])[name].value
+    status, _, body = get(app_port, '/', cookie)
+    if status != 200 or b'<html' not in body.lower():
+        raise Error('Installed app is not reachable with its authenticated cookie.')
+    # Revocation is checked against another session so lifecycle HTTP requests
+    # remain authorized with the original acceptance session.
+    temporary, _ = web.store.login('smokeadmin', password)
+    status, headers, _ = get(5001, '/api/app-open?app=' + app, 'titan_session=' + temporary)
+    location = urllib.parse.urlsplit(headers['Location'])
+    status, headers, _ = get(app_port, location.path + '?' + location.query)
+    other = name + '=' + SimpleCookie(headers['Set-Cookie'])[name].value
+    web.store.logout(temporary)
+    if get(app_port, '/', other)[0] != 401:
+        raise Error('Installed app session survives NAS logout.')
+    return cookie
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('package', choices=['titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick', 'umbrel:flatnotes', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
+    parser.add_argument('package', choices=['titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick', 'umbrel:flatnotes', 'umbrel:bentopdf', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
     parser.add_argument('--umbrel-revision', type=bigbear_revision, metavar='SHA')
     parser.add_argument('--bigbear-revision', type=bigbear_revision, metavar='SHA',
@@ -551,7 +627,7 @@ def main():
             print('Package command failed: ' + message, file=sys.stderr)
             raise Error(message)
         return result.stdout
-    with tempfile.TemporaryDirectory(prefix='titan-package-smoke-') as directory:
+    with tempfile.TemporaryDirectory(prefix='titan-package-smoke-') as directory, contextlib.ExitStack() as fixtures:
         base = Path(directory)
         base.chmod(0o755)
         if os.geteuid() != 0:
@@ -588,6 +664,8 @@ def main():
         files.mkdir(mode=0o755)
         (files / 'available-during-install.txt').write_text('file-manager-remains-responsive')
         host.save('shares', [{'name': 'smoke-files', 'path': str(files), 'readers': ['titan-files'], 'writers': ['titan-files']}])
+        if recipe.get('app_gateway'):
+            fixtures.enter_context(protected_app_bridge(base, host, run))
         web = Application(base / 'web')
         class LocalAgent:
             def call(self, operation, **arguments):
@@ -598,7 +676,7 @@ def main():
         web_password = 'Test-' + os.urandom(24).hex()
         web.store.setup('smokeadmin', web_password)
         token, csrf = web.store.login('smokeadmin', web_password)
-        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        server = ThreadingHTTPServer(('127.0.0.1', 5001 if recipe.get('app_gateway') else 0), Handler)
         server.app, server.daemon_threads = web, True
         server_thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .05}, daemon=True)
         server_thread.start()
@@ -692,8 +770,9 @@ def main():
             endpoint = '/api/server/ping' if app == 'titan-immich' else '/admin/' if app == 'titan-pihole' else '/status.php' if app == 'titan-nextcloud-office' else '/'
             bigbear_nextcloud = args.package == 'bigbear:nextcloud'
             if bigbear_nextcloud: endpoint = '/index.php/login'
+            gateway_cookie = protected_app_login(web, app, token, app_port, web_password) if recipe.get('app_gateway') else ''
             app_request = urllib.request.Request('http://127.0.0.1:' + str(app_port) + endpoint,
-                headers={'Host': 'nas.test:18080'} if bigbear_nextcloud else {})
+                headers={'Host': 'nas.test:18080'} if bigbear_nextcloud else {'Cookie': gateway_cookie} if gateway_cookie else {})
             for attempt in range(45):
                 try:
                     with urllib.request.urlopen(app_request, timeout=5) as response:
@@ -804,6 +883,8 @@ def main():
             ready()
             check_native_dns()
             check_cloudflared_lan()
+            if recipe.get('app_gateway'):
+                protected_app_login(web, app, token, app_port, web_password)
             if args.package == 'umbrel:flatnotes':
                 flatnotes_probe(app_port, options, create=True)
             keep = Path(installed['data']) / 'titan-smoke-retained.txt'
@@ -826,6 +907,7 @@ def main():
                 raise Error('Uninstall retained app firewall access.')
             print(json.dumps({'package': app, 'containers': len(definition['services']), 'ready': True,
                 'native_install_steps_verified': native_steps,
+                'protected_gateway_login_logout_verified': bool(recipe.get('app_gateway')),
                 'adguard_dns_tcp_udp_verified': app == 'titan-adguard',
                 'restart': True, 'host_http_lifecycle': True, 'single_container_stop': True,
                 'package_stop_start': True, 'uninstall_data_retained': True,
