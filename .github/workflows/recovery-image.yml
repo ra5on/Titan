@@ -1,0 +1,41 @@
+name: Recovery medium acceptance
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/recovery-unified-updates]
+    paths:
+      - 'titan/disaster_recovery.py'
+      - 'scripts/build-recovery-image.sh'
+      - 'scripts/smoke-recovery-image.py'
+      - '.github/workflows/recovery-image.yml'
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TITAN_SYSTEM_VERSION: 0.8.0-candidate
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Recovery regressions
+        run: python3 -m unittest discover -s tests -p 'test_*recovery*.py'
+      - name: Prepare disposable VM runner
+        run: |
+          bash scripts/ci-ubuntu-dependencies.sh qemu-system-x86 qemu-utils ovmf
+          if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
+      - name: Build independent offline rescue medium
+        run: bash scripts/build-recovery-image.sh --disposable-runner
+      - name: UEFI boot and real block-device replacement recovery
+        run: python3 scripts/smoke-recovery-image.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-recovery-amd64.iso" --confirm-disposable-guest
+      - uses: actions/upload-artifact@v6.0.0
+        if: always()
+        with:
+          name: recovery-acceptance
+          path: |
+            dist/debian-image/recovery-test.json
+            dist/debian-image/recovery-console*.log
+            dist/debian-image/recovery-packages.txt
+          retention-days: 7

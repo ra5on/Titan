@@ -583,6 +583,32 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             if path == "/api/users":
                 accounts = [account for account in self.app.agent.call("accounts", smb_status=True) if not account.get("removed")]
                 return self.reply({"web": self.app.store.users(), "system": accounts, "service_user": "titan-files"})
+            if path in ('/api/recovery/inventory', '/api/recovery/kit'):
+                if user['role'] != 'admin': raise Error('Administratorrechte erforderlich.', 403)
+                if query: raise Error('Rettungsplan unterstützt keine zusätzlichen Parameter.')
+                if self.app.demo: raise Error('Rettungspläne benötigen ein echtes NAS mit angeschlossenem Sicherungslaufwerk.', 409)
+                inventory = self.app.agent.call('recovery_inventory')
+                if path.endswith('/inventory'):
+                    return self.reply(inventory, extra={'Cache-Control':'no-store'})
+                import io, zipfile
+                output = io.BytesIO()
+                with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+                    archive.writestr('inventory.json', json.dumps(inventory, indent=2))
+                    archive.writestr('titan-recovery.py', Path(__file__).with_name('disaster_recovery.py').read_bytes())
+                    archive.writestr('START.txt', 'Titan vollstaendig sichern und wiederherstellen\n\n'
+                        '1. ZIP auf das separate ext4-/XFS-Sicherungslaufwerk kopieren.\n'
+                        '2. VMs sauber herunterfahren, danach NAS herunterfahren.\n'
+                        '3. Titan-Rettungs-ISO von einem separaten USB-Stick starten.\n'
+                        '4. Im Assistenten Vollstaendig sichern waehlen; Laufwerk und ZIP auswaehlen.\n'
+                        '5. Fuer Recovery Originalplatten abtrennen, leere Ersatzplatten anschliessen,\n'
+                        '   Rettungsmedium starten und Wiederherstellen waehlen.\n'
+                        '   Jede Ersatzplatte muss mindestens so gross sein und dieselbe logische Sektorgroesse verwenden.\n'
+                        'Die Sicherung enthaelt Kennwoerter, Schluessel und saemtliche Plattendaten. Privat aufbewahren.\n'
+                        'Bei Abbruch dieselbe Sicherung und Zielzuordnung erneut waehlen; das Journal bleibt auf dem Sicherungslaufwerk.\n')
+                payload = output.getvalue()
+                self.send_headers(200, len(payload), 'application/zip', {'Cache-Control':'no-store',
+                    'Content-Disposition':'attachment; filename="titan-rettungsplan.zip"'})
+                self.wfile.write(payload); return
             if path == "/api/backup/settings":
                 if user["role"] != "admin":
                     return self.reply(self.app.agent.call("delegated_backup", action="backup_settings", user=user["system_user"], arguments={}))
