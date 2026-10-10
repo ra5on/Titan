@@ -97,13 +97,15 @@ def recipes(document, source):
             if not isinstance(stack_fields,list) or len(stack_fields)>256: raise Error('Zu viele Container-Einstellungen.')
             keys=set()
             for field in stack_fields:
-                if not isinstance(field,dict) or set(field)-{'key','label','type','default','required','min','max','min_length','max_length'} or not re.fullmatch(r'stack_[a-zA-Z0-9_-]{1,100}',field.get('key','')) or field['key'] in keys or field.get('type') not in ('text','password','number'): raise Error('Ungültige Container-Einstellung.')
+                if not isinstance(field,dict) or set(field)-{'key','label','type','default','required','min','max','min_length','max_length','generated'} or not re.fullmatch(r'stack_[a-zA-Z0-9_-]{1,100}',field.get('key','')) or field['key'] in keys or field.get('type') not in ('text','password','number'): raise Error('Ungültige Container-Einstellung.')
                 keys.add(field['key']); text(field.get('label'),100)
+                if 'generated' in field and (field['generated'] is not True or field['type'] != 'password'):
+                    raise Error('Nur private Kennwörter können automatisch erzeugt werden.')
                 if type(field.get('required')) is not bool: raise Error('Ungültige Pflichtangabe.')
                 if field['type']=='number':
                     if field.get('min') not in (1,1024) or field.get('max')!=65535: raise Error('Ungültiger Portbereich.')
                     integer(field.get('default'),field['min'],65535)
-                elif not isinstance(field.get('default'),str) or len(field['default'])>1000 or field.get('max_length')!=1000 or field.get('min_length') not in (0,1) or field['type']=='password' and field['default']: raise Error('Ungültige Container-Textvorgabe.')
+                elif not isinstance(field.get('default'),str) or len(field['default'])>1000 or field.get('max_length')!=1000 or field.get('min_length') not in (0,1,12) or field['type']=='password' and field['default']: raise Error('Ungültige Container-Textvorgabe.')
             ports=item.get('stack_ports',[])
             if not isinstance(ports,list) or len(ports)>256 or any(not isinstance(p,dict) or set(p)-{'option','target','protocol','service','host_ip'} or not {'option','target','protocol','service'} <= set(p) or p['option'] not in keys or p['protocol'] not in ('tcp','udp') or p['service'] not in item['stack']['services'] for p in ports): raise Error('Ungültige Container-Verbindungsports.')
             for service in item['stack']['services'].values():

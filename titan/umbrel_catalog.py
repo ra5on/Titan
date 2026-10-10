@@ -212,6 +212,7 @@ def translate(package, name):
         raise Error('App-Webport fehlt.') from exc
     if not 1 <= target <= 65535 or not 1024 <= published <= 65535:
         raise Error('Ungültiger App-Webport.')
+    runtime_options = {}
     for key, service in services.items():
         if not isinstance(service, dict):
             raise Error('Ungültiger App-Dienst.')
@@ -225,6 +226,18 @@ def translate(package, name):
             source = mapping.split(':')[0]
             if not re.fullmatch(r'\$\{APP_DATA_DIR\}/[a-zA-Z0-9_./-]+', source) or '..' in source.split('/'):
                 raise UnsupportedTemplate('App benötigt zusätzliche Speicherzuordnungen.', 'mount')
+        environment = service.get('environment', {})
+        if isinstance(environment, list):
+            try: environment = dict(item.split('=', 1) for item in environment)
+            except (ValueError, TypeError) as exc: raise Error('Ungültige App-Umgebung.') from exc
+            service['environment'] = environment
+        if isinstance(environment, dict):
+            for env_key, value in environment.items():
+                match = re.fullmatch(r'\$(?:\{(APP_SEED|APP_PASSWORD)\}|(APP_SEED|APP_PASSWORD))', str(value))
+                if match and env_key not in ('PUID', 'PGID'):
+                    kind = (match[1] or match[2]).removeprefix('APP_').lower()
+                    runtime_options[(key, env_key)] = 'stack_umbrel_' + kind
+                    environment[env_key] = 'titan-private-runtime-value'
         # The general Compose adapter exposes unresolved variables as inputs.
         # That is inappropriate for a seamless Umbrel install: reject instead.
         def variables(value):
@@ -240,6 +253,17 @@ def translate(package, name):
     services[primary].setdefault('ports', []).append(str(published) + ':' + str(target))
     document['x-casaos'] = {'main': primary, 'port_map': str(published), 'title': meta.get('name', name), 'description': meta.get('tagline') or meta.get('description')}
     result = translate_compose(document, name, REPOSITORY)
+    if runtime_options:
+        for (service, key), option in runtime_options.items():
+            result['stack']['services'][service]['environment'][key] = '@option:' + option
+        used = {value[8:] for service in result['stack']['services'].values()
+                for value in service.get('environment', {}).values() if value.startswith('@option:')}
+        result['stack_fields'] = [field for field in result['stack_fields'] if field['type'] == 'number' or field['key'] in used]
+        for option in sorted(set(runtime_options.values())):
+            generated = option == 'stack_umbrel_seed'
+            result['stack_fields'].append({'key': option, 'label': 'Interner App-Schlüssel' if generated else 'App-Passwort',
+                'type': 'password', 'default': '', 'required': True, 'min_length': 12, 'max_length': 1000,
+                **({'generated': True} if generated else {})})
     # Every stateful volume belongs to the app's private configuration and backup.
     # Do not redirect a database /data directory into a user-facing shared folder.
     sources = []
@@ -272,11 +296,15 @@ def translate(package, name):
                 row['personalize'] = 'yaml-jwt-secret'
         validate(seeded)
         result['seed_files'] = seeded
-    if any(field['type'] != 'number' for field in result['stack_fields']):
+    if any(field['type'] != 'number' and field['key'] not in runtime_options.values() for field in result['stack_fields']):
         raise UnsupportedTemplate('App benötigt automatisch verwaltete Zugangsdaten.', 'credentials')
     result.update(version=line(meta.get('version') or 'unbekannt', 80), category=line(meta.get('category', 'Apps'), 80),
                   documentation=URL + '/tree/' + package.get('revision', 'master') + '/' + name,
                   login_note='App öffnen und die Einrichtung im Browser abschließen. ' + line(meta.get('description'), 1500))
+    if 'stack_umbrel_password' in runtime_options.values():
+        username = line(meta.get('defaultUsername', ''), 80)
+        result['login_note'] = ('Mit ' + (username + ' und ' if username else '') +
+            'dem bei der Installation gewählten App-Passwort anmelden. ' + result['login_note'])[:1900]
     return result
 
 

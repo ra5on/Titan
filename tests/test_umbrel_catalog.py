@@ -99,10 +99,30 @@ class CatalogTests(unittest.TestCase):
 
     def test_unresolved_platform_variables_are_not_user_inputs(self):
         files = package(); doc = json.loads(files['example/docker-compose.yml'])
-        doc['services']['web']['environment'] = {'SEED': '${APP_SEED}'}
+        doc['services']['web']['environment'] = {'UNKNOWN': '${APP_UNSUPPORTED_PLATFORM_VARIABLE}'}
         files['example/docker-compose.yml'] = json.dumps(doc)
         _, blocked = compile_inventory(archive_inventory(archive(files), REVISION))
         self.assertEqual(blocked[0]['code'], 'runtime_variables')
+
+    def test_runtime_seed_is_private_and_shared_while_user_password_is_explicit(self):
+        from titan.app_packages import prepare_options
+        from titan.catalog import validate_options
+        files=package();doc=json.loads(files['example/docker-compose.yml'])
+        doc['services']['web']['environment']={'SIGNING_KEY':'${APP_SEED}', 'OTHER_KEY':'$APP_SEED', 'LOGIN_PASSWORD':'${APP_PASSWORD}'}
+        files['example/docker-compose.yml']=json.dumps(doc)
+        document,blocked=compile_inventory(archive_inventory(archive(files),REVISION))
+        self.assertEqual(blocked,[])
+        key,recipe=next(iter(recipes(document,URL)[1].items()));APPS[key]=recipe;self.addCleanup(APPS.pop,key,None)
+        supplied={'stack_umbrel_password':'A-user-selected-secret'}
+        options=validate_options(key,prepare_options(key,supplied))
+        self.assertRegex(options['stack_umbrel_seed'],r'^[a-f0-9]{64}$')
+        self.assertEqual(prepare_options(key,supplied,options)['stack_umbrel_seed'],options['stack_umbrel_seed'])
+        with self.assertRaises(Error):validate_options(key,prepare_options(key,{}))
+        definition=compose(key,'/control',1000,1000,8088,'/data',options,config_path='/private')
+        env=definition['services'][key]['environment']
+        self.assertEqual(env['SIGNING_KEY'],env['OTHER_KEY'])
+        self.assertEqual(env['LOGIN_PASSWORD'],supplied['stack_umbrel_password'])
+        self.assertNotEqual(env['SIGNING_KEY'],env['LOGIN_PASSWORD'])
 
     def test_dependency_order_and_missing_or_cyclic_nodes(self):
         graph = {'app': {'dependencies': ['db', 'cache']}, 'db': {'dependencies': ['cache']}, 'cache': {'dependencies': []}}

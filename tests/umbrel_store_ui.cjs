@@ -23,6 +23,13 @@ function fixture(extra={}){
  f=fixture();const input=f.scope.querySelector('[data-umbrel-search]');input.value='missing';f.doc.dispatch(input,'input');assert(f.scope.querySelector('[data-umbrel-card]').hidden);assert(!f.scope.querySelector('[data-umbrel-empty]').hidden);input.value='notes';f.doc.dispatch(input,'input');assert(!f.scope.querySelector('[data-umbrel-card]').hidden);ui.dispose();
  f=fixture();let finish;f.ctx.action=()=>new Promise(resolve=>finish=resolve);f.click('[data-umbrel-refresh]');ui.dispose();finish({ok:true});await settle();assert.equal(f.reloads,0);
  f=fixture({catalog:{apps:[],umbrel:{loaded:false,total:0}}});await settle();assert.equal(f.calls.length,1);assert.equal(f.calls[0][0],'app_store_refresh');assert.equal(f.reloads,1);ui.dispose();
+ // Password fields stay literal and retained installations may omit them.
+ for(const retained of [false,true]){
+  f=fixture({catalog:{apps:[{...app,retained_installation:retained,install_schema:[{key:'stack_umbrel_password',label:'App-Passwort',type:'password',min_length:12,max_length:1000}]}],umbrel:{loaded:true}}});
+  f.click('[data-umbrel-app]');await settle();assert(f.dialog);assert.match(f.dialog[1],/type="password"/);assert(!f.dialog[1].includes('value="undefined"'));
+  await f.dialog[2](new Map([['port','5230'],['storage_id','disk'],['stack_umbrel_password',retained?'':'literal-$-password']]));
+  assert.deepEqual(f.calls[0][1].options,retained?{}:{stack_umbrel_password:'literal-$-password'});ui.dispose();
+ }
  // One main search/category/installed filter covers both store sources.
  const mainUI=require('../titan/web/apps_center.js');
  f=fixture({demo:true,installed:{installed:[{id:'example',name:'Example'}]}});ui.dispose();

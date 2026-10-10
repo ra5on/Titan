@@ -241,6 +241,30 @@ def app_backup_restore_smoke(base, host, request, action, ready, app, installed,
             request('/api/backup/settings', previous_settings)
 
 
+def flatnotes_probe(port, options, *, create=False):
+    """Use the app's documented password login and real note API."""
+    origin='http://127.0.0.1:'+str(port)
+    for endpoint, payload in (('/api/auth-check',None),('/api/token',{'username':'admin','password':'intentionally-wrong'})):
+        try:
+            value=urllib.request.Request(origin+endpoint,data=json.dumps(payload).encode() if payload else None,
+                                         headers={'Content-Type':'application/json'})
+            with urllib.request.urlopen(value,timeout=15):pass
+        except urllib.error.HTTPError as response:
+            if response.code!=401:raise Error('Flatnotes rejected access with an unexpected status.')
+        else:raise Error('Flatnotes allowed unauthenticated access.')
+    login=urllib.request.Request(origin+'/api/token',data=json.dumps({'username':'admin',
+        'password':options['stack_umbrel_password']}).encode(),headers={'Content-Type':'application/json'})
+    with urllib.request.urlopen(login,timeout=15) as response:token=json.load(response)['access_token']
+    headers={'Content-Type':'application/json','Authorization':'Bearer '+token}
+    if create:
+        request=urllib.request.Request(origin+'/api/notes',headers=headers,
+            data=json.dumps({'title':'Titan-acceptance','content':'actual authenticated app data'}).encode())
+        with urllib.request.urlopen(request,timeout=15) as response:
+            if json.load(response)['content']!='actual authenticated app data':raise Error('Flatnotes note creation failed.')
+    request=urllib.request.Request(origin+'/api/notes/Titan-acceptance',headers=headers)
+    with urllib.request.urlopen(request,timeout=15) as response:return json.load(response)['content']
+
+
 def umbrel_app_backup(base, host, request, action, ready, app, installed, run, app_port):
     """Real catalog database, package update transaction and external restore."""
     import sqlite3
@@ -251,9 +275,17 @@ def umbrel_app_backup(base, host, request, action, ready, app, installed, run, a
         if path.is_file():
             with path.open('rb') as stream:
                 if stream.read(16) == b'SQLite format 3\x00': databases.append(path)
-    if len(databases) != 1: raise Error('Expected exactly one real catalog application database.')
-    database=databases[0]
+    flatnotes = app.endswith('-flatnotes')
+    if not flatnotes and len(databases) != 1: raise Error('Expected exactly one real catalog application database.')
+    if flatnotes:
+        notes=list(config.rglob('Titan-acceptance.md'))
+        if len(notes)!=1:raise Error('The authenticated note API did not create a persistent Markdown note.')
+        database=notes[0]
+    else:database=databases[0]
     def marker(value=None):
+        if flatnotes:
+            if value is not None:database.write_text(value)
+            return database.read_text()
         with contextlib.closing(sqlite3.connect(database)) as connection, connection:
             if connection.execute('pragma integrity_check').fetchone()[0] != 'ok':
                 raise Error('Catalog application database integrity failed.')
@@ -292,13 +324,15 @@ def umbrel_app_backup(base, host, request, action, ready, app, installed, run, a
             action('app_action',app=app,action='start');ready()
             with urllib.request.urlopen('http://127.0.0.1:'+str(app_port)+'/',timeout=15) as response:
                 if response.status != 200:raise Error('Restored app HTTP endpoint is unavailable.')
+            if flatnotes and flatnotes_probe(app_port,host._app_options(app))!='before-external-backup':
+                raise Error('Restored note was not readable through the authenticated application API.')
             action('app_action',app=app,action='remove')
             action('app_install',app=app,port=app_port);ready()
             action('app_action',app=app,action='stop')
             if marker()!='before-external-backup' or any(Path(path).read_bytes()!=raw for path,raw in seeded.items()):
                 raise Error('Reinstallation changed retained database or signing identity.')
             action('app_action',app=app,action='start');ready()
-            return {'external_ext4_target':True,'real_application_database_restored':True,
+            return {'external_ext4_target':True,'real_application_database_restored':not flatnotes,'authenticated_note_restore':flatnotes,
                 'same_image_update_transaction':True,'version_migration_verified':False,
                 'restore_kept_stopped':True,'restored_http_ready':True,'reinstallation_preserves_data':True,
                 'seeded_configuration_preserved':True}
@@ -435,7 +469,7 @@ def check_cloudflared_api(url, credentials=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('package', choices=['titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
+    parser.add_argument('package', choices=['titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick', 'umbrel:flatnotes', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
     parser.add_argument('--umbrel-revision', type=bigbear_revision, metavar='SHA')
     parser.add_argument('--bigbear-revision', type=bigbear_revision, metavar='SHA',
@@ -452,7 +486,7 @@ def main():
     cloudflared_web = args.package == 'bigbear:cloudflared-web'
     if args.cloudflared_auth is not None and not cloudflared_web:
         parser.error('--cloudflared-auth requires bigbear:cloudflared-web.')
-    if args.app_backup_smoke and args.package not in ('bigbear:nextcloud', 'titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick'):
+    if args.app_backup_smoke and args.package not in ('bigbear:nextcloud', 'titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick', 'umbrel:flatnotes'):
         parser.error('--app-backup-smoke requires an app with a defined database acceptance check.')
     cloudflared_auth = args.cloudflared_auth or 'disabled'
     if not args.confirm_disposable_runner or os.environ.get('GITHUB_ACTIONS') != 'true':
@@ -770,6 +804,8 @@ def main():
             ready()
             check_native_dns()
             check_cloudflared_lan()
+            if args.package == 'umbrel:flatnotes':
+                flatnotes_probe(app_port, options, create=True)
             keep = Path(installed['data']) / 'titan-smoke-retained.txt'
             keep.write_text('persistent-user-data')
             private = host.directory / 'apps' / app / 'options.json'
