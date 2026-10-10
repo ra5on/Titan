@@ -84,6 +84,10 @@ def main():
             if request('/',cookie=cookie)[0]!=401:raise Error('Logout did not revoke app access.')
             print(json.dumps({'ok':True,'app':'bentopdf','revision':args.revision,'scope':'actual-catalog-app-gateway',
                 'checks':['compose-valid','unauthenticated-denied','single-use-handoff','actual-html','backend-not-published','logout-revoked']}))
+        except Exception:
+            print(docker('ps','--all'),file=sys.stderr)
+            print(docker('logs','--no-color','--tail','60',app),file=sys.stderr)
+            raise
         finally:
             server.shutdown();server.server_close()
             try:docker('down','--remove-orphans')
