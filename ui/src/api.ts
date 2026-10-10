@@ -202,3 +202,32 @@ export async function uploadFile(share: string, path: string, file: File, onProg
     throw error;
   }
 }
+
+const ISO_CHUNK = 1024 * 1024;
+export const ISO_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,120}\.iso$/;
+
+function base64(buffer: ArrayBuffer) {
+  const data = new Uint8Array(buffer);
+  let text = '';
+  for (let index = 0; index < data.length; index += 0x8000) text += String.fromCharCode(...data.subarray(index, index + 0x8000));
+  return btoa(text);
+}
+
+/** Upload an installer ISO into the VM library in the agent's 1 MiB block protocol. */
+export async function uploadIso(file: File, onProgress: (fraction: number) => void, signal: AbortSignal) {
+  let offset = 0;
+  let upload_id: string | undefined;
+  try {
+    while (offset < file.size) {
+      if (signal.aborted) throw new ApiError('Upload abgebrochen.', 499);
+      const data = base64(await file.slice(offset, offset + ISO_CHUNK).arrayBuffer());
+      const result = await post<{ offset: number; upload_id?: string }>('/api/isos', { name: file.name, offset, total: file.size, data, ...(upload_id ? { upload_id } : {}) });
+      offset = result.offset;
+      upload_id = result.upload_id || upload_id;
+      onProgress(offset / file.size);
+    }
+  } catch (error) {
+    if (upload_id) await post('/api/isos/cancel', { upload_id }).catch(() => undefined);
+    throw error;
+  }
+}

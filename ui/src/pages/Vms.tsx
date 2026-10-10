@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { MonitorPlay, Plus, Power, PowerOff, RotateCw, Play, Trash2, Zap } from 'lucide-react';
-import { action } from '../api';
+import { Disc3, MonitorPlay, Plus, Power, PowerOff, RotateCw, Play, Trash2, X, Zap } from 'lucide-react';
+import { ISO_NAME, action, uploadIso } from '../api';
 import type { Vm, VmList, VmOptions } from '../api';
 import { bytes, message, useApi } from '../lib';
-import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Modal, Notice, Select, Sheet, StateDot, useToast } from '../ui';
+import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Meter, Modal, Notice, Select, Sheet, StateDot, useToast } from '../ui';
 
 const STATES: Record<string, string> = { running: 'Läuft', 'shut off': 'Aus', paused: 'Pausiert', 'in shutdown': 'Fährt herunter', crashed: 'Abgestürzt' };
 
@@ -55,8 +55,7 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
         <Notice>{options.error || 'VM-Optionen nicht verfügbar.'}</Notice>
       ) : !sources.length ? (
         <Notice tone="info">
-          Für eine neue VM wird ein ISO-Abbild oder ein Laufwerksimage benötigt. Lade zuerst ein ISO in der{' '}
-          <a href="/classic#vms" target="_blank" rel="noreferrer" className="underline">erweiterten VM-Verwaltung</a> hoch.
+          Für eine neue VM wird ein ISO-Abbild oder ein Laufwerksimage benötigt. Lade zuerst über „ISO hochladen“ ein Installationsmedium hoch.
         </Notice>
       ) : (
         <form onSubmit={submit} className="space-y-4">
@@ -74,7 +73,7 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <Input type="number" min={8} value={form.disk} onChange={set('disk')} required />
             </Field>
           </div>
-          <Field label="Startmedium" help="Weitere ISO-Abbilder lädst du in der erweiterten VM-Verwaltung hoch.">
+          <Field label="Startmedium" help="Weitere Installationsmedien fügst du über „ISO hochladen“ hinzu.">
             <Select value={form.source || sources[0].value} onChange={set('source')}>
               {['ISO-Abbilder', 'Laufwerksimages'].map(group => {
                 const items = sources.filter(item => item.group === group);
@@ -226,7 +225,28 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
 
 export function Vms() {
   const vms = useApi<VmList>('/api/vms', 5000);
+  const toast = useToast();
   const [creating, setCreating] = useState(false);
+  const [iso, setIso] = useState<{ name: string; fraction: number } | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const abort = useRef<AbortController | null>(null);
+
+  const startIso = async (file: File | undefined) => {
+    if (!file || iso) return;
+    if (!ISO_NAME.test(file.name) || !file.size) return toast('Eine nicht leere .iso-Datei mit einfachem Namen wählen (Buchstaben, Ziffern, Punkt, - und _).', true);
+    const controller = new AbortController();
+    abort.current = controller;
+    setIso({ name: file.name, fraction: 0 });
+    try {
+      await uploadIso(file, fraction => setIso({ name: file.name, fraction }), controller.signal);
+      toast(file.name + ' steht als Startmedium bereit.');
+    } catch (reason) {
+      toast(message(reason), true);
+    } finally {
+      abort.current = null;
+      setIso(null);
+    }
+  };
   const available = vms.data?.available;
 
   return (
@@ -238,12 +258,40 @@ export function Vms() {
           <Button size="sm" variant="ghost" onClick={() => window.open('/classic#vms', '_blank', 'noopener')}>
             Erweiterte Verwaltung
           </Button>
+          <Button size="sm" disabled={!available || Boolean(iso)} onClick={() => picker.current?.click()}>
+            <Disc3 className="size-4" /> ISO hochladen
+          </Button>
+          <input
+            ref={picker}
+            type="file"
+            accept=".iso"
+            hidden
+            onChange={event => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              void startIso(file);
+            }}
+          />
           <Button size="sm" variant="primary" disabled={!available} onClick={() => setCreating(true)}>
             <Plus className="size-4" /> Neue VM
           </Button>
         </>
       }
     >
+      {iso && (
+        <div className="glass-soft mb-4 flex items-center gap-3 rounded-xl px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1.5 flex justify-between gap-3 text-xs text-white/70">
+              <span className="truncate">{iso.name}</span>
+              <span className="shrink-0 tabular-nums">{Math.round(iso.fraction * 100)} %</span>
+            </div>
+            <Meter value={iso.fraction * 100} tone="ok" />
+          </div>
+          <IconButton label="ISO-Upload abbrechen" onClick={() => abort.current?.abort()}>
+            <X className="size-4" />
+          </IconButton>
+        </div>
+      )}
       {vms.loading ? (
         <Loading />
       ) : vms.error && !vms.data ? (

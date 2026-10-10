@@ -51,6 +51,14 @@ test('virtual machines can be created and controlled', async ({ page }) => {
   await page.keyboard.press('Escape');
 });
 
+test('an uploaded ISO becomes a boot source for new VMs', async ({ page }) => {
+  await page.goto('/#/vms');
+  await page.locator('input[type=file]').setInputFiles({ name: 'e2e-installer.iso', mimeType: 'application/octet-stream', buffer: Buffer.alloc(3 * 1024 * 1024 + 17, 7) });
+  await expect(page.getByText('e2e-installer.iso steht als Startmedium bereit.')).toBeVisible();
+  await page.getByRole('button', { name: 'Neue VM' }).click();
+  await expect(page.getByRole('dialog').getByRole('option', { name: 'e2e-installer.iso' })).toBeAttached();
+});
+
 test('settings sections load their data', async ({ page }) => {
   await page.goto('/#/settings');
   await expect(page.getByText('Laufzeit')).toBeVisible();
