@@ -22,6 +22,7 @@ cd ui
 npm ci
 npm run dev      # http://localhost:5173, leitet /api an die Demo auf Port 5089 weiter
 npm run build    # schreibt titan/ui; das Ergebnis mit committen
+npm run e2e      # Browsertests gegen die Demo (Linux; unter Windows ohne Dateitest)
 ```
 
 Der Server liefert `/` aus `titan/ui/` aus. Gemeinsame Dateien (App-Symbole, Hintergründe, VM-Konsole) und die bisherige Oberfläche unter `/classic` kommen weiter aus `titan/web/`.

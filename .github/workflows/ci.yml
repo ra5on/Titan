@@ -26,14 +26,21 @@ jobs:
           for task_test in tests/*.cjs; do node "$task_test"; done
   interface:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
+      - name: Demo server dependency
+        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml
       - name: Type-check and build the interface
         working-directory: ui
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: Browser checks against the demo server
+        working-directory: ui
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e
   reset-obsolete-history:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Initialize Titan eigenbau with BigBear stacks'
     needs: verify

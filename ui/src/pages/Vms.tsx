@@ -11,14 +11,21 @@ const STATES: Record<string, string> = { running: 'Läuft', 'shut off': 'Aus', p
 function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const toast = useToast();
   const options = useApi<VmOptions>('/api/vm-options');
-  const [form, setForm] = useState({ name: '', cpus: '2', memory: '4', disk: '32', iso: '', storage: '', firmware: '' });
+  const [form, setForm] = useState({ name: '', cpus: '2', memory: '4', disk: '32', source: '', storage: '', firmware: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const set = (key: keyof typeof form) => (event: { target: { value: string } }) => setForm({ ...form, [key]: event.target.value });
 
+  // The agent needs a boot source: an installer ISO or an existing disk image.
+  const sources = [
+    ...(options.data?.isos || []).map(iso => ({ value: 'iso:' + iso, label: iso, group: 'ISO-Abbilder' })),
+    ...(options.data?.disk_images || []).map(image => ({ value: 'image:' + image.id, label: image.name + ' · ' + bytes(image.virtual_size), group: 'Laufwerksimages' })),
+  ];
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!options.data) return;
+    const source = form.source || sources[0]?.value || '';
     setBusy(true);
     setError('');
     try {
@@ -27,7 +34,7 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
         cpus: Number(form.cpus),
         memory_mb: Math.round(Number(form.memory) * 1024),
         disk_gb: Number(form.disk),
-        iso: form.iso || null,
+        ...(source.startsWith('iso:') ? { iso: source.slice(4) } : { iso: null, disk_image: source.slice(6) }),
         storage: form.storage || options.data.default_storage,
         firmware: form.firmware || options.data.firmwares[0] || 'bios',
       });
@@ -46,6 +53,11 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
         <Loading />
       ) : options.error || !options.data ? (
         <Notice>{options.error || 'VM-Optionen nicht verfügbar.'}</Notice>
+      ) : !sources.length ? (
+        <Notice tone="info">
+          Für eine neue VM wird ein ISO-Abbild oder ein Laufwerksimage benötigt. Lade zuerst ein ISO in der{' '}
+          <a href="/classic#vms" target="_blank" rel="noreferrer" className="underline">erweiterten VM-Verwaltung</a> hoch.
+        </Notice>
       ) : (
         <form onSubmit={submit} className="space-y-4">
           <Field label="Name">
@@ -59,15 +71,21 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <Input type="number" min={0.5} step={0.5} value={form.memory} onChange={set('memory')} required />
             </Field>
             <Field label="Disk (GiB)">
-              <Input type="number" min={1} value={form.disk} onChange={set('disk')} required />
+              <Input type="number" min={8} value={form.disk} onChange={set('disk')} required />
             </Field>
           </div>
-          <Field label="Installationsmedium" help="ISO-Abbilder lädst du in der klassischen VM-Verwaltung hoch.">
-            <Select value={form.iso} onChange={set('iso')}>
-              <option value="">Ohne ISO starten</option>
-              {options.data.isos.map(iso => (
-                <option key={iso} value={iso}>{iso}</option>
-              ))}
+          <Field label="Startmedium" help="Weitere ISO-Abbilder lädst du in der erweiterten VM-Verwaltung hoch.">
+            <Select value={form.source || sources[0].value} onChange={set('source')}>
+              {['ISO-Abbilder', 'Laufwerksimages'].map(group => {
+                const items = sources.filter(item => item.group === group);
+                return items.length ? (
+                  <optgroup key={group} label={group}>
+                    {items.map(item => (
+                      <option key={item.value} value={item.value}>{item.label}</option>
+                    ))}
+                  </optgroup>
+                ) : null;
+              })}
             </Select>
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">

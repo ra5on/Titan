@@ -96,6 +96,7 @@ export type VmOptions = {
   storage: { id: string; label: string; available: boolean; free_bytes: number }[];
   default_storage: string;
   isos: string[];
+  disk_images: { id: string; name: string; virtual_size: number }[];
   firmwares: string[];
 };
 
