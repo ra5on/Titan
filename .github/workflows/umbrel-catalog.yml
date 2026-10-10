@@ -3,8 +3,15 @@ on:
   push:
     branches: [codex/recovery-unified-updates]
     paths:
-      - 'titan/umbrel_catalog.py'
-      - 'tests/test_umbrel_catalog.py'
+      - 'titan/umbrel*.py'
+      - 'titan/host.py'
+      - 'titan/app_stores.py'
+      - 'titan/catalog.py'
+      - 'titan/store_recipes.py'
+      - 'titan/compose_templates.py'
+      - 'titan/package_center.py'
+      - 'scripts/smoke-app-packages.py'
+      - 'tests/test_umbrel*.py'
       - 'scripts/*umbrel-catalog.py'
       - '.github/workflows/umbrel-catalog.yml'
   workflow_dispatch:
@@ -23,7 +30,7 @@ jobs:
       - name: Install parser
         run: sudo apt-get update && sudo apt-get install -y python3-yaml
       - name: Parser and deployment regressions
-        run: python3 -m unittest discover -s tests -p test_umbrel_catalog.py -v
+        run: python3 -m unittest discover -s tests -p 'test_umbrel*.py' -v
       - name: Account for every upstream package
         run: python3 scripts/audit-umbrel-catalog.py --revision "$UMBREL_REVISION" --output umbrel-coverage.json
       - uses: actions/upload-artifact@v6.0.0
