@@ -20,5 +20,23 @@ function fixture(extra={}){
  for(const extra of [{admin:false},{demo:true}]){f=fixture(extra);assert(f.scope.querySelector('[data-umbrel-refresh]').disabled);f.click('[data-umbrel-app]');await settle();assert.equal(f.requests.length,0);ui.dispose();}
  f=fixture();const input=f.scope.querySelector('[data-umbrel-search]');input.value='missing';f.doc.dispatch(input,'input');assert(f.scope.querySelector('[data-umbrel-card]').hidden);assert(!f.scope.querySelector('[data-umbrel-empty]').hidden);input.value='notes';f.doc.dispatch(input,'input');assert(!f.scope.querySelector('[data-umbrel-card]').hidden);ui.dispose();
  f=fixture();let finish;f.ctx.action=()=>new Promise(resolve=>finish=resolve);f.click('[data-umbrel-refresh]');ui.dispose();finish({ok:true});await settle();assert.equal(f.reloads,0);
+ // One main search/category/installed filter covers both store sources.
+ const mainUI=require('../titan/web/apps_center.js');
+ f=fixture({demo:true,installed:{installed:[{id:'example',name:'Example'}]}});ui.dispose();
+ const context={...f.context,integrated:true};
+ f.scope.innerHTML=mainUI.render(context)+ui.render(context);
+ mainUI.mount(f.scope,{admin:true,demo:true});ui.mount(f.scope,f.ctx);
+ assert.equal(f.scope.querySelector('[data-umbrel-search]'),null);
+ assert.equal(f.scope.querySelectorAll('[data-store-card="example"]').length,1,'Installed catalog app is not duplicated');
+ const sharedSearch=f.scope.querySelector('[data-store-search]');sharedSearch.value='private notes';f.doc.dispatch(sharedSearch,'input');
+ assert.equal(f.scope.querySelector('[data-store-result]').textContent,'1 App');
+ assert.equal(f.scope.querySelector('[data-umbrel-card]').hidden,false);
+ sharedSearch.value='';f.doc.dispatch(sharedSearch,'input');
+ f.doc.dispatch(f.scope.querySelector('[data-store-category="network"]'),'click');
+ assert.equal(f.scope.querySelector('[data-umbrel-card]').hidden,true);
+ f.doc.dispatch(f.scope.querySelector('[data-store-category="installed"]'),'click');
+ assert.equal(f.scope.querySelector('[data-umbrel-card]').hidden,false);
+ assert.equal(f.scope.querySelector('[data-store-result]').textContent,'1 App');
+ mainUI.dispose();ui.dispose();
  console.log('Umbrel storefront: escaping, refresh, installation, management, permissions, search and disposal passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

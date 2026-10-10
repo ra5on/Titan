@@ -316,7 +316,7 @@ const pages = {
   const admin=session.user.role==='admin';
   const [catalog,installed,installation]=await Promise.all([api('/api/catalog'),api('/api/apps'),admin?api('/api/app-install?app=titan-cloudflared'):Promise.resolve(null)]);
   catalogData=catalog.apps;installedRecipes=catalog.installed_recipes||[];
-  return window.TitanAppsCenter.render({catalog,installed,installation,admin,demo:session.demo})+(window.TitanUmbrelStore?.render({catalog,installed,admin,demo:session.demo})||'');
+  return window.TitanAppsCenter.render({catalog,installed,installation,admin,demo:session.demo})+(window.TitanUmbrelStore?.render({catalog,installed,admin,demo:session.demo,integrated:true})||'');
  },
  async docker() {
   return '<div data-docker-workbench></div>';

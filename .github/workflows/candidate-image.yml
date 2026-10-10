@@ -1,0 +1,71 @@
+name: Unpublished NAS image acceptance
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/recovery-unified-updates]
+    paths: ['.github/workflows/candidate-image.yml']
+permissions:
+  contents: read
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      TITAN_SYSTEM_VERSION: 0.7.0
+      TITAN_UPDATE_ONLY: 'false'
+      TITAN_INITIAL_IMAGE: 'true'
+      TITAN_UPDATE_KIND: titan
+      TITAN_APP_VERSION: 0.7.0
+      TITAN_APP_STAGE: stable
+      TITAN_APP_SOURCE_COMMIT: ${{ github.sha }}
+      TITAN_BUILD_SOURCE_COMMIT: ${{ github.sha }}
+      TITAN_SYSTEM_REVISION: '1'
+      TITAN_PREVIOUS_TAG: ''
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare disposable system builder
+        run: |
+          bash scripts/ci-ubuntu-dependencies.sh --no-install-recommends libguestfs-tools qemu-system-x86 qemu-utils ovmf xz-utils smbclient rauc grub2-common python3-yaml
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 remove -y passt
+          sudo chmod a+r /boot/vmlinuz-*
+          if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
+      - name: Current builder and API regression tests
+        run: |
+          env -u TITAN_INITIAL_IMAGE -u TITAN_UPDATE_KIND -u TITAN_PREVIOUS_TAG -u TITAN_APP_VERSION -u TITAN_APP_STAGE -u TITAN_APP_SOURCE_COMMIT -u TITAN_BUILD_SOURCE_COMMIT -u TITAN_SYSTEM_REVISION -u TITAN_APP_SOURCE_ROOT python3 -m unittest discover -s tests
+          for task_script in image/debian/ab/*.sh scripts/*.sh; do bash -n "$task_script"; done
+      - name: JavaScript and UI regression tests
+        run: |
+          for task_js in titan/web/*.js; do node --check "$task_js"; done
+          for task_test in tests/*.cjs; do node "$task_test"; done
+      - name: Bind exact application and OS builder identities
+        run: |
+          task_app_root=.
+          if [[ "$TITAN_UPDATE_KIND" == system ]]; then task_app_root=dist/titan-frozen-source; fi
+          python3 scripts/prepare-system-build.py --app-root "$task_app_root"
+      - name: Prepare signing identity
+        env:
+          TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}
+        run: bash scripts/prepare-system-signing.sh
+      - name: Build signed Debian system in new regular image files
+        run: bash scripts/build-debian-ab-image.sh --disposable-runner
+      - name: Boot, HTTPS, UEFI, VNC and complete runtime checks
+        run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
+      - name: Update, rollback and boot health on disposable overlays
+        run: python3 scripts/smoke-debian-ab.py "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" --confirm-disposable-guest
+      - name: Remove private signing material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/titan-signing"
+      - uses: actions/upload-artifact@v6.0.0
+        if: always()
+        with:
+          name: unpublished-image-diagnostics
+          path: |
+            dist/debian-image/boot-status
+            dist/debian-image/boot-console.log
+            dist/debian-image/boot-http-error.txt
+            dist/debian-image/runtime-test.json
+            dist/debian-image/ab-test.json
+            dist/debian-image/ab-console.log
+          retention-days: 7
