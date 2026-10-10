@@ -1,5 +1,42 @@
 # Titan 0.8.0: Wiederherstellung und einfache Updates
 
+## Erweiterter Auftrag: vollständige Stable-Veröffentlichung
+
+Der Nutzer hat am 10. Oktober 2026 das Veröffentlichungsziel auf eine direkt
+nutzbare Stable-Version konkretisiert. Die folgende Erweiterung ist ein
+Abnahmeauftrag, keine Aussage über bereits erreichte Funktionsgleichheit.
+Die älteren Prüfberichte unten gelten ausschließlich für ihre genannten Stände.
+
+- Funktionsumfang und Bedienabläufe orientieren sich am verlinkten TitanOS
+  (https://github.com/ra5on/TitanOS), einschließlich Speicher- und VM-Verwaltung.
+  Login, Desktop und VM-Darstellung werden eigenständig gestaltet und umgesetzt.
+  Das Ändern der Oberfläche hebt keine Lizenzpflicht für übernommenen Backend-Code auf.
+- QCOW2 muss unmittelbar als VM-Bootplatte importierbar sein, per Upload und
+  Auswahl vom NAS, ohne manuelle Konvertierung. Abnahme: ein echtes Gastbetriebssystem
+  starten, Konsole bedienen, herunterfahren und nach Hostneustart wieder starten;
+  defekte Images und nicht auflösbare externe Backing-Dateien sicher behandeln.
+- Der gewünschte vollständige Appstore ersetzt den bisherigen begrenzten Katalog.
+  Der Nutzer hat den Umbrel-Katalog mit eigener Titan-Oberfläche gewählt und
+  die Umsetzung ausdrücklich beauftragt. Umbrels Store-Oberfläche wird nicht übernommen.
+  Installation, Erreichbarkeit, Persistenz, Updates, Fehlerbehandlung und
+  Deinstallation mit klarer Entscheidung über Nutzdaten müssen abgenommen werden.
+- Ein gemeinsamer Update-Button bleibt erhalten; Veröffentlichungen kommen
+  weiterhin über den eigenen GitHub-Kanal. Signaturprüfung, tatsächlicher Wechsel,
+  Neustart, Bootbestätigung und Rückfall müssen mit veröffentlichten Artefakten
+  geprüft werden.
+- Vollständige Wiederherstellung auf getrennten Ersatzdatenträgern bleibt Pflicht:
+  Konten, Freigaben und Rechte, App-Datenbanken und VM-Platten nach Restore praktisch
+  verwenden; Unterbrechung und Wiederaufnahme prüfen. Ein Rettungsplan allein ist
+  keine Datensicherung.
+
+Vor der Stable-Freigabe benötigt jeder zugesagte Bereich einen nachvollziehbaren
+Nachweis für denselben Release-Kandidaten. Offene Kernfunktionen, fehlgeschlagene
+oder übersprungene Pflichtprüfungen sperren die Veröffentlichung als Stable.
+Quelltests, Image-/VM-Laufzeittests und physische Hardwareprüfungen werden getrennt
+ausgewiesen. Dokumentierte Hardwaregrenzen bleiben auch bei einer Stable-Version
+bestehen. Kein Beta-Etikett ersetzt die Fertigstellung; umgekehrt ersetzt das
+Stable-Etikett keine erfolgreiche Abnahme.
+
 Arbeitsbasis: 0.7.0, `e0b8a80`. Nutzerauftrag vom 10. Oktober 2026:
 Ersatzhardware-Wiederherstellung und ein gemeinsamer Update-Button. Keine USV
 vorhanden; USV-Hardwareabnahme ist keine Voraussetzung dieses Auftrags.

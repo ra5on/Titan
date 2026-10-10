@@ -1,0 +1,53 @@
+name: Umbrel catalog compatibility
+on:
+  push:
+    branches: [codex/recovery-unified-updates]
+    paths:
+      - 'titan/umbrel_catalog.py'
+      - 'tests/test_umbrel_catalog.py'
+      - 'scripts/*umbrel-catalog.py'
+      - '.github/workflows/umbrel-catalog.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  UMBREL_REVISION: aa3c4e9fba032796d15ec09dc1a217aa6566ce8f
+jobs:
+  catalog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install parser
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+      - name: Parser and deployment regressions
+        run: python3 -m unittest discover -s tests -p test_umbrel_catalog.py -v
+      - name: Account for every upstream package
+        run: python3 scripts/audit-umbrel-catalog.py --revision "$UMBREL_REVISION" --output umbrel-coverage.json
+      - uses: actions/upload-artifact@v6.0.0
+        with:
+          name: umbrel-coverage
+          path: umbrel-coverage.json
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [memos, uptime-kuma]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install parser
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+      - name: Install, reach, stop and recreate actual app containers
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-umbrel-catalog.py '${{ matrix.app }}' --revision "$UMBREL_REVISION" --confirm-disposable-runner --output "$GITHUB_WORKSPACE/umbrel-runtime.json"
+      - uses: actions/upload-artifact@v6.0.0
+        if: always()
+        with:
+          name: umbrel-runtime-${{ matrix.app }}
+          path: umbrel-runtime.json
+          if-no-files-found: warn
