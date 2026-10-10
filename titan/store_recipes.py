@@ -20,7 +20,7 @@ def recipes(document, source):
     result = {}
     prefix = 's' + hashlib.sha256(source.encode()).hexdigest()[:10] + '-'
     for item in document['apps']:
-        allowed = {'id', 'name', 'version', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip'}
+        allowed = {'id', 'name', 'version', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip','seed_files'}
         required = {'id', 'name', 'description', 'image', 'port', 'documentation', 'login_note'}
         if not isinstance(item, dict) or set(item) - allowed or required - set(item):
             raise Error('App enthält fehlende oder nicht unterstützte Felder.')
@@ -84,6 +84,8 @@ def recipes(document, source):
             fields.append({'key': f'setting_{index}', 'label': text(entry['label'], 80), 'env': entry['env'],
                            'type': 'password' if entry['secret'] else 'text', 'default': default,
                            'min_length': 1 if entry['secret'] else 0, 'max_length': 1000, 'required': True})
+        if 'seed_files' in item and 'stack' not in item:
+            raise Error('Paketdateien benötigen einen Containerverbund.')
         stack_extra = {}
         if 'stack' in item:
             from .compose_templates import validate_stack
@@ -112,6 +114,13 @@ def recipes(document, source):
                 if mapping.get('host_ip'):
                     from .compose_templates import host_ip
                     host_ip(mapping['host_ip'])
+            if 'seed_files' in item:
+                from .umbrel_files import validate
+                validate(item['seed_files'])
+                mounts = {mount['slot'] for service in item['stack']['services'].values() for mount in service.get('mounts', [])}
+                if any(row['slot'] not in mounts for row in item['seed_files']):
+                    raise Error('Paketdatei benötigt einen zugehörigen App-Speicher.')
+                stack_extra['seed_files'] = item['seed_files']
             fields.extend(stack_fields);extra.extend(ports)
         result[identifier] = {'name': text(item['name'], 80), **({'version': text(item['version'], 80)} if 'version' in item else {}), 'description': text(item['description'], 500),
             'image': image, 'port': port, 'scheme': scheme, 'default_port': integer(item.get('default_port', max(port, 8080) if web_available else 0), 1024 if web_available else 0, 65535 if web_available else 0),

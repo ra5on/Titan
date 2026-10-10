@@ -963,6 +963,10 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         from .app_memory import check_install_memory
         memory = check_install_memory(app, options, self._app_inspected_containers(rows))
         record["memory_plan"] = memory["plan"]
+        from .umbrel_files import validate as validate_seeds, install as install_seeds
+        seeds = APPS[app].get('seed_files', [])
+        validate_seeds(seeds)
+        file_slots = {row['slot'] for row in seeds if not row['path']}
         # Pin the chosen filesystem while creating the complete package tree.
         # No mkdir is allowed to manufacture an offline pool on the system disk.
         with self.storage_locations.fd(storage_id, purpose="apps", create=True, write=True):
@@ -976,6 +980,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 for binding in service["volumes"]:
                     source = Path(binding["source"])
                     if source.is_relative_to(config) and source != config:
+                        if source.parent == config and source.name in file_slots:
+                            continue
                         mount_owner = owner
                         user = service.get('user')
                         if user:
@@ -983,6 +989,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                             parts = user.split(':')
                             mount_owner = SimpleNamespace(pw_uid=int(parts[0]), pw_gid=int(parts[-1]))
                         self._app_directory(source, Path(resource["path"]), mount_owner)
+            install_seeds(config, seeds, proposed, owner.pw_uid, owner.pw_gid)
         atomic_json(path / "options.json", options)
         atomic_json(path / "compose.json", compose(app, str(path), owner.pw_uid, owner.pw_gid, port, str(data), options, network, record.get("hardware"), config_path=record.get("config_path")))
         if (APPS[app].get("titan_package") or APPS[app].get("imported_stack")):

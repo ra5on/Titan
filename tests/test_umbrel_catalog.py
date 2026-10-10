@@ -61,8 +61,7 @@ class CatalogTests(unittest.TestCase):
     def test_required_hooks_and_files_cannot_disappear(self):
         for path, value, code in [('hooks/pre-start', 'exit 0', 'package_steps'),
                 ('exports.sh', 'export VALUE=1', 'package_steps'),
-                ('data/config.json', '{}', 'package_files'),
-                ('data/.gitkeep', 'not empty', 'package_files')]:
+                ('unmounted/config.json', '{}', 'package_files')]:
             with self.subTest(path=path):
                 files = package(); files['example/' + path] = value
                 document, blocked = compile_inventory(archive_inventory(archive(files), REVISION))

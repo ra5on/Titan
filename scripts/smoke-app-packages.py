@@ -370,7 +370,7 @@ def check_cloudflared_api(url, credentials=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('package', choices=['titan-ci-compose-fixture', 'umbrel:memos', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
+    parser.add_argument('package', choices=['titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
     parser.add_argument('--umbrel-revision', type=bigbear_revision, metavar='SHA')
     parser.add_argument('--bigbear-revision', type=bigbear_revision, metavar='SHA',
@@ -580,6 +580,11 @@ def main():
             definition = json.loads(config.read_text())
             ready()
             installed = next(row for row in host.load('apps', []) if row['id'] == app)
+            if args.package == 'umbrel:donetick':
+                import yaml
+                seeded_path = next(Path(installed['config_path']).rglob('selfhosted.yaml'))
+                if not re.fullmatch(r'[a-f0-9]{64}', yaml.safe_load(seeded_path.read_bytes())['jwt']['secret']):
+                    raise Error('The HTTP installer did not personalize the seeded signing identity.')
             actual_options = host._app_options(app)
             # Generated secrets on the real install are retained across retries;
             # use these exact private values for the separate Office roundtrip.

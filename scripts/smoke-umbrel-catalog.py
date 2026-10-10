@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import sqlite3
@@ -26,7 +27,7 @@ from titan.umbrel_catalog import URL, compile_inventory, fetch_inventory
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('app', choices=['memos', 'uptime-kuma'])
+    parser.add_argument('app', choices=['memos', 'uptime-kuma', 'donetick'])
     parser.add_argument('--revision', required=True)
     parser.add_argument('--confirm-disposable-runner', action='store_true')
     parser.add_argument('--output', type=Path, required=True)
@@ -69,6 +70,15 @@ def main():
                 directory.mkdir(parents=True, exist_ok=True)
                 uid, gid = (service.get('user') or '1000:1000').split(':')
                 os.chown(directory, int(uid), int(gid))
+        from titan.umbrel_files import install as install_seeds
+        install_seeds(root/'private', recipe.get('seed_files', []), definition, 1000, 1000)
+        if args.app == 'donetick':
+            import yaml
+            seeded_config = next((root/'private').rglob('selfhosted.yaml'))
+            personalized = yaml.safe_load(seeded_config.read_bytes())['jwt']['secret']
+            if not re.fullmatch(r'[a-f0-9]{64}', personalized):
+                raise RuntimeError('Donetick must have a private generated signing key.')
+            checks.append('seeded-private-configuration')
         path.write_text(json.dumps(definition))
         os.chmod(path, 0o600)
         docker('config', '--quiet')

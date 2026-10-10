@@ -5,6 +5,7 @@ pinned inventory accounts for every manifest, including packages requiring
 additional runtime support; those must never become installable by omission.
 """
 import copy
+import base64
 import hashlib
 import io
 import json
@@ -141,7 +142,9 @@ def archive_inventory(raw, revision):
                 if compose_path not in files or files[compose_path].file_size > 256 * 1024:
                     raise Error('Compose-Datei fehlt oder ist zu groß: ' + name)
                 compose = read_yaml(archive.read(files[compose_path]))
-                assets = {p[len(name)+1:]: {'size': item.file_size, 'sha256': hashlib.sha256(archive.read(item)).hexdigest()}
+                assets = {p[len(name)+1:]: {'size': item.file_size, 'sha256': hashlib.sha256(archive.read(item)).hexdigest(),
+                          'content': base64.b64encode(archive.read(item)).decode('ascii'),
+                          'mode': 0o755 if (item.external_attr >> 16) & 0o111 else 0o644}
                           for p, item in files.items() if p.startswith(name + '/')}
                 packages[name] = {'metadata': metadata, 'compose': compose, 'dependencies': dependencies, 'files': assets}
             if not 1 <= len(packages) <= 1000:
@@ -180,8 +183,6 @@ def translate(package, name):
     assets = [p for p, info in package['files'].items()
               if p not in ('umbrel-app.yml', 'docker-compose.yml')
               and not (p.endswith('/.gitkeep') and info['size'] == 0)]
-    if assets:
-        raise UnsupportedTemplate('App benötigt zusätzliche Paketdateien.', 'package_files')
     document = copy.deepcopy(package['compose'])
     if set(document) - {'version', 'name', 'services', 'volumes', 'networks'}:
         raise UnsupportedTemplate('Zusätzliche Compose-Funktionen erforderlich.', 'compose_features')
@@ -251,6 +252,26 @@ def translate(package, name):
             mount['slot'] = 'umbrel-' + hashlib.sha256(source.encode()).hexdigest()[:20]
     if any(a != b and (a == '.' or b.startswith(a + '/')) for a in sources for b in sources):
         raise UnsupportedTemplate('Verschachtelte App-Verzeichnisse benötigen eine gemeinsame Speicherabbildung.', 'nested_mounts')
+    if assets:
+        from .umbrel_files import validate
+        seeded = []
+        for path in assets:
+            owners = [source for source in sources if path == source or path.startswith(source + '/')]
+            if len(set(owners)) != 1:
+                raise UnsupportedTemplate('Paketdatei gehört nicht zu genau einem App-Speicher: ' + path, 'package_files')
+            source = owners[0]; info = package['files'][path]
+            if 'content' not in info:
+                raise UnsupportedTemplate('Paketdatei fehlt im gespeicherten Katalog. Katalog erneut laden.', 'package_files')
+            seeded.append({'slot': 'umbrel-' + hashlib.sha256(source.encode()).hexdigest()[:20],
+                           'path': path[len(source):].lstrip('/'),
+                           'sha256': info['sha256'], 'content': info['content'], 'mode': info.get('mode', 0o644)})
+        # This upstream default is public. Give each fresh Donetick instance
+        # its own signing identity; retained config is never rewritten.
+        for row in seeded:
+            if name == 'donetick' and row['path'] == 'selfhosted.yaml':
+                row['personalize'] = 'yaml-jwt-secret'
+        validate(seeded)
+        result['seed_files'] = seeded
     if any(field['type'] != 'number' for field in result['stack_fields']):
         raise UnsupportedTemplate('App benötigt automatisch verwaltete Zugangsdaten.', 'credentials')
     result.update(version=line(meta.get('version') or 'unbekannt', 80), category=line(meta.get('category', 'Apps'), 80),
