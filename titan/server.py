@@ -248,27 +248,25 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
     def updater_tick(self):
         if self.unified_updates.active():
             return
-        # Feature and Debian maintenance bundles use one offer, one policy and
-        # one signed A/B installation path. Separate kind queries are retained
-        # solely for backwards-compatible API clients.
         settings = self.store.settings()
-        if not self.store.users() and not self.demo:
+        if self.demo or not self.store.users():
             return
-        cached = self.store.config("update", {})
-        interval = 86400 if settings["check_interval"] == "daily" else 604800
-        if settings["auto_check"] and time.time() - cached.get("checked", 0) >= interval:
-            cached = self.update_check()
+        plan = self.unified_updates.load()
+        interval = 86400 if settings['check_interval'] == 'daily' else 604800
         current = time.localtime()
-        attempt = f"{current.tm_year}-{current.tm_yday}-{cached.get('latest')}"
-        if (not self.demo and settings["installation"] == "automatic" and cached.get("available")
-                and cached.get("signed") and current.tm_wday == settings["window_day"]
-                and current.tm_hour == settings["window_hour"]
-                and self.store.config("auto_update_attempt") != attempt
-                and not any(job["action"] == "update_install" and job["status"] in ("queued", "running") for job in self.store.jobs())):
-            self.store.set_config("auto_update_attempt", attempt)
-            expected = cached["latest"]
-            self.jobs.submit("system", "update_install", lambda expected=expected:
-                self.install_update("system", expected, automatic=True))
+        automatic = (settings['installation'] == 'automatic' and current.tm_wday == settings['window_day']
+                     and current.tm_hour == settings['window_hour'])
+        age = time.time() - plan.get('checked', 0)
+        source_changed = any(plan.get(key) != settings[key] for key in ('repository', 'channel'))
+        if (settings['auto_check'] and (age >= interval or source_changed)) or (automatic and (age < 0 or age > 1800 or source_changed)):
+            self.unified_updates.check('system', automatic=True)
+            plan = self.unified_updates.load()
+        attempt = f"{current.tm_year}-{current.tm_yday}-{plan.get('web_version')}-{plan.get('system_version')}"
+        if (automatic and plan.get('state') == 'ready' and self.store.config('auto_update_attempt') != attempt
+                and not any(job['action'] in ('update_install', 'unified_update') and job['status'] in ('queued', 'running')
+                            for job in self.store.jobs())):
+            self.unified_updates.start('system', plan['id'], automatic=True)
+            self.store.set_config('auto_update_attempt', attempt)
 
     def updater(self):
         last_check = 0

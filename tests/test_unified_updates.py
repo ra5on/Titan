@@ -1,5 +1,7 @@
 import copy
 import threading
+import time
+from unittest.mock import patch
 import unittest
 from types import SimpleNamespace
 from titan.core import Error
@@ -44,6 +46,48 @@ class UnifiedUpdateTests(unittest.TestCase):
         self.app = SimpleNamespace(store=self.store, agent=self.agent, demo=False, update_lock=threading.RLock(),
                                    update_check=lambda: copy.deepcopy(self.offer), jobs=SimpleNamespace(submit=submit), install_update=install)
         self.flow = UnifiedUpdates(self.app, clock=lambda: self.now, current_version='0.8.0')
+    def automatic_policy(self):
+        now = time.localtime(self.now)
+        policy = {'repository': 'ra5on/Titan', 'channel': 'stable', 'installation': 'automatic',
+                  'auto_check': True, 'check_interval': 'daily', 'window_day': now.tm_wday, 'window_hour': now.tm_hour}
+        self.store.settings = lambda: dict(policy)
+        self.store.users = lambda: [{'name': 'admin'}]
+        self.app.unified_updates = self.flow
+        return policy
+
+    def test_automatic_web_update_uses_same_durable_plan(self):
+        self.automatic_policy();self.offer = {'available': False}
+        plan = self.flow.check('system', automatic=True)
+        self.flow.start('system', plan['id'], automatic=True);self.queue.pop(0)()
+        self.assertEqual(self.flow.load()['state'], 'web_starting')
+        self.assertTrue(self.flow.load()['automatic'])
+        UnifiedUpdates(self.app, clock=lambda:self.now, current_version='0.9.0').reconcile()
+        self.assertEqual(self.flow.load()['state'], 'completed')
+
+    def test_automatic_policy_revocation_stops_pending_execution(self):
+        policy=self.automatic_policy();plan=self.flow.check('system',automatic=True)
+        self.flow.start('system',plan['id'],automatic=True);policy['installation']='manual'
+        with self.assertRaises(Error):self.queue.pop(0)()
+        self.assertEqual(self.flow.load()['state'],'failed')
+        self.assertFalse(any(op=='web_update_start' for op,args in self.agent.calls))
+
+    def test_automatic_cannot_start_outside_window_or_impersonate_user(self):
+        policy=self.automatic_policy();plan=self.flow.check('system',automatic=True)
+        policy['window_hour']=(policy['window_hour']+1)%24
+        with self.assertRaises(Error):self.flow.start('system',plan['id'],automatic=True)
+        with self.assertRaises(Error):self.flow.check('admin',automatic=True)
+        self.assertFalse(self.queue)
+
+    def test_scheduler_discovers_web_only_offer_without_system_update(self):
+        from titan.server import Application
+        self.automatic_policy();self.offer={'available':False};self.now=100000
+        current=time.localtime(1000)
+        with patch('titan.server.time.localtime',return_value=current),patch('titan.server.time.time',return_value=self.now):
+            Application.updater_tick(self.app)
+        self.assertEqual(self.flow.load()['state'],'queued')
+        self.assertTrue(self.flow.load()['automatic']);self.assertEqual(len(self.queue),1)
+        Application.updater_tick(self.app);self.assertEqual(len(self.queue),1)
+
     def start(self):
         plan = self.flow.check('admin'); self.flow.start('admin', plan['id']); self.queue.pop(0)()
     def test_one_plan_survives_web_restart_then_system_reboot(self):
@@ -77,6 +121,13 @@ class UnifiedUpdateTests(unittest.TestCase):
                 if kind == 'channel': self.store.channel='beta'
                 with self.assertRaises(Error): self.flow.start('admin', 'old' if kind=='old' else plan['id'])
                 self.assertFalse(self.queue)
+    def test_source_change_after_queue_prevents_any_install(self):
+        plan=self.flow.check('admin');self.flow.start('admin',plan['id']);self.store.channel='beta'
+        with self.assertRaises(Error):self.queue.pop(0)()
+        self.assertEqual(self.flow.load()['state'],'failed')
+        self.assertFalse(any(op=='web_update_start' for op,args in self.agent.calls))
+        self.assertFalse(self.installs)
+
     def test_duplicate_install_rejected(self):
         plan=self.flow.check('admin'); self.flow.start('admin', plan['id'])
         with self.assertRaises(Error): self.flow.start('admin', plan['id'])

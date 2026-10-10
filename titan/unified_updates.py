@@ -31,7 +31,19 @@ class UnifiedUpdates:
     def active(self):
         return self.load().get('state') in ACTIVE
 
-    def authorize(self, actor):
+    def authorize(self, actor, automatic=False, installing=False):
+        if automatic:
+            settings = self.app.store.settings()
+            if actor != 'system' or not self.app.store.users():
+                raise Error('Automatische Updateberechtigung ist nicht verfügbar.', 403)
+            if installing:
+                current = time.localtime(self.clock())
+                if (settings['installation'] != 'automatic' or current.tm_wday != settings['window_day']
+                        or current.tm_hour != settings['window_hour']):
+                    raise Error('Automatisches Update ist deaktiviert oder liegt außerhalb des Zeitfensters.', 403)
+            elif not settings['auto_check'] and settings['installation'] != 'automatic':
+                raise Error('Automatische Updatesuche ist deaktiviert.', 403)
+            return
         record = self.app.store.user_record(actor)
         if not record['enabled'] or record['role'] != 'admin':
             raise Error('Administratorrechte sind nicht mehr gültig.', 403)
@@ -41,9 +53,9 @@ class UnifiedUpdates:
         return {'current': self.current_version, **{key: plan[key] for key in ('id', 'state', 'message', 'updated', 'checked', 'target',
                 'restart_required', 'next_digest', 'completed', 'details', 'demo') if key in plan}}
 
-    def check(self, actor):
+    def check(self, actor, automatic=False):
         with self.app.update_lock:
-            self.authorize(actor)
+            self.authorize(actor, automatic=automatic)
             if self.active():
                 return self.status()
             settings = self.app.store.settings()
@@ -87,9 +99,9 @@ class UnifiedUpdates:
                           restart_required=bool(plan['system_version']))
             return self.status()
 
-    def start(self, actor, plan_id):
+    def start(self, actor, plan_id, automatic=False):
         with self.app.update_lock:
-            self.authorize(actor)
+            self.authorize(actor, automatic=automatic, installing=True)
             plan = self.load()
             if (self.app.demo or plan.get('id') != plan_id or plan.get('state') != 'ready'
                     or not 0 <= self.clock() - plan.get('checked', 0) <= 1800):
@@ -97,7 +109,7 @@ class UnifiedUpdates:
             settings = self.app.store.settings()
             if any(plan[key] != settings[key] for key in ('repository', 'channel')):
                 raise Error('Updatequelle oder Kanal wurde geändert. Bitte erneut prüfen.', 409)
-            self.save(plan, 'queued', 'Update wird gestartet.', actor=actor)
+            self.save(plan, 'queued', 'Update wird gestartet.', actor=actor, automatic=automatic)
             try:
                 return self.app.jobs.submit(actor, 'unified_update', self.execute)
             except Exception:
@@ -116,7 +128,10 @@ class UnifiedUpdates:
             try:
                 if plan.get('state') not in ('queued', 'system_queued'):
                     raise Error('Updateauftrag hat sich geändert.', 409)
-                self.authorize(plan['actor'])
+                self.authorize(plan['actor'], automatic=plan.get('automatic', False), installing=True)
+                settings = self.app.store.settings()
+                if any(plan.get(key) != settings[key] for key in ('repository', 'channel')):
+                    raise Error('Updatequelle oder Kanal wurde geändert. Bitte erneut prüfen.', 409)
                 if plan.get('web_version') and version(self.current_version) < version(plan['web_version']):
                     fresh = self.app.agent.call('web_update_check')
                     if (not fresh.get('available') or (fresh.get('latest') or {}).get('version') != plan['web_version']
@@ -130,7 +145,7 @@ class UnifiedUpdates:
                     return {'ok': True, 'continuing': True}
                 if plan.get('system_version'):
                     plan = self.save(plan, 'system_running', 'Update wird heruntergeladen, geprüft und vorbereitet.')
-                    result = self.app.install_update(plan['actor'], plan['system_version'], unified_token=plan['id'])
+                    result = self.app.install_update(plan['actor'], plan['system_version'], unified_token=plan['id'], **({'automatic': True} if plan.get('automatic') else {}))
                     staged = result.get('staged') or {}
                     if not result.get('reboot_required') or not staged.get('digest'):
                         raise Error('Das vorbereitete Update konnte nicht bestätigt werden.', 503)
@@ -156,7 +171,7 @@ class UnifiedUpdates:
                         if not plan.get('system_version'):
                             self.save(plan, 'completed', 'Titan wurde erfolgreich aktualisiert.', completed=completed, restart_required=False)
                             return
-                        self.authorize(plan['actor'])
+                        self.authorize(plan['actor'], automatic=plan.get('automatic', False), installing=True)
                         plan = self.save(plan, 'system_queued', 'Aktualisierung wird fortgesetzt.', completed=completed)
                         self.app.jobs.submit(plan['actor'], 'unified_update', self.execute)
                     elif self.clock() - plan.get('web_started', self.clock()) > 900:
@@ -190,7 +205,7 @@ class UnifiedUpdates:
                     # an interrupted writer is handled above, never blindly re-dispatched.
                     busy = any(j['action'] == 'unified_update' and j['status'] in ('queued', 'running') for j in self.app.store.jobs())
                     if not busy:
-                        self.authorize(plan['actor'])
+                        self.authorize(plan['actor'], automatic=plan.get('automatic', False), installing=True)
                         self.app.jobs.submit(plan['actor'], 'unified_update', self.execute)
             except Exception as exc:
                 if isinstance(exc, Error) and exc.status == 403:

@@ -132,11 +132,16 @@ function appLoginCopyFallback(target,value,key){
  panel.append(fallback);const input=$('input',fallback);input?.scrollIntoView?.({block:'nearest'});input?.focus?.({preventScroll:true});input?.select?.();
 }
 Object.assign(actionNames,{package_repair:'App-Paket reparieren',package_update:'App-Paket aktualisieren',package_settings:'App-Einstellungen speichern',vm_clone:'VM klonen',vm_snapshot_create:'VM-Snapshot erstellen',vm_snapshot_restore:'VM-Snapshot wiederherstellen',vm_snapshot_restore_new:'Snapshot als neue VM wiederherstellen',vm_snapshot_remove:'VM-Snapshot entfernen',vm_disk_add:'VM-Festplatte hinzufügen',vm_disk_remove:'VM-Festplatte trennen',vm_nic_add:'VM-Netzwerkkarte hinzufügen',vm_nic_remove:'VM-Netzwerkkarte entfernen',vm_guest_agent:'Gastagent einrichten',vm_guest_action:'Gastbetriebssystem steuern',smart_test:'Laufwerk prüfen',pool_replace:'RAID-Laufwerk ersetzen',storage_preferences_save:'Standardspeicher ändern',storage_maintenance_save:'Speicherprüfung planen',storage_maintenance_remove:'Speicherprüfplan entfernen',snapshot_restore:'Speicher-Snapshot als Kopie öffnen',snapshot_remove:'Speicher-Snapshot entfernen',backup_restore_selection:'Ausgewählte Dateien wiederherstellen',notification_test:'Testbenachrichtigung senden',user_quota:'Speicherlimit speichern'});
+async function desktopAppsChanged(installedApp=null) {
+ await desktopShortcuts?.refreshApps(Boolean(installedApp));
+ if(installedApp)desktopShortcuts?.add('app:'+installedApp);
+ if(desktopEmbedded){window.parent.postMessage({type:'titan-apps-changed'},location.origin);if(installedApp)window.parent.postMessage({type:'titan-pin-shortcut',key:'app:'+installedApp},location.origin);}
+}
 async function action(operation, args = {}, options = {}) {
  const result=await api('/api/actions',{operation,arguments:args});watched.add(result.job);
  if(!options.wait){toast('Aktion gestartet. Der Status erscheint hier und unter Aktivität.');pollJobs();return result;}
  foregroundJobs.add(result.job);void pollJobs();
- try{const job=await window.TitanJobs.wait(api,result.job,options);watched.delete(result.job);if(operation.startsWith('app_')||operation.startsWith('package_')||operation.startsWith('docker_')){void desktopShortcuts?.refreshApps();if(desktopEmbedded)window.parent.postMessage({type:'titan-apps-changed'},location.origin);}return {...job.result,job:job.id,status:job.status};}
+ try{const job=await window.TitanJobs.wait(api,result.job,options);watched.delete(result.job);if(operation.startsWith('app_')||operation.startsWith('package_')||operation.startsWith('docker_')){void desktopAppsChanged(operation==='app_install'?args.app:null);}return {...job.result,job:job.id,status:job.status};}
  finally{foregroundJobs.delete(result.job);}
 }
 async function renderAuth(setup) {
@@ -459,7 +464,7 @@ function bindPage({retained=false}={}) {
  if(page==='vms')window.TitanVMLive?.mount($('#main'),{api,bytes,esc,onStateChange:()=>{if(!$('#dialog').open)refreshVMWorkspace().catch(error=>toast(error.message,true));}});if(page==='vms')window.TitanManagers?.mount($('#main'),{owner:session.user.name});
  if(page==='settings'){window.TitanSettingsCenter?.mount($('#main'));window.TitanWebAccess?.mount($('#main'),{api,toast,refresh:()=>navigate()});}
  if(page==='apps')window.TitanUmbrelStore?.mount($('#main'),{api,action,toast,dialog,admin:session.user.role==='admin',demo:session.demo,openPackage:id=>actions['app-manage']({dataset:{id}}),reload:()=>void navigate()});
- if(page==='apps')window.TitanAppsCenter?.mount($('#main'),{api,action,toast,admin:session.user.role==='admin',demo:session.demo,openPackage:id=>actions['app-manage']({dataset:{id}}),onAppsChanged:()=>{void desktopShortcuts?.refreshApps();if(desktopEmbedded)window.parent.postMessage({type:'titan-apps-changed'},location.origin);},waitForJob:async(result,options)=>{watched.add(result.job);foregroundJobs.add(result.job);void pollJobs();try{const job=await window.TitanJobs.wait(api,result.job,options);watched.delete(result.job);return job;}finally{foregroundJobs.delete(result.job);}}});
+ if(page==='apps')window.TitanAppsCenter?.mount($('#main'),{api,action,toast,admin:session.user.role==='admin',demo:session.demo,openPackage:id=>actions['app-manage']({dataset:{id}}),onAppsChanged:installedApp=>void desktopAppsChanged(installedApp),waitForJob:async(result,options)=>{watched.add(result.job);foregroundJobs.add(result.job);void pollJobs();try{const job=await window.TitanJobs.wait(api,result.job,options);watched.delete(result.job);return job;}finally{foregroundJobs.delete(result.job);}}});
  if(page==='users'&&usersView)window.TitanUsers.mount($('#main'),usersView.data,usersView.shares,{currentName:session.user.name,edit:name=>actions['user-edit']({dataset:{name}})});
  if(page==='updates')window.TitanUpdates?.mount($('#main'),{api});
  if(page==='groups'&&identityData)window.TitanIdentity.mount($('#main'),identityData,{api,toast,refresh:navigate,onJob:id=>watched.add(id),confirm:askYesNo});
