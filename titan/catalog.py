@@ -357,7 +357,7 @@ def catalog(refresh=False, include_legacy=False):
             continue
         remote = {}
         public_recipe = {key: value for key, value in recipe.items() if key not in ("environment", "stack")}
-        public_recipe["containers"] = len(recipe.get("stack",{}).get("services",{})) or 1
+        public_recipe["containers"] = (len(recipe.get("stack",{}).get("services",{})) or 1) + int(bool(recipe.get("app_gateway")))
         public_recipe["install_schema"] = [{key: value for key, value in field.items() if key != "env"}
                                            for field in recipe.get("install_schema", []) if not field.get("generated")]
         if app_id in PACKAGES:

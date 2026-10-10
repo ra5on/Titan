@@ -97,10 +97,10 @@ def main():
                 agent.ready('A',identity['version'])
                 client=ab.runtime.GuestClient(work/'qmp.sock');smoke=ab.runtime.RuntimeSmoke(client)
                 smoke.setup();smoke.components()
-                reader=('restore-r-'+secrets.token_hex(3),secrets.token_urlsafe(48))
-                outsider=('restore-n-'+secrets.token_hex(3),secrets.token_urlsafe(48))
+                reader=('smoke-r-'+secrets.token_hex(4),secrets.token_urlsafe(48))
+                outsider=('smoke-n-'+secrets.token_hex(4),secrets.token_urlsafe(48))
                 for name,password in (reader,outsider):client.user_create(name,password)
-                share='recovery-proof'
+                share='smoke-share-'+secrets.token_hex(4)
                 client.action('share_create',{'name':share,'readers':[smoke.username,reader[0]],'writers':[smoke.username]})
                 client.smb_access((smoke.username,smoke.password),reader,outsider,share)
                 client.action('app_store_refresh',{'store':'umbrel'},timeout=300)
@@ -121,10 +121,10 @@ with sqlite3.connect(p) as db:
 print(str(p))
 """).strip()
                 vm=qcow.run(smoke,guest,retain=True)['vm']
-                snapshot_code="""import hashlib,json,subprocess
+                snapshot_code="share="+repr(share)+"\n"+"""import hashlib,json,subprocess
 from pathlib import Path
 paths=['/etc/passwd','/etc/shadow','/etc/group','/etc/samba/titan-shares.conf']
-print(json.dumps({'files':{p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in paths},'acl':subprocess.check_output(['getfacl','-p','/var/srv/titan/shares/recovery-proof'],text=True)},sort_keys=True))
+print(json.dumps({'files':{p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in paths},'acl':subprocess.check_output(['getfacl','-p','/var/srv/titan/shares/'+share],text=True)},sort_keys=True))
 """
                 snapshot=agent.python(snapshot_code)
                 passed('source_accounts_smb_app_database_and_qcow2_guest')

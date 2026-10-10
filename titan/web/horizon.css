@@ -53,7 +53,7 @@ html[data-color-theme] .desktop-window-titlebar>strong{font-size:11px;color:var(
 html[data-color-theme] .desktop-window-controls button{border-radius:50%;background:#ffffff0b}
 html[data-color-theme] .desktop-shortcut .desktop-app-icon{width:72px;height:72px;border-radius:20px}
 html[data-color-theme] .desktop-shortcut .shortcut-label{font-size:13px;line-height:1.35;margin-top:4px;text-shadow:0 2px 8px #071220}
-html[data-color-theme] .desktop-widget-card{width:260px;min-height:152px;background:linear-gradient(135deg,#ffffff28,#15213e45);border:1px solid #ffffff4a;box-shadow:0 14px 36px #06192e30,0 1px 0 #ffffff38 inset}
+html[data-color-theme] .desktop-widget-card{width:260px;min-height:166px;background:linear-gradient(135deg,#ffffff28,#15213e45);border:1px solid #ffffff4a;box-shadow:0 14px 36px #06192e30,0 1px 0 #ffffff38 inset}
 html[data-color-theme] .desktop-widget-card>header{padding:15px 18px 0}
 html[data-color-theme] .desktop-widget-card>header>strong{font-size:12px}
 html[data-color-theme] .desktop-widget-card .widget-content{padding:9px 18px 18px}

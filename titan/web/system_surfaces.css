@@ -218,3 +218,16 @@ html[data-desktop-embedded=true] #shell[data-page=backups] .nas-window-content,h
  #shell .fb-browser .fb-address .file-breadcrumbs{flex:1;min-width:0;overflow:hidden}
  #shell .fb-browser .fb-status{width:100%;padding:4px 10px}
 }
+.vm-create-gallery{margin-top:36px;padding-top:24px;border-top:1px solid var(--line)}
+.vm-create-gallery header h2{font-size:24px;letter-spacing:-.6px;margin:0 0 8px}
+.vm-create-gallery header p{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 24px}
+.vm-source-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px}
+.vm-source-card{display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px 18px;border:1px solid var(--line);border-radius:22px;background:var(--panel);min-width:0}
+.vm-source-card h3{font-size:16px;overflow-wrap:anywhere;margin:16px 0 8px}
+.vm-source-card p{font-size:12px;line-height:1.6;color:var(--muted);margin:0 0 20px;flex:1}
+.vm-source-card .button{width:100%;justify-content:center}
+.vm-source-art{position:relative;display:grid;place-items:center;width:140px;height:112px}
+.vm-source-art img{width:124px;height:110px;filter:drop-shadow(0 12px 15px #0003)}
+.vm-source-art>svg{width:66px;height:66px;color:var(--accent)}
+.vm-source-art>span{position:absolute;bottom:4px;background:var(--panel);padding:3px 8px;border:1px solid var(--line);border-radius:6px;font-size:10px}
+@media(max-width:520px){.vm-source-gallery{grid-template-columns:1fr}.vm-create-gallery{margin-top:24px}}

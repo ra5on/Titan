@@ -491,10 +491,10 @@ async function handleFileUploads(files,destination={share:currentShare,path:curr
  try{await uploadFiles(files,false,{...destination});if(page==='files')await navigate();toast('Dateien vollständig hochgeladen.');}
  catch(error){toast(error.message,!error.canceled);if(page==='files'&&error.completed)await navigate();}
 }
-async function uploadFiles(files,iso=false,destination={share:currentShare,path:currentPath}) {
+async function uploadFiles(files,iso=false,destination={share:currentShare,path:currentPath},onProgress=()=>{}) {
  if(activeUpload)throw Error('Ein Upload läuft bereits.');
  const user=session.user,progress={name:files[0]?.name||'',percent:0,index:1,total:files.length,controller:new AbortController()};activeUpload=progress;renderUploadStatus();
- try{return await window.TitanUploads.run({files,iso,binary:true,destination:{...destination},controller:progress.controller,onProgress:update=>{Object.assign(progress,update);renderUploadStatus();},request:async(path,body,{signal,binary}={})=>{const response=await fetch(path,{method:'POST',headers:{'Content-Type':binary?'application/octet-stream':'application/json','X-CSRF-Token':user.csrf,...(binary?{'X-Titan-Upload':encodeURIComponent(JSON.stringify(body))}:{})},body:binary||JSON.stringify(body),...(signal?{signal}:{})}),result=await response.json();if(!response.ok)throw Error(result.error||'Upload fehlgeschlagen.');return result;}});}
+ try{return await window.TitanUploads.run({files,iso,binary:true,destination:{...destination},controller:progress.controller,onProgress:update=>{Object.assign(progress,update);renderUploadStatus();onProgress(update);},request:async(path,body,{signal,binary}={})=>{const response=await fetch(path,{method:'POST',headers:{'Content-Type':binary?'application/octet-stream':'application/json','X-CSRF-Token':user.csrf,...(binary?{'X-Titan-Upload':encodeURIComponent(JSON.stringify(body))}:{})},body:binary||JSON.stringify(body),...(signal?{signal}:{})}),result=await response.json();if(!response.ok)throw Error(result.error||'Upload fehlgeschlagen.');return result;}});}
  finally{if(activeUpload===progress)activeUpload=null;renderUploadStatus();}
 }
 async function upload(file,iso,destination={share:currentShare,path:currentPath}) {if(file)return uploadFiles([file],iso,destination);}
@@ -647,14 +647,15 @@ const actions = {
   if(request!==fileDialogRequest||mine!==generation||!user||session?.user!==user)return;
   dialog(path.split('/').pop(),html+`<div class="form-actions">${canEdit?button('Bearbeiten','file-edit',`data-share="${esc(share)}" data-path="${esc(path)}"`,'primary'):''}<a class="button" href="${esc(downloadUrl)}">↓ Herunterladen</a></div>`);
  },
- async 'vm-create'(){
+ async 'vm-create'(target){
   const [options,status]=await Promise.all([api('/api/vm-options'),api('/api/status')]);
   const isos=options.isos||[],images=options.disk_images||[];
   if(!(options.storage||[]).some(item=>item.available))throw new Error('Kein verfügbares Speicherziel für VM-Laufwerke.');
   if(!isos.length&&!images.length&&!window.TitanVMImages)throw new Error('Lade ein Installations-ISO hoch oder wähle ein QCOW2-/RAW-Laufwerksimage auf dem NAS.');
-  const imported=!isos.length;
+  const selectedImage=images.find(image=>image.id===target?.dataset.image),selectedIso=isos.includes(target?.dataset.iso)?target.dataset.iso:null;
+  const imported=Boolean(selectedImage)||target?.dataset.source==='image'||!isos.length;
   dialog('Virtuelle Maschine erstellen',`<form class="vm-create-form">${field('Anzeigename','name','text','','required maxlength="96"','Groß- und Kleinschreibung sowie Leerzeichen sind erlaubt.')}${vmCpuFields(options,status)}${selectField('Bootmodus','firmware',(options.firmwares||['bios']).map(value=>[value,value==='uefi'?'UEFI · moderne Betriebssysteme':'BIOS · kompatibler Start']),'bios')}<fieldset class="vm-form-section"><legend>Virtuelles Laufwerk</legend><div class="vm-source-options"><label class="check-label"><input type="radio" name="disk_source" value="blank" ${imported?'':'checked'} ${isos.length?'':'disabled'}> Neues Laufwerk · Betriebssystem vom ISO installieren</label><label class="check-label"><input type="radio" name="disk_source" value="image" ${imported?'checked':''} ${images.length||window.TitanVMImages?'':'disabled'}> Vorhandenes IMG-, QCOW2- oder RAW-Image kopieren</label></div><div data-vm-image ${imported?'':'hidden'}>${selectField('Laufwerksimage auf dem NAS','disk_image',[['','Image auswählen'],...images.map(item=>[item.id,`${item.name} · ${bytes(item.virtual_size)}`])])}${window.TitanVMImages?.fields()||''}<p class="hint">Images aus deinen Freigaben werden in ein neues VM-Laufwerk kopiert. Die Quelldatei bleibt erhalten.</p></div>${vmStorageField(options)}${field('Virtuelle Laufwerksgröße in GiB','disk_gb','number',32,'required min="8" max="10000"','Ein importiertes Image kann vergrößert werden. Partitionen und Dateisysteme anschließend im Gastsystem erweitern.')}${selectField('Installationsmedium','iso',[['','Kein ISO · Start vom Laufwerksimage'],...isos.map(name=>[name,name])],isos[0]||'')}</fieldset>${(options.warnings||[]).concat(options.cpu_topology?.warnings||[]).map(message=>`<p class="hint">${esc(message)}</p>`).join('')}${window.TitanVMNetwork?.fields(options,null,esc)||''}<p class="hint">Windows benötigt bei VirtIO passende Treiber. Ein gleicher Name erhält bei vorhandenen Altdateien ein neues internes Laufwerk. Die alte Datei wird nicht überschrieben.</p>${formEnd('VM erstellen')}`,data=>action('vm_create',vmCreateArguments(data,options,status)));
-  const form=$('#dialog form');bindVmCpuControls(form);bindVmSourceControls(form,options);window.TitanVMImages?.mount(form,options,{api,bytes});
+  const form=$('#dialog form');if(imported&&$('[name=iso]',form))$('[name=iso]',form).value='';if(selectedImage)$('[name=disk_image]',form).value=selectedImage.id;if(selectedIso)$('[name=iso]',form).value=selectedIso;bindVmCpuControls(form);bindVmSourceControls(form,options);window.TitanVMImages?.mount(form,options,{api,bytes,upload:(files,destination,onProgress)=>uploadFiles(files,false,destination,onProgress),cancelUpload:()=>activeUpload?.controller.abort()});
  },
  async 'vm-usb'(target){
   const data=await api('/api/vm-usb?vm='+encodeURIComponent(target.dataset.id));

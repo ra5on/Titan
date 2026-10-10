@@ -1,15 +1,15 @@
 'use strict';
 (function(root,factory){const ui=factory();if(typeof module==='object'&&module.exports)module.exports=ui;if(root)root.TitanWidgets=ui;})(typeof window==='undefined'?null:window,function(){
- const names={cpu:'CPU',ram:'Arbeitsspeicher',health:'Systemstatus',notifications:'Benachrichtigungen',activity:'Aktivität',clock:'Uhr'};
- const descriptions={cpu:'Die aktuelle Auslastung deines Prozessors.',ram:'Belegter und verfügbarer Arbeitsspeicher.',health:'Verbindung und Zustand deiner NAS-Dienste.',notifications:'Offene Meldungen und Fehler auf einen Blick.',activity:'Laufende und wartende Aufträge.',clock:'Uhrzeit und Datum in deiner lokalen Zeitzone.'};
+ const names={files:'Dateien',storage:'Speicher',system:'System',cpu:'CPU',ram:'Arbeitsspeicher',health:'Systemstatus',notifications:'Benachrichtigungen',activity:'Aktivität',clock:'Uhr'};
+ const descriptions={files:'Deine Dateien und Fotos direkt öffnen.',storage:'Freier Platz auf dem internen Speicher.',system:'Prozessor und Arbeitsspeicher zusammen im Blick.',cpu:'Die aktuelle Auslastung deines Prozessors.',ram:'Belegter und verfügbarer Arbeitsspeicher.',health:'Verbindung und Zustand deiner NAS-Dienste.',notifications:'Offene Meldungen und Fehler auf einen Blick.',activity:'Laufende und wartende Aufträge.',clock:'Uhrzeit und Datum in deiner lokalen Zeitzone.'};
  // Small, authored outline symbols keep the live cards and their gallery previews
  // recognizable without loading a second icon set or any remote artwork.
- const shapes={cpu:'<rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/><rect x="9" y="9" width="6" height="6" rx="1"/>',ram:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4m5-4v4m5-4v4M7 18v3m5-3v3m5-3v3"/>',health:'<path d="M12 2 3.5 5.5v6c0 5 5 8.5 8.5 10.5 3.5-2 8.5-5.5 8.5-10.5v-6L12 2Z"/><path d="m8 12 2.5 2.5L16 9"/>',notifications:'<path d="M5 10a7 7 0 0 1 14 0v5l2 3H3l2-3v-5Zm4 11h6M12 1v2"/>',activity:'<path d="M2 12h4l3-8 5 16 3-8h5"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>'};
+ const shapes={files:'<path d="M3 6h7l2 3h9v11H3z"/>',storage:'<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 15h18M7 18h2"/>',system:'<rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',cpu:'<rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/><rect x="9" y="9" width="6" height="6" rx="1"/>',ram:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4m5-4v4m5-4v4M7 18v3m5-3v3m5-3v3"/>',health:'<path d="M12 2 3.5 5.5v6c0 5 5 8.5 8.5 10.5 3.5-2 8.5-5.5 8.5-10.5v-6L12 2Z"/><path d="m8 12 2.5 2.5L16 9"/>',notifications:'<path d="M5 10a7 7 0 0 1 14 0v5l2 3H3l2-3v-5Zm4 11h6M12 1v2"/>',activity:'<path d="M2 12h4l3-8 5 16 3-8h5"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>'};
  const symbol=key=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${shapes[key]}</svg>`;
- const previews={cpu:['24 %','Prozessorauslastung'],ram:['38 %','Arbeitsspeicher'],health:['Verbunden','Deine Dienste im Blick'],notifications:['3','Offene Meldungen'],activity:['2','Laufende Aufträge'],clock:['10:24','Deine lokale Uhrzeit']};
+ const previews={files:['Dateien & Fotos','Alles an einem Ort'],storage:['128 GB','Interner Speicher'],system:['CPU · RAM','Live-Auslastung'],cpu:['24 %','Prozessorauslastung'],ram:['38 %','Arbeitsspeicher'],health:['Verbunden','Deine Dienste im Blick'],notifications:['3','Offene Meldungen'],activity:['2','Laufende Aufträge'],clock:['10:24','Deine lokale Uhrzeit']};
  const validPosition=p=>p&&['x','y'].every(k=>Number.isInteger(p[k])&&p[k]>=0&&p[k]<=1000);
  function normalize(value={}){
-  const out={visible:value.visible!==false,collapsed:value.collapsed===true,items:[...new Set(Array.isArray(value.items)?value.items:['cpu','ram','health'])].filter(k=>Object.hasOwn(names,k))};
+  const out={visible:value.visible!==false,collapsed:value.collapsed===true,items:[...new Set(Array.isArray(value.items)?value.items:['files','storage','system'])].filter(k=>Object.hasOwn(names,k))};
   if(validPosition(value.position))out.position={x:value.position.x,y:value.position.y};
   const positions={};for(const key of out.items)if(validPosition(value.positions?.[key]))positions[key]={x:value.positions[key].x,y:value.positions[key].y};
   if(Object.keys(positions).length)out.positions=positions;return out;
@@ -21,7 +21,7 @@
  function health(status){if(!status)return 'Wird geladen';const services=Object.values(status.service_details||{}).filter(s=>s.relevant===true||s.relevant===undefined&&s.installed);if(services.some(s=>!s.active))return 'Dienste prüfen';if(Object.keys(status.telemetry_errors||{}).length)return 'Messhinweise vorhanden';return 'Verbunden';}
  function mount({doc,user,api,esc,bytes,preferences,save,open,jobs}){
   const win=doc.defaultView,toggle=doc.querySelector('#widgets-toggle'),admin=user.role==='admin',choices=Object.keys(names).filter(key=>admin||key==='clock');
-  let prefs=normalize(!admin&&!Array.isArray(preferences?.items)?{...preferences,items:['clock']}:preferences),alive=true,busy=false,status=null,error=false,alerts=null,activity=[],gesture=null,pickerOrigin=null;
+  let prefs=normalize(!admin&&!Array.isArray(preferences?.items)?{...preferences,items:['clock']}:preferences),alive=true,busy=false,status=null,disk=null,diskError=false,error=false,alerts=null,activity=[],gesture=null,pickerOrigin=null;
   const hadItems=prefs.items.length>0;prefs.items=prefs.items.filter(key=>choices.includes(key));if(!admin&&hadItems&&!prefs.items.length)prefs.items=['clock'];if(prefs.positions)for(const key of Object.keys(prefs.positions))if(!prefs.items.includes(key))delete prefs.positions[key];
   const cards=new Map(),config=doc.createElement('dialog');config.className='widget-settings widget-gallery';config.setAttribute('aria-label','Widgets hinzufügen');doc.body.append(config);
   if(toggle){toggle.hidden=false;toggle.setAttribute('aria-label','Widgets hinzufügen');toggle.setAttribute('title','Widgets hinzufügen');toggle.setAttribute('aria-haspopup','dialog');toggle.setAttribute('aria-expanded','false');toggle.removeAttribute('aria-pressed');}
@@ -29,6 +29,9 @@
   function point(key,node,index){const available=area(),rect=node.getBoundingClientRect();if(prefs.positions?.[key])return placement(prefs.positions[key],available,rect.width,rect.height);if(index===0&&prefs.position)return placement(prefs.position,available,rect.width,rect.height);const gap=16,start=clamp(win.innerHeight<=580?76:134,available.height-rect.height),columns=Math.min(3,prefs.items.length,Math.max(1,Math.floor((available.width+gap)/(rect.width+gap)))),column=index%columns,row=Math.floor(index/columns),width=columns*rect.width+(columns-1)*gap;return {left:available.left+Math.max(0,(available.width-width)/2)+column*(rect.width+gap),top:available.top+start+row*(rect.height+gap)};}
   function positionCards(){if(!alive)return;let index=0,bottom=0;const surface=doc.querySelector('#desktop-surface');for(const [key,node]of cards){const available=area();node.style.maxHeight=Math.max(90,available.height)+'px';const p=point(key,node,index++);node.style.left=p.left+'px';node.style.top=p.top+'px';node.style.right='auto';node.style.bottom='auto';if(!prefs.positions?.[key]&&!prefs.position)bottom=Math.max(bottom,p.top+node.getBoundingClientRect().height);}if(surface&&surface.dataset.widgetDefaultBottom!==String(bottom)){surface.dataset.widgetDefaultBottom=String(bottom);if(win.CustomEvent)doc.dispatchEvent?.(new win.CustomEvent('titan-widget-layout',{detail:{bottom}}));}}
   function values(key){
+   if(key==='files')return {value:'Deine Dateien',caption:'Dateien und Fotos öffnen'};
+   if(key==='storage'){const total=disk?.filesystem_size,used=disk?.filesystem_used,free=disk?.filesystem_available,known=Number.isFinite(total)&&total>0&&Number.isFinite(used)&&used>=0&&used<=total&&Number.isFinite(free)&&free>=0&&free<=total;return {value:diskError||!known?'—':bytes(free),caption:diskError?'Speicher nicht erreichbar':known?'frei von '+bytes(total)+' · intern':'Speicher wird geladen',progress:known&&!diskError?used/total*100:0};}
+   if(key==='system')return {value:health(status),caption:'Systemmonitor öffnen'};
    if(key==='clock'){const now=new Date();return {value:new Intl.DateTimeFormat('de-DE',{hour:'2-digit',minute:'2-digit'}).format(now),caption:new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'numeric',month:'long'}).format(now)};}
    if(key==='cpu'||key==='ram'){const value=metrics(status||{})[key];return {value:error||value===null?'—':value.toLocaleString('de-DE',{maximumFractionDigits:1})+' %',progress:!error&&value!==null?value:0,caption:error?'Messwert nicht verfügbar':key==='ram'&&status?bytes(status.memory_occupied??status.memory_used)+' / '+bytes(status.memory_total):value===null?'Messwert wird geladen':'Prozessorauslastung'};}
    if(key==='health')return {value:error?'Verbindung unterbrochen':health(status),caption:'Systemübersicht öffnen'};
@@ -36,9 +39,11 @@
    return {value:activity.filter(j=>['running','queued'].includes(j.status)).length,caption:'Laufende Aufträge ansehen'};
   }
   function content(key){
+   if(key==='files')return `<div class="widget-file-links"><button type="button" data-widget-open="files"><img src="/app-icons/titan-files.svg" alt=""><span>Dateien</span></button><button type="button" data-widget-open="photos"><img src="/app-icons/titan-photos.svg" alt=""><span>Fotos</span></button></div>`;
+   if(key==='system')return `<button type="button" class="widget-system-overview" data-widget-open="resources">${['cpu','ram'].map(k=>`<span class="widget-system-meter"><span>${names[k]}</span><strong data-system-value="${k}">—</strong><progress max="100" value="0" data-system-progress="${k}" aria-label="${names[k]}"></progress></span>`).join('')}<small data-widget-caption>Systemmonitor öffnen</small></button>`;
    const item=values(key),body=`<strong data-widget-value${key==='health'?' class="widget-health-value"':''}>${esc(item.value)}</strong>${item.progress!==undefined?`<progress max="100" value="${item.progress}" aria-label="${names[key]}"></progress>`:''}<small data-widget-caption>${esc(item.caption)}</small>`;
    if(key==='clock')return `<div class="widget-clock">${body.replace('<small data-widget-caption>','<span data-widget-caption>').replace('</small>','</span>')}</div>`;
-   return `<button type="button" ${key==='activity'?'data-widget-jobs':`data-widget-open="${key==='cpu'||key==='ram'?'resources':'monitoring'}"`} class="${key==='cpu'||key==='ram'?'widget-metric':''}">${body}</button>`;
+   return `<button type="button" ${key==='activity'?'data-widget-jobs':`data-widget-open="${key==='cpu'||key==='ram'?'resources':key==='storage'?'storage':'monitoring'}"`} class="${key==='cpu'||key==='ram'?'widget-metric':''}">${body}</button>`;
   }
   function render(){
    if(!alive)return;if(gesture){positionCards();return;}
@@ -51,7 +56,7 @@
     const metric=['cpu','ram','health'].includes(key);node.dataset.widgetState=metric?(error?'unavailable':status===null?'loading':key==='health'&&health(status)!=='Verbunden'?'attention':'ready'):key==='notifications'&&alerts===null?'loading':'ready';
     const body=node.querySelector('.widget-content');
     if(node.dataset.widgetCollapsed!==String(prefs.collapsed)){body.innerHTML=prefs.collapsed?`<button type="button" class="widget-expand" data-widget-expand="${key}">Widget anzeigen</button>`:content(key);node.dataset.widgetCollapsed=String(prefs.collapsed);}
-    if(!prefs.collapsed){const item=values(key);body.querySelector('[data-widget-value]').textContent=String(item.value);body.querySelector('[data-widget-caption]').textContent=String(item.caption);const progress=body.querySelector('progress');if(progress)progress.value=item.progress;}
+    if(!prefs.collapsed){const item=values(key),valueNode=body.querySelector('[data-widget-value]'),caption=body.querySelector('[data-widget-caption]');if(valueNode)valueNode.textContent=String(item.value);if(caption)caption.textContent=String(item.caption);const progress=body.querySelector('progress');if(progress&&key!=='system')progress.value=item.progress;if(key==='system')for(const k of ['cpu','ram']){const value=metrics(status||{})[k];body.querySelector(`[data-system-value="${k}"]`).textContent=error||value===null?'—':Math.round(value)+' %';body.querySelector(`[data-system-progress="${k}"]`).value=!error&&value!==null?value:0;}}
    }
    positionCards();
   }
@@ -71,7 +76,15 @@
    if(b.hasAttribute('data-widget-expand')){commit({...prefs,collapsed:false});return;}
    if(b.dataset.widgetOpen)open('#'+b.dataset.widgetOpen);if(b.hasAttribute('data-widget-jobs'))jobs();
   }
-  async function refresh(){if(!alive||busy||doc.hidden||!prefs.visible||prefs.collapsed||!admin||!prefs.items.some(key=>key!=='clock'))return;busy=true;try{const data=await api('/api/status');if(alive){status=data;error=false;render();}}catch{if(alive){error=true;render();}}finally{busy=false;}}
+  async function refresh(){
+   if(!alive||busy||doc.hidden||!prefs.visible||prefs.collapsed||!admin||!prefs.items.some(key=>!['clock','files'].includes(key)))return;
+   busy=true;
+   try{await Promise.all([
+    api('/api/status').then(data=>{if(alive){status=data;error=false;}}).catch(()=>{if(alive)error=true;}),
+    ...(prefs.items.includes('storage')?[api('/api/system-disk').then(data=>{if(alive){disk=data;diskError=false;}}).catch(()=>{if(alive)diskError=true;})]:[])
+   ]);if(alive)render();}finally{busy=false;}
+  }
+
   function down(e){const handle=e.target.closest('[data-widget-move]');if(!handle||e.button!==0||e.isPrimary===false||gesture)return;const key=handle.dataset.widgetMove,node=cards.get(key);if(!node)return;e.preventDefault();handle.focus();const rect=node.getBoundingClientRect();gesture={id:e.pointerId,key,node,handle,x:e.clientX,y:e.clientY,left:parseFloat(node.style.left)||0,top:parseFloat(node.style.top)||0,before:prefs.positions?.[key]?{...prefs.positions[key]}:null};node.classList.add('widget-moving');handle.setPointerCapture?.(e.pointerId);}
   function move(e){if(!gesture||e.pointerId!==gesture.id)return;e.preventDefault();const g=gesture,rect=g.node.getBoundingClientRect();prefs.positions={...prefs.positions,[g.key]:coordinates(g.left+e.clientX-g.x,g.top+e.clientY-g.y,area(),rect.width,rect.height)};positionCards();}
   function end(e){if(!gesture||e&&e.pointerId!==gesture.id)return;const g=gesture;gesture=null;if(g.handle.hasPointerCapture?.(g.id))g.handle.releasePointerCapture?.(g.id);const next=normalize(prefs);prefs.positions={...prefs.positions};if(g.before)prefs.positions[g.key]=g.before;else delete prefs.positions[g.key];if(e?.type==='pointercancel'||!commit(next))render();cards.get(g.key)?.querySelector('[data-widget-move]')?.focus({preventScroll:true});}
