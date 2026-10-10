@@ -146,7 +146,7 @@ async function renderAuth(setup) {
  fileDialogRequest++;
  window.TitanFileEditor?.dispose(); if($('#dialog').open)$('#dialog').close();
  window.TitanUnifiedUpdates?.dispose();window.TitanUpdates?.dispose(); window.TitanSecurity?.dispose(); window.TitanSystemDisk?.dispose();
- window.TitanSidebarLayout?.dispose();window.TitanDocker?.dispose();window.TitanVMExtensions?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose(); window.TitanSettingsCenter?.dispose();window.TitanControlPanel?.dispose();window.TitanWebAccess?.dispose();window.TitanAppsCenter?.dispose(); window.TitanResources?.dispose(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose();window.TitanRootAccess?.dispose(); window.TitanServices?.dispose(); filesView=null;
+ window.TitanSidebarLayout?.dispose();window.TitanDocker?.dispose();window.TitanVMExtensions?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose(); window.TitanSettingsCenter?.dispose();window.TitanControlPanel?.dispose();window.TitanWebAccess?.dispose();window.TitanAppsCenter?.dispose();window.TitanUmbrelStore?.dispose(); window.TitanResources?.dispose(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose();window.TitanRootAccess?.dispose(); window.TitanServices?.dispose(); filesView=null;
  $('#shell').hidden = true;
  const auth = $('#auth'); auth.hidden = false;
  const passwordField = (label, name) => `<div class="auth-field"><label for="f-${name}">${label}</label><div class="auth-password"><input id="f-${name}" name="${name}" type="password" required minlength="12" maxlength="256" autocomplete="${setup?'new-password':'current-password'}" aria-describedby="${setup?'auth-password-hint ':''}auth-error"><button type="button" class="auth-password-toggle" data-auth-password="${name}" aria-controls="f-${name}" aria-label="${label} anzeigen" aria-pressed="false">Anzeigen</button></div></div>`;
@@ -228,7 +228,7 @@ async function navigate() {
  fileDialogRequest++;
  window.TitanPhotos?.dispose();window.TitanUnifiedUpdates?.dispose();window.TitanStorage?.dispose();window.TitanBackupCenter?.dispose();window.TitanMonitoring?.dispose();window.TitanLocations?.disposeWithin($('#main')); window.TitanUpdates?.dispose(); window.TitanSecurity?.dispose(); window.TitanSystemDisk?.dispose();
 
- window.TitanSidebarLayout?.dispose();window.TitanDocker?.dispose();window.TitanVMExtensions?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose(); window.TitanSettingsCenter?.dispose();window.TitanControlPanel?.dispose();window.TitanWebAccess?.dispose();window.TitanAppsCenter?.dispose(); window.TitanResources?.dispose(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose();window.TitanRootAccess?.dispose(); window.TitanServices?.dispose(); filesView=null;
+ window.TitanSidebarLayout?.dispose();window.TitanDocker?.dispose();window.TitanVMExtensions?.dispose();window.TitanManagers?.dispose();window.TitanVMLive?.dispose(); window.TitanSettingsCenter?.dispose();window.TitanControlPanel?.dispose();window.TitanWebAccess?.dispose();window.TitanAppsCenter?.dispose();window.TitanUmbrelStore?.dispose(); window.TitanResources?.dispose(); window.TitanFiles?.dispose(); window.TitanFileBrowser?.dispose(); window.TitanTerminal?.dispose();window.TitanRootAccess?.dispose(); window.TitanServices?.dispose(); filesView=null;
  const requested = location.hash.slice(1).split('?')[0] || (session.user.role === 'admin' ? 'dashboard' : 'files');
  page = controlRoute?.page || (nav.some(([name]) => name === requested) ? requested : 'dashboard');
  if(!pageAllowed(page))page='security';
@@ -316,7 +316,7 @@ const pages = {
   const admin=session.user.role==='admin';
   const [catalog,installed,installation]=await Promise.all([api('/api/catalog'),api('/api/apps'),admin?api('/api/app-install?app=titan-cloudflared'):Promise.resolve(null)]);
   catalogData=catalog.apps;installedRecipes=catalog.installed_recipes||[];
-  return window.TitanAppsCenter.render({catalog,installed,installation,admin,demo:session.demo});
+  return window.TitanAppsCenter.render({catalog,installed,installation,admin,demo:session.demo})+(window.TitanUmbrelStore?.render({catalog,installed,admin,demo:session.demo})||'');
  },
  async docker() {
   return '<div data-docker-workbench></div>';
@@ -457,6 +457,7 @@ function bindPage({retained=false}={}) {
  if(page==='docker')window.TitanDocker?.mount($('#main').querySelector('[data-docker-workbench]'),{api,action,dialog,askYesNo,toast,bytes});
  if(page==='vms')window.TitanVMLive?.mount($('#main'),{api,bytes,esc,onStateChange:()=>{if(!$('#dialog').open)refreshVMWorkspace().catch(error=>toast(error.message,true));}});if(page==='vms')window.TitanManagers?.mount($('#main'),{owner:session.user.name});
  if(page==='settings'){window.TitanSettingsCenter?.mount($('#main'));window.TitanWebAccess?.mount($('#main'),{api,toast,refresh:()=>navigate()});}
+ if(page==='apps')window.TitanUmbrelStore?.mount($('#main'),{api,action,toast,dialog,admin:session.user.role==='admin',demo:session.demo,openPackage:id=>actions['app-manage']({dataset:{id}}),reload:()=>void navigate()});
  if(page==='apps')window.TitanAppsCenter?.mount($('#main'),{api,action,toast,admin:session.user.role==='admin',demo:session.demo,openPackage:id=>actions['app-manage']({dataset:{id}}),onAppsChanged:()=>{void desktopShortcuts?.refreshApps();if(desktopEmbedded)window.parent.postMessage({type:'titan-apps-changed'},location.origin);},waitForJob:async(result,options)=>{watched.add(result.job);foregroundJobs.add(result.job);void pollJobs();try{const job=await window.TitanJobs.wait(api,result.job,options);watched.delete(result.job);return job;}finally{foregroundJobs.delete(result.job);}}});
  if(page==='users'&&usersView)window.TitanUsers.mount($('#main'),usersView.data,usersView.shares,{currentName:session.user.name,edit:name=>actions['user-edit']({dataset:{name}})});
  if(page==='updates')window.TitanUpdates?.mount($('#main'),{api});

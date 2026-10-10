@@ -103,8 +103,8 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
             app = args.get('app')
             if not isinstance(app, str):
                 raise Error('Eine gültige App auswählen.')
-            if app not in AVAILABLE_APP_IDS and app not in getattr(self, '_ci_fixture_ids', set()):
-                raise Error('Neue Installationen sind nur für freigegebene eigene Titan-Apps verfügbar. Vorhandene Apps bleiben verwaltbar.', 403)
+            if app not in AVAILABLE_APP_IDS and app not in getattr(self, '_ci_fixture_ids', set()) and app not in getattr(self, '_umbrel_offer_ids', set()):
+                raise Error('Diese App ist im aktuellen Katalog nicht zur Installation verfügbar. Vorhandene Apps bleiben verwaltbar.', 403)
         method = getattr(self, "op_" + operation, None)
         if not method:
             raise Error("Unbekannte Verwaltungsaktion.")
