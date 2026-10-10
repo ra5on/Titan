@@ -487,6 +487,7 @@ def protected_app_bridge(base, host, run):
     os.chown(state, account.pw_uid, account.pw_gid)
     directory = base / 'proxy'
     directory.mkdir(mode=0o755)
+    directory.chmod(0o755)  # The agent fixture intentionally sets umask 0027.
     host._web_access = WebAccess(directory, run=run, host='127.0.0.1', previous_origin='http://127.0.0.1:18081')
     # Keep the installed service's protections; only remove absent NAS boot
     # dependencies/SELinux context and point at this fixture's configuration.
