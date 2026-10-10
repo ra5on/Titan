@@ -32,6 +32,8 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 remove -y passt
           sudo chmod a+r /boot/vmlinuz-*
           if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
+      - name: Build checksum-verified Debian QCOW2 guest fixture
+        run: bash scripts/build-qcow2-test-guest.sh --disposable-runner
       - name: Current builder and API regression tests
         run: |
           env -u TITAN_INITIAL_IMAGE -u TITAN_UPDATE_KIND -u TITAN_PREVIOUS_TAG -u TITAN_APP_VERSION -u TITAN_APP_STAGE -u TITAN_APP_SOURCE_COMMIT -u TITAN_BUILD_SOURCE_COMMIT -u TITAN_SYSTEM_REVISION -u TITAN_APP_SOURCE_ROOT python3 -m unittest discover -s tests
@@ -51,8 +53,6 @@ jobs:
         run: bash scripts/prepare-system-signing.sh
       - name: Build signed Debian system in new regular image files
         run: bash scripts/build-debian-ab-image.sh --disposable-runner
-      - name: Build checksum-verified Debian QCOW2 guest fixture
-        run: bash scripts/build-qcow2-test-guest.sh --disposable-runner
       - name: Boot, HTTPS, UEFI, VNC and complete runtime checks
         run: bash scripts/smoke-image.sh "dist/debian-image/titan-$TITAN_SYSTEM_VERSION-amd64.img" --debian-ab
       - name: Update, rollback and boot health on disposable overlays

@@ -15,8 +15,9 @@ with p.open('rb') as stream: actual=hashlib.file_digest(stream,'sha512').hexdige
 assert actual==v['sha512'],'Debian guest checksum mismatch'
 PY
 virt-customize -a dist/guest-acceptance/debian.qcow2 --memsize 2048 \
+    --run-command 'set -eu; if ! ip -4 route show default | grep -q .; then ip link set eth0 up; ip address replace 169.254.2.15/16 dev eth0; ip route replace default via 169.254.2.2 dev eth0; fi; rm -f /etc/resolv.conf; printf "nameserver 169.254.2.3\n" > /etc/resolv.conf; getent ahostsv4 deb.debian.org' \
     --install qemu-guest-agent \
-    --run-command 'touch /etc/cloud/cloud-init.disabled; systemctl enable qemu-guest-agent; apt-get clean; rm -rf /var/lib/apt/lists/*' \
+    --run-command 'set -eu; touch /etc/cloud/cloud-init.disabled; systemctl enable qemu-guest-agent; apt-get clean; rm -rf /var/lib/apt/lists/*; ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf' \
     --truncate /etc/machine-id
 qemu-img convert -c -O qcow2 dist/guest-acceptance/debian.qcow2 dist/guest-acceptance/bootable.qcow2
 rm dist/guest-acceptance/debian.qcow2

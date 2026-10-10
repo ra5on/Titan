@@ -29,7 +29,7 @@ Quelle: https://github.com/getumbrel/umbrel-apps
 ## Prüfstand vom 10. Oktober 2026
 
 Referenz: `aa3c4e9fba032796d15ec09dc1a217aa6566ce8f`.
-Alle 393 Pakete werden erfasst. 14 lassen sich bereits in Titans vorhandenes
+Alle 393 Pakete werden erfasst. 17 lassen sich bereits in Titans vorhandenes
 Compose-Modell übersetzen. Das ist keine Laufzeitfreigabe und keine vollständige
 Katalogunterstützung. Die übrigen Pakete bleiben ausdrücklich gesperrt:
 
@@ -39,10 +39,10 @@ Katalogunterstützung. Die übrigen Pakete bleiben ausdrücklich gesperrt:
 | Anmeldung vor der App | 133 |
 | Andere installierte Apps | 46 |
 | Besondere App-Proxy-Konfiguration | 25 |
-| Laufzeitvariablen | 23 |
-| Verwaltete Zugangsdaten | 2 |
+| Laufzeitvariablen | 15 |
+| Verwaltete Zugangsdaten | 5 |
 | Zusätzliche Speicherzuordnungen | 6 |
-| Compose-Kommandos, HTTPS oder Einstiegspfad | 6 |
+| Compose-Kommandos, Ports, Containeroptionen, HTTPS oder Einstiegspfad | 8 |
 
 Ein Paket kann mehrere Anforderungen haben; die Tabelle zählt jeweils den
 ersten Hinderungsgrund. Die Entwicklungsoberfläche bietet die übersetzbaren Pakete nach ausdrücklich
@@ -105,4 +105,18 @@ Konfiguration bleibt bei Wiederinstallation unverändert. Links und Verzeichniss
 an einem Dateiziel werden abgelehnt. Doneticks öffentlicher JWT-Vorgabeschlüssel
 wird bei der ersten Installation durch einen zufälligen privaten Schlüssel ersetzt.
 Der Donetick-Lauf prüft diesen Pfad zusätzlich in Compose und im HTTP-Installer;
-der erste Lauf dieser Erweiterung ist noch abzuwarten.
+diese Erweiterung bestand in Lauf 38043882564. Die erweiterte kalte Sicherung,
+Wiederherstellung und Wiederinstallation von Memos und Donetick bestanden in
+Lauf 38044088907. Der Update-Test verwendet bewusst dasselbe gepinnte Image;
+eine Datenbankmigration zwischen App-Versionen ist damit nicht nachgewiesen.
+
+Direkte Umgebungswerte `APP_SEED` und `APP_PASSWORD` werden durch private,
+persistente Installationsoptionen ersetzt. Der interne Schlüssel wird einmalig
+zufällig erzeugt; das App-Passwort legt der Administrator beim Installieren fest.
+Wiederinstallation und Wiederherstellung bewahren die gespeicherten Werte.
+Nicht unterstützte Interpolationen bleiben gesperrt. Der zusätzliche Flatnotes-Lauf
+bestand einschließlich echter Anmeldung, Notizerstellung, externer Sicherung,
+Wiederherstellung und Neuinstallation mit erhaltenen Daten:
+https://github.com/ra5on/Titan/actions/runs/38044254544
+Die dabei gemessene Dateiabfrage während der Installation dauerte auf dem
+isolierten Runner 0,231 Sekunden; das ist kein Leistungsnachweis für andere NAS.
