@@ -101,7 +101,7 @@ def update_offer(host, app):
         stack = copy.deepcopy(recipe['stack'])
         for service in stack['services'].values():
             service.pop('image', None)
-        return {key: recipe.get(key) for key in ('port', 'install_schema', 'extra_ports', 'default_network', 'mount', 'config_mount', 'memory', 'seed_files')}, stack
+        return {key: recipe.get(key) for key in ('port', 'install_schema', 'extra_ports', 'default_network', 'mount', 'config_mount', 'memory', 'seed_files', 'app_gateway')}, stack
     if layout(current) != layout(target):
         raise Error('Das Appupdate verändert Speicher oder Einrichtung und benötigt noch eine geprüfte Migration.', 409)
     return target

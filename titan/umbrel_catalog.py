@@ -195,8 +195,7 @@ def translate(package, name):
     env = proxy['environment']
     if not isinstance(env, dict) or set(env) - {'APP_HOST', 'APP_PORT', 'PROXY_AUTH_ADD'}:
         raise UnsupportedTemplate('Besondere Proxy-Konfiguration erforderlich.', 'app_proxy')
-    if str(env.get('PROXY_AUTH_ADD', '')).lower() != 'false':
-        raise UnsupportedTemplate('App benötigt einen durch Titan geschützten Zugang.', 'proxy_auth')
+    protected = str(env.get('PROXY_AUTH_ADD', '')).lower() != 'false'
     if meta.get('requiresHttps'):
         raise UnsupportedTemplate('App benötigt einen geprüften HTTPS-Zugang.', 'https')
     if meta.get('path') not in (None, '', '/'):
@@ -250,9 +249,16 @@ def translate(package, name):
             elif isinstance(value, list):
                 for item in value: variables(item)
         variables(service)
+    if protected and any(service.get('ports') for service in services.values()):
+        raise UnsupportedTemplate('Geschützte App benötigt zusätzlich geprüfte öffentliche Ports.', 'gateway_ports')
     services[primary].setdefault('ports', []).append(str(published) + ':' + str(target))
     document['x-casaos'] = {'main': primary, 'port_map': str(published), 'title': meta.get('name', name), 'description': meta.get('tagline') or meta.get('description')}
     result = translate_compose(document, name, REPOSITORY)
+    if protected:
+        primary_networks = result['stack']['services'][result['stack']['primary']].get('networks') or {'default': {}}
+        if set(primary_networks) != {'default'} or ('backend' in services and primary != 'backend'):
+            raise UnsupportedTemplate('Geschützter Zugang benötigt ein eigenes Standardnetz ohne Dienstkollision.', 'gateway_network')
+        result['app_gateway'] = True
     if runtime_options:
         for (service, key), option in runtime_options.items():
             result['stack']['services'][service]['environment'][key] = '@option:' + option

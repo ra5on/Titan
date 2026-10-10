@@ -18,6 +18,7 @@ import time
 import urllib.parse
 from . import __version__, __release_stage__
 from .catalog import catalog
+from .app_access_http import AppAccessHTTPMixin
 from .core import configuration_lock, job_resources, Error, Jobs, Store, identifier, integer, password_hash, user_profile_text
 from .demo import Demo
 from .rpc import AgentClient
@@ -88,6 +89,8 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
         self.initialize_terminals()
         self.initialize_root_access()
         self.initialize_office()
+        from .app_access import AppAccess
+        self.app_access = AppAccess(self.store)
 
     def trusted_origins(self):
         from .web_access import CONFIG, allowed_origins, read_config
@@ -287,7 +290,7 @@ class WebServer(ThreadingHTTPServer):
     request_queue_size = 128
 
 
-class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
+class Handler(AppAccessHTTPMixin, RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def setup(self):
@@ -462,6 +465,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                                **({"setup_csrf": self.app.setup_csrf} if setup_required else {}),
                                "demo": self.app.demo, "version": __version__, "stage": __release_stage__,
                                "permissions": permissions(self.app.store, user) if user else {}}, extra=extra)
+        if self.app_access_get(path, query):
+            return
         if self.office_get(path, query):
             return
         if path.startswith("/api/"):

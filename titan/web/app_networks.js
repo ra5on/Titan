@@ -66,7 +66,7 @@
   states.set(widget,{dispose(){disposed=true;select.removeEventListener('change',onChange);port?.removeEventListener('input',onChange);create.removeEventListener('click',onCreate);}});
  }
  function safeUrl(value){try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
- function connection(app){app=app.container||app;if(app.web_available===false||app.web_state&&app.web_state!=='ready')return '';const remote=app.titan_public_origin&&window.location?.origin===app.titan_public_origin;const endpoint=(app.endpoints||[]).find(item=>item.scope===(remote?'public':'lan')&&safeUrl(item.url));return endpoint?safeUrl(endpoint.url):'';}
+ function connection(app){app=app.container||app;if(app.web_available===false||app.web_state&&app.web_state!=='ready')return '';if(app.app_gateway)return new URL('/api/app-open?app='+encodeURIComponent(app.app_gateway_id||app.id),window.location.origin).href;const remote=app.titan_public_origin&&window.location?.origin===app.titan_public_origin;const endpoint=(app.endpoints||[]).find(item=>item.scope===(remote?'public':'lan')&&safeUrl(item.url));return endpoint?safeUrl(endpoint.url):'';}
  function summary(app){
   app=app.container||app;
   const nets=app.networks||[],ips=nets.flatMap(item=>[item.ipv4,item.ipv6].filter(Boolean));

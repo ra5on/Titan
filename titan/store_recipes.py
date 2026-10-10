@@ -20,7 +20,7 @@ def recipes(document, source):
     result = {}
     prefix = 's' + hashlib.sha256(source.encode()).hexdigest()[:10] + '-'
     for item in document['apps']:
-        allowed = {'id', 'name', 'version', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip','seed_files'}
+        allowed = {'id', 'name', 'version', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip','seed_files','app_gateway'}
         required = {'id', 'name', 'description', 'image', 'port', 'documentation', 'login_note'}
         if not isinstance(item, dict) or set(item) - allowed or required - set(item):
             raise Error('App enthält fehlende oder nicht unterstützte Felder.')
@@ -87,9 +87,13 @@ def recipes(document, source):
         if 'seed_files' in item and 'stack' not in item:
             raise Error('Paketdateien benötigen einen Containerverbund.')
         stack_extra = {}
+        if 'app_gateway' in item:
+            if item['app_gateway'] is not True or 'stack' not in item:
+                raise Error('Ungültiger geschützter App-Zugang.')
+            stack_extra['app_gateway'] = True
         if 'stack' in item:
             from .compose_templates import validate_stack
-            stack_extra = {'stack': validate_stack(item['stack'])}
+            stack_extra['stack'] = validate_stack(item['stack'])
             if item.get('default_network','default') not in ('default','host') or item.get('default_network')=='host' and len(item['stack']['services'])>1: raise Error('Ungültiges Standardnetz.')
             stack_extra['default_network']=item.get('default_network','default')
             # These fields are adapter-generated; validate all keys and limits.

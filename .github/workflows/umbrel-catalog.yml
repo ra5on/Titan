@@ -4,6 +4,11 @@ on:
     branches: [codex/recovery-unified-updates]
     paths:
       - 'titan/umbrel*.py'
+      - 'titan/app_access*.py'
+      - 'titan/app_gateway.py'
+      - 'tests/test_app_access.py'
+      - 'tests/test_app_gateway*.py'
+      - 'scripts/smoke-app-gateway.py'
       - 'titan/app_management.py'
       - 'titan/host.py'
       - 'titan/app_stores.py'
@@ -74,3 +79,17 @@ jobs:
         run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
       - name: Real Titan HTTP installer, catalog, lifecycle and retained data
         run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py 'umbrel:${{ matrix.app }}' --umbrel-revision "$UMBREL_REVISION" --app-backup-smoke --confirm-disposable-runner
+
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install parser and independent proxy
+        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml caddy
+      - name: Real proxy HTTP, cookie isolation and WebSocket regression
+        run: TITAN_TEST_CADDY=/usr/bin/caddy python3 -m unittest discover -s tests -p 'test_app_gateway_http.py' -v
+      - name: Real protected catalog package
+        run: python3 scripts/smoke-app-gateway.py --revision "$UMBREL_REVISION" --confirm-disposable-runner

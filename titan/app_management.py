@@ -206,7 +206,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 "containers": sorted(original_ids), "output": "\n".join(value for value in output if value),
                 "message": "Paket deinstalliert. Konfiguration, Datenbanken und Nutzdaten bleiben erhalten." if action == "remove" else "Alle vorhandenen Paketdienste sind gestoppt."}
 
-    def _app_declared_volumes(self, container, expected_bindings):
+    def _app_declared_volumes(self, container, expected_bindings, expected_tmpfs=()):
         """Accept Docker's own anonymous image volumes, never extra host binds.
 
         Redis/Valkey and document-server init images declare VOLUME entries even
@@ -214,6 +214,11 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         the actual local, option-free volume before accepting those entries.
         """
         mounts = container.get("Mounts", [])
+        declared_tmpfs = {value.split(':', 1)[0]: value.split(':', 1)[1] if ':' in value else '' for value in expected_tmpfs}
+        if declared_tmpfs:
+            if (container.get('HostConfig', {}).get('Tmpfs') or {}) != declared_tmpfs:
+                return False
+            mounts = [mount for mount in mounts if not (mount.get('Type') == 'tmpfs' and mount.get('Destination') in declared_tmpfs)]
         if len(mounts) == len(expected_bindings):
             return True
         extras = [value for value in mounts if value.get("Destination") not in expected_bindings]
@@ -473,7 +478,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             if (container.get("Name") != "/titan-" + service_key or container.get("Id") != identifier or
                     container.get("Config", {}).get("Image") != definition["image"] or
                     bindings != expected_bindings or actual_ports != expected_ports or
-                    not self._app_declared_volumes(container, expected_bindings) or
+                    not self._app_declared_volumes(container, expected_bindings, definition.get("tmpfs", [])) or
                     host.get("Privileged") or host.get("CapAdd") or
                     (host.get("Devices") or []) != [{"PathOnHost":v.split(":")[0],"PathInContainer":v.split(":")[1],"CgroupPermissions":v.split(":")[2]} for v in definition.get("devices", [])]):
                 raise Error("Container und verwaltete App-Konfiguration stimmen nicht überein.", 409)
@@ -754,9 +759,19 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         self._app_patch_record(app, {"phase": "failed" if error else "ready",
             "last_error": self._package_redact(app, str(error))[-4000:] if error else "", "changed": time.time()})
 
+    def op_app_gateway_info(self, app):
+        from .app_access import app_id
+        app_id(app)
+        record = next((row for row in self.load("apps", []) if row['id'] == app), None)
+        if not record or not APPS.get(app, {}).get('app_gateway'):
+            raise Error("Geschützter App-Zugang ist nicht installiert.", 404)
+        return {'id': app, 'port': record['port'], 'scheme': record.get('scheme', 'http')}
+
     def op_apps(self):
         records = [dict(record) for record in self.load("apps", [])]
         for record in records:
+            if APPS.get(record["id"], {}).get("app_gateway"):
+                record["app_gateway"] = True
             if record.get("last_error"):
                 record["last_error"] = self._package_redact(record["id"], str(record["last_error"]))
         if not shutil.which("docker", path="/usr/sbin:/usr/bin:/sbin:/bin"):
@@ -856,6 +871,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             raise Error("App-Vorlage nicht gefunden.")
         if APPS[app].get("catalog_status") == "preparation":
             raise Error("Diese Titan-Vorlage ist noch in Vorbereitung. Neue Installation ist nicht freigegeben.")
+        if APPS[app].get("app_gateway"):
+            self.web_access.ensure_app_gateway()
         with self.app_memory_lock:
             return self._install_app(app, port, share, options, network, hardware, storage_id)
 

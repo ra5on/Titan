@@ -390,7 +390,8 @@ def compose(app_id, directory, uid, gid, port, data_path, options=None, network=
             from .app_networks import apply_selection
             definition["services"][app_id].pop("networks",None)
             definition=apply_selection(definition,app_id,network)
-        return apply(definition,app_id,hardware)
+        from .app_gateway import wrap
+        return wrap(apply(definition,app_id,hardware),app_id,app)
     volumes = ([{"type": "bind", "source": str(config_path or f"{directory}/config"), "target": "/config",
                  "bind": {"create_host_path": False, "selinux": "Z"}}] if app.get("config_mount", True) else [])
     if app["mount"]:

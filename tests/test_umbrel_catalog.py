@@ -94,8 +94,9 @@ class CatalogTests(unittest.TestCase):
         files = package(); doc = json.loads(files['example/docker-compose.yml'])
         del doc['services']['app_proxy']['environment']['PROXY_AUTH_ADD']
         files['example/docker-compose.yml'] = json.dumps(doc)
-        _, blocked = compile_inventory(archive_inventory(archive(files), REVISION))
-        self.assertEqual(blocked[0]['code'], 'proxy_auth')
+        document, blocked = compile_inventory(archive_inventory(archive(files), REVISION))
+        self.assertEqual(blocked, [])
+        self.assertIs(document['apps'][0]['app_gateway'], True)
 
     def test_unresolved_platform_variables_are_not_user_inputs(self):
         files = package(); doc = json.loads(files['example/docker-compose.yml'])

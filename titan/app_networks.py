@@ -393,7 +393,7 @@ class AppNetworkMixin:
         except (AttributeError, OSError, Error):
             pass
         return {"network_mode": selected, "networks": infos, "host_addresses": addresses,
-                "endpoints": endpoints, "titan_public_origin": public_origin, "public_ip": None, "network_warnings": warnings}
+                "endpoints": endpoints, "app_gateway": bool(APPS[record["id"]].get("app_gateway")), "app_gateway_id": record["id"] if APPS[record["id"]].get("app_gateway") else None, "titan_public_origin": public_origin, "public_ip": None, "network_warnings": warnings}
 
 
 # A bounded background pool keeps slow app startup out of bulk list requests.
