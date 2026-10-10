@@ -4,6 +4,8 @@ import argparse
 import base64
 import contextlib
 import hashlib
+import http.client
+from http.cookies import SimpleCookie
 import importlib.util
 import json
 import os
@@ -241,6 +243,105 @@ def app_backup_restore_smoke(base, host, request, action, ready, app, installed,
             request('/api/backup/settings', previous_settings)
 
 
+def flatnotes_probe(port, options, *, create=False):
+    """Use the app's documented password login and real note API."""
+    origin='http://127.0.0.1:'+str(port)
+    for endpoint, payload in (('/api/auth-check',None),('/api/token',{'username':'admin','password':'intentionally-wrong'})):
+        try:
+            value=urllib.request.Request(origin+endpoint,data=json.dumps(payload).encode() if payload else None,
+                                         headers={'Content-Type':'application/json'})
+            with urllib.request.urlopen(value,timeout=15):pass
+        except urllib.error.HTTPError as response:
+            if response.code!=401:raise Error('Flatnotes rejected access with an unexpected status.')
+        else:raise Error('Flatnotes allowed unauthenticated access.')
+    login=urllib.request.Request(origin+'/api/token',data=json.dumps({'username':'admin',
+        'password':options['stack_umbrel_password']}).encode(),headers={'Content-Type':'application/json'})
+    with urllib.request.urlopen(login,timeout=15) as response:token=json.load(response)['access_token']
+    headers={'Content-Type':'application/json','Authorization':'Bearer '+token}
+    if create:
+        request=urllib.request.Request(origin+'/api/notes',headers=headers,
+            data=json.dumps({'title':'Titan-acceptance','content':'actual authenticated app data'}).encode())
+        with urllib.request.urlopen(request,timeout=15) as response:
+            if json.load(response)['content']!='actual authenticated app data':raise Error('Flatnotes note creation failed.')
+    request=urllib.request.Request(origin+'/api/notes/Titan-acceptance',headers=headers)
+    with urllib.request.urlopen(request,timeout=15) as response:return json.load(response)['content']
+
+
+def umbrel_app_backup(base, host, request, action, ready, app, installed, run, app_port):
+    """Real catalog database, package update transaction and external restore."""
+    import sqlite3
+    config = Path(installed['config_path'])
+    action('app_action', app=app, action='stop')
+    databases=[]
+    for path in config.rglob('*'):
+        if path.is_file():
+            with path.open('rb') as stream:
+                if stream.read(16) == b'SQLite format 3\x00': databases.append(path)
+    flatnotes = app.endswith('-flatnotes')
+    if not flatnotes and len(databases) != 1: raise Error('Expected exactly one real catalog application database.')
+    if flatnotes:
+        notes=list(config.rglob('Titan-acceptance.md'))
+        if len(notes)!=1:raise Error('The authenticated note API did not create a persistent Markdown note.')
+        database=notes[0]
+    else:database=databases[0]
+    def marker(value=None):
+        if flatnotes:
+            if value is not None:database.write_text(value)
+            return database.read_text()
+        with contextlib.closing(sqlite3.connect(database)) as connection, connection:
+            if connection.execute('pragma integrity_check').fetchone()[0] != 'ok':
+                raise Error('Catalog application database integrity failed.')
+            if value is not None:
+                connection.execute('CREATE TABLE IF NOT EXISTS titan_lifecycle_probe (value TEXT)')
+                connection.execute('DELETE FROM titan_lifecycle_probe')
+                connection.execute('INSERT INTO titan_lifecycle_probe VALUES (?)',(value,))
+            return connection.execute('SELECT value FROM titan_lifecycle_probe').fetchone()[0]
+    marker('before-external-backup')
+    from titan.catalog import APPS
+    seeded = {str(config/row['slot']/row['path']): (config/row['slot']/row['path']).read_bytes()
+              for row in APPS[app].get('seed_files', [])}
+    private=host.directory/'apps'/app/'options.json';private_before=private.read_bytes()
+    action('app_action',app=app,action='start');ready()
+    settings=request('/api/backup/settings')
+    with disposable_backup_disk(base,run) as disk:
+        try:
+            request('/api/backup/settings',{'target':str(disk),'shares':[],'include_config':False,
+                'apps':[app],'app_data':[app],'auto_backup':False,'retention':2})
+            backup=action('backup_create',shares=[],include_config=False,apps=[app],app_data=[app])
+            ready()
+            # Deliberately reinstall the SAME pinned image through the real
+            # update path. This proves the transaction, not a version migration.
+            update=action('app_action',app=app,action='update')
+            if not update.get('backup',{}).get('path'):raise Error('Package update did not create its cold backup.')
+            ready();action('app_action',app=app,action='stop')
+            if marker() != 'before-external-backup':raise Error('Package update lost its database.')
+            marker('changed-after-backup')
+            restore=action('backup_app_restore',backup=backup['id'],app=app,confirmation=backup['id'],include_data=True)
+            if not restore.get('kept_stopped') or any(host._app_container_active(row) for row in host._app_lifecycle_snapshot(app)):
+                raise Error('Restore must leave the catalog app stopped.')
+            if marker() != 'before-external-backup' or private.read_bytes()!=private_before:
+                raise Error('Catalog app restore did not restore database and private settings.')
+            if any(Path(path).read_bytes()!=raw for path,raw in seeded.items()):
+                raise Error('Catalog app restore changed its seeded private configuration.')
+            action('app_action',app=app,action='start');ready()
+            with urllib.request.urlopen('http://127.0.0.1:'+str(app_port)+'/',timeout=15) as response:
+                if response.status != 200:raise Error('Restored app HTTP endpoint is unavailable.')
+            if flatnotes and flatnotes_probe(app_port,host._app_options(app))!='before-external-backup':
+                raise Error('Restored note was not readable through the authenticated application API.')
+            action('app_action',app=app,action='remove')
+            action('app_install',app=app,port=app_port);ready()
+            action('app_action',app=app,action='stop')
+            if marker()!='before-external-backup' or any(Path(path).read_bytes()!=raw for path,raw in seeded.items()):
+                raise Error('Reinstallation changed retained database or signing identity.')
+            action('app_action',app=app,action='start');ready()
+            return {'external_ext4_target':True,'real_application_database_restored':not flatnotes,'authenticated_note_restore':flatnotes,
+                'same_image_update_transaction':True,'version_migration_verified':False,
+                'restore_kept_stopped':True,'restored_http_ready':True,'reinstallation_preserves_data':True,
+                'seeded_configuration_preserved':True}
+        finally:
+            request('/api/backup/settings',settings)
+
+
 def compose_fixture_backup(base, host, request, action, ready, app, installed, run, app_port):
     """Cold backup/restore of two real containers, Unix metadata and SQLite data."""
     import sqlite3
@@ -368,10 +469,86 @@ def check_cloudflared_api(url, credentials=None):
         raise Error('Cloudflared Web configuration API returned HTTP ' + str(response.code) + ' in the selected authentication mode.') from None
 
 
+@contextlib.contextmanager
+def protected_app_bridge(base, host, run):
+    """Production bridge configuration and restart on a disposable systemd host."""
+    from titan.web_access import WebAccess
+    unit = Path('/run/systemd/system/titan-proxy.service')
+    if unit.exists() or Path('/etc/systemd/system/titan-proxy.service').exists():
+        raise Error('Refusing to replace an existing Titan proxy service.')
+    try:
+        account = pwd.getpwnam('titan-proxy')
+    except KeyError:
+        run(['useradd', '--system', '--no-create-home', '--home-dir', '/var/lib/titan-proxy',
+             '--shell', '/usr/sbin/nologin', 'titan-proxy'])
+        account = pwd.getpwnam('titan-proxy')
+    state = Path('/var/lib/titan-proxy')
+    state.mkdir(mode=0o700, exist_ok=True)
+    os.chown(state, account.pw_uid, account.pw_gid)
+    directory = base / 'proxy'
+    directory.mkdir(mode=0o755)
+    directory.chmod(0o755)  # The agent fixture intentionally sets umask 0027.
+    host._web_access = WebAccess(directory, run=run, host='127.0.0.1', previous_origin='http://127.0.0.1:18081')
+    # Keep the installed service's protections; only remove absent NAS boot
+    # dependencies/SELinux context and point at this fixture's configuration.
+    template = (Path(__file__).resolve().parents[1] / 'packaging/titan-proxy.service').read_text()
+    template = '\n'.join(line for line in template.splitlines()
+        if not line.startswith(('After=', 'Wants=', 'Requires=', 'SELinuxContext=')))
+    template = template.replace('/etc/titan/Caddyfile', str(directory / 'Caddyfile'))
+    # PrivateTmp hides the test directory under /tmp. Its fixture path must be
+    # visible to the service; no app or container protection is changed.
+    template = template.replace('PrivateTmp=true', 'PrivateTmp=false')
+    unit.write_text(template + '\n')
+    try:
+        run(['systemctl', 'daemon-reload'])
+        yield
+    finally:
+        run(['systemctl', 'stop', 'titan-proxy.service'])
+        unit.unlink()
+        run(['systemctl', 'daemon-reload'])
+
+
+def protected_app_login(web, app, token, app_port, password):
+    def get(port, path, cookie=''):
+        connection = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
+        try:
+            connection.request('GET', path, headers={'Cookie': cookie})
+            response = connection.getresponse()
+            return response.status, dict(response.getheaders()), response.read(1024 * 1024)
+        finally:
+            connection.close()
+    if get(app_port, '/')[0] != 401:
+        raise Error('Installed protected app permits anonymous access.')
+    status, headers, _ = get(5001, '/api/app-open?app=' + app, 'titan_session=' + token)
+    if status != 303:
+        raise Error('Installed app handoff failed.')
+    location = urllib.parse.urlsplit(headers['Location'])
+    status, headers, _ = get(app_port, location.path + '?' + location.query)
+    if status != 303:
+        raise Error('Production bridge did not redeem app ticket.')
+    name = 'titan_app_' + app
+    cookie = name + '=' + SimpleCookie(headers['Set-Cookie'])[name].value
+    status, _, body = get(app_port, '/', cookie)
+    if status != 200 or b'<html' not in body.lower():
+        raise Error('Installed app is not reachable with its authenticated cookie.')
+    # Revocation is checked against another session so lifecycle HTTP requests
+    # remain authorized with the original acceptance session.
+    temporary, _ = web.store.login('smokeadmin', password)
+    status, headers, _ = get(5001, '/api/app-open?app=' + app, 'titan_session=' + temporary)
+    location = urllib.parse.urlsplit(headers['Location'])
+    status, headers, _ = get(app_port, location.path + '?' + location.query)
+    other = name + '=' + SimpleCookie(headers['Set-Cookie'])[name].value
+    web.store.logout(temporary)
+    if get(app_port, '/', other)[0] != 401:
+        raise Error('Installed app session survives NAS logout.')
+    return cookie
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('package', choices=['titan-ci-compose-fixture', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
+    parser.add_argument('package', choices=['titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick', 'umbrel:flatnotes', 'umbrel:bentopdf', *PACKAGES, 'bigbear:adguard-home', 'bigbear:nextcloud', 'bigbear:immich', 'bigbear:cloudflared-web'])
     parser.add_argument('--confirm-disposable-runner', action='store_true')
+    parser.add_argument('--umbrel-revision', type=bigbear_revision, metavar='SHA')
     parser.add_argument('--bigbear-revision', type=bigbear_revision, metavar='SHA',
         help='Use one verified BigBear commit without anonymous GitHub API branch lookup.')
     parser.add_argument('--cloudflared-auth', choices=['disabled', 'password'],
@@ -381,15 +558,18 @@ def main():
     args = parser.parse_args()
     if args.bigbear_revision is not None and not args.package.startswith('bigbear:'):
         parser.error('--bigbear-revision requires a BigBear package.')
+    if args.package.startswith('umbrel:') != bool(args.umbrel_revision):
+        parser.error('Umbrel packages require --umbrel-revision, exclusively.')
     cloudflared_web = args.package == 'bigbear:cloudflared-web'
     if args.cloudflared_auth is not None and not cloudflared_web:
         parser.error('--cloudflared-auth requires bigbear:cloudflared-web.')
-    if args.app_backup_smoke and args.package not in ('bigbear:nextcloud', 'titan-ci-compose-fixture'):
-        parser.error('--app-backup-smoke requires the owned Compose fixture or legacy Nextcloud.')
+    if args.app_backup_smoke and args.package not in ('bigbear:nextcloud', 'titan-ci-compose-fixture', 'umbrel:memos', 'umbrel:donetick', 'umbrel:flatnotes'):
+        parser.error('--app-backup-smoke requires an app with a defined database acceptance check.')
     cloudflared_auth = args.cloudflared_auth or 'disabled'
     if not args.confirm_disposable_runner or os.environ.get('GITHUB_ACTIONS') != 'true':
         parser.error('This test is restricted to an explicitly confirmed disposable GitHub runner.')
     fixture_document = None
+    umbrel_cache = None
     if args.package == 'titan-ci-compose-fixture':
         from titan.native_catalog import CI_SOURCE
         from titan.store_recipes import recipes
@@ -398,6 +578,19 @@ def main():
         _, imported = recipes(fixture_document, CI_SOURCE)
         app, recipe = next(iter(imported.items()))
         APPS[app] = recipe
+    elif args.package.startswith('umbrel:'):
+        from titan.umbrel_catalog import URL, fetch_inventory, compile_inventory
+        from titan.store_recipes import recipes
+        from titan.catalog import APPS
+        inventory = fetch_inventory(args.umbrel_revision)
+        document, blocked = compile_inventory(inventory)
+        _, imported = recipes(document, URL)
+        suffix = args.package.split(':', 1)[1]
+        app, recipe = next((key, value) for key, value in imported.items() if key.endswith('-' + suffix))
+        recipe.update(umbrel_catalog=True, catalog_revision=args.umbrel_revision)
+        APPS[app] = recipe
+        umbrel_cache = {'schema': 1, 'revision': args.umbrel_revision, 'archive_sha256': inventory['archive_sha256'],
+            'document': document, 'blocked': blocked, 'total': len(inventory['packages']), 'loaded_at': 'CI'}
     elif args.package.startswith('bigbear:'):
         from titan.app_stores import StoreMixin
         from titan.store_sources import BIGBEAR
@@ -435,7 +628,7 @@ def main():
             print('Package command failed: ' + message, file=sys.stderr)
             raise Error(message)
         return result.stdout
-    with tempfile.TemporaryDirectory(prefix='titan-package-smoke-') as directory:
+    with tempfile.TemporaryDirectory(prefix='titan-package-smoke-') as directory, contextlib.ExitStack() as fixtures:
         base = Path(directory)
         base.chmod(0o755)
         if os.geteuid() != 0:
@@ -460,6 +653,11 @@ def main():
             atomic_json(base / 'agent' / 'ci-compose-fixtures.json', {'schema':1,'disposable':True,'document':fixture_document,'legacy_ids':['heimdall']}, mode=0o600)
             if run(['docker','ps','-aq','--filter','label=com.docker.compose.project=titan-' + app],timeout=15).strip():
                 raise Error('Compose fixture must not replace a pre-existing project.')
+        if umbrel_cache is not None:
+            from titan.core import atomic_json
+            (base / 'agent').mkdir(mode=0o700, exist_ok=True)
+            from titan.umbrel_store import CACHE
+            atomic_json(base / 'agent' / (CACHE + '.json'), umbrel_cache)
         host = Host(base / 'agent', base / 'shares', base / 'vms', base / 'samba.conf')
         host.directory.chmod(0o700)
         host.share_root.mkdir(mode=0o755)
@@ -467,6 +665,8 @@ def main():
         files.mkdir(mode=0o755)
         (files / 'available-during-install.txt').write_text('file-manager-remains-responsive')
         host.save('shares', [{'name': 'smoke-files', 'path': str(files), 'readers': ['titan-files'], 'writers': ['titan-files']}])
+        if recipe.get('app_gateway'):
+            fixtures.enter_context(protected_app_bridge(base, host, run))
         web = Application(base / 'web')
         class LocalAgent:
             def call(self, operation, **arguments):
@@ -477,7 +677,7 @@ def main():
         web_password = 'Test-' + os.urandom(24).hex()
         web.store.setup('smokeadmin', web_password)
         token, csrf = web.store.login('smokeadmin', web_password)
-        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        server = ThreadingHTTPServer(('127.0.0.1', 5001 if recipe.get('app_gateway') else 0), Handler)
         server.app, server.daemon_threads = web, True
         server_thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .05}, daemon=True)
         server_thread.start()
@@ -519,6 +719,10 @@ def main():
         config = host.directory / 'apps' / app / 'compose.json'
         command = ['docker', 'compose', '--project-name', 'titan-' + app, '-f', str(config)]
         try:
+            if umbrel_cache is not None:
+                offers = request('/api/catalog')
+                if not any(row['id'] == app for row in offers['apps']) or offers['umbrel']['revision'] != args.umbrel_revision:
+                    raise Error('The pinned catalog offer is absent from the real HTTP API.')
             native_steps = app in ('titan-immich', 'titan-adguard')
             if native_steps:
                 initial = request('/api/app-install?app=' + app)
@@ -554,6 +758,11 @@ def main():
             definition = json.loads(config.read_text())
             ready()
             installed = next(row for row in host.load('apps', []) if row['id'] == app)
+            if args.package == 'umbrel:donetick':
+                import yaml
+                seeded_path = next(Path(installed['config_path']).rglob('selfhosted.yaml'))
+                if not re.fullmatch(r'[a-f0-9]{64}', yaml.safe_load(seeded_path.read_bytes())['jwt']['secret']):
+                    raise Error('The HTTP installer did not personalize the seeded signing identity.')
             actual_options = host._app_options(app)
             # Generated secrets on the real install are retained across retries;
             # use these exact private values for the separate Office roundtrip.
@@ -562,8 +771,9 @@ def main():
             endpoint = '/api/server/ping' if app == 'titan-immich' else '/admin/' if app == 'titan-pihole' else '/status.php' if app == 'titan-nextcloud-office' else '/'
             bigbear_nextcloud = args.package == 'bigbear:nextcloud'
             if bigbear_nextcloud: endpoint = '/index.php/login'
+            gateway_cookie = protected_app_login(web, app, token, app_port, web_password) if recipe.get('app_gateway') else ''
             app_request = urllib.request.Request('http://127.0.0.1:' + str(app_port) + endpoint,
-                headers={'Host': 'nas.test:18080'} if bigbear_nextcloud else {})
+                headers={'Host': 'nas.test:18080'} if bigbear_nextcloud else {'Cookie': gateway_cookie} if gateway_cookie else {})
             for attempt in range(45):
                 try:
                     with urllib.request.urlopen(app_request, timeout=5) as response:
@@ -674,11 +884,15 @@ def main():
             ready()
             check_native_dns()
             check_cloudflared_lan()
+            if recipe.get('app_gateway'):
+                protected_app_login(web, app, token, app_port, web_password)
+            if args.package == 'umbrel:flatnotes':
+                flatnotes_probe(app_port, options, create=True)
             keep = Path(installed['data']) / 'titan-smoke-retained.txt'
             keep.write_text('persistent-user-data')
             private = host.directory / 'apps' / app / 'options.json'
             private_before = private.read_bytes()
-            backup_check = compose_fixture_backup if fixture_document is not None else app_backup_restore_smoke
+            backup_check = umbrel_app_backup if args.package.startswith('umbrel:') else compose_fixture_backup if fixture_document is not None else app_backup_restore_smoke
             app_backup = (backup_check(base, host, request, action, ready, app, installed, run, app_port)
                           if args.app_backup_smoke else None)
             removed = action('app_action', app=app, action='remove')
@@ -694,6 +908,7 @@ def main():
                 raise Error('Uninstall retained app firewall access.')
             print(json.dumps({'package': app, 'containers': len(definition['services']), 'ready': True,
                 'native_install_steps_verified': native_steps,
+                'protected_gateway_login_logout_verified': bool(recipe.get('app_gateway')),
                 'adguard_dns_tcp_udp_verified': app == 'titan-adguard',
                 'restart': True, 'host_http_lifecycle': True, 'single_container_stop': True,
                 'package_stop_start': True, 'uninstall_data_retained': True,

@@ -103,8 +103,8 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
             app = args.get('app')
             if not isinstance(app, str):
                 raise Error('Eine gültige App auswählen.')
-            if app not in AVAILABLE_APP_IDS and app not in getattr(self, '_ci_fixture_ids', set()):
-                raise Error('Neue Installationen sind nur für freigegebene eigene Titan-Apps verfügbar. Vorhandene Apps bleiben verwaltbar.', 403)
+            if app not in AVAILABLE_APP_IDS and app not in getattr(self, '_ci_fixture_ids', set()) and app not in getattr(self, '_umbrel_offer_ids', set()):
+                raise Error('Diese App ist im aktuellen Katalog nicht zur Installation verfügbar. Vorhandene Apps bleiben verwaltbar.', 403)
         method = getattr(self, "op_" + operation, None)
         if not method:
             raise Error("Unbekannte Verwaltungsaktion.")
@@ -112,7 +112,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
             raise Error("Titan-Konfiguration wird wiederhergestellt. Verwaltungsaktionen sind gesperrt.", 503)
         # Account revocation must remain responsive during large file/VM backups.
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove", "identity_apply", "identity_home", "user_quota"}
-        read_ops = {"web_health","app_office_runtime", "identity_capabilities", "identity_baseline", "identity_homes", "user_quotas", "storage_maintenance", "backup_browse", "notification_settings", "vm_extensions", "package_details", "package_diagnose", "package_logs", "docker_engine", "docker_metrics", "docker_container_details","services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
+        read_ops = {"app_gateway_info", "recovery_inventory", "web_health","app_office_runtime", "identity_capabilities", "identity_baseline", "identity_homes", "user_quotas", "storage_maintenance", "backup_browse", "notification_settings", "vm_extensions", "package_details", "package_diagnose", "package_logs", "docker_engine", "docker_metrics", "docker_container_details","services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
                     "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "app_devices", "app_metrics", "shares_access"}
         read_ops |= {'root_terminal_create', 'root_terminal_poll', 'root_terminal_write', 'root_terminal_resize', 'root_terminal_close', 'pool_recovery'}
         file_read = operation in {"file", "admin_file", "system_file", "root_system_file"} and args.get("action") in {"list", "read", "trash_list"}

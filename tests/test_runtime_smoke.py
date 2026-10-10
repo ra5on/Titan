@@ -266,6 +266,18 @@ class RuntimeSmokeTests(unittest.TestCase):
         client.request.assert_any_call("/api/catalog")
         self.assertNotIn("admin123", json.dumps(report))
 
+    def test_umbrel_status_is_validated_without_weakening_native_guidance(self):
+        from titan.umbrel_store import status
+        value = FakeGuest().request('/api/catalog')
+        value['umbrel'] = status(SimpleNamespace(load=lambda *args: None))
+        client = Mock(); client.request.return_value = value
+        self.assertTrue(smoke.RuntimeSmoke(client).catalog()['ok'])
+        for change in ({'apps': True}, {'total': 1}, {'loaded': 'yes'}, {'url': 'https://invalid.test'}):
+            bad = copy.deepcopy(value); bad['umbrel'].update(change)
+            client.request.return_value = bad
+            with self.assertRaises(smoke.SmokeFailure):
+                smoke.RuntimeSmoke(client).catalog()
+
     def test_legacy_empty_catalog_before_bigbear_activation_is_valid(self):
         client = Mock()
         client.request.return_value = {'apps': [], 'source': 'Titan AppStore', 'error': None}

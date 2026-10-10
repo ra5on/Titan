@@ -100,3 +100,16 @@ html[data-desktop-embedded=true] #shell[data-page=apps] .nas-window{flex:1 1 0;m
 @media(max-width:480px){.apps-center{padding:0 0 20px}.ac-heading{gap:10px;margin-bottom:11px}.ac-heading h1{font-size:20px}.apps-center .ac-search{width:49%;padding:0 8px}.ac-categories{gap:3px}.ac-categories button{padding:6px 9px;font-size:10px}.ac-featured{margin-bottom:14px}.ac-installed-list{grid-template-columns:1fr}.ac-detail-heading,.ac-native-toolbar{align-items:flex-start;flex-wrap:wrap;gap:10px}.ac-detail-title{gap:8px}.ac-detail-title h3,.ac-detail-title h4{font-size:18px}.ac-detail-title .ac-app-icon{display:none}.ac-runtime{grid-template-columns:1fr}.ac-actions>.button{flex:1 1 130px}.ac-step-title{flex-wrap:wrap;gap:3px}.ac-step-title>span{margin-left:auto}}
 @media(pointer:coarse){.apps-center :is(.button,input,select,.ac-back,.ac-categories button){min-height:42px}.ac-back{width:42px}}
 @media(prefers-reduced-motion:reduce){.apps-center *{scroll-behavior:auto!important;animation:none!important;transition:none!important}.ac-feature:hover,.ac-app-card:hover,.ac-native-card:hover,.ac-installed-app:hover{transform:none}}
+
+/* Imported packages share the main store search and responsive card language. */
+.umbrel-store{margin-top:24px;border-top:1px solid var(--line);padding-top:22px}
+.umbrel-store .ac-app-card>[data-umbrel-app]{grid-column:2;justify-self:start}
+.umbrel-store details{margin-block:20px}
+.umbrel-store details ul{max-height:240px;overflow:auto;padding-inline-start:22px}
+.umbrel-store details li{margin-block:8px;color:var(--muted)}
+@container app-store (max-width:560px){.umbrel-store .ac-app-card>[data-umbrel-app]{grid-column:3;grid-row:1}}
+
+.apps-center[data-store-filtered=true]{padding-bottom:0}
+.apps-center[data-store-filtered=true]+.umbrel-store{margin-top:12px;padding-top:0;border-top:0}
+.apps-center[data-store-filtered=true]+.umbrel-store>.ac-heading{display:none}
+.apps-center[data-store-detail]+.umbrel-store{display:none}

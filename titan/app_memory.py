@@ -139,6 +139,12 @@ def package_memory_plan(app, options=None):
             raise Error('Die App-Vorlage enthält kein gültiges RAM-Limit.', 503)
         members.append({'id': app if not stack or name == stack['primary'] else app + '-' + name.lower(),
             'service': name, 'limit_bytes': ceiling, 'one_shot': name == 'office-init'})
+    if recipe.get('app_gateway'):
+        for member in members:
+            if member['id'] == app:
+                member['id'] = app + '-backend'
+        members.append({'id': app, 'service': 'titan-auth-gateway',
+                        'limit_bytes': 128 * MIB, 'one_shot': False})
     # The seed container completes before Office starts, so count the larger
     # phase once. Summing both would invent simultaneous resource consumption.
     regular = sum(item['limit_bytes'] for item in members if not item['one_shot'])

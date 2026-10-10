@@ -1,5 +1,18 @@
 # Titan Apps und vorhandene Docker-Anwendungen
 
+## In Entwicklung: Umbrel-Katalog
+
+Der neue Entwicklungsstand ergänzt den offiziellen Umbrel-Katalog in Titans
+eigener Oberfläche. **Katalog laden/aktualisieren** ruft einen konsistenten
+Git-Stand ab. Vollständig übersetzbare Pakete können eingerichtet werden;
+Pakete mit noch fehlender Laufzeitunterstützung zeigen den Grund und bleiben
+gesperrt. Katalogabrufe verändern installierte Apps nicht. Ein ausdrücklich
+gestartetes Appupdate sichert zuvor Konfiguration und Datenbank.
+Dieser Stand ist noch nicht als Stable veröffentlicht. Umfang und Testnachweise:
+[Umbrel-Integration](UMBREL-CATALOG.md).
+
+## Bisherige Veröffentlichungen
+
 Ab Titan 0.5.8 bietet **Apps** eigene Docker-Compose-Anwendungen an. Ab 0.5.9 stehen **Cloudflare Tunnel, Immich, AdGuard Home und Tailscale** bereit. Der Katalog steht lokal bereit; Titan lädt beim Start keinen BigBear-Katalog und bietet keinen Import externer Stores an.
 
 Bereits installierte Anwendungen und ihre gespeicherten Compose-Rezepte bleiben erhalten. Die Umstellung entfernt weder Container noch Konfiguration, Datenbanken oder Nutzdaten. Unter **Weitere installierte Apps → Verwalten** und unter **Docker** lassen sich diese Anwendungen weiter bedienen. Das bisherige Cloudflared-Web wird nicht für neue Installationen angeboten.

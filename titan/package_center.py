@@ -94,7 +94,14 @@ class PackageCenterMixin:
         definition = json.loads((self.directory / "apps" / app / "compose.json").read_text())
         from .host import pwd
         owner = pwd.getpwnam("titan-files")
-        target = compose(app, str(self.directory / "apps" / app), owner.pw_uid, owner.pw_gid, installed["port"], installed["data"], options, installed.get("network"), installed.get("hardware"), config_path=installed.get("config_path"))
+        candidate, update_error = None, None
+        if APPS[app].get('umbrel_catalog'):
+            from .umbrel_store import update_offer
+            try:
+                candidate = update_offer(self, app)
+            except Error as exc:
+                update_error = str(exc)
+        target = compose(app, str(self.directory / "apps" / app), owner.pw_uid, owner.pw_gid, installed["port"], installed["data"], options, installed.get("network"), installed.get("hardware"), config_path=installed.get("config_path"), recipe=candidate)
         return {"installed": True, "app": installed, "services": services, "ready": ready,
                 "primary_state": primary["state"] if primary else "missing",
                 "primary_available": primary_web.get("web_available") is True, **primary_web,
@@ -103,8 +110,8 @@ class PackageCenterMixin:
                 "warnings": warnings, "running_services": running, "total_services": len(services),
                 "login": {"instructions": APPS[app]["first_login"]["instructions"], "username": options.get("username", ""), "password_selected": any(field["type"] == "password" and not field.get("generated") for field in APPS[app]["install_schema"])},
                 "settings": settings, "data_path": installed["data"], "port": installed["port"],
-                "update": {"available": definition_digest(definition) != definition_digest(target), "policy": "installed-store-recipe" if APPS[app].get("imported_stack") else "approved-titan-recipe", "backup_required": True,
-                           "message": "Die installierte Store-Vorlage bleibt fest gespeichert. Katalogaktualisierungen ändern diesen Stack nicht. Images werden ausschließlich für diese gespeicherte Vorlage geladen." if APPS[app].get("imported_stack") else "Titan aktualisiert alle Paketdienste gemeinsam auf die freigegebenen Versionen. Vorher wird die Konfiguration einschließlich interner Datenbanken gesichert; Nutzdaten separat sichern."}}
+                "update": {"available": not update_error and definition_digest(definition) != definition_digest(target), "blocked": update_error, "policy": "umbrel-catalog" if APPS[app].get("umbrel_catalog") else "installed-store-recipe" if APPS[app].get("imported_stack") else "approved-titan-recipe", "backup_required": True,
+                           "message": (update_error or "Der geladene Umbrel-Katalog liefert das Update. Vor der Umstellung werden App-Konfiguration und Datenbank gesichert.") if APPS[app].get("umbrel_catalog") else "Die installierte Store-Vorlage bleibt fest gespeichert. Katalogaktualisierungen ändern diesen Stack nicht. Images werden ausschließlich für diese gespeicherte Vorlage geladen." if APPS[app].get("imported_stack") else "Titan aktualisiert alle Paketdienste gemeinsam auf die freigegebenen Versionen. Vorher wird die Konfiguration einschließlich interner Datenbanken gesichert; Nutzdaten separat sichern."}}
 
     def op_package_diagnose(self, app):
         record = self.managed_app(app)
@@ -225,18 +232,30 @@ class PackageCenterMixin:
         if any(item['state'] == 'paused' for item in services):
             raise Error("Pausierte Paketdienste vor dem Update fortsetzen oder stoppen.", 409)
         running = any(item['state'] in ('running', 'restarting') for item in services)
+        candidate = None
+        if APPS[app].get('umbrel_catalog'):
+            from .umbrel_store import update_offer
+            candidate = update_offer(self, app)
+            atomic_json(self.directory / 'apps' / app / 'catalog-recipe.json', APPS[app])
         # This cold backup includes the managed configuration tree, database,
         # application configuration and generated secrets. User files outside
         # the package tree are deliberately identified as a separate backup.
-        backup = self.op_app_backup(app)
+        backup = self.op_app_backup(app, keep_stopped=True)
         from .host import pwd, run
         owner = pwd.getpwnam('titan-files')
         path = self.directory / 'apps' / app / 'compose.json'
-        definition = compose(app, str(path.parent), owner.pw_uid, owner.pw_gid, record['port'], record['data'], self._app_options(app), record.get('network'), record.get('hardware'), config_path=record.get("config_path"))
+        definition = compose(app, str(path.parent), owner.pw_uid, owner.pw_gid, record['port'], record['data'], self._app_options(app), record.get('network'), record.get('hardware'), config_path=record.get("config_path"), recipe=candidate)
         commands = ['docker', 'compose', '--project-name', 'titan-' + app, '-f', str(path)]
         # Verify and stop every existing member using the old definition first.
         # Containers belonging to other projects are never removed.
         self._app_stop_or_remove(app, 'remove', unregister=False)
+        if candidate is not None:
+            with self._catalog_guard(), self.app_config_lock:
+                frozen = self.load('installed-app-recipes-v1', {})
+                frozen[app] = candidate
+                self.save('installed-app-recipes-v1', frozen)
+                APPS[app] = candidate
+                atomic_json(path.parent / 'catalog-recipe.json', candidate)
         atomic_json(path, definition)
         self._app_patch_record(app, dict(definition_digest=definition_digest(definition),
             package_initialized=False, phase='updating', last_update_backup=backup['path']))

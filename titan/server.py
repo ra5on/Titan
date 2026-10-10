@@ -18,6 +18,7 @@ import time
 import urllib.parse
 from . import __version__, __release_stage__
 from .catalog import catalog
+from .app_access_http import AppAccessHTTPMixin
 from .core import configuration_lock, job_resources, Error, Jobs, Store, identifier, integer, password_hash, user_profile_text
 from .demo import Demo
 from .rpc import AgentClient
@@ -81,11 +82,15 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
         self.terminal_stream_lock = threading.Lock()
         self.terminal_streams = set()
         self.setup_csrf = secrets.token_urlsafe(32)
-        self.update_lock = threading.Lock()
+        self.update_lock = threading.RLock()
+        from .unified_updates import UnifiedUpdates
+        self.unified_updates = UnifiedUpdates(self)
         self.stop = threading.Event()
         self.initialize_terminals()
         self.initialize_root_access()
         self.initialize_office()
+        from .app_access import AppAccess
+        self.app_access = AppAccess(self.store)
 
     def trusted_origins(self):
         from .web_access import CONFIG, allowed_origins, read_config
@@ -164,6 +169,11 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
             if not current["enabled"] or current["role"] != "admin":
                 raise Error("Administratorrechte sind nicht mehr gültig.", 403)
             validate_system_action(operation, arguments)
+            plan = self.unified_updates.load()
+            if self.unified_updates.active() and (operation != 'system_reboot'
+                    or plan.get('state') != 'restart_required'
+                    or arguments.get('expected_digest') != plan.get('next_digest')):
+                raise Error('Der gemeinsame Updateauftrag muss zuerst abgeschlossen werden.', 409)
             settings = self.store.settings()
             return self.agent.call(operation, repository=settings["repository"], **arguments)
 
@@ -182,9 +192,11 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
                         "message": "Update-Quelle geändert. Bitte erneut prüfen; die installierte Version bleibt erhalten."})
             return settings
 
-    def install_update(self, actor, expected_version, automatic=False, update_kind="all"):
+    def install_update(self, actor, expected_version, automatic=False, update_kind="all", unified_token=None):
         kind = validate_update_kind(update_kind)
         with self.update_lock:
+            if self.unified_updates.active() and unified_token != self.unified_updates.load().get('id'):
+                raise Error('Ein gemeinsamer Updateauftrag läuft bereits.', 409)
             settings = self.store.settings()
             policy = settings if kind == "all" else settings["update_streams"][kind]
             if automatic:
@@ -234,31 +246,36 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
             return result
 
     def updater_tick(self):
-        # Feature and Debian maintenance bundles use one offer, one policy and
-        # one signed A/B installation path. Separate kind queries are retained
-        # solely for backwards-compatible API clients.
-        settings = self.store.settings()
-        if not self.store.users() and not self.demo:
+        if self.unified_updates.active():
             return
-        cached = self.store.config("update", {})
-        interval = 86400 if settings["check_interval"] == "daily" else 604800
-        if settings["auto_check"] and time.time() - cached.get("checked", 0) >= interval:
-            cached = self.update_check()
+        settings = self.store.settings()
+        if self.demo or not self.store.users():
+            return
+        plan = self.unified_updates.load()
+        interval = 86400 if settings['check_interval'] == 'daily' else 604800
         current = time.localtime()
-        attempt = f"{current.tm_year}-{current.tm_yday}-{cached.get('latest')}"
-        if (not self.demo and settings["installation"] == "automatic" and cached.get("available")
-                and cached.get("signed") and current.tm_wday == settings["window_day"]
-                and current.tm_hour == settings["window_hour"]
-                and self.store.config("auto_update_attempt") != attempt
-                and not any(job["action"] == "update_install" and job["status"] in ("queued", "running") for job in self.store.jobs())):
-            self.store.set_config("auto_update_attempt", attempt)
-            expected = cached["latest"]
-            self.jobs.submit("system", "update_install", lambda expected=expected:
-                self.install_update("system", expected, automatic=True))
+        automatic = (settings['installation'] == 'automatic' and current.tm_wday == settings['window_day']
+                     and current.tm_hour == settings['window_hour'])
+        age = time.time() - plan.get('checked', 0)
+        source_changed = any(plan.get(key) != settings[key] for key in ('repository', 'channel'))
+        if (settings['auto_check'] and (age >= interval or source_changed)) or (automatic and (age < 0 or age > 1800 or source_changed)):
+            self.unified_updates.check('system', automatic=True)
+            plan = self.unified_updates.load()
+        attempt = f"{current.tm_year}-{current.tm_yday}-{plan.get('web_version')}-{plan.get('system_version')}"
+        if (automatic and plan.get('state') == 'ready' and self.store.config('auto_update_attempt') != attempt
+                and not any(job['action'] in ('update_install', 'unified_update') and job['status'] in ('queued', 'running')
+                            for job in self.store.jobs())):
+            self.unified_updates.start('system', plan['id'], automatic=True)
+            self.store.set_config('auto_update_attempt', attempt)
 
     def updater(self):
-        while not self.stop.wait(60):
+        last_check = 0
+        while not self.stop.wait(3):
             try:
+                self.unified_updates.reconcile()
+                if time.monotonic() - last_check < 60:
+                    continue
+                last_check = time.monotonic()
                 self.updater_tick()
             except Exception as exc:
                 self.store.audit("system", "update_check", str(exc))
@@ -271,7 +288,7 @@ class WebServer(ThreadingHTTPServer):
     request_queue_size = 128
 
 
-class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
+class Handler(AppAccessHTTPMixin, RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def setup(self):
@@ -446,6 +463,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                                **({"setup_csrf": self.app.setup_csrf} if setup_required else {}),
                                "demo": self.app.demo, "version": __version__, "stage": __release_stage__,
                                "permissions": permissions(self.app.store, user) if user else {}}, extra=extra)
+        if self.app_access_get(path, query):
+            return
         if self.office_get(path, query):
             return
         if path.startswith("/api/"):
@@ -567,6 +586,32 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             if path == "/api/users":
                 accounts = [account for account in self.app.agent.call("accounts", smb_status=True) if not account.get("removed")]
                 return self.reply({"web": self.app.store.users(), "system": accounts, "service_user": "titan-files"})
+            if path in ('/api/recovery/inventory', '/api/recovery/kit'):
+                if user['role'] != 'admin': raise Error('Administratorrechte erforderlich.', 403)
+                if parts.query: raise Error('Rettungsplan unterstützt keine zusätzlichen Parameter.')
+                if self.app.demo: raise Error('Rettungspläne benötigen ein echtes NAS mit angeschlossenem Sicherungslaufwerk.', 409)
+                inventory = self.app.agent.call('recovery_inventory')
+                if path.endswith('/inventory'):
+                    return self.reply(inventory, extra={'Cache-Control':'no-store'})
+                import io, zipfile
+                output = io.BytesIO()
+                with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+                    archive.writestr('inventory.json', json.dumps(inventory, indent=2))
+                    archive.writestr('titan-recovery.py', Path(__file__).with_name('disaster_recovery.py').read_bytes())
+                    archive.writestr('START.txt', 'Titan vollstaendig sichern und wiederherstellen\n\n'
+                        '1. ZIP auf das separate ext4-/XFS-Sicherungslaufwerk kopieren.\n'
+                        '2. VMs sauber herunterfahren, danach NAS herunterfahren.\n'
+                        '3. Titan-Rettungs-ISO von einem separaten USB-Stick starten.\n'
+                        '4. Im Assistenten Vollstaendig sichern waehlen; Laufwerk und ZIP auswaehlen.\n'
+                        '5. Fuer Recovery Originalplatten abtrennen, leere Ersatzplatten anschliessen,\n'
+                        '   Rettungsmedium starten und Wiederherstellen waehlen.\n'
+                        '   Jede Ersatzplatte muss mindestens so gross sein und dieselbe logische Sektorgroesse verwenden.\n'
+                        'Die Sicherung enthaelt Kennwoerter, Schluessel und saemtliche Plattendaten. Privat aufbewahren.\n'
+                        'Bei Abbruch dieselbe Sicherung und Zielzuordnung erneut waehlen; das Journal bleibt auf dem Sicherungslaufwerk.\n')
+                payload = output.getvalue()
+                self.send_headers(200, len(payload), 'application/zip', {'Cache-Control':'no-store',
+                    'Content-Disposition':'attachment; filename="titan-rettungsplan.zip"'})
+                self.wfile.write(payload); return
             if path == "/api/backup/settings":
                 if user["role"] != "admin":
                     return self.reply(self.app.agent.call("delegated_backup", action="backup_settings", user=user["system_user"], arguments={}))
@@ -602,6 +647,11 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 if set(query) != {"path"}:
                     raise Error("Ein Image-Dateipfad ist erforderlich.")
                 return self.reply(self.app.agent.call("vm_image_details", path=query["path"]))
+            if path == "/api/updates/unified":
+                self.require_user(admin=True)
+                if query:
+                    raise Error('Updateübersicht unterstützt keine zusätzlichen Optionen.')
+                return self.reply(self.app.unified_updates.status(), extra={'Cache-Control': 'no-store'})
             if path == "/api/updates/progress":
                 if query:
                     raise Error("Fortschritt unterstützt keine zusätzlichen Optionen.")
@@ -721,6 +771,15 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             self.app.store.audit(body["name"], "login")
             return self.reply({"ok": True, "csrf": csrf}, extra={"Set-Cookie": cookie})
         user = self.require_user(mutation=True)
+        if path == "/api/updates/unified":
+            if user['role'] != 'admin':
+                raise Error('Administratorrechte erforderlich.', 403)
+            if body == {'action': 'check'}:
+                return self.reply(self.app.jobs.submit(user['name'], 'unified_update_check',
+                    lambda: self.app.unified_updates.check(user['name'])), 202)
+            if set(body) == {'action', 'plan'} and body['action'] == 'install' and isinstance(body['plan'], str):
+                return self.reply(self.app.unified_updates.start(user['name'], body['plan']), 202)
+            raise Error('Ungültiger Updateauftrag.')
         if path == "/api/web-updates":
             if user['role'] != 'admin':
                 raise Error('Administratorrechte erforderlich.', 403)
@@ -732,6 +791,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 return self.reply({'current': __version__, 'previous': None, 'available': False, 'latest': None, 'demo': True})
             if body['action'] == 'check':
                 return self.reply(self.app.agent.call('web_update_check'))
+            if self.app.unified_updates.active():
+                raise Error('Ein gemeinsamer Updateauftrag läuft bereits.', 409)
             self.app.store.audit(user['name'], 'web_update', body['action'])
             return self.reply(self.app.agent.call('web_update_start', **body), 202)
         if self.root_access_post(path, user, body):

@@ -171,7 +171,8 @@ def prepare_options(app, options, previous=None):
         result.setdefault('resource_profile', (previous or {}).get('resource_profile', 'legacy' if previous else 'balanced'))
     if app == 'titan-nextcloud-office':
         result.setdefault('office_mode', (previous or {}).get('office_mode', 'enabled' if previous else 'disabled'))
-    for field in PACKAGES.get(app, {}).get('install_schema', []):
+    from .catalog import APPS
+    for field in APPS.get(app, {}).get('install_schema', []):
         if field.get('generated'):
             result[field['key']] = (previous or {}).get(field['key']) or secrets.token_hex(32)
     return result

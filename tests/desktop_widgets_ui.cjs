@@ -22,10 +22,13 @@ async function mounted(role,preferences,{acceptSave=true}={}){
  await new Promise(resolve=>setImmediate(resolve));return {...f,widget,saved,opened,requests,toggle,card:key=>f.doc.querySelector('[data-widget-card="'+key+'"]'),gallery:()=>f.doc.querySelector('.widget-gallery')};
 }
 (async()=>{
+ let home=await mounted('admin',{});
+ try{assert(home.card('files'));assert(home.card('storage'));assert(home.card('system'));assert(!home.card('cpu'));assert(home.requests.includes('/api/system-disk'));assert.equal(home.card('system').querySelector('[data-system-value="cpu"]').textContent,'20 %');assert.equal(home.card('system').querySelector('[data-system-value="ram"]').textContent,'40 %');home.doc.dispatch(home.card('files').querySelector('[data-widget-open="files"]'),'click');assert.equal(home.opened[0],'#files');assert.equal(home.card('storage').querySelector('[data-widget-value]').textContent,'—','Missing capacity never appears as zero or invented free space');}finally{home.widget.destroy();}
+
  let f=await mounted('admin',{visible:false,collapsed:true,items:['cpu','health'],positions:{cpu:{x:100,y:300}}});
  try{
   assert.equal(f.doc.querySelectorAll('[data-widget-card]').length,0);assert.equal(f.requests.length,0);
-  f.doc.dispatch(f.toggle,'click');let gallery=f.gallery();assert(gallery.open,'The topbar opens the picker even while every widget is hidden');assert.equal(gallery.querySelectorAll('[data-widget-choice]').length,6);assert.equal(gallery.querySelector('[data-widget-choice="cpu"]').dataset.selected,'true','Existing selection is visible in the gallery');
+  f.doc.dispatch(f.toggle,'click');let gallery=f.gallery();assert(gallery.open,'The topbar opens the picker even while every widget is hidden');assert.equal(gallery.querySelectorAll('[data-widget-choice]').length,9);assert.equal(gallery.querySelector('[data-widget-choice="cpu"]').dataset.selected,'true','Existing selection is visible in the gallery');
   f.doc.dispatch(gallery.querySelector('[data-widget-add="ram"]'),'click');await new Promise(resolve=>setImmediate(resolve));assert.equal(f.doc.querySelectorAll('[data-widget-card]').length,3,'Adding creates independent actual desktop cards');assert.equal(f.saved.at(-1).visible,true);assert.equal(f.saved.at(-1).collapsed,false);assert.deepEqual(f.saved.at(-1).items,['cpu','health','ram']);assert(f.requests.includes('/api/status'));
   let cpu=f.card('cpu'),ram=f.card('ram'),handle=cpu.querySelector('[data-widget-move]');const ramBefore=ram.getBoundingClientRect();
   f.doc.dispatch(handle,'pointerdown',{pointerType:'touch'});f.doc.dispatch(handle,'pointermove',{pointerType:'touch',clientX:340,clientY:310});f.doc.dispatch(handle,'pointerup',{pointerType:'touch',clientX:340,clientY:310});assert(f.saved.at(-1).positions.cpu);assert.equal(f.saved.at(-1).positions.ram,undefined,'Moving CPU never overwrites RAM position');assert.deepEqual(f.card('ram').getBoundingClientRect(),ramBefore);

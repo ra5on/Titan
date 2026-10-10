@@ -58,6 +58,22 @@ class WebAccessTests(unittest.TestCase):
         self.assertIn('header_up Host 192.168.10.18', text)
         self.assertEqual(reserved_ports(self.manager.path), {80, 443, 5001, 5101, 5102, 5103})
 
+    def test_app_gateway_bridge_upgrade_is_idempotent_and_preserves_config(self):
+        before = self.manager.config()
+        self.manager._write_text('Caddyfile', 'old proxy configuration')
+        self.manager.ensure_app_gateway()
+        self.assertIn('/apps/internal/*', (self.directory / 'Caddyfile').read_text())
+        self.assertEqual(self.manager.config(), before)
+        count = len(self.commands)
+        self.manager.ensure_app_gateway()
+        self.assertEqual(len(self.commands), count)
+
+    def test_app_gateway_bridge_does_not_override_pending_web_change(self):
+        self.apply(https_port=8443)
+        before = (self.directory / 'Caddyfile').read_bytes()
+        with self.assertRaises(Error): self.manager.ensure_app_gateway()
+        self.assertEqual((self.directory / 'Caddyfile').read_bytes(), before)
+
     def test_custom_ports_old_endpoint_survives_until_confirmation(self):
         result = self.apply(http_port=8080, https_port=8443)
         self.assertEqual(result['origin'], 'https://192.168.10.18:8443')

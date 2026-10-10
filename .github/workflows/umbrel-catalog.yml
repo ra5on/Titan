@@ -1,0 +1,107 @@
+name: Umbrel catalog compatibility
+on:
+  push:
+    branches: [codex/recovery-unified-updates]
+    paths:
+      - 'titan/umbrel*.py'
+      - 'titan/app_access*.py'
+      - 'titan/app_gateway.py'
+      - 'tests/test_app_access.py'
+      - 'tests/test_app_gateway*.py'
+      - 'scripts/smoke-app-gateway.py'
+      - 'titan/app_management.py'
+      - 'titan/host.py'
+      - 'titan/app_stores.py'
+      - 'titan/catalog.py'
+      - 'titan/store_recipes.py'
+      - 'titan/compose_templates.py'
+      - 'titan/package_center.py'
+      - 'scripts/smoke-app-packages.py'
+      - 'tests/test_umbrel*.py'
+      - 'scripts/*umbrel-catalog.py'
+      - '.github/workflows/umbrel-catalog.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  UMBREL_REVISION: aa3c4e9fba032796d15ec09dc1a217aa6566ce8f
+jobs:
+  catalog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install parser
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+      - name: Parser and deployment regressions
+        run: python3 -m unittest discover -s tests -p 'test_umbrel*.py' -v
+      - name: Account for every upstream package
+        run: python3 scripts/audit-umbrel-catalog.py --revision "$UMBREL_REVISION" --output umbrel-coverage.json
+      - uses: actions/upload-artifact@v6.0.0
+        with:
+          name: umbrel-coverage
+          path: umbrel-coverage.json
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [memos, uptime-kuma, donetick]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install parser
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+      - name: Install, reach, stop and recreate actual app containers
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-umbrel-catalog.py '${{ matrix.app }}' --revision "$UMBREL_REVISION" --confirm-disposable-runner --output "$GITHUB_WORKSPACE/umbrel-runtime.json"
+      - uses: actions/upload-artifact@v6.0.0
+        if: always()
+        with:
+          name: umbrel-runtime-${{ matrix.app }}
+          path: umbrel-runtime.json
+          if-no-files-found: warn
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [memos, donetick, flatnotes]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install host acceptance dependencies
+        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml e2fsprogs util-linux
+      - name: Real Titan HTTP installer, catalog, lifecycle and retained data
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py 'umbrel:${{ matrix.app }}' --umbrel-revision "$UMBREL_REVISION" --app-backup-smoke --confirm-disposable-runner
+
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install parser and independent proxy
+        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml caddy
+      - name: Real proxy HTTP, cookie isolation and WebSocket regression
+        run: TITAN_TEST_CADDY=/usr/bin/caddy python3 -m unittest discover -s tests -p 'test_app_gateway_http.py' -v
+      - name: Real protected catalog package
+        run: python3 scripts/smoke-app-gateway.py --revision "$UMBREL_REVISION" --confirm-disposable-runner
+
+  protected-installer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install host and proxy dependencies
+        run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml caddy e2fsprogs util-linux
+      - name: Protected app through the actual Titan installer and production bridge
+        run: sudo --preserve-env=GITHUB_ACTIONS python3 scripts/smoke-app-packages.py umbrel:bentopdf --umbrel-revision "$UMBREL_REVISION" --confirm-disposable-runner

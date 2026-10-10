@@ -20,7 +20,7 @@ def recipes(document, source):
     result = {}
     prefix = 's' + hashlib.sha256(source.encode()).hexdigest()[:10] + '-'
     for item in document['apps']:
-        allowed = {'id', 'name', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip'}
+        allowed = {'id', 'name', 'version', 'category', 'scheme', 'description', 'image', 'port', 'default_port', 'mount', 'memory', 'documentation', 'login_note', 'environment', 'config_mount', 'ports', 'settings','stack','stack_fields','stack_ports','default_network','web_available','web_host_ip','seed_files','app_gateway'}
         required = {'id', 'name', 'description', 'image', 'port', 'documentation', 'login_note'}
         if not isinstance(item, dict) or set(item) - allowed or required - set(item):
             raise Error('App enthält fehlende oder nicht unterstützte Felder.')
@@ -84,10 +84,16 @@ def recipes(document, source):
             fields.append({'key': f'setting_{index}', 'label': text(entry['label'], 80), 'env': entry['env'],
                            'type': 'password' if entry['secret'] else 'text', 'default': default,
                            'min_length': 1 if entry['secret'] else 0, 'max_length': 1000, 'required': True})
+        if 'seed_files' in item and 'stack' not in item:
+            raise Error('Paketdateien benötigen einen Containerverbund.')
         stack_extra = {}
+        if 'app_gateway' in item:
+            if item['app_gateway'] is not True or 'stack' not in item:
+                raise Error('Ungültiger geschützter App-Zugang.')
+            stack_extra['app_gateway'] = True
         if 'stack' in item:
             from .compose_templates import validate_stack
-            stack_extra = {'stack': validate_stack(item['stack'])}
+            stack_extra['stack'] = validate_stack(item['stack'])
             if item.get('default_network','default') not in ('default','host') or item.get('default_network')=='host' and len(item['stack']['services'])>1: raise Error('Ungültiges Standardnetz.')
             stack_extra['default_network']=item.get('default_network','default')
             # These fields are adapter-generated; validate all keys and limits.
@@ -95,13 +101,15 @@ def recipes(document, source):
             if not isinstance(stack_fields,list) or len(stack_fields)>256: raise Error('Zu viele Container-Einstellungen.')
             keys=set()
             for field in stack_fields:
-                if not isinstance(field,dict) or set(field)-{'key','label','type','default','required','min','max','min_length','max_length'} or not re.fullmatch(r'stack_[a-zA-Z0-9_-]{1,100}',field.get('key','')) or field['key'] in keys or field.get('type') not in ('text','password','number'): raise Error('Ungültige Container-Einstellung.')
+                if not isinstance(field,dict) or set(field)-{'key','label','type','default','required','min','max','min_length','max_length','generated'} or not re.fullmatch(r'stack_[a-zA-Z0-9_-]{1,100}',field.get('key','')) or field['key'] in keys or field.get('type') not in ('text','password','number'): raise Error('Ungültige Container-Einstellung.')
                 keys.add(field['key']); text(field.get('label'),100)
+                if 'generated' in field and (field['generated'] is not True or field['type'] != 'password'):
+                    raise Error('Nur private Kennwörter können automatisch erzeugt werden.')
                 if type(field.get('required')) is not bool: raise Error('Ungültige Pflichtangabe.')
                 if field['type']=='number':
                     if field.get('min') not in (1,1024) or field.get('max')!=65535: raise Error('Ungültiger Portbereich.')
                     integer(field.get('default'),field['min'],65535)
-                elif not isinstance(field.get('default'),str) or len(field['default'])>1000 or field.get('max_length')!=1000 or field.get('min_length') not in (0,1) or field['type']=='password' and field['default']: raise Error('Ungültige Container-Textvorgabe.')
+                elif not isinstance(field.get('default'),str) or len(field['default'])>1000 or field.get('max_length')!=1000 or field.get('min_length') not in (0,1,12) or field['type']=='password' and field['default']: raise Error('Ungültige Container-Textvorgabe.')
             ports=item.get('stack_ports',[])
             if not isinstance(ports,list) or len(ports)>256 or any(not isinstance(p,dict) or set(p)-{'option','target','protocol','service','host_ip'} or not {'option','target','protocol','service'} <= set(p) or p['option'] not in keys or p['protocol'] not in ('tcp','udp') or p['service'] not in item['stack']['services'] for p in ports): raise Error('Ungültige Container-Verbindungsports.')
             for service in item['stack']['services'].values():
@@ -112,8 +120,15 @@ def recipes(document, source):
                 if mapping.get('host_ip'):
                     from .compose_templates import host_ip
                     host_ip(mapping['host_ip'])
+            if 'seed_files' in item:
+                from .umbrel_files import validate
+                validate(item['seed_files'])
+                mounts = {mount['slot'] for service in item['stack']['services'].values() for mount in service.get('mounts', [])}
+                if any(row['slot'] not in mounts for row in item['seed_files']):
+                    raise Error('Paketdatei benötigt einen zugehörigen App-Speicher.')
+                stack_extra['seed_files'] = item['seed_files']
             fields.extend(stack_fields);extra.extend(ports)
-        result[identifier] = {'name': text(item['name'], 80), 'description': text(item['description'], 500),
+        result[identifier] = {'name': text(item['name'], 80), **({'version': text(item['version'], 80)} if 'version' in item else {}), 'description': text(item['description'], 500),
             'image': image, 'port': port, 'scheme': scheme, 'default_port': integer(item.get('default_port', max(port, 8080) if web_available else 0), 1024 if web_available else 0, 65535 if web_available else 0),
             'web_available':web_available, **({'web_host_ip':item['web_host_ip']} if item.get('web_host_ip') else {}),
             'mount': mount, 'memory': memory, 'environment': environment, 'config_mount': item.get('config_mount', True),
