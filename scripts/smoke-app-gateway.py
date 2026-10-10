@@ -80,10 +80,14 @@ def main():
             inspections=json.loads(subprocess.check_output(['docker','inspect','titan-'+app+'-backend'],text=True))
             if inspections[0]['HostConfig'].get('PortBindings'):
                 raise Error('Package backend bypasses the authentication gateway.')
+            from titan.app_management import AppMixin
+            gateway=json.loads(subprocess.check_output(['docker','inspect','titan-'+app],text=True))[0]
+            if not AppMixin._app_capabilities_match(app,app,definition['services'][app],gateway['HostConfig']):
+                raise Error('Installed gateway fails the production container protection check.')
             store.logout(parent)
             if request('/',cookie=cookie)[0]!=401:raise Error('Logout did not revoke app access.')
             print(json.dumps({'ok':True,'app':'bentopdf','revision':args.revision,'scope':'actual-catalog-app-gateway',
-                'checks':['compose-valid','unauthenticated-denied','single-use-handoff','actual-html','backend-not-published','logout-revoked']}))
+                'checks':['compose-valid','unauthenticated-denied','single-use-handoff','actual-html','backend-not-published','production-capability-check','logout-revoked']}))
         except Exception:
             print(docker('ps','--all'),file=sys.stderr)
             print(docker('logs','--no-color','--tail','60',app),file=sys.stderr)

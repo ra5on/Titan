@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),ui=require('../titan/web/desktop_shortcuts.js');
 const allowed=['tool:files','tool:settings','tool:apps','tool:storage','tool:vms'];
-assert.equal(ui.normalize({},allowed).items.length,4);
+assert.deepEqual(ui.normalize({},allowed).items,['tool:apps','tool:files','tool:vms','tool:storage','tool:settings']);
 assert.deepEqual(ui.normalize({version:2,items:[]},allowed).items,[],'An intentionally empty desktop remains empty');
 const legacy=ui.normalize({items:['tool:files','tool:files','javascript:x','tool:root','app:demo'],hidden:['tool:files']},allowed);
 assert.deepEqual(legacy.items,['app:demo']);

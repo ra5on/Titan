@@ -44,3 +44,20 @@ class AppGatewayTests(unittest.TestCase):
 
     def test_no_gateway_recipe_keeps_existing_definition(self):
         self.assertIs(wrap(self.definition, 'notes', {'port': 8080}), self.definition)
+
+class GatewayCapabilitiesTests(unittest.TestCase):
+    def test_only_pinned_gateway_may_keep_its_binary_bind_capability(self):
+        from unittest.mock import patch
+        from titan.app_management import AppMixin
+        from titan.catalog import APPS
+        from titan.app_gateway import IMAGE
+        definition={'image':IMAGE}
+        host={'CapAdd':['CAP_NET_BIND_SERVICE'],'CapDrop':['ALL'],'ReadonlyRootfs':True,
+              'SecurityOpt':['no-new-privileges:true']}
+        with patch.dict(APPS, {'example':{'app_gateway':True}}):
+            self.assertTrue(AppMixin._app_capabilities_match('example','example',definition,host))
+            self.assertFalse(AppMixin._app_capabilities_match('example','example-backend',definition,host))
+            for changed in ({'CapAdd':['SYS_ADMIN']},{'CapAdd':['NET_BIND_SERVICE','SYS_ADMIN']},
+                            {'CapDrop':[]},{'ReadonlyRootfs':False},{'SecurityOpt':[]}):
+                self.assertFalse(AppMixin._app_capabilities_match('example','example',definition,{**host,**changed}))
+            self.assertFalse(AppMixin._app_capabilities_match('example','example',{'image':'foreign'},host))

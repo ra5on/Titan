@@ -424,6 +424,18 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             self._app_inspected_containers(), installation=True, vms=vm_memory_reservations(_run))
         return {**result, "plan": plan}
 
+    @staticmethod
+    def _app_capabilities_match(app, service_key, definition, host):
+        from .app_gateway import IMAGE
+        actual = {str(value).removeprefix('CAP_') for value in host.get('CapAdd') or []}
+        gateway = (service_key == app and APPS.get(app, {}).get('app_gateway')
+                   and definition.get('image') == IMAGE)
+        if not gateway:
+            return not actual
+        return (actual == {'NET_BIND_SERVICE'} and host.get('ReadonlyRootfs') is True
+                and set(host.get('CapDrop') or []) == {'ALL'}
+                and set(host.get('SecurityOpt') or []) in ({'no-new-privileges'}, {'no-new-privileges:true'}))
+
     def _app_container(self, app, record, rows=None, options=None, service_key=None):
         service_key = service_key or app
         if rows is None:
@@ -479,7 +491,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                     container.get("Config", {}).get("Image") != definition["image"] or
                     bindings != expected_bindings or actual_ports != expected_ports or
                     not self._app_declared_volumes(container, expected_bindings, definition.get("tmpfs", [])) or
-                    host.get("Privileged") or host.get("CapAdd") or
+                    host.get("Privileged") or not self._app_capabilities_match(app, service_key, definition, host) or
                     (host.get("Devices") or []) != [{"PathOnHost":v.split(":")[0],"PathInContainer":v.split(":")[1],"CgroupPermissions":v.split(":")[2]} for v in definition.get("devices", [])]):
                 raise Error("Container und verwaltete App-Konfiguration stimmen nicht überein.", 409)
             expected_requests=definition.get("deploy",{}).get("resources",{}).get("reservations",{}).get("devices",[])

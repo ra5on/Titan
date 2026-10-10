@@ -168,3 +168,18 @@ html[data-color-theme] .apps-center .ac-search input:focus-visible{outline:none;
  #shell[data-page=vms] .vm-row-icon,#shell[data-page=vms] .vm-row-icon img{width:92px;height:82px}
  #shell[data-page=vms] .vm-row-live{margin-top:4px;padding-top:12px}
 }
+@media(max-width:520px){
+ .desktop-welcome h1{font-size:28px;letter-spacing:-.8px}
+ .desktop-welcome :is(img,.desktop-welcome-mark){max-width:160px!important;height:32px!important;margin-bottom:8px}
+ html[data-color-theme] .desktop-widget-card[data-widget-card=files]{width:calc(100vw - 44px);min-height:100px;height:100px}
+ html[data-color-theme] .desktop-widget-card:is([data-widget-card=storage],[data-widget-card=system]){width:calc((100vw - 56px)/2);min-height:132px;height:132px}
+ html[data-color-theme] .desktop-widget-card>header{padding:10px 12px 0;min-height:30px}
+ html[data-color-theme] .desktop-widget-card .widget-content{padding:8px 12px 10px}
+ html[data-color-theme] .desktop-widget-card .widget-content>button{min-height:70px}
+ html[data-color-theme] .desktop-widget-card .widget-content strong{font-size:23px;letter-spacing:-.5px}
+ .desktop-widget-card .widget-file-links{gap:12px;padding:0}
+ .desktop-widget-card .widget-file-links button{flex-direction:row;gap:10px;justify-content:center}
+ .desktop-widget-card .widget-file-links img{width:38px;height:38px}
+ .desktop-widget-card .widget-system-overview small{font-size:9px!important}
+ html[data-color-theme] .desktop-surface[data-icon-size=medium] .desktop-shortcut{width:100px;height:100px}
+}
