@@ -37,5 +37,6 @@ jobs:
           path: |
             dist/debian-image/recovery-test.json
             dist/debian-image/recovery-console*.log
+            dist/debian-image/recovery-screen*.ppm
             dist/debian-image/recovery-packages.txt
           retention-days: 7

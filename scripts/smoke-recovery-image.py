@@ -46,8 +46,9 @@ def main():
                 vars_source = next(Path('/usr/share/OVMF').glob('OVMF_VARS_4M.fd'))
                 shutil.copyfile(vars_source, work/'vars.fd')
                 socket = work/'qga.sock'; socket.unlink(missing_ok=True)
+                (work/'qmp.sock').unlink(missing_ok=True)
                 command = ['qemu-system-x86_64','-machine','q35,accel=kvm:tcg','-m','2048','-smp','2',
-                           '-display','none','-no-reboot','-nic','none','-boot','d',
+                           '-qmp','unix:'+str(work/'qmp.sock')+',server=on,wait=off','-display','none','-no-reboot','-nic','none','-boot','d',
                            '-drive','if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd',
                            '-drive','if=pflash,format=raw,file='+str(work/'vars.fd'),
                            '-cdrom',str(iso),'-serial','file:'+str(iso.parent/('recovery-console-'+phase+'.log')),
@@ -60,16 +61,20 @@ def main():
                 with subprocess.Popen(command) as proc:
                     try:
                         agent = ab.Agent(socket)
-                        deadline = time.monotonic()+300
+                        deadline = time.monotonic()+300; last_error = None
                         while time.monotonic() < deadline:
                             if proc.poll() is not None: raise RuntimeError('Rescue VM exited before guest agent was ready.')
                             try:
                                 agent.execute(['/usr/bin/test','-f','/usr/local/bin/titan-recovery'],timeout=10)
                                 break
-                            except (OSError,RuntimeError): time.sleep(2)
-                        else: raise RuntimeError('Rescue ISO did not expose a working guest agent.')
+                            except (OSError,RuntimeError) as exc:
+                                last_error = str(exc); time.sleep(2)
+                        else: raise RuntimeError('Rescue ISO guest agent unavailable: '+str(last_error))
                         yield agent
                     finally:
+                        if not report['ok']:
+                            try: ab.qmp(work/'qmp.sock','screendump',{'filename':str(iso.parent/('recovery-screen-'+phase+'.ppm'))})
+                            except (OSError,RuntimeError): pass
                         proc.terminate()
                         try: proc.wait(timeout=15)
                         except subprocess.TimeoutExpired: proc.kill();proc.wait()

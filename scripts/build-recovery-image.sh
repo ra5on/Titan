@@ -11,12 +11,12 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends live-build ca-certificates
-mkdir /work/live
+mkdir -p /work/live
 cd /work/live
 lb config --mode debian --distribution trixie --architectures amd64 \
   --binary-images iso-hybrid --bootloaders grub-efi --debian-installer none \
   --archive-areas 'main contrib non-free non-free-firmware' --apt-recommends false \
-  --bootappend-live 'boot=live components hostname=titan-recovery username=recovery' \
+  --bootappend-live 'boot=live components hostname=titan-recovery username=recovery console=tty0 console=ttyS0,115200' \
   --iso-application "Titan Recovery $TITAN_SYSTEM_VERSION" --iso-volume TITAN_RECOVERY
 mkdir -p config/package-lists config/includes.chroot/usr/local/bin \
   config/includes.chroot/etc/systemd/system/multi-user.target.wants
