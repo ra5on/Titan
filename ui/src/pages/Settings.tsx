@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import { BellRing, CheckCircle2, Download, HardDrive, Info, LogOut, Power, RefreshCw, UserPlus, Users as UsersIcon } from 'lucide-react';
+import { BellRing, CheckCircle2, Download, FolderOpen, HardDrive, Info, LogOut, Power, RefreshCw, UserPlus, Users as UsersIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { action, post, waitJob } from '../api';
 import type { Monitoring, Session, Status, Storage, Updates, Users } from '../api';
 import { bytes, cx, duration, go, message, percent, useApi } from '../lib';
+import { SharesSection } from './Shares';
 import { Button, Card, Confirm, Field, Input, Loading, Meter, Modal, Notice, Select, Sheet, useToast } from '../ui';
 
 type Section = { id: string; label: string; icon: LucideIcon; admin?: boolean };
 const SECTIONS: Section[] = [
   { id: 'system', label: 'System', icon: Info },
   { id: 'storage', label: 'Speicher', icon: HardDrive, admin: true },
+  { id: 'shares', label: 'Freigaben', icon: FolderOpen, admin: true },
   { id: 'users', label: 'Benutzer', icon: UsersIcon, admin: true },
   { id: 'updates', label: 'Updates', icon: Download, admin: true },
 ];
@@ -160,7 +162,7 @@ function StorageSection() {
           ))}
         </ul>
       </Card>
-      <Button onClick={() => window.open('/classic#storage', '_blank', 'noopener')}>Speicherbereiche und Freigaben verwalten</Button>
+      <Button onClick={() => window.open('/classic#storage', '_blank', 'noopener')}>Speicherbereiche verwalten</Button>
     </div>
   );
 }
@@ -381,6 +383,7 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
         <div className="min-w-0 max-w-2xl">
           {active === 'system' && <SystemSection session={session} admin={admin} />}
           {active === 'storage' && <StorageSection />}
+          {active === 'shares' && <SharesSection />}
           {active === 'users' && <UsersSection current={session.user?.name || ''} />}
           {active === 'updates' && <UpdatesSection />}
         </div>

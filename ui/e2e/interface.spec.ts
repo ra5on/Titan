@@ -70,6 +70,20 @@ test('settings sections load their data', async ({ page }) => {
   await expect(page.getByText(/Titan ist aktuell|ist verfügbar/)).toBeVisible();
 });
 
+test('a share can be created and removed', async ({ page }) => {
+  await page.goto('/#/settings/shares');
+  await expect(page.getByText('dokumente', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Neue Freigabe' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Neue Freigabe' });
+  await dialog.getByLabel('Name').fill('e2e-freigabe');
+  await dialog.getByLabel('Zugriff für patrick').selectOption('write');
+  await dialog.getByRole('button', { name: 'Anlegen' }).click();
+  await expect(page.getByText('e2e-freigabe', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Freigabe e2e-freigabe entfernen' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Entfernen' }).click();
+  await expect(page.getByText('e2e-freigabe', { exact: true })).toHaveCount(0);
+});
+
 test('previous interface stays reachable', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);
