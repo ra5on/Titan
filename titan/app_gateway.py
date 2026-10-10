@@ -81,6 +81,9 @@ def wrap(definition, app, recipe):
         'networks': {'default': {}}, 'extra_hosts': ['host.docker.internal:host-gateway'],
         'ports': public, 'volumes': [], 'read_only': True,
         'tmpfs': ['/tmp', '/data', '/config'], 'cap_drop': ['ALL'],
+        # The official binary carries this file capability; dropping its
+        # bounding-set entry prevents execve itself, even on an unprivileged port.
+        'cap_add': ['NET_BIND_SERVICE'],
         'security_opt': ['no-new-privileges:true'], 'mem_limit': '128m', 'cpus': 1,
         'environment': {'TITAN_GATEWAY_CONFIG': configuration(app, target, recipe['port']).replace('$', '$$')},
         'entrypoint': ['/bin/sh', '-ec'],
