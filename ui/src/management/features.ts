@@ -7,20 +7,26 @@ import type { Data } from './runtime';
 
 export type Feature = 'security' | 'web' | 'monitoring' | 'services' | 'docker' | 'backups' | 'storage' | 'updates' | 'resources' | 'logs' | 'activity';
 const moduleNames: Partial<Record<Feature, string>> = { security: 'TitanSecurity', web: 'TitanWebAccess', monitoring: 'TitanMonitoring', services: 'TitanServices', docker: 'TitanDocker', backups: 'TitanBackupCenter', storage: 'TitanStorage', updates: 'TitanUpdates', resources: 'TitanResources' };
+const owners = new Map<string, Data>();
 
 export async function mountFeature(feature: Feature, host: HTMLElement, ctx: Data, session?: Session) {
   let allUsers = false;
   let revision = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
   let current: Data = {};
-  const disposeModule = () => { m[moduleNames[feature] || '']?.dispose?.(); if (feature === 'storage') m.TitanStorageRecovery.disposeDialog(); };
-  const paint = (html: string) => { if (!ctx.alive()) return; disposeModule(); host.innerHTML = html; };
+  const moduleName = moduleNames[feature] || '';
+  const disposeModule = () => {
+    if (owners.get(moduleName) !== ctx) return;
+    owners.delete(moduleName); m[moduleName]?.dispose?.();
+    if (feature === 'storage') m.TitanStorageRecovery.disposeDialog();
+  };
+  const paint = (html: string) => { if (!ctx.alive()) return; disposeModule(); owners.set(moduleName, ctx); host.innerHTML = html; };
   const refresh = async (all?: boolean) => {
     if (typeof all === 'boolean') allUsers = all;
     const mine = ++revision;
     const read = ctx.api;
     const valid = () => ctx.alive() && mine === revision;
-    if (feature === 'docker') { await m.TitanDocker.mount(host, ctx); return; }
+    if (feature === 'docker') { owners.set(moduleName, ctx); await m.TitanDocker.mount(host, ctx); return; }
     if (feature === 'security') {
       const admin = session?.user?.role === 'admin';
       const [data, protection] = await Promise.all([read('/api/security' + (allUsers && admin ? '?all=1' : '')), admin ? read('/api/security/login-protection') : null]);
@@ -126,7 +132,7 @@ export async function mountFeature(feature: Feature, host: HTMLElement, ctx: Dat
       });
       m.TitanBackupCenter.wireAppFields(ctx.dialogRoot()); return;
     }
-    if (command === 'backup-verify') { await ctx.action('backup_verify', { backup: ds.id }); ctx.toast('Sicherung geprüft; Dateien sind unverändert.'); await refresh(); return; }
+    if (command === 'backup-verify') { await ctx.action('backup_verify', { backup: ds.id }); ctx.toast('Sicherung erfolgreich geprüft.'); await refresh(); return; }
     if (command === 'vm-restore') { ctx.dialog('VM als neue Maschine wiederherstellen', `<form><p>Die geprüfte Sicherung wird als neue ausgeschaltete VM importiert.</p>${field('Name der neuen VM', 'name', 'text', '', 'required maxlength="96"')}${formEnd('Wiederherstellen')}</form>`, (form: FormData) => ctx.action('vm_restore', { backup: ds.id, name: form.get('name') })); return; }
     if (command === 'backup-config-restore') { ctx.dialog('NAS-Konfiguration wiederherstellen', `<p class="notice warning">Gesicherte Benutzer, Freigabenrechte und NAS-Einstellungen ersetzen den aktuellen Stand. Datenordner bleiben erhalten. Titan sichert die aktuelle Konfiguration vorher. Weboberfläche und SMB werden kurz gestoppt. Alle Sitzungen enden; danach gelten die Konten und Passwörter aus der Sicherung.</p><form>${formEnd('Ja, wiederherstellen')}</form>`, () => ctx.action('backup_config_restore', { backup: ds.id, confirmation: ds.id })); return; }
     if (command === 'update-check') { const result = await ctx.api('/api/updates/check', { update_kind: 'all' }); await waitJob(result.job); await refresh(); return; }

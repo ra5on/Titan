@@ -5,6 +5,15 @@ on:
 permissions:
   contents: read
 jobs:
+  native-plugin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Native Cloudflare binary, service credential and removal
+        env:
+          TITAN_DISPOSABLE_CI: '1'
+        run: sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,TITAN_DISPOSABLE_CI python3 scripts/plugin-cloudflare-smoke.py
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
