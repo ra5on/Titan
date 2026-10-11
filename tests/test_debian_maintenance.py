@@ -79,7 +79,7 @@ class MaintenancePlanTests(unittest.TestCase):
                        {'sha':'c'*40,'committer':{'date':'2026-10-04T00:00:00'}}):
             with self.subTest(commit=commit), patch.object(maintenance,'checked_release',return_value=(identity(),{})), \
                  patch.object(maintenance,'api',return_value=commit), self.assertRaises(ValueError):
-                maintenance.supported_sources([release])
+                maintenance.supported_sources([release], stages=('alpha',))
 
     def test_first_release_without_inventory_skips_maintenance_safely(self):
         with tempfile.TemporaryDirectory() as temporary, \
