@@ -185,6 +185,10 @@ class MirrorMixin:
         with contextlib.suppress(Error):
             self.run(["btrfs", "device", "stats", "--reset", "--", str(self.root / name)])
         present = health["present"] or members(record)
+        # The kernel wrote the new member's signature itself, so the device database
+        # still lists that disk as empty until it is asked to look again.
+        with contextlib.suppress(Error):
+            self.run(["udevadm", "trigger", "--action=change", "--settle", *present, *members(record)], timeout=60)
         self.update(name, disks=present, disk=present[0], replacing=None, error=None, phase="ready")
         return True
 

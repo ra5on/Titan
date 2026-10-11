@@ -128,6 +128,8 @@ def main():
     run(["umount", target])
     run(["btrfs", "device", "scan", "--forget"])
     run(["udevadm", "settle"])
+    print("Members the system sees:", [(item["name"], item.get("fstype")) for item in manager.present(manager.record("spiegel"))])
+    assert manager.blank_disk(first, "btrfs"), "The replaced disk is not offered as empty again."
     manager.mount("spiegel")
     assert "degraded" not in run(["findmnt", "--noheadings", "--output", "OPTIONS", target])
     print(run(["btrfs", "scrub", "start", "-B", target], include_stderr=True))

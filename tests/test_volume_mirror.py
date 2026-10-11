@@ -223,6 +223,8 @@ class MirrorTests(unittest.TestCase):
             self.manager.maintain()
         target = str(self.manager.root / "spiegel")
         self.assertIn(["btrfs", "balance", "start", "-dconvert=raid1,soft", "-mconvert=raid1,soft", "--", target], self.calls)
+        # The new member is announced to the device database, or it would still be listed as empty.
+        self.assertIn("/dev/sdd", next(args for args in self.calls if args[:2] == ["udevadm", "trigger"]))
         record = self.manager.record("spiegel")
         self.assertIsNone(record["replacing"])
         self.assertEqual(record["disks"], ["/dev/sdb", "/dev/sdd"])
