@@ -20,6 +20,9 @@ Update.
   Deinstallieren. Port und weitere Einstellungen einer gestoppten App lassen
   sich dort nachträglich ändern; Titan legt die Container dabei aus der neuen
   Konfiguration neu an.
+- **Neu im App Store:** Ollama mit Open WebUI für lokale Sprachmodelle, Pi-hole
+  sowie Nextcloud mit Euro-Office. Alle Apps des Stores werden bei jeder
+  Prüfung mit echtem Docker installiert.
 - **Tailscale** kann das NAS zusätzlich als Exit Node anbieten. Die Auswahl
   wird nach jedem Start auf den laufenden Dienst angewendet, auch wenn sie
   erst nach der Installation geändert wurde.
@@ -29,7 +32,11 @@ Update.
   ISO oder vorhandener QCOW2-/IMG-Festplatte und ISO-Upload.
 - Einstellungen: System (Neustart, Ausschalten, Meldungen), Speicher,
   Freigaben mit Rechten pro Benutzer, Benutzer, Gruppen und App-Rechte,
-  Sicherungen, Docker-Ansicht, Web-Terminal, Updates und das eigene Passwort.
+  Sicherungen, Fernzugriff, Docker-Ansicht, Web-Terminal, Updates und das
+  eigene Passwort.
+- **Darstellung pro Konto:** Transparenz per Schieberegler, Dock-Größe und
+  Dock-Einträge (Werkzeuge, Apps, virtuelle Maschinen) sowie Kacheln, Apps und
+  virtuelle Maschinen der Startseite.
 
 ## Speicher und Sicherung
 
@@ -61,6 +68,13 @@ Update.
   gesamte IOMMU-Gruppe mitgehen kann; die übrigen Funktionen derselben Karte
   werden automatisch mitgegeben. Voraussetzung ist aktiviertes VT-d
   beziehungsweise AMD-Vi im BIOS/UEFI.
+
+## Sicherheit
+
+Root-Terminal und Root-Dateizugriff brauchen jetzt eine eigene Freigabe des
+Systemdienstes. Er prüft dafür das Administrator-Passwort selbst gegen den
+gespeicherten Hash, begrenzt die Freigabe auf höchstens 30 Minuten und bremst
+Fehlversuche. Die Webanwendung allein kann keine Root-Aktion mehr auslösen.
 
 ## Lizenz
 
@@ -95,6 +109,9 @@ nicht übernommen; für Fotos ist Immich aus dem App Store vorgesehen.
   enthalten.
 - Der NVIDIA-Treiber ist nicht im Image enthalten. NVIDIA-Karten lassen sich an
   eine VM durchreichen; für Apps fehlt der Treiber noch.
-- Kontingente gibt es nur auf ZFS, Btrfs nur für einzelne Laufwerke.
-- Der Systemdienst vertraut weiterhin der Webanwendung; die getrennte Prüfung
-  für Root-Aktionen im Systemdienst ist geplant.
+- Kontingente gibt es nur auf ZFS. Btrfs gibt es nur für einzelne Laufwerke:
+  Ein Btrfs-Verbund bräuchte einen eigenen geführten Plattentausch, den es
+  bisher nur für ZFS gibt.
+- Die eigene Freigabe des Systemdienstes gilt für Root-Terminal und
+  Root-Dateizugriff. Alle übrigen Verwaltungsaktionen prüft weiterhin die
+  Webanwendung.

@@ -21,7 +21,7 @@ bedient komplett im Browser.
 
 | | |
 | --- | --- |
-| **📦 Apps mit einem Klick** | Immich, Jellyfin, AdGuard Home, Tailscale und Cloudflare Tunnel aus dem eigenen App Store. Titan prüft vorher, ob der Arbeitsspeicher reicht, und zeigt jeden Installationsschritt. |
+| **📦 Apps mit einem Klick** | Immich, Jellyfin, Nextcloud, Ollama, AdGuard Home, Pi-hole, Tailscale und Cloudflare Tunnel aus dem eigenen App Store. Titan prüft vorher, ob der Arbeitsspeicher reicht, und zeigt jeden Installationsschritt. |
 | **🗂️ Dateien und Freigaben** | Dateimanager im Browser, Netzwerkfreigaben mit Rechten pro Benutzer, Papierkorb, Upload mit Fortschritt. Ein angestecktes USB-Laufwerk erscheint von selbst. |
 | **🖥️ Virtuelle Maschinen** | VMs aus ISO oder vorhandener QCOW2-Festplatte, Konsole direkt im Browser, USB-Geräte und ganze Grafikkarten durchreichen. |
 | **💾 Speicher** | Die ganze Installationsplatte nutzen, weitere Laufwerke als Ext4, XFS oder Btrfs einrichten oder mehrere zu einem ausfallsicheren ZFS-Verbund zusammenfassen. |

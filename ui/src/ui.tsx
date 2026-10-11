@@ -135,7 +135,7 @@ export function StateDot({ state }: { state: string }) {
 export function AppIcon({ id, name, color, size = 72 }: { id: string; name: string; color?: string; size?: number }) {
   const [broken, setBroken] = useState(false);
   // Packages whose icon file carries the name of the app itself.
-  const key = ({ 'nextcloud-office': 'nextcloud', adguard: 'adguard' } as Record<string, string>)[id.replace(/^titan-/, '')] || id.replace(/^titan-/, '');
+  const key = ({ 'nextcloud-office': 'nextcloud' } as Record<string, string>)[id.replace(/^titan-/, '')] || id.replace(/^titan-/, '');
   const radius = Math.round(size * 0.24);
   if (broken) {
     return (
