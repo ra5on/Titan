@@ -43,6 +43,10 @@ class MirrorTests(unittest.TestCase):
         self.manager.replace_pause = 0
         self.host._volumes = self.manager
         self.host.disks = lambda: copy.deepcopy(self.disks)
+        # Nothing is really mounted, so the device number Btrfs files report is supplied.
+        patcher = patch("titan.volumes.mount_device", return_value=os.stat(self.share_root).st_dev)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         for path in self.share_root.rglob("*"):

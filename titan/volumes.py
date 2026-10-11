@@ -20,6 +20,23 @@ MINIMUM_MIB = {"ext4": 64, "xfs": 512, "btrfs": 256}
 OPTIONS = "defaults,nofail,nodev,nosuid"
 
 
+def mount_device(row):
+    """Device number that files on a mount report, from one findmnt row.
+
+    Btrfs gives files a per-subvolume number that differs from the one in the
+    mount table, so there the mounted directory itself is asked. It must sit
+    on another device than its parent, or the filesystem is no longer mounted.
+    """
+    if row.get("fstype") == "btrfs":
+        target = Path(row["target"])
+        device = os.stat(target, follow_symlinks=False).st_dev
+        if target.parent != target and os.stat(target.parent, follow_symlinks=False).st_dev == device:
+            raise Error("Das Btrfs-Dateisystem wurde während der Prüfung ausgehängt.", 503)
+        return device
+    major, minor = map(int, row["maj:min"].split(":"))
+    return os.makedev(major, minor)
+
+
 def flatten(disks):
     for disk in disks:
         yield disk
@@ -74,8 +91,7 @@ class Volumes(MirrorMixin):
             return None
         if len(matches) != 1 or matches[0].get("uuid") != record["uuid"] or matches[0].get("fstype") != record["filesystem"]:
             raise Error("Am Volume-Pfad ist ein anderes Dateisystem eingehängt. Zugriff verweigert.", 409)
-        major, minor = map(int, matches[0]["maj:min"].split(":"))
-        return os.makedev(major, minor)
+        return mount_device(matches[0])
 
     def require(self, name):
         record = self.record(name)
