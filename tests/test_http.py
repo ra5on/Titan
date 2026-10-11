@@ -113,6 +113,9 @@ class HTTPTests(unittest.TestCase):
         # The terminal renderer needs the per-response style nonce on the new page too.
         self.assertNotIn(b'__TITAN_STYLE_NONCE__', data)
         self.assertIn("'nonce-", headers['Content-Security-Policy'])
+        # App windows may show ports of this NAS, nothing else.
+        self.assertIn("frame-src 'self' http://127.0.0.1:* https://127.0.0.1:*;", headers['Content-Security-Policy'])
+        self.assertIn("frame-src 'self';", self.request('/api/session')[2]['Content-Security-Policy'])
         status, _, headers = self.request(asset[0].decode())
         self.assertEqual(status, 200)
         self.assertEqual(headers.get_all('Cache-Control'), ['private, no-cache'])

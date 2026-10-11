@@ -1,18 +1,28 @@
-# Titan 0.8.0 · Alpha
+# Titan 0.8.0 · Beta
 
 Vorabversion mit neuer Oberfläche und neuen Speicher- und Gerätefunktionen. Sie
-erscheint im Alpha-Kanal; Installationen im Stable-Kanal erhalten sie nicht als
+erscheint im Beta-Kanal; Installationen im Stable-Kanal erhalten sie nicht als
 Update.
 
 ## Neue Oberfläche
 
 - Startseite ohne Fensterverwaltung: installierte Apps als Symbole, drei
-  Live-Kacheln für CPU, RAM und Speicher, feste Navigation am unteren Rand.
+  Live-Kacheln für CPU, RAM und Speicher, feste Navigation am unteren Rand und
+  oben links das Systemmenü mit Abmelden, Neustart und Ausschalten, jeweils
+  mit Rückfrage.
+- **Apps öffnen im Titan-Fenster** statt in einem neuen Browser-Tab; „Neuer
+  Tab“ bleibt als Ausweg. Die Konsole einer virtuellen Maschine erscheint
+  ebenfalls innerhalb von Titan.
 - App Store mit Empfehlung, Kategorien, Suche und einer Detailseite. Vor der
   Installation wählst du Speicherort, Port und RAM-Profil; Titan prüft vorab,
   ob der Arbeitsspeicher reicht, und zeigt danach die echten Installationsschritte.
 - Detailseite für installierte Apps mit Protokoll, Neustart, Aktualisieren und
-  Deinstallieren.
+  Deinstallieren. Port und weitere Einstellungen einer gestoppten App lassen
+  sich dort nachträglich ändern; Titan legt die Container dabei aus der neuen
+  Konfiguration neu an.
+- **Tailscale** kann das NAS zusätzlich als Exit Node anbieten. Die Auswahl
+  wird nach jedem Start auf den laufenden Dienst angewendet, auch wenn sie
+  erst nach der Installation geändert wurde.
 - Dateimanager mit Upload-Fortschritt, Abbrechen, Download, Umbenennen und
   Papierkorb.
 - Virtuelle Maschinen: Start, Herunterfahren, Neustart, Konsole, neue VM aus
@@ -76,7 +86,13 @@ nicht übernommen; für Fotos ist Immich aus dem App Store vorgesehen.
   Btrfs-Laufwerke, PCI- und GPU-Durchreichen an VMs sowie Grafikkarten für Apps.
   Vor dem Einsatz mit wichtigen Daten auf dem eigenen System ausprobieren.
 - Anmeldung, Ersteinrichtung und eine App-Installation über die neue Oberfläche
-  sind bisher nur auf dem Alpha-Image von Hand zu prüfen.
+  sind bisher nur auf einem installierten Image von Hand zu prüfen.
+- Apps im Titan-Fenster: Läuft Titan verschlüsselt (HTTPS) und die App
+  unverschlüsselt, zeigen Browser sie nicht eingebettet an; manche Apps
+  verbieten das Einbetten grundsätzlich. Von unterwegs erscheint eine App nur
+  im Fenster, wenn im Fernzugriff eine öffentliche Adresse für sie eingerichtet
+  ist. Ein Zugang zu allen Apps über die eine Titan-Adresse ist noch nicht
+  enthalten.
 - Der NVIDIA-Treiber ist nicht im Image enthalten. NVIDIA-Karten lassen sich an
   eine VM durchreichen; für Apps fehlt der Treiber noch.
 - Kontingente gibt es nur auf ZFS, Btrfs nur für einzelne Laufwerke.

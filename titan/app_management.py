@@ -646,6 +646,9 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                     output = invoke('up', '-d', '--no-recreate', '--wait', '--wait-timeout', '120' if app == 'titan-tailscale' else '300')
                 else:
                     output = invoke("restart" if command == "restart" else "start")
+                if app == 'titan-tailscale':
+                    from .native_apps import apply_tailscale_exit_node
+                    apply_tailscale_exit_node(self, record)
                 if installing:
                     progress(self, app, 'start', 'completed', 'Container-Start abgeschlossen. Die Betriebsbereitschaft wird separat geprüft.')
                 return output

@@ -367,12 +367,29 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         office_page = urllib.parse.urlsplit(self.path).path == "/office_edit.html"
         styles = "'self' 'unsafe-inline'" if office_page else "'self'" + (" 'nonce-" + style_nonce + "'" if style_nonce else "")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src " + styles + "; "
-                         "img-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; "
+                         "img-src 'self' data:; connect-src 'self'; frame-src " + (self.frame_sources() if style_nonce else "'self'") + "; object-src 'none'; "
                          "base-uri 'none'; frame-ancestors 'self'; form-action 'self'")
         for key, value in (extra or {}).items():
             if key.lower() != "cache-control":
                 self.send_header(key, value)
         self.end_headers()
+
+    def frame_sources(self):
+        """Origins the interface may show in an app window: app ports on this NAS and configured public app addresses."""
+        sources = ["'self'"]
+        host = self.headers.get("Host", "").rsplit(":", 1)[0] if not self.headers.get("Host", "").startswith("[") else ""
+        if re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?", host):
+            sources += ["http://" + host + ":*", "https://" + host + ":*"]
+        try:
+            from .web_access import CONFIG, read_config
+            if not self.app.demo and CONFIG.exists():
+                for address in read_config(CONFIG).get("remote", {}).get("app_urls", {}).values():
+                    parts = urllib.parse.urlsplit(address)
+                    if parts.scheme == "https" and re.fullmatch(r"[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?", parts.netloc):
+                        sources.append("https://" + parts.netloc)
+        except (Error, OSError, ValueError, AttributeError):
+            pass
+        return " ".join(dict.fromkeys(sources))
 
     def reply(self, value, status=200, extra=None):
         data = json.dumps(value, ensure_ascii=False).encode()

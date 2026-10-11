@@ -9,6 +9,8 @@ import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { Store } from './pages/Store';
 import { AppDetail } from './pages/AppDetail';
+import { AppWindow } from './pages/AppWindow';
+import { VmConsole } from './pages/VmConsole';
 import { Files } from './pages/Files';
 import { Vms } from './pages/Vms';
 import { Settings } from './pages/Settings';
@@ -107,6 +109,10 @@ export function App() {
         <main className="h-full">
           {page === 'store' && allowed('apps') ? (
             <Store appId={route[1]} />
+          ) : page === 'open' && route[1] && allowed('apps') ? (
+            <AppWindow key={route[1]} appId={route[1]} />
+          ) : page === 'vms' && route[1] && allowed('vms') ? (
+            <VmConsole key={route[1]} vmId={route[1]} />
           ) : page === 'apps' && route[1] && allowed('apps') ? (
             <AppDetail key={route[1]} appId={route[1]} />
           ) : page === 'files' && allowed('files') ? (
@@ -116,7 +122,7 @@ export function App() {
           ) : page === 'settings' ? (
             <Settings session={session} section={route[1]} onSessionChange={refresh} />
           ) : (
-            <Home session={session} />
+            <Home session={session} onSessionChange={refresh} />
           )}
         </main>
         <Dock active={['store', 'files', 'vms', 'settings'].includes(page) ? page : ''} session={session} />

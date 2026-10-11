@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Pencil, Trash2, UsersRound } from 'lucide-react';
 import { post, waitJob } from '../api';
-import { message, useApi } from '../lib';
-import { Button, Card, Field, IconButton, Input, Loading, Modal, Notice, Select, useToast } from '../ui';
+import { cx, message, useApi } from '../lib';
+import { Button, Card, Field, IconButton, Input, Loading, Modal, Notice, useToast } from '../ui';
 
 type Rights = { applications?: Record<string, boolean>; shares?: Record<string, string> };
 type Group = Rights & { name: string; description?: string; members: string[] };
@@ -24,6 +24,31 @@ function without<T extends Record<string, unknown>>(record: T, key: string) {
   const copy = { ...record };
   delete copy[key];
   return copy;
+}
+
+function Segmented({ label, value, inheritLabel, onChange }: { label: string; value: Choice; inheritLabel: string; onChange: (value: Choice) => void }) {
+  const options: [Choice, string][] = [['inherit', inheritLabel], ['allow', 'Erlaubt'], ['deny', 'Gesperrt']];
+  return (
+    <div role="group" aria-label={label} className="inline-flex shrink-0 rounded-full bg-white/8 p-0.5">
+      {options.map(([id, text]) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={value === id}
+          onClick={() => onChange(id)}
+          className={cx(
+            'h-8 rounded-full px-3 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-brand',
+            value !== id && 'text-white/60 hover:text-white',
+            value === id && id === 'allow' && 'bg-ok/25 font-medium text-ok',
+            value === id && id === 'deny' && 'bg-bad/25 font-medium text-bad',
+            value === id && id === 'inherit' && 'bg-white/16 font-medium text-white',
+          )}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function GroupDialog({ group, identity, taken, onSave, onClose }: { group: Group | null; identity: Identity; taken: string[]; onSave: (group: Group) => void; onClose: () => void }) {
@@ -57,18 +82,14 @@ function GroupDialog({ group, identity, taken, onSave, onClose }: { group: Group
         <fieldset className="space-y-2">
           <legend className="mb-1 text-[13px] font-medium text-white/70">Rechte der Gruppe</legend>
           {Object.entries(identity.applications).map(([id, label]) => (
-            <div key={id} className="flex items-center justify-between gap-3">
+            <div key={id} className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm">{label}</span>
-              <Select
-                aria-label={`${label} für die Gruppe`}
-                className="h-9 w-40"
+              <Segmented
+                label={`${label} für die Gruppe`}
+                inheritLabel="Offen"
                 value={choiceOf(applications[id])}
-                onChange={event => setApplications(event.target.value === 'inherit' ? without(applications, id) : { ...applications, [id]: event.target.value === 'allow' })}
-              >
-                <option value="inherit">Nicht festgelegt</option>
-                <option value="allow">Erlaubt</option>
-                <option value="deny">Gesperrt</option>
-              </Select>
+                onChange={choice => setApplications(choice === 'inherit' ? without(applications, id) : { ...applications, [id]: choice === 'allow' })}
+              />
             </div>
           ))}
         </fieldset>
@@ -126,41 +147,35 @@ export function GroupsSection() {
     <div className="space-y-4">
       <Card>
         <h2 className="text-sm font-semibold">Was Benutzer verwenden dürfen</h2>
-        <p className="mt-0.5 text-sm text-white/50">Administratoren dürfen immer alles. „Wie Gruppe“ übernimmt die Gruppenrechte oder den Standard.</p>
+        <p className="mt-0.5 text-sm text-white/50">Administratoren dürfen immer alles. „Wie Gruppe“ übernimmt die Rechte aus den Gruppen des Benutzers, sonst den Standard.</p>
         {people.length === 0 ? (
           <p className="mt-3 text-sm text-white/55">Es gibt noch keine Benutzer ohne Administratorrechte.</p>
         ) : (
-          <div className="scroll-area mt-3 overflow-x-auto">
-            <table className="w-full min-w-[34rem] text-sm">
-              <thead>
-                <tr className="text-left text-xs text-white/45">
-                  <th className="py-2 pr-3 font-medium">Benutzer</th>
-                  {Object.values(data.applications).map(label => (
-                    <th key={label} className="px-1.5 py-2 font-medium">{label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/6">
-                {people.map(user => (
-                  <tr key={user.name}>
-                    <td className="py-2 pr-3 font-medium">{user.name}</td>
-                    {Object.entries(data.applications).map(([id, label]) => {
-                      const effective = data.effective[user.name]?.applications[id];
-                      return (
-                        <td key={id} className="px-1.5 py-2">
-                          <Select aria-label={`${label} für ${user.name}`} className="h-9 min-w-28 px-2.5" value={userChoice(user.name, id)} onChange={event => setUser(user.name, id, event.target.value as Choice)}>
-                            <option value="inherit">Wie Gruppe{effective?.inherited ? ` (${effective.allowed ? 'erlaubt' : 'gesperrt'})` : ''}</option>
-                            <option value="allow">Erlaubt</option>
-                            <option value="deny">Gesperrt</option>
-                          </Select>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="mt-3 space-y-3">
+            {people.map(user => (
+              <li key={user.name} className="rounded-xl border border-white/8 p-3.5">
+                <div className="mb-2 flex items-center gap-2.5">
+                  <span className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-indigo-600 text-xs font-semibold uppercase">{user.name.slice(0, 1)}</span>
+                  <span className="text-sm font-semibold">{user.name}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {Object.entries(data.applications).map(([id, label]) => {
+                    const effective = data.effective[user.name]?.applications[id];
+                    const inherited = effective?.inherited ? (effective.allowed ? 'erlaubt' : 'gesperrt') : '';
+                    return (
+                      <div key={id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                        <span className="text-sm text-white/75">
+                          {label}
+                          {userChoice(user.name, id) === 'inherit' && inherited && <span className="ml-2 text-xs text-white/40">derzeit {inherited}</span>}
+                        </span>
+                        <Segmented label={`${label} für ${user.name}`} inheritLabel="Wie Gruppe" value={userChoice(user.name, id)} onChange={choice => setUser(user.name, id, choice)} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
 

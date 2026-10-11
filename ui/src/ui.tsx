@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, MoreHorizontal, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cx } from './lib';
 
 /* ---------- Buttons ---------- */
@@ -280,3 +281,58 @@ export function Sheet({ title, subtitle, actions, children }: { title: string; s
 export const Card = ({ className, children }: { className?: string; children: ReactNode }) => (
   <div className={cx('glass-soft rounded-2xl p-5', className)}>{children}</div>
 );
+
+/* ---------- Menu ---------- */
+
+export type MenuItem = { label: string; icon: LucideIcon; onClick: () => void; danger?: boolean; disabled?: boolean };
+
+/** Small action menu. `trigger` replaces the default "more" button; the list opens above or below it. */
+export function Menu({ label, items, trigger, placement = 'above', align = 'right' }: { label: string; items: MenuItem[]; trigger?: ReactNode; placement?: 'above' | 'below'; align?: 'left' | 'right' }) {
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !container.current?.contains(event.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', close);
+    window.addEventListener('keydown', close);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('keydown', close);
+    };
+  }, [open]);
+  return (
+    <div ref={container} className="relative">
+      {trigger ? (
+        <button type="button" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)} className="rounded-full focus-visible:outline-2 focus-visible:outline-white">
+          {trigger}
+        </button>
+      ) : (
+        <IconButton label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+          <MoreHorizontal className="size-4" />
+        </IconButton>
+      )}
+      {open && (
+        <div role="menu" className={cx('glass absolute z-30 w-60 rounded-2xl p-1.5 shadow-2xl animate-fade', placement === 'above' ? 'bottom-full mb-2' : 'top-full mt-2', align === 'right' ? 'right-0' : 'left-0')}>
+          {items.map(item => (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              disabled={item.disabled}
+              onClick={() => {
+                setOpen(false);
+                item.onClick();
+              }}
+              className={cx('flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10 disabled:opacity-40', item.danger ? 'text-bad' : 'text-white/90')}
+            >
+              <item.icon className="size-4 shrink-0" aria-hidden />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

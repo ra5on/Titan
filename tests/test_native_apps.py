@@ -124,6 +124,33 @@ class RecipeTests(unittest.TestCase):
         options.update(subnet_routing='enabled', subnet_routes='192.168.1.0/24')
         included = compose('titan-tailscale', '/agent/tailscale', 1000, 1000, 0, '/data', options)['services']['titan-tailscale']
         self.assertEqual(included['environment']['TS_ROUTES'], '192.168.1.0/24')
+        # An exit node is only advertised on request and needs no extra container rights.
+        self.assertNotIn('TS_EXTRA_ARGS', included['environment'])
+        options['exit_node'] = 'enabled'
+        exit_node = compose('titan-tailscale', '/agent/tailscale', 1000, 1000, 0, '/data', options)['services']['titan-tailscale']
+        self.assertEqual(exit_node['environment']['TS_EXTRA_ARGS'], '--advertise-exit-node')
+        for key in ('privileged', 'cap_add', 'devices', 'network_mode'): self.assertNotIn(key, exit_node)
+
+    def test_exit_node_choice_is_applied_to_the_running_node_and_can_be_withdrawn(self):
+        from types import SimpleNamespace
+        from titan.native_apps import apply_tailscale_exit_node
+        calls, patches = [], []
+        container = {'Id': 'a' * 64, 'State': {'Running': True}}
+        def host(options, current=container):
+            return SimpleNamespace(_app_options=lambda app: options, _app_container=lambda app, record: current,
+                                   _app_patch_record=lambda app, value: patches.append(value))
+        with patch('titan.host.run', side_effect=lambda args, **kwargs: calls.append(args) or ''):
+            self.assertFalse(apply_tailscale_exit_node(host({'exit_node': 'disabled'}), {}))
+            self.assertFalse(apply_tailscale_exit_node(host({}), {}))
+            self.assertEqual(calls, [], 'nodes that never advertised an exit node are left alone')
+            self.assertTrue(apply_tailscale_exit_node(host({'exit_node': 'enabled'}), {}))
+            self.assertEqual(calls[-1], ['docker', 'exec', 'a' * 64, 'tailscale', 'set', '--advertise-exit-node=true'])
+            self.assertFalse(apply_tailscale_exit_node(host({'exit_node': 'disabled'}), {'exit_node_advertised': True}))
+            self.assertEqual(calls[-1][-1], '--advertise-exit-node=false')
+            self.assertEqual(patches, [{'exit_node_advertised': True}, {'exit_node_advertised': False}])
+            with self.assertRaises(Error) as failed:
+                apply_tailscale_exit_node(host({'exit_node': 'enabled'}, current=None), {}, attempts=3, sleep=lambda seconds: None)
+            self.assertEqual(failed.exception.status, 503)
 
     def test_tailscale_healthy_container_without_control_connection_is_not_connected(self):
         container = {'Id': 'a' * 64, 'State': {'Running': True}}

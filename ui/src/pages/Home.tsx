@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, ExternalLink, HardDrive, MemoryStick, MoreHorizontal, SlidersHorizontal, Play, Plus, RotateCw, Square, Trash2 } from 'lucide-react';
+import { ChevronDown, Cpu, ExternalLink, HardDrive, LogOut, MemoryStick, MoreHorizontal, Power, SlidersHorizontal, Play, Plus, RotateCw, Square, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { action } from '../api';
 import type { InstalledApp, Session, Status, Storage } from '../api';
 import { bytes, cx, go, message, percent, useApi } from '../lib';
-import { AppIcon, Confirm, Meter, StateDot, useToast } from '../ui';
+import { logout, rebootSystem, shutdownSystem } from '../system';
+import { AppIcon, Confirm, Menu, Meter, StateDot, useToast } from '../ui';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -65,12 +66,12 @@ function AppTile({ app, admin, onChanged }: { app: InstalledApp; admin: boolean;
 
   const open = () => {
     if (!running) return toast(`${app.name} ist gestoppt. Über das Menü starten.`, true);
-    if (url) window.open(url, '_blank', 'noopener');
+    if (url) go('open', app.id);
     else toast(`${app.name} hat keine Weboberfläche.`);
   };
 
   const items: { label: string; icon: LucideIcon; onClick: () => void; danger?: boolean }[] = [
-    ...(running && url ? [{ label: 'Öffnen', icon: ExternalLink, onClick: open }] : []),
+    ...(running && url ? [{ label: 'Öffnen', icon: ExternalLink, onClick: open }, { label: 'In neuem Tab öffnen', icon: ExternalLink, onClick: () => { setMenu(false); window.open(url, '_blank', 'noopener'); } }] : []),
     ...(running
       ? [
           { label: 'Neu starten', icon: RotateCw, onClick: () => run('restart', 'neu gestartet.') },
@@ -143,7 +144,43 @@ function AppTile({ app, admin, onChanged }: { app: InstalledApp; admin: boolean;
   );
 }
 
-export function Home({ session }: { session: Session }) {
+/** Top-left system menu: sign out, restart and shut down, each after a confirmation. */
+function SystemMenu({ name, admin, onSessionChange }: { name: string; admin: boolean; onSessionChange: () => Promise<void> }) {
+  const toast = useToast();
+  const [confirm, setConfirm] = useState<'logout' | 'reboot' | 'shutdown' | null>(null);
+  const actions = {
+    logout: { title: 'Abmelden?', text: 'Du wirst von Titan abgemeldet. Apps und virtuelle Maschinen laufen weiter.', label: 'Abmelden', danger: false,
+      run: async () => { try { await logout(); } finally { await onSessionChange(); } } },
+    reboot: { title: 'NAS neu starten?', text: 'Apps, virtuelle Maschinen und Freigaben sind während des Neustarts für einige Minuten nicht erreichbar.', label: 'Neu starten', danger: false,
+      run: async () => { try { toast(await rebootSystem()); } catch (reason) { toast(message(reason), true); } } },
+    shutdown: { title: 'NAS ausschalten?', text: 'Titan fährt herunter und ist erst wieder erreichbar, wenn das Gerät eingeschaltet wird. Virtuelle Maschinen müssen vorher heruntergefahren sein.', label: 'Ausschalten', danger: true,
+      run: async () => { try { toast(await shutdownSystem()); } catch (reason) { toast(message(reason), true); } } },
+  };
+  const active = confirm && actions[confirm];
+  return (
+    <div className="fixed left-4 top-4 z-30">
+      <Menu
+        label="Systemmenü"
+        placement="below"
+        align="left"
+        trigger={
+          <span className="glass flex h-10 items-center gap-2 rounded-full pl-3 pr-2.5 text-sm font-medium shadow-lg">
+            <Power className="size-4" aria-hidden />
+            <span className="max-w-40 truncate">{name}</span>
+            <ChevronDown className="size-4 text-white/60" aria-hidden />
+          </span>
+        }
+        items={[
+          { label: 'Abmelden', icon: LogOut, onClick: () => setConfirm('logout') },
+          ...(admin ? [{ label: 'Neu starten', icon: RotateCw, onClick: () => setConfirm('reboot') }, { label: 'Ausschalten', icon: Power, danger: true, onClick: () => setConfirm('shutdown') }] : []),
+        ]}
+      />
+      {active && <Confirm title={active.title} text={active.text} confirmLabel={active.label} danger={active.danger} onClose={() => setConfirm(null)} onConfirm={active.run} />}
+    </div>
+  );
+}
+
+export function Home({ session, onSessionChange }: { session: Session; onSessionChange: () => Promise<void> }) {
   const admin = session.user?.role === 'admin';
   const canApps = Boolean(session.permissions.apps?.allowed);
   const status = useApi<Status>(canApps || admin ? '/api/status' : null, 5000);
@@ -157,6 +194,7 @@ export function Home({ session }: { session: Session }) {
 
   return (
     <div className="scroll-area h-full overflow-y-auto px-4 pb-36 pt-[9vh]">
+      <SystemMenu name={s?.hostname || 'Titan'} admin={admin} onSessionChange={onSessionChange} />
       <div className="mx-auto max-w-5xl">
         <h1 className="text-center text-4xl font-semibold tracking-tight drop-shadow-lg sm:text-5xl">
           {greeting()}, {session.user?.name}

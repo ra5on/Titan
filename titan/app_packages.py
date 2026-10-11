@@ -145,7 +145,10 @@ PACKAGES['titan-tailscale'] = recipe('Tailscale', 'Netzwerk',
         {'key': 'subnet_routing', 'label': 'Heimnetz freigeben', 'type': 'text', 'default': 'disabled', 'required': True,
          'min_length': 7, 'max_length': 8, 'pattern': '(?:enabled|disabled)', 'choices': [['disabled', 'Deaktiviert'], ['enabled', 'Gewählte Bereiche freigeben']]},
         {'key': 'subnet_routes', 'label': 'Freigegebene Heimnetzbereiche', 'type': 'text', 'default': '', 'required': False,
-         'min_length': 0, 'max_length': 512, 'help': 'Private CIDR-Bereiche, mit Komma getrennt, z. B. 192.168.1.0/24. Danach im Tailscale-Konto freigeben.'}],
+         'min_length': 0, 'max_length': 512, 'help': 'Private CIDR-Bereiche, mit Komma getrennt, z. B. 192.168.1.0/24. Danach im Tailscale-Konto freigeben.'},
+        {'key': 'exit_node', 'label': 'Als Exit Node anbieten', 'type': 'text', 'default': 'disabled', 'required': True,
+         'min_length': 7, 'max_length': 8, 'pattern': '(?:enabled|disabled)', 'choices': [['disabled', 'Deaktiviert'], ['enabled', 'Internetverkehr anderer Geräte über dieses NAS leiten']],
+         'help': 'Andere Tailscale-Geräte können ihren gesamten Internetverkehr über den Anschluss dieses NAS führen. Danach im Tailscale-Konto als Exit Node freigeben.'}],
     'https://tailscale.com/docs/features/containers/docker/docker-params',
     'Auth-Key im Tailscale-Konto erstellen. Gewählte Subnet-Routen anschließend in der Tailscale-Verwaltung freigeben und passende Zugriffsregeln erlauben. Diese Freigabe wird von Titan nicht automatisch vorgenommen.',
     web_available=False, note='Isolierter Userspace-Router für TCP und UDP; Ping eingeschränkt, andere IP-Protokolle nicht unterstützt. Verändert weder Host-IP-Forwarding noch Host-Firewall oder Host-DNS. Ohne NAS-IP oder freigegebene Routen werden keine NAS-Dienste bereitgestellt.')
@@ -231,6 +234,9 @@ def selected_recipe(app, recipe, options):
     if app == 'titan-tailscale':
         from .native_apps import advertised_routes
         result['stack']['services']['tailscale']['environment']['TS_ROUTES'] = advertised_routes(options)
+        # Installations from before this option have no value and stay as they are.
+        if options.get('exit_node') == 'enabled':
+            result['stack']['services']['tailscale']['environment']['TS_EXTRA_ARGS'] = '--advertise-exit-node'
     profile = options.get('resource_profile', 'legacy')
     if profile not in RESOURCE_PROFILES:
         raise Error('Ungültiges RAM-Profil.')

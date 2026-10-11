@@ -185,7 +185,7 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
                 <Check className="size-4" /> Installiert
               </div>
               {url && installedApp?.state === 'running' ? (
-                <Button variant="primary" className="w-full" onClick={() => window.open(url, '_blank', 'noopener')}>
+                <Button variant="primary" className="w-full" onClick={() => go('open', installedApp!.id)}>
                   <ExternalLink className="size-4" /> Öffnen
                 </Button>
               ) : (

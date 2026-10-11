@@ -113,7 +113,8 @@ test('device passthrough is offered for apps and virtual machines', async ({ pag
   await expect(page.getByText(/keine Grafikkarte und kein USB-Gerät gefunden/)).toBeVisible();
 
   await page.goto('/#/vms');
-  await page.getByRole('button', { name: 'USB-Geräte für linux-lab' }).click();
+  await page.getByRole('button', { name: 'Weitere Aktionen für linux-lab' }).click();
+  await page.getByRole('menuitem', { name: 'USB-Geräte' }).click();
   const dialog = page.getByRole('dialog', { name: /USB-Geräte für/ });
   await expect(dialog.getByText(/kein USB-Gerät angeschlossen/)).toBeVisible();
   await dialog.getByRole('button', { name: 'Abbrechen' }).click();
@@ -125,7 +126,8 @@ test('device passthrough is offered for apps and virtual machines', async ({ pag
 
 test('a graphics card can be passed through to a stopped virtual machine', async ({ page }) => {
   await page.goto('/#/vms');
-  await page.getByRole('button', { name: 'Grafikkarte und PCI-Geräte für E2E Gast' }).click();
+  await page.getByRole('button', { name: 'Weitere Aktionen für E2E Gast' }).click();
+  await page.getByRole('menuitem', { name: 'Grafikkarte und PCI-Geräte' }).click();
   const dialog = page.getByRole('dialog', { name: /Grafikkarte und PCI-Geräte/ });
   await expect(dialog.getByRole('checkbox', { name: /Demo-Beschleuniger/ })).toBeDisabled();
   await expect(dialog.getByText(/Teilt sich die IOMMU-Gruppe/)).toBeVisible();
@@ -133,7 +135,8 @@ test('a graphics card can be passed through to a stopped virtual machine', async
   await dialog.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByText('PCI-Geräte für „E2E Gast“ gespeichert.')).toBeVisible();
   // The card now belongs to that VM and is no longer free for another one.
-  await page.getByRole('button', { name: 'Grafikkarte und PCI-Geräte für linux-lab' }).click();
+  await page.getByRole('button', { name: 'Weitere Aktionen für linux-lab' }).click();
+  await page.getByRole('menuitem', { name: 'Grafikkarte und PCI-Geräte' }).click();
   await expect(page.getByRole('dialog').getByText('Zugeordnet: andere VM')).toBeVisible();
 });
 
@@ -233,20 +236,21 @@ test('a share can be mirrored continuously to another drive', async ({ page }) =
 
 test('application rights and groups can be changed', async ({ page }) => {
   await page.goto('/#/settings/groups');
-  await page.getByLabel('Apps und Docker für patrick').selectOption('allow');
+  await page.getByRole('group', { name: 'Apps und Docker für patrick' }).getByRole('button', { name: 'Erlaubt' }).click();
   await page.getByRole('button', { name: 'Neue Gruppe' }).click();
   const dialog = page.getByRole('dialog', { name: 'Neue Gruppe' });
   await dialog.getByLabel('Name').fill('familie-vm');
   await dialog.getByRole('checkbox', { name: 'familie' }).check();
-  await dialog.getByLabel('Virtuelle Maschinen für die Gruppe').selectOption('allow');
+  await dialog.getByRole('group', { name: 'Virtuelle Maschinen für die Gruppe' }).getByRole('button', { name: 'Erlaubt' }).click();
   await dialog.getByRole('button', { name: 'Übernehmen' }).click();
   await page.getByRole('button', { name: 'Änderungen speichern' }).click();
   await expect(page.getByText('Gruppen und Rechte gespeichert.')).toBeVisible({ timeout: 20_000 });
   await page.reload();
-  await expect(page.getByLabel('Apps und Docker für patrick')).toHaveValue('allow');
+  await expect(page.getByRole('group', { name: 'Apps und Docker für patrick' }).getByRole('button', { name: 'Erlaubt' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('familie-vm')).toBeVisible();
   // The group grants VM access to its member without a personal override.
-  await expect(page.getByLabel('Virtuelle Maschinen für familie').getByRole('option', { name: 'Wie Gruppe (erlaubt)' })).toBeAttached();
+  await expect(page.getByRole('group', { name: 'Virtuelle Maschinen für familie' }).getByRole('button', { name: 'Wie Gruppe' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('derzeit erlaubt').first()).toBeVisible();
 });
 
 test('the system drive can be used fully and a new storage area created', async ({ page }) => {
@@ -301,6 +305,30 @@ test('a plugged-in USB drive appears in the file manager and can be ejected', as
   await page.getByRole('button', { name: 'USB-Stick auswerfen' }).click();
   await expect(page.getByText(/kann jetzt abgezogen werden/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'USB-Stick', exact: true })).toHaveCount(0);
+});
+
+test('apps and VM consoles open inside Titan and the system menu confirms before acting', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Syncthing öffnen' }).click();
+  await expect(page).toHaveURL(/#\/open\/syncthing$/);
+  await expect(page.locator('iframe[title="Syncthing"]')).toHaveAttribute('src', /:8384$/);
+  await page.getByRole('button', { name: 'Zurück zur Startseite' }).click();
+
+  await page.goto('/#/vms');
+  const card = page.locator('div').filter({ hasText: /^linux-lab/ }).first();
+  await expect(card).toBeVisible();
+  const start = page.getByRole('button', { name: 'Starten' }).first();
+  if (await start.isVisible()) await start.click();
+  await page.getByRole('button', { name: 'Konsole' }).first().click();
+  await expect(page).toHaveURL(/#\/vms\/[0-9a-f-]+$/);
+  await expect(page.locator('iframe[title^="Konsole von"]')).toHaveAttribute('src', /console\.html\?vm=.*embedded=1/);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Systemmenü' }).click();
+  await page.getByRole('menuitem', { name: 'Neu starten' }).click();
+  await expect(page.getByRole('dialog', { name: 'NAS neu starten?' })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('previous interface stays reachable', async ({ request }) => {
