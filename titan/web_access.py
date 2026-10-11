@@ -19,7 +19,7 @@ from .core import Error, atomic_json
 
 CONFIG = Path('/etc/titan/web-access.json')
 DEFAULTS = {'mode': 'https', 'http_port': 80, 'https_port': 443}
-INTERNAL_PORTS = {5001, 5101, 5102, 5103}
+INTERNAL_PORTS = {5001, 5101, 5102, 5103, 5104}
 CONFIRM_SECONDS = 120
 
 

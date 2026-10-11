@@ -86,7 +86,7 @@ export async function mountFeature(feature: Feature, host: HTMLElement, ctx: Dat
     } else if (feature === 'resources') {
       const data = await read('/api/status'); if (!valid()) return;
       paint('<section class="panel"><div data-live-resources>' + m.TitanResources.resourceMetrics(data, { ...helpers, demo: session?.demo }) + '</div></section>');
-      m.TitanResources.mount(host, { ...ctx, demo: session?.demo });
+      m.TitanResources.mount(host, { ...ctx, metricsFormat: { ...helpers, demo: session?.demo } });
     } else if (feature === 'logs') {
       const data = await read('/api/logs'); if (!valid()) return;
       paint(button('Aktualisieren', 'refresh') + `<section class="panel table-wrap"><table><thead><tr><th>Zeit</th><th>Benutzer</th><th>Aktion</th><th>Details</th></tr></thead><tbody>${data.map((item: Data) => `<tr><td>${helpers.date(item.time)}</td><td>${esc(item.username)}</td><td>${esc(item.action)}</td><td>${esc(item.detail)}</td></tr>`).join('')}</tbody></table>${!data.length ? '<p>Noch keine Ereignisse.</p>' : ''}</section>`);

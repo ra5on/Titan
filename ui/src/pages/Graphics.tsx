@@ -1,8 +1,6 @@
-import { useState } from 'react';
-import { Cpu, Download } from 'lucide-react';
-import { post, waitJob } from '../api';
-import { cx, message, useApi } from '../lib';
-import { Button, Card, Confirm, Notice, useToast } from '../ui';
+import { Cpu } from 'lucide-react';
+import { cx, go, useApi } from '../lib';
+import { Button, Card, Notice } from '../ui';
 
 type Gpu = { pci: string; vendor: string; model: string; driver: string | null; passthrough?: boolean };
 type Components = {
@@ -16,30 +14,10 @@ type Components = {
  * so Titan downloads it from NVIDIA on request instead of shipping it.
  */
 export function GraphicsCard() {
-  const toast = useToast();
   const components = useApi<Components>('/api/components', 30000);
-  const [confirm, setConfirm] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
   const gpus = components.data?.gpus || [];
   const nvidia = components.data?.components.nvidia;
   if (!components.data || (!gpus.length && !nvidia?.card)) return null;
-
-  const install = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      const { job } = await post<{ job: string }>('/api/components/install', { component: 'nvidia' });
-      await waitJob(job, 40 * 60 * 1000);
-      toast('Der NVIDIA-Treiber ist installiert. Die Grafikkarte lässt sich jetzt einer App zuweisen.');
-    } catch (reason) {
-      setError(message(reason));
-    } finally {
-      setBusy(false);
-      await components.reload();
-    }
-  };
 
   return (
     <Card>
@@ -62,31 +40,16 @@ export function GraphicsCard() {
       {nvidia?.card && (
         <div className="mt-3 space-y-3">
           {nvidia.available ? (
-            <Notice tone="info">Der NVIDIA-Treiber ist aktiv. Weise die Karte auf der Seite einer App unter „Grafikkarte und Geräte“ zu.</Notice>
+            <Notice tone="info">Der NVIDIA-Treiber ist aktiv. Weise die Karte auf der Seite einer App unter „Grafikkarte und Geräte“ zu. Updates und Deinstallation findest du im Appstore unter Plugins.</Notice>
           ) : (
             <>
               <p className="text-sm leading-relaxed text-white/60">
                 Für Apps wie Ollama, Jellyfin oder Immich braucht eine NVIDIA-Karte den Treiber von NVIDIA. Titan lädt ihn direkt bei NVIDIA und baut das Kernelmodul; das dauert einige Minuten und braucht Internet. Für eine virtuelle Maschine ist er nicht nötig.
               </p>
-              {nvidia.requested && !busy && <Notice tone="warn">Der Treiber war eingerichtet und wird nach einem Systemupdate im Hintergrund neu gebaut. Dauert das länger als einige Minuten, hier erneut installieren.</Notice>}
-              {error && <Notice>{error}</Notice>}
-              <Button variant="primary" busy={busy} onClick={() => setConfirm(true)}>
-                <Download className="size-4" /> {busy ? 'Wird installiert …' : 'NVIDIA-Treiber installieren'}
-              </Button>
+              <Button variant="primary" onClick={() => go('store', 'plugin-nvidia')}>NVIDIA-Plugin im Appstore verwalten</Button>
             </>
           )}
         </div>
-      )}
-      {confirm && (
-        <Confirm
-          title="NVIDIA-Treiber installieren?"
-          text="Titan lädt den proprietären Treiber aus dem Paketarchiv von NVIDIA; dafür gelten NVIDIAs Lizenzbedingungen. Zum Abschluss startet Docker neu, laufende Apps sind dabei kurz unterbrochen."
-          confirmLabel="Installieren"
-          onClose={() => setConfirm(false)}
-          onConfirm={() => {
-            void install();
-          }}
-        />
       )}
     </Card>
   );

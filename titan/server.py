@@ -43,6 +43,7 @@ MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardw
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
              "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "backup_app_restore", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore_new", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
 MUTATIONS.add('vm_nic_update')
+MUTATIONS.add('plugin_action')
 FILE_ACTIONS = {"mkdir", "upload", "rename", "trash", "trash_list", "restore", "copy", "move", "read", "write", "create", "create_document", "delete"}
 
 
@@ -517,6 +518,10 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 return self.reply(self.app.store.jobs(None if user["role"] == "admin" else user["name"]))
             if not self.application_route(user, path):
                 self.require_user(admin=True)
+            if path == '/api/plugins':
+                if query:
+                    raise Error('Plugins unterstützen keine Abfrageoptionen.')
+                return self.reply(self.app.agent.call('plugins'))
             if path == '/api/diagnostics':
                 if query not in ({}, {'download': '1'}):
                     raise Error('Ungültige Diagnoseoption.')

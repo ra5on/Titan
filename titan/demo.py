@@ -23,9 +23,10 @@ from .demo_packages_vm import DemoPackagesVMMixin
 from .demo_storage_services import DemoStorageMixin, OPERATIONS as STORAGE_OPERATIONS, demo_io_metrics
 from .service_manager import CUSTOM_PREFIX, SERVICE_ACTIONS, ServiceManagerMixin, service_name, _text, _scalar
 from . import __version__, __release_stage__
+from .demo_plugins import DemoPluginsMixin
 
 
-class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
+class Demo(DemoPluginsMixin, DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
     def __init__(self, directory):
         self.directory = directory
         self.pools = [{"name": "tank", "size": 8 * 1024**4, "used": 2.34 * 1024**4,
@@ -195,6 +196,10 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
 
     def call(self, operation, **args):
         with self._account_lock:
+            if operation == 'plugins':
+                return self.plugins()
+            if operation == 'plugin_action':
+                return self.plugin_action(**args)
             extension = self.demo_packages_vm_call(operation, **args)
             if extension is not NotImplemented:
                 return extension

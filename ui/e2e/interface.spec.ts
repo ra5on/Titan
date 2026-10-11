@@ -214,7 +214,7 @@ test('a backup to another drive can be configured, run and verified', async ({ p
   const setup = page.locator('details').filter({ has: page.locator('[data-backup-wizard]') });
   if (await setup.getAttribute('open') === null) await setup.locator('summary').click();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
-  await page.getByLabel('Sicherungsziel', { exact: true }).selectOption('/var/media/demo-backup');
+  await page.getByRole('combobox', { name: 'Sicherungsziel', exact: true }).selectOption('/var/media/demo-backup');
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
@@ -402,7 +402,7 @@ test('transparency, dock and start page can be customised per account', async ({
 
 test('remote access settings explain the tunnel and report why the demo cannot save', async ({ page }) => {
   await page.goto('/#/settings/remote');
-  await expect(page.getByText(/wird die App „Cloudflare Tunnel“ benötigt/)).toBeVisible();
+  await expect(page.getByText(/Plugin „Cloudflare Tunnel“ installieren/)).toBeVisible();
   await page.getByLabel('Öffentliche Adresse von Titan').fill('https://nas.example.org');
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByRole('alert')).toContainText('echte Titan-Installation');
@@ -412,12 +412,19 @@ test('the NVIDIA driver is offered for an NVIDIA card and asks before installing
   await page.goto('/#/settings/system');
   await expect(page.getByRole('heading', { name: 'Grafikkarte' })).toBeVisible();
   await expect(page.getByText('Demo-Grafikkarte')).toBeVisible();
-  await page.getByRole('button', { name: 'NVIDIA-Treiber installieren' }).click();
-  const dialog = page.getByRole('dialog', { name: 'NVIDIA-Treiber installieren?' });
-  await expect(dialog).toContainText('NVIDIAs Lizenzbedingungen');
+  await page.getByRole('button', { name: 'NVIDIA-Plugin im Appstore verwalten' }).click();
+  await page.getByRole('button', { name: 'Installieren', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Plugin installieren' });
+  await expect(dialog).toContainText('NVIDIA-Lizenzbedingungen');
   await dialog.getByRole('button', { name: 'Installieren' }).click();
-  // The demo has no real card; the refusal must be shown, not swallowed.
-  await expect(page.getByRole('alert')).toContainText('echten Titan-System', { timeout: 15_000 });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Installieren' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText('Demo: Plugin-Aktion simuliert.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Deinstallieren', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Deinstallieren' }).click();
+  await expect(page.getByRole('button', { name: 'Installieren', exact: true })).toBeVisible();
 });
 
 test('previous desktop URL opens the unified interface', async ({ request }) => {

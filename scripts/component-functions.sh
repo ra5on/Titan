@@ -143,13 +143,115 @@ nvidia_packages() {
     fi
 }
 
+nvidia_plugin_action() {
+    local task_action="${1:?Action required}" task_version='' task_candidate='' task_update=false
+    local task_package task_devices
+    case "$task_action" in check|install|update|remove) ;; *) return 2 ;; esac
+    if [[ "$task_action" == check ]]; then
+        # An installed plugin owns this source. Never update all host packages.
+        if [[ -f "$NVIDIA_SOURCES" ]]; then apt-get -o Acquire::Retries=3 update >&2 || return 1; fi
+        task_version=$(dpkg-query -W -f='${Version}' nvidia-driver-cuda 2>/dev/null || true)
+        task_candidate=$(apt-cache policy nvidia-driver-cuda | awk '/Candidate:/ {print $2;exit}')
+        [[ "$task_candidate" != '(none)' ]] || task_candidate=''
+        if [[ -n "$task_candidate" && -n "$task_version" ]] && dpkg --compare-versions "$task_candidate" gt "$task_version"; then task_update=true; fi
+    elif [[ "$task_action" == install ]]; then
+        install_nvidia >&2 || return 1
+        task_version=$(dpkg-query -W -f='${Version}' nvidia-driver-cuda)
+    else
+        [[ -f "$NVIDIA_MARKER" ]] || { printf '%s\n' 'Nur ein von Titan eingerichteter NVIDIA-Treiber kann geändert werden.' >&2; return 1; }
+        # Idle containers may hold a GPU reservation without a compute PID.
+        # Refuse before touching packages or modules if Docker cannot be read.
+        python3 - <<'PY' || return 1
+import json, subprocess
+from pathlib import Path
+try:
+    ids = subprocess.check_output(['docker', 'ps', '-q'], text=True, timeout=20).split()
+    rows = json.loads(subprocess.check_output(['docker', 'inspect', *ids], text=True, timeout=20)) if ids else []
+    for row in rows:
+        host = row.get('HostConfig', {})
+        if (host.get('Runtime') == 'nvidia'
+                or any(item.get('Driver') == 'nvidia' or any('gpu' in group for group in item.get('Capabilities', [])) for item in host.get('DeviceRequests') or [])
+                or any('/dev/nvidia' in item.get('PathOnHost', '') for item in host.get('Devices') or [])):
+            raise SystemExit('Laufende Container mit NVIDIA-Zugriff zuerst stoppen.')
+    path = Path('/etc/docker/daemon.json')
+    if path.is_symlink():
+        raise SystemExit('Docker-Konfiguration darf kein symbolischer Link sein.')
+    if path.exists():
+        value = json.loads(path.read_text())
+        if not isinstance(value, dict) or not isinstance(value.get('runtimes', {}), dict):
+            raise ValueError()
+except (OSError, ValueError, subprocess.SubprocessError):
+    raise SystemExit('Docker-Status oder Konfiguration konnte nicht sicher geprüft werden.')
+PY
+        # Running GPU clients must be stopped explicitly by the administrator.
+        if command -v nvidia-smi >/dev/null 2>&1; then
+            task_devices=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null || true)
+            [[ -z "$task_devices" ]] || { printf '%s\n' 'NVIDIA wird von laufenden GPU-Prozessen benutzt. Diese Apps zuerst stoppen.' >&2; return 1; }
+        fi
+        # Fails rather than force-unloading a module held by a display or client.
+        for task_package in nvidia_uvm nvidia_drm nvidia_modeset nvidia; do
+            if [[ -d "/sys/module/$task_package" ]] && ! modprobe -r "$task_package"; then
+                modprobe nvidia 2>/dev/null || true
+                modprobe nvidia_uvm 2>/dev/null || true
+                printf '%s\n' 'GPU-Treiber noch in Verwendung. Anwendungen und VM-Zuordnung prüfen.' >&2
+                return 1
+            fi
+        done
+        if [[ "$task_action" == update ]]; then
+            # nvidia-smi can auto-load the old module. Explicitly force the
+            # package refresh instead of treating that as a completed update.
+            if ! install_nvidia true >&2; then
+                modprobe nvidia 2>/dev/null || true
+                modprobe nvidia_uvm 2>/dev/null || true
+                printf '%s\n' 'Treiberupdate unvollständig. Details im Plugin-Protokoll prüfen; bei geänderten Paketen kann ein Neustart nötig sein.' >&2
+                return 1
+            fi
+            task_version=$(dpkg-query -W -f='${Version}' nvidia-driver-cuda)
+        else
+            # Remove only the fixed plugin entry packages, without autoremove.
+            # Other CUDA software and administrator-installed libraries remain.
+            if ! DEBIAN_FRONTEND=noninteractive apt-get remove -y nvidia-kernel-open-dkms nvidia-driver-cuda nvidia-container-toolkit >&2; then
+                modprobe nvidia 2>/dev/null || true
+                modprobe nvidia_uvm 2>/dev/null || true
+                return 1
+            fi
+            python3 - <<'PY' || return 1
+import json, os
+from pathlib import Path
+path = Path('/etc/docker/daemon.json')
+if path.is_symlink():
+    raise SystemExit('Docker-Konfiguration darf kein symbolischer Link sein.')
+if path.exists():
+    value = json.loads(path.read_text())
+    value.get('runtimes', {}).pop('nvidia', None)
+    if value.get('default-runtime') == 'nvidia':
+        value['default-runtime'] = 'runc'
+    temporary = path.with_name('.titan-plugin-daemon.json')
+    with temporary.open('x') as stream:
+        json.dump(value, stream, indent=2)
+        stream.flush(); os.fsync(stream.fileno())
+    temporary.chmod(path.stat().st_mode & 0o777)
+    temporary.replace(path)
+PY
+            rm -f -- "$NVIDIA_MARKER" "$NVIDIA_SOURCES" "$NVIDIA_KEY"
+            systemctl restart docker.service >&2 || return 1
+        fi
+    fi
+    python3 - "$task_action" "$task_version" "$task_candidate" "$task_update" <<'PY'
+import json, sys
+action, version, candidate, update = sys.argv[1:]
+messages = {'check': 'NVIDIA-Updates geprüft.', 'install': 'NVIDIA-Treiber installiert.', 'update': 'NVIDIA-Treiber aktualisiert.', 'remove': 'NVIDIA-Plugin deinstalliert. Docker wurde neu gestartet.'}
+print(json.dumps({'ok': True, 'message': messages[action], 'version': version or None, 'candidate': candidate or None, 'update_available': update == 'true'}))
+PY
+}
+
 install_nvidia() {
     local task_free
     if ! nvidia_card_present; then
         printf '%s\n' 'Keine NVIDIA-Grafikkarte gefunden. Ist die Karte an eine virtuelle Maschine durchgereicht, zuerst die VM ausschalten.' >&2
         return 1
     fi
-    if nvidia_ready; then
+    if [[ "${1:-false}" != true ]] && nvidia_ready; then
         install -D -m 0600 /dev/null "$NVIDIA_MARKER"
         return 0
     fi

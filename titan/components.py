@@ -16,6 +16,26 @@ HELPER = Path('/usr/share/titan/install-components.sh')
 SYSTEM_PATH = '/usr/sbin:/usr/bin:/sbin:/bin'
 
 
+def run_plugin_component(host, action):
+    """Only the four fixed NVIDIA lifecycle operations can reach this helper."""
+    if action not in ('check', 'install', 'update', 'remove'):
+        raise Error('Ungültige NVIDIA-Aktion.')
+    path = Path(getattr(host, 'component_helper', HELPER))
+    try:
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid() or metadata.st_mode & 0o022:
+            raise Error('Komponentenhelfer ist nicht sicher installiert.', 503)
+        with (host.directory / 'nvidia-plugin.log').open('w') as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            result = run_component_helper(path, 'nvidia-' + action, stream)
+        report = json.loads(result.stdout)
+        if result.returncode or not isinstance(report, dict) or not report.get('ok'):
+            raise Error('NVIDIA-Aktion fehlgeschlagen. GPU-Apps stoppen, Kernel-Header und Internetverbindung prüfen. Details: nvidia-plugin.log auf dem NAS.', 503)
+        return report
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        raise Error('NVIDIA-Komponentenhelfer fehlt, antwortet nicht oder lieferte keinen gültigen Status.', 503) from None
+
+
 def run_component_helper(path, component, log_stream, timeout=1800, termination_grace=10):
     arguments = ['/bin/bash', str(path), '--component', component, '--json']
     process = subprocess.Popen(arguments, stdin=subprocess.DEVNULL,
