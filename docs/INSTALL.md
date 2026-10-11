@@ -1,9 +1,9 @@
 # Titan installieren
 
-Titan **0.8.3** erscheint im Stable-Kanal. Das Debian-A/B-Image ist
-für eine neue AMD64/UEFI-Installation vorgesehen. [Änderungen und Grenzen](RELEASE-0.8.3.md).
+Titan **0.8.4** erscheint im Stable-Kanal. Das Debian-A/B-Image ist
+für eine neue AMD64/UEFI-Installation vorgesehen. [Änderungen und Grenzen](RELEASE-0.8.4.md).
 
-[IMG herunterladen](https://github.com/ra5on/Titan/releases/download/v0.8.3/titan-0.8.3-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.8.3)
+[IMG herunterladen](https://github.com/ra5on/Titan/releases/download/v0.8.4/titan-0.8.4-amd64.img.xz) · [Prüfsummen und Testberichte](https://github.com/ra5on/Titan/releases/tag/v0.8.4)
 
 Die Datei entpacken und als Systemplatte einer neuen Proxmox-VM importieren:
 x86-64, UEFI/OVMF ohne Secure Boot, 8 GiB RAM und 2 CPUs. Das entpackte Image ist

@@ -5,6 +5,13 @@ on:
 permissions:
   contents: read
 jobs:
+  web-container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Built container, desktop routes, assets and failed-candidate recovery
+        run: bash scripts/build-web-container.sh .
   native-plugin:
     runs-on: ubuntu-24.04
     timeout-minutes: 5

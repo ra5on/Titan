@@ -1,4 +1,4 @@
-# Titan 0.8.3 · Stable
+# Titan 0.8.4 · Stable
 
 Ein gemeinsamer Desktop für Alltag und Verwaltung. Optionale Dienste und
 Treiber lassen sich als Plugins im Appstore nachinstallieren. Titan selbst
@@ -65,8 +65,8 @@ Internetzugang benötigt.
 
 Diese Version wird deshalb ausschließlich als vollständiges Systemupdate
 angeboten. Ältere Web-Updater erhalten keinen separaten Download der neuen
-Oberfläche. Der vorbereitete Stand 0.8.2 wurde vor der Veröffentlichung
-gestoppt; sein bereits reservierter Git-Tag wird nicht nachträglich verändert.
+Oberfläche. Die vorbereiteten Stände 0.8.2 und 0.8.3 wurden vor der
+Veröffentlichung gestoppt; ihre bereits reservierten Git-Tags bleiben unverändert.
 
 USB-Automount, laufender Abgleich, Btrfs-Spiegel und USB-/PCI-Durchreichung
 behalten ihre individuellen Beta-Kennzeichen. Ein erfolgreicher öffentlicher

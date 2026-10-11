@@ -12,7 +12,7 @@ Die persistente Auswahl liegt unter `/var/lib/titan-web/selection.json`. Der Upd
 
 ## Updates
 
-Systemreleases mit neuen Host-Funktionen müssen als vollständiges Systemupdate installiert werden. Sie enthalten keinen eigenständigen Webdownload. Das betrifft insbesondere Titan 0.8.3 mit den Plugin-APIs. Unabhängige Webreleases sind nur bei ausdrücklicher, getesteter Kompatibilität mit den vorhandenen Host-Agents freigegeben; der Publisher prüft dieses Opt-in vor Tag-Reservierung und Upload.
+Systemreleases mit neuen Host-Funktionen müssen als vollständiges Systemupdate installiert werden. Sie enthalten keinen eigenständigen Webdownload. Das betrifft insbesondere Titan 0.8.4 mit den Plugin-APIs. Unabhängige Webreleases sind nur bei ausdrücklicher, getesteter Kompatibilität mit den vorhandenen Host-Agents freigegeben; der Publisher prüft dieses Opt-in vor Tag-Reservierung und Upload.
 
 **Systemsteuerung → Updates & Rollback → Weboberfläche → Jetzt prüfen** liest signierte GitHub-Release-Manifeste. Das Containerarchiv wird nur nach Prüfung von Signatur, Prüfsumme, Größe und kompatibler Image-ID geladen. Der Webwechsel benötigt keinen NAS-Neustart. Nach dem Gesundheitscheck lädt die Oberfläche neu. Downloads, laufende Browseruploads und interaktive Konsolen können dabei unterbrochen werden; vorher abschließen.
 
