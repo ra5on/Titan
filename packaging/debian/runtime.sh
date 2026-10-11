@@ -12,8 +12,8 @@ while [[ $# -gt 0 ]]; do
         *) exit 2 ;;
     esac
 done
-[[ "$component" =~ ^(all|docker|vms)$ ]] || exit 2
-if $dry_run; then echo 'Debian: vorinstallierte Komponenten prüfen; keine Paketinstallation, keine Datenlaufwerke verändern.'; exit 0; fi
+[[ "$component" =~ ^(all|docker|vms|nvidia)$ ]] || exit 2
+if $dry_run; then echo 'Debian: vorinstallierte Komponenten prüfen; nur der NVIDIA-Treiber wird auf Wunsch nachinstalliert. Keine Datenlaufwerke verändern.'; exit 0; fi
 [[ "$EUID" == 0 && -d /run/systemd/system ]] || exit 1
 /usr/bin/python3 - <<'PY'
 import json, platform
@@ -27,18 +27,27 @@ source /usr/share/titan/component-functions.sh
 failed=0
 docker_state=skip
 vm_state=skip
+nvidia_state=skip
 if [[ "$component" == all || "$component" == docker ]]; then
     if install_apps >&2; then docker_state=ok; else docker_state=failed; failed=1; fi
 fi
 if [[ "$component" == all || "$component" == vms ]]; then
     if install_vm_components >&2; then vm_state=ok; else vm_state=failed; failed=1; fi
 fi
+if [[ "$component" == nvidia ]]; then
+    if install_nvidia >&2; then nvidia_state=ok; else nvidia_state=failed; failed=1; fi
+elif [[ "$component" == all && -f "$NVIDIA_MARKER" ]] && ! nvidia_ready; then
+    # After a system update the new slot has no driver yet. Rebuild it in the
+    # background: the module build takes minutes and must never delay the boot
+    # health check that confirms the new system slot.
+    systemd-run --no-block --collect --unit=titan-nvidia-restore /bin/bash "$0" --component nvidia >&2 || true
+fi
 if $json; then
-    python3 - "$docker_state" "$vm_state" <<'PY'
+    python3 - "$docker_state" "$vm_state" "$nvidia_state" <<'PY'
 import json,os,sys
-values={k:{'ok':v=='ok','state':v} for k,v in zip(('docker','vms'),sys.argv[1:]) if v!='skip'}
+values={k:{'ok':v=='ok','state':v} for k,v in zip(('docker','vms','nvidia'),sys.argv[1:]) if v!='skip'}
 warnings=['KVM fehlt: Virtualisierung im BIOS oder Hypervisor aktivieren.'] if sys.argv[2]=='ok' and not os.path.exists('/dev/kvm') else []
-print(json.dumps({'ok':all(v['ok'] for v in values.values()),'components':values,'warnings':warnings}))
+print(json.dumps({'ok':all(v['ok'] for k,v in values.items() if k!='nvidia' or len(values)==1),'components':values,'warnings':warnings}))
 PY
 fi
 exit "$failed"

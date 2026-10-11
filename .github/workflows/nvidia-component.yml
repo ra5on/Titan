@@ -1,0 +1,32 @@
+name: NVIDIA component check
+# Installs the driver packages from NVIDIA's Debian 13 archive and builds the
+# kernel module, without a graphics card. Publishes nothing.
+on:
+  push:
+    paths: ['scripts/component-functions.sh', '.github/workflows/nvidia-component.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  packages:
+    runs-on: ubuntu-24.04
+    container: debian:13-slim
+    timeout-minutes: 30
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Debian kernel headers and build tools as in the Titan image
+        run: |
+          sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl dkms kmod linux-headers-amd64
+      - name: Driver packages and kernel module from the NVIDIA archive
+        run: |
+          task_kernel=$(basename "$(dirname "$(find /lib/modules -maxdepth 2 -name build | sort -V | tail -n 1)")")
+          echo "Building for kernel $task_kernel"
+          . scripts/component-functions.sh
+          nvidia_packages "$task_kernel"
+          dkms status
+          command -v nvidia-smi nvidia-ctk nvidia-container-runtime
+          test -n "$(find "/lib/modules/$task_kernel" -name 'nvidia*.ko*' | head -n 1)"

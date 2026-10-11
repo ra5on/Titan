@@ -895,8 +895,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                     extra = {'Set-Cookie': self.session_cookie(cookies['titan_session'].value, secure=False)}
             return self.reply(result, extra=extra)
         if path == "/api/components/install":
-            if set(body) != {"component"} or type(body["component"]) is not str or body["component"] not in ("all", "docker", "vms"):
-                raise Error("Docker, VMs oder alle Komponenten auswählen.")
+            if set(body) != {"component"} or type(body["component"]) is not str or body["component"] not in ("all", "docker", "vms", "nvidia"):
+                raise Error("Docker, VMs, NVIDIA-Treiber oder alle Komponenten auswählen.")
             if any(item["action"] == "component_install" and item["status"] in ("queued", "running") for item in self.app.store.jobs()):
                 raise Error("Eine Komponenteninstallation läuft bereits.", 409)
             return self.reply(self.app.jobs.submit(user["name"], "component_install",

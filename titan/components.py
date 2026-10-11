@@ -76,6 +76,20 @@ class ComponentsMixin:
             result['error'] = 'Docker Compose fehlt im Titan-Systemimage. Titan-Systemimage aktualisieren.'
         return result
 
+    def nvidia_component(self):
+        """State of the optional NVIDIA driver, which the administrator installs from NVIDIA's archive."""
+        cards = [item for item in gpus() if item.get('vendor') == 'NVIDIA']
+        result = {'card': bool(cards), 'installed': bool(shutil.which('nvidia-smi', path=SYSTEM_PATH)), 'available': False,
+                  'requested': (self.directory / 'nvidia-component').exists(), 'passthrough': any(item.get('passthrough') for item in cards)}
+        if result['installed'] and shutil.which('nvidia-container-runtime', path=SYSTEM_PATH):
+            from .host import run
+            try:
+                run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'], timeout=15)
+                result['available'] = 'nvidia' in json.loads(run(['docker', 'info', '--format', '{{json .Runtimes}}'], timeout=15))
+            except (Error, ValueError):
+                pass
+        return result
+
     def op_components(self):
         vm = availability()
         vm['daemon'] = False
@@ -86,11 +100,11 @@ class ComponentsMixin:
                 vm['daemon'] = True
             except Error as exc:
                 vm.update(available=False, error='libvirt ist nicht erreichbar: ' + str(exc))
-        return {'components': {'docker': self.docker_component(), 'vms': vm},
+        return {'components': {'docker': self.docker_component(), 'vms': vm, 'nvidia': self.nvidia_component()},
                 'repair': self.load('component-repair', {}), 'gpus': gpus()}
 
     def op_component_install(self, component='all'):
-        if type(component) is not str or component not in ('all', 'docker', 'vms'):
+        if type(component) is not str or component not in ('all', 'docker', 'vms', 'nvidia'):
             raise Error('Ungültige Systemkomponente.')
         path = getattr(self, 'component_helper', HELPER)
         path = Path(path)
@@ -135,6 +149,8 @@ class ComponentsMixin:
                     raise Error(current.get('error', 'VM-Komponenten sind weiterhin nicht bereit.'), 503)
                 if name == 'vms' and not current['kvm'] and current.get('error'):
                     warnings.append(current['error'])
+                if name == 'nvidia' and not current['available']:
+                    raise Error('Der NVIDIA-Treiber ist installiert, aber noch nicht für Apps nutzbar.', 503)
             report.update(message='Systemkomponenten wurden eingerichtet.', output=output,
                           warnings=list(dict.fromkeys(warnings)), status=status['components'])
             if report['warnings']:

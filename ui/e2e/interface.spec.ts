@@ -372,6 +372,18 @@ test('remote access settings explain the tunnel and report why the demo cannot s
   await expect(page.getByRole('alert')).toContainText('echte Titan-Installation');
 });
 
+test('the NVIDIA driver is offered for an NVIDIA card and asks before installing', async ({ page }) => {
+  await page.goto('/#/settings/system');
+  await expect(page.getByRole('heading', { name: 'Grafikkarte' })).toBeVisible();
+  await expect(page.getByText('Demo-Grafikkarte')).toBeVisible();
+  await page.getByRole('button', { name: 'NVIDIA-Treiber installieren' }).click();
+  const dialog = page.getByRole('dialog', { name: 'NVIDIA-Treiber installieren?' });
+  await expect(dialog).toContainText('NVIDIAs Lizenzbedingungen');
+  await dialog.getByRole('button', { name: 'Installieren' }).click();
+  // The demo has no real card; the refusal must be shown, not swallowed.
+  await expect(page.getByRole('alert')).toContainText('echten Titan-System', { timeout: 15_000 });
+});
+
 test('previous interface stays reachable', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);

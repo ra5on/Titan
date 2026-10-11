@@ -263,6 +263,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
                 raise Error("PCI-Gerät nicht verfügbar.", 409)
             chosen[record["id"]] = list(wanted)
             return {"ok": True, "devices": list(wanted), "passed": ["0000:01:00.0", "0000:01:00.1"] if wanted else []}
+        if operation == "component_install" and args.get("component") == "nvidia":
+            raise Error("Demo: Der NVIDIA-Treiber wird nur auf einem echten Titan-System mit NVIDIA-Karte installiert.", 409)
         if operation == "sync_jobs":
             return {"jobs": copy.deepcopy(getattr(self, "sync_records", []))}
         if operation in ("sync_job_save", "sync_job_remove", "sync_job_run"):
@@ -301,7 +303,9 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             return {"components": {"docker": {"installed": True, "available": docker, "daemon": docker, "compose": True, "missing": [],
                                                **({"error": "Demo: Docker-Dienst ist gestoppt."} if not docker else {})},
                                     "vms": {"installed": True, "available": vms, "daemon": vms, "kvm": True, "missing": [],
-                                            **({"error": "Demo: libvirt-Dienst ist gestoppt."} if not vms else {})}}, "repair": {}}
+                                            **({"error": "Demo: libvirt-Dienst ist gestoppt."} if not vms else {})},
+                                    "nvidia": {"card": True, "installed": False, "available": False, "requested": False, "passthrough": False}}, "repair": {},
+                    "gpus": [{"pci": "0000:01:00.0", "vendor": "NVIDIA", "model": "Demo-Grafikkarte", "driver": None, "bound": False, "passthrough": False}]}
         if operation == "component_install":
             if args.get("component", "all") not in ("all", "docker", "vms"):
                 raise Error("Ungültige Komponente.")

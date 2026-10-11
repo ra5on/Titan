@@ -12,6 +12,7 @@ import { GroupsSection } from './Groups';
 import { DockerSection } from './Docker';
 import { TerminalSection } from './Terminal';
 import { RemoteSection } from './Remote';
+import { GraphicsCard } from './Graphics';
 import { AccountSection, UsersSection } from './Users';
 import { Button, Card, Confirm, Loading, Meter, Notice, Sheet, useToast } from '../ui';
 
@@ -115,6 +116,7 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
           </div>
         </Card>
       )}
+      {admin && <GraphicsCard />}
       {admin && (
         <Card className="flex flex-wrap items-center justify-between gap-3">
           <div>
