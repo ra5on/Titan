@@ -81,7 +81,7 @@ PACKAGES = {
   'Beim ersten Öffnen im Assistenten Sprache und eigenes Administratorkonto wählen. Danach unter „Bibliotheken“ den Ordner /media hinzufügen; dort liegen die Dateien des gewählten Speichers.',
   note='Medien liegen im gewählten Speicher unter /media und werden von Jellyfin nur gelesen und katalogisiert. Hardware-Transkodierung wird nicht automatisch eingerichtet; ohne sie wandelt die CPU um, was bei mehreren gleichzeitigen Streams viel Leistung braucht.'),
  'titan-pihole': recipe('Pi-hole', 'Netzwerk', 'DNS-Werbeblocker mit eigenen Filterlisten und Statistiken.', 'pihole', {
-   'pihole': {'image': 'pihole/pihole:2026.09.0', 'environment': {'TZ': 'Europe/Berlin', 'FTLCONF_webserver_api_password': '@option:password', 'FTLCONF_dns_listeningMode': 'ALL'},
+   'pihole': {'image': 'pihole/pihole:2026.09.0@sha256:5b9c8cf51de7d6d3f2240dbe72baf5f06e1fd39cb4d77a99fab4fa13e23bd1be', 'environment': {'TZ': 'Europe/Berlin', 'FTLCONF_webserver_api_password': '@option:password', 'FTLCONF_dns_listeningMode': 'ALL'},
              'mounts': [mount('config', '/etc/pihole')], 'ports': [port(80), port(53, protocol='tcp'), port(53, protocol='udp')]}
   }, 80, 8082, '512m', [secret('password', 'Pi-hole Web-Passwort')], 'https://docs.pi-hole.net/docker/',
   'Unter /admin mit dem hier gewählten Web-Passwort anmelden. Ein Benutzername ist nicht erforderlich. Danach im Router die NAS-IP als DNS-Server eintragen.',

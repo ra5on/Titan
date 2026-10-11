@@ -6,7 +6,7 @@ import stat
 
 from .core import Error
 
-AVAILABLE_APP_IDS = frozenset({'titan-cloudflared', 'titan-immich', 'titan-adguard', 'titan-tailscale', 'titan-jellyfin', 'titan-ollama'})
+AVAILABLE_APP_IDS = frozenset({'titan-cloudflared', 'titan-immich', 'titan-adguard', 'titan-tailscale', 'titan-jellyfin', 'titan-ollama', 'titan-pihole', 'titan-nextcloud-office'})
 CI_SOURCE = 'https://raw.githubusercontent.com/ra5on/Titan/main/tests/fixtures/runtime-stack-store.json'
 CI_FILENAME = 'ci-compose-fixtures.json'
 
