@@ -26,7 +26,7 @@ bedient komplett im Browser.
 | **🖥️ Virtuelle Maschinen** | VMs aus ISO oder vorhandener QCOW2-Festplatte, Konsole direkt im Browser, USB-Geräte und ganze Grafikkarten durchreichen. |
 | **💾 Speicher** | Die ganze Installationsplatte nutzen, weitere Laufwerke als Ext4, XFS oder Btrfs einrichten oder mehrere zu einem ausfallsicheren ZFS-Verbund zusammenfassen. |
 | **🛟 Sicherung und Abgleich** | Sicherungen auf eine andere Platte nach Zeitplan, mit Prüfung und Wiederherstellung. Dazu ein laufender Abgleich einer Freigabe auf ein zweites Laufwerk. |
-| **🎛️ Hardware für Apps** | Grafikkarte, KI-Beschleuniger und USB-Geräte pro App auswählen, zum Beispiel für Transkodierung oder einen Zigbee-Stick. |
+| **🎛️ Hardware für Apps** | Grafikkarte, KI-Beschleuniger und USB-Geräte pro App auswählen, zum Beispiel für Transkodierung, lokale KI oder einen Zigbee-Stick. Den NVIDIA-Treiber installiert Titan auf Knopfdruck. |
 | **👥 Benutzer und Rechte** | Konten, Gruppen, Zwei-Faktor-Anmeldung und genau einstellbar, wer Dateien, Apps, VMs und Sicherungen verwenden darf. |
 | **🔄 Sichere Updates** | Signierte Systemupdates in einen zweiten Systembereich. Startet ein Update nicht, kehrt Titan automatisch zum vorherigen Stand zurück. |
 

@@ -61,13 +61,19 @@ Update.
 
 ## Geräte durchreichen
 
-- **Apps:** Grafikkarte (Intel und AMD über den Kerneltreiber, NVIDIA bei
-  installiertem Treiber), KI-Beschleuniger und USB-Geräte pro App auswählen.
+- **Apps:** Grafikkarte, KI-Beschleuniger und USB-Geräte pro App auswählen.
+  Intel und AMD laufen mit den Kerneltreibern.
+- **NVIDIA-Treiber auf Knopfdruck:** Unter Einstellungen → System installiert
+  Titan den Treiber aus dem Paketarchiv von NVIDIA (offene Kernelmodule, auch
+  für die RTX-50-Serie) samt Container-Laufzeit für Docker. Das Image selbst
+  enthält den proprietären Treiber nicht. Nach einem Systemupdate baut Titan
+  ihn im Hintergrund neu; dafür braucht das NAS Internet.
 - **Virtuelle Maschinen:** USB-Geräte sowie Grafikkarten und Beschleuniger als
   ganzes PCI-Gerät durchreichen. Angeboten wird ein Gerät nur, wenn seine
   gesamte IOMMU-Gruppe mitgehen kann; die übrigen Funktionen derselben Karte
   werden automatisch mitgegeben. Voraussetzung ist aktiviertes VT-d
-  beziehungsweise AMD-Vi im BIOS/UEFI.
+  beziehungsweise AMD-Vi im BIOS/UEFI; neue Installationen starten den Kernel
+  mit eingeschaltetem IOMMU.
 
 ## Sicherheit
 
@@ -107,8 +113,10 @@ nicht übernommen; für Fotos ist Immich aus dem App Store vorgesehen.
   im Fenster, wenn im Fernzugriff eine öffentliche Adresse für sie eingerichtet
   ist. Ein Zugang zu allen Apps über die eine Titan-Adresse ist noch nicht
   enthalten.
-- Der NVIDIA-Treiber ist nicht im Image enthalten. NVIDIA-Karten lassen sich an
-  eine VM durchreichen; für Apps fehlt der Treiber noch.
+- Die Installation des NVIDIA-Treibers ist mit den echten Paketen und dem Bau
+  des Kernelmoduls geprüft, aber noch nie mit einer echten Karte gelaufen.
+  Eine Karte gehört entweder dem NAS und seinen Apps oder einer virtuellen
+  Maschine, nicht beiden zugleich.
 - Kontingente gibt es nur auf ZFS. Btrfs gibt es nur für einzelne Laufwerke:
   Ein Btrfs-Verbund bräuchte einen eigenen geführten Plattentausch, den es
   bisher nur für ZFS gibt.
