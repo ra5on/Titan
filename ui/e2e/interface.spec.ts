@@ -78,7 +78,8 @@ test('settings sections load their data', async ({ page }) => {
   await page.getByRole('button', { name: 'Benutzer' }).click();
   await expect(page.getByText('Administrator').first()).toBeVisible();
   await page.getByRole('button', { name: 'Updates' }).click();
-  await expect(page.getByText(/Titan ist aktuell|ist verfügbar/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Systemversionen', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ausgewählten Rollback vorbereiten' })).toBeVisible();
 });
 
 test('a share can be created and removed', async ({ page }) => {
@@ -210,7 +211,8 @@ test('own password, alerts and restart are available in settings', async ({ page
 
 test('a backup to another drive can be configured, run and verified', async ({ page }) => {
   await page.goto('/#/settings/backups');
-  await page.getByText('Sicherung einrichten oder ändern', { exact: true }).click();
+  const setup = page.locator('details').filter({ has: page.locator('[data-backup-wizard]') });
+  if (await setup.getAttribute('open') === null) await setup.locator('summary').click();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
   await page.getByLabel('Sicherungsziel', { exact: true }).selectOption('/var/media/demo-backup');
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
@@ -306,10 +308,12 @@ test('a Btrfs mirror is created over two drives and a drive can be replaced', as
 
 test('containers are listed with controls and logs', async ({ page }) => {
   await page.goto('/#/settings/docker');
-  await expect(page.getByText('titan-jellyfin')).toBeVisible();
-  await page.getByRole('button', { name: 'Protokoll von titan-jellyfin' }).click();
-  await expect(page.getByRole('dialog')).toContainText('Demo');
-  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'titan-jellyfin: Details und Aktionen' }).click();
+  const inspector = page.getByRole('complementary', { name: 'Containerdetails' });
+  await expect(inspector.getByRole('heading', { name: 'titan-jellyfin', exact: true })).toBeVisible();
+  await inspector.getByRole('button', { name: 'Protokoll laden', exact: true }).click();
+  await expect(inspector.locator('pre')).toContainText('Demo');
+  await inspector.getByRole('button', { name: 'Zurück', exact: true }).click();
   await page.getByRole('tab', { name: /Images/ }).click();
   await expect(page.getByText('nginx')).toBeVisible();
 });

@@ -67,8 +67,8 @@ test('maintenance and monitoring fit a narrow screen', async ({ page }) => {
   for (const section of ['storage', 'monitoring', 'security', 'docker', 'updates']) {
     await page.goto('/#/settings/' + section);
     if (section === 'storage') await page.getByText('Wartung, Wiederherstellungspunkte und Standardspeicher', { exact: true }).click();
-    await expect(page.locator('.management')).toBeVisible();
-    await expect.poll(() => page.locator('.management').evaluate(node => node.childElementCount)).toBeGreaterThan(0);
+    await expect(page.locator('div.management')).toBeVisible();
+    await expect.poll(() => page.locator('div.management').evaluate(node => node.childElementCount)).toBeGreaterThan(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
     await page.screenshot({ path: `test-results/unified-${section}-mobile.png`, fullPage: true });
   }

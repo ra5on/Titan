@@ -41,6 +41,13 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npm run e2e
+      - name: Browser traces and layout screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: interface-browser-results
+          path: ui/test-results
+          retention-days: 7
   reset-obsolete-history:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Initialize Titan eigenbau with BigBear stacks'
     needs: verify
