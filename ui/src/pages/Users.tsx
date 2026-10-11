@@ -16,7 +16,7 @@ async function job(path: string, body: Record<string, unknown>) {
 
 function AddUser({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const toast = useToast();
-  const [form, setForm] = useState({ name: '', password: '', role: 'user' });
+  const [form, setForm] = useState({ name: '', password: '', role: 'user', display_name: '', description: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,6 +44,8 @@ function AddUser({ onClose, onDone }: { onClose: () => void; onDone: () => void 
         <Field label="Passwort">
           <Input type="password" value={form.password} onChange={event => setForm({ ...form, password: event.target.value })} autoComplete="new-password" required />
         </Field>
+        <Field label="Anzeigename (optional)"><Input maxLength={96} value={form.display_name} onChange={event => setForm({ ...form, display_name: event.target.value })} /></Field>
+        <Field label="Beschreibung (optional)"><Input maxLength={256} value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></Field>
         <Field label="Rolle">
           <Select value={form.role} onChange={event => setForm({ ...form, role: event.target.value })}>
             <option value="user">Benutzer</option>
@@ -124,6 +126,8 @@ function EditUser({ user, self, onClose, onDone }: { user: WebUser; self: boolea
   const toast = useToast();
   const [role, setRole] = useState(user.role);
   const [enabled, setEnabled] = useState(user.enabled);
+  const [displayName, setDisplayName] = useState(user.display_name || '');
+  const [description, setDescription] = useState(user.description || '');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -150,6 +154,8 @@ function EditUser({ user, self, onClose, onDone }: { user: WebUser; self: boolea
     if (role !== user.role) changes.role = role;
     if (enabled !== user.enabled) changes.enabled = enabled;
     if (password) changes.password = password;
+    if (displayName !== (user.display_name || '')) changes.display_name = displayName;
+    if (description !== (user.description || '')) changes.description = description;
     if (!Object.keys(changes).length) return onClose();
     void run(() => job('/api/users/update', { name: user.name, ...changes }), `Benutzer „${user.name}“ geändert.`);
   };
@@ -181,6 +187,8 @@ function EditUser({ user, self, onClose, onDone }: { user: WebUser; self: boolea
   return (
     <Modal title={`Benutzer „${user.name}“`} onClose={onClose}>
       <form onSubmit={save} className="space-y-4">
+        <Field label="Anzeigename"><Input maxLength={96} value={displayName} onChange={event => setDisplayName(event.target.value)} /></Field>
+        <Field label="Beschreibung"><Input maxLength={256} value={description} onChange={event => setDescription(event.target.value)} /></Field>
         <Field label="Rolle" help={self ? 'Die eigene Rolle kann nur ein anderer Administrator ändern.' : undefined}>
           <Select value={role} onChange={event => setRole(event.target.value)} disabled={self}>
             <option value="user">Benutzer</option>

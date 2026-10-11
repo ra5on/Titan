@@ -133,6 +133,8 @@ def probe_public(config):
         response = connection.getresponse()
         payload = response.read(4097)
         if response.status != 200:
+            if response.status == 530 and re.search(rb'\b1033\b', payload):
+                return {'ok': False, 'status': 530, 'message': 'Cloudflare meldet 1033: Kein verbundener Tunnel-Connector erreichbar. Cloudflare-Dienst bzw. bisherigen Docker-Tunnel starten und Token, Internetzugang sowie Port 7844 prüfen.'}
             messages = {403: 'Domain/Host-Prüfung oder Cloudflare-Zugriffsregel blockiert den Zugang.',
                         502: 'Der Tunnel erreicht den Zieldienst nicht. Netzwerk, Port und Protokoll prüfen.',
                         301: 'Weiterleitung statt Tunnel-Zugang. Die angezeigte Tunnel-Zieladresse verwenden.',
@@ -165,6 +167,24 @@ class RemoteAccessMixin:
         return state
 
     def _remote_setup_status(self):
+        if getattr(self, '_cloudflare_installed', lambda: False)():
+            from .system_plugins import CONNECTOR as NATIVE_CONNECTOR, connected
+            config = self.web_access.config()
+            remote = validate_remote(config.get('remote'))
+            running = self._plugin_service_state('is-active')
+            online = running and connected()
+            diagnosis = self.load('remote-diagnosis', {})
+            public = diagnosis.get('connected') and diagnosis.get('revision') == config['revision']
+            active = remote['enabled'] and remote['connector'] == NATIVE_CONNECTOR
+            phase = 'stopped' if not running else 'disabled' if not active else 'disconnected' if not online else 'ready' if public else 'needs_route'
+            messages = {'stopped': 'Cloudflare-Plugin im Appstore starten.',
+                        'disabled': 'Der Fernzugriff dieses Plugins ist deaktiviert.',
+                        'disconnected': 'Dienst läuft; Verbindung zu Cloudflare noch nicht bestätigt.',
+                        'ready': 'Tunnel und öffentlicher Titan-Zugang sind geprüft.',
+                        'needs_route': 'Dienst verbunden. In Cloudflare HTTP und 127.0.0.1:5102 als Ziel eintragen und den öffentlichen Zugang prüfen.'}
+            return {'phase': phase, 'message': messages[phase], 'running': False, 'needs_domain': False,
+                    'connector': NATIVE_CONNECTOR, 'connector_running': running, 'cloudflare_connected': online,
+                    'service_url': f'http://127.0.0.1:{TUNNEL_PORT}'}
         from .cloudflare_tunnel import CONNECTOR, connector_ready
         stored = self.load('remote-tunnel-setup', {})
         if not stored:
@@ -213,7 +233,10 @@ class RemoteAccessMixin:
     def op_remote_access(self):
         config = self.web_access.config()
         remote = validate_remote(config.get('remote'))
-        return {'remote': remote, 'revision': config['revision'], 'connectors': self._remote_connectors(),
+        connectors = self._remote_connectors()
+        if getattr(self, '_cloudflare_installed', lambda: False)():
+            connectors.append({'id': 'plugin-cloudflare', 'name': 'Cloudflare · Debian-Plugin'})
+        return {'remote': remote, 'revision': config['revision'], 'connectors': connectors,
                 'apps': [{'id': row['id'], 'name': row.get('name', row['id'])} for row in self.load('apps', [])],
                 'setup': self._remote_setup_status(),
                 'diagnosis': self.load('remote-diagnosis', {}) if remote['enabled'] and self.load('remote-diagnosis', {}).get('revision') == config['revision'] else {}}
@@ -402,6 +425,10 @@ class RemoteAccessMixin:
                 self._remote_setup_active = False
 
     def _connector_settings(self, connector):
+        if connector == 'plugin-cloudflare':
+            if not getattr(self, '_cloudflare_installed', lambda: False)():
+                raise Error('Cloudflare-Plugin zuerst im Appstore installieren.', 409)
+            return {'sources': [], 'interface': '', 'service_url': f'http://127.0.0.1:{TUNNEL_PORT}'}
         if not connector:
             return {'sources': [], 'interface': '', 'service_url': f'http://127.0.0.1:{TUNNEL_PORT}'}
         if connector not in {item['id'] for item in self._remote_connectors()}:
@@ -472,14 +499,20 @@ class RemoteAccessMixin:
             try:
                 current = self._connector_settings(remote['connector'])
                 same = all(current[key] == remote[key] for key in ('sources', 'interface', 'service_url'))
-                message = 'Ziel und Docker-Netz stimmen überein.' if same else 'Das Connector-Netz hat sich geändert. Fernzugriff erneut speichern.'
+                message = 'Ziel und Connector-Netz stimmen überein.' if same else 'Das Connector-Netz hat sich geändert. Fernzugriff erneut speichern.'
             except Error as exc:
                 same, message = False, str(exc)
             checks.append({'name': 'Connector-Netzwerk', 'ok': same, 'message': message})
             record = next((row for row in self.load('apps', []) if row['id'] == remote['connector']), None)
             container = self._app_container(remote['connector'], record) if record else None
             active = bool(container and container.get('State', {}).get('Running'))
-            checks.append({'name': 'Connector läuft', 'ok': active if record else None, 'message': 'Container läuft. Die Tunnelverbindung wird separat durch den öffentlichen Test geprüft.' if active else 'Extern verwalteter Connector: Status nicht ermittelt.' if not record else 'Connector zuerst starten.'})
+            if remote['connector'] == 'plugin-cloudflare':
+                from .system_plugins import connected
+                running = self._plugin_service_state('is-active')
+                online = running and connected()
+                checks.append({'name': 'Cloudflare-Dienst', 'ok': online, 'message': 'Debian-Dienst ist mit Cloudflare verbunden.' if online else 'Cloudflare-Plugin im Appstore prüfen; Dienst oder Tunnelverbindung ist nicht bereit.'})
+            else:
+                checks.append({'name': 'Connector läuft', 'ok': active if record else None, 'message': 'Container läuft. Die Tunnelverbindung wird separat durch den öffentlichen Test geprüft.' if active else 'Extern verwalteter Connector: Status nicht ermittelt.' if not record else 'Connector zuerst starten.'})
             if active:
                 pid = container['State'].get('Pid')
                 if type(pid) is int and pid > 0:

@@ -20,7 +20,7 @@
    panel.querySelector('[data-web-confirm]').disabled=!!(busy||data.confirming);
    if(status)status.textContent=data.confirming?'Adresse wird aktiviert …':'';
    panel.querySelector('[data-web-open]').hidden=!pending||here;
-   panel.querySelector('[data-web-open]').href=data.origin+'/#settings?section=general';
+   panel.querySelector('[data-web-open]').href=data.origin+'/#/settings/web';
    for(const node of panel.querySelectorAll('form input,form select,form button'))node.disabled=!!(pending||data.demo||busy);
    if(pending)panel.querySelector('[data-web-deadline]').textContent=Math.max(0,Math.ceil(data.deadline-Date.now()/1000))+' Sekunden';
   }

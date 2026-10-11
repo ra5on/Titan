@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ChevronRight, Download, ArrowUpFromLine, File as FileIcon, Folder, FolderPlus, HardDrive, Pencil, Trash2, Upload, Usb, X } from 'lucide-react';
+import { ChevronRight, Download, ArrowUpFromLine, Copy, Info, File as FileIcon, Folder, FolderPlus, HardDrive, Pencil, Trash2, Upload, Usb, X } from 'lucide-react';
 import { action, get, post, uploadFile } from '../api';
 import type { FileEntry, FileListing, Share } from '../api';
 import { bytes, cx, dateTime, message, useApi } from '../lib';
-import { Button, Confirm, Empty, Field, IconButton, Input, Loading, Meter, Modal, Notice, Sheet, useToast } from '../ui';
+import { Button, Confirm, Empty, Field, IconButton, Input, Loading, Menu, Meter, Modal, Notice, Sheet, useToast } from '../ui';
+import { FileTools } from './FileTools';
+import type { FileTool } from './FileTools';
+import { RootAccess } from './RootAccess';
 
 const PAGE = 200;
 const join = (...parts: string[]) => parts.filter(Boolean).join('/');
@@ -44,9 +47,14 @@ function NameDialog({ title, label, initial, confirmLabel, onSubmit, onClose }: 
 
 type UploadState = { name: string; index: number; count: number; fraction: number };
 
-export function Files({ initialShare = '' }: { initialShare?: string }) {
+export function Files({ initialShare = '', admin = false }: { initialShare?: string; admin?: boolean }) {
   const toast = useToast();
   const shares = useApi<Share[]>('/api/shares');
+  const locations = useApi<{ resources: { id: string; label: string; path: string; available: boolean }[] }>(admin ? '/api/storage-locations' : null);
+  const [root, setRoot] = useState(false);
+  const [tool, setTool] = useState<FileTool | null>(null);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [share, setShare] = useState(initialShare);
   const [path, setPath] = useState('');
   const [listing, setListing] = useState<FileListing | null>(null);
@@ -70,7 +78,7 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
       const id = ++request.current;
       setLoading(true);
       try {
-        const query = new URLSearchParams({ share, path, offset: String(offset), limit: String(PAGE) });
+        const query = new URLSearchParams({ share, path, search, offset: String(offset), limit: String(PAGE) });
         const value = await get<FileListing>(`/api/files?${query}`);
         if (id !== request.current) return;
         setListing(value);
@@ -82,7 +90,7 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
         if (id === request.current) setLoading(false);
       }
     },
-    [share, path],
+    [share, path, search, root],
   );
 
   useEffect(() => {
@@ -148,6 +156,8 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
       actions={
         share && (
           <>
+            <Button size="sm" onClick={() => setTool({ kind: 'create' })}>Neue Datei</Button>
+            {share !== '@system' && <Button size="sm" onClick={() => setTool({ kind: 'trash' })}>Papierkorb</Button>}
             <Button size="sm" onClick={() => setDialog({ kind: 'mkdir' })}>
               <FolderPlus className="size-4" /> Neuer Ordner
             </Button>
@@ -169,18 +179,19 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
         )
       }
     >
+      {admin && <RootAccess onChange={setRoot} />}
       {shares.loading ? (
         <Loading />
       ) : shares.error ? (
         <Notice>{shares.error}</Notice>
-      ) : !shares.data?.length ? (
+      ) : !shares.data?.length && !admin ? (
         <Empty title="Noch keine Freigabe">Lege in den Einstellungen unter „Speicher“ eine Freigabe an, um Dateien abzulegen.</Empty>
       ) : (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-[13rem_minmax(0,1fr)]">
           <aside className="min-w-0">
             <div className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-white/40">Freigaben</div>
             <ul className="flex gap-1 overflow-x-auto md:block md:space-y-1">
-              {shares.data.map(item => (
+              {(shares.data || []).map(item => (
                 <li key={item.name} className="flex items-center gap-1">
                   <button
                     type="button"
@@ -202,6 +213,7 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
                 </li>
               ))}
             </ul>
+            {admin && <div className="mt-5 space-y-1"><p className="px-2 text-xs uppercase text-white/40">Speicherbereiche</p>{(locations.data?.resources || []).map(item => <Button key={item.id} size="sm" variant="ghost" disabled={!item.available} onClick={() => { setShare('@system'); setPath(item.path.replace(/^\//, '')); }}>{item.label}</Button>)}{root && <Button size="sm" onClick={() => { setShare('@system'); setPath(''); }}>Systemdateien /</Button>}</div>}
           </aside>
 
           <div
@@ -220,6 +232,7 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
               void startUpload(Array.from(event.dataTransfer.files));
             }}
           >
+            <form className="mb-3 flex gap-2" onSubmit={event => { event.preventDefault(); setSearch(searchInput); }}><Input aria-label="Dateien suchen" placeholder="In diesem Ordner suchen" value={searchInput} onChange={event => setSearchInput(event.target.value)} /><Button type="submit" size="sm">Suchen</Button></form>
             <nav aria-label="Pfad" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
               <button type="button" onClick={() => setPath('')} className="rounded-lg px-2 py-1 text-white/70 hover:bg-white/10 hover:text-white">
                 {current ? title(current) : share}
@@ -260,7 +273,7 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
               <Empty title="Dieser Ordner ist leer">Dateien hierher ziehen oder über „Hochladen“ auswählen.</Empty>
             ) : (
               <>
-                <ul className="divide-y divide-white/6 overflow-hidden rounded-2xl border border-white/8">
+                <ul className="divide-y divide-white/6 rounded-2xl border border-white/8">
                   {entries.map(entry => (
                     <li key={entry.name} className="group flex items-center gap-3 px-3 py-2 hover:bg-white/6 sm:px-4">
                       {entry.directory ? <Folder className="size-5 shrink-0 text-amber-300" aria-hidden /> : <FileIcon className="size-5 shrink-0 text-white/45" aria-hidden />}
@@ -282,9 +295,15 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
                         <IconButton label={`${entry.name} umbenennen`} onClick={() => setDialog({ kind: 'rename', entry })}>
                           <Pencil className="size-4" />
                         </IconButton>
-                        <IconButton label={`${entry.name} in den Papierkorb`} onClick={() => setDialog({ kind: 'trash', entry })}>
+                        {share !== '@system' && <IconButton label={`${entry.name} in den Papierkorb`} onClick={() => setDialog({ kind: 'trash', entry })}>
                           <Trash2 className="size-4" />
-                        </IconButton>
+                        </IconButton>}
+                        <Menu label={`Weitere Aktionen für ${entry.name}`} items={[
+                          { label: 'Details', icon: Info, onClick: () => setTool({ kind: 'details', entry }) },
+                          ...(!entry.directory && !entry.symlink ? [{ label: 'Text bearbeiten', icon: Pencil, onClick: () => setTool({ kind: 'edit', entry }) }, ...(/\.(docx|xlsx|odt|ods)$/i.test(entry.name) ? [{ label: 'Dokument bearbeiten', icon: FileIcon, onClick: () => setTool({ kind: 'office', entry }) }] : [])] : []),
+                          ...(!entry.symlink ? [{ label: 'Kopieren', icon: Copy, onClick: () => setTool({ kind: 'copy', entry }) }, { label: 'Verschieben', icon: Folder, onClick: () => setTool({ kind: 'move', entry }) }] : []),
+                          ...(admin ? [{ label: 'Dauerhaft löschen', icon: Trash2, danger: true, onClick: () => setTool({ kind: 'delete', entry }) }] : []),
+                        ]} />
                       </span>
                     </li>
                   ))}
@@ -308,6 +327,7 @@ export function Files({ initialShare = '' }: { initialShare?: string }) {
       {dialog?.kind === 'mkdir' && (
         <NameDialog title="Neuer Ordner" label="Ordnername" initial="" confirmLabel="Anlegen" onClose={() => setDialog(null)} onSubmit={name => mutate({ action: 'mkdir', path: join(path, name) }, `Ordner „${name}“ angelegt.`)} />
       )}
+      {tool && <FileTools key={`${share}/${path}/${tool.kind}/${tool.entry?.name}`} tool={tool} share={share} path={path} shares={shares.data || []} onClose={() => setTool(null)} onDone={() => load(0)} />}
       {dialog?.kind === 'rename' && (
         <NameDialog
           title="Umbenennen"

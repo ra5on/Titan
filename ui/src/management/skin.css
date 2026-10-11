@@ -1,0 +1,91 @@
+/* Shared feature panels inherit the one React desktop's dark glass design. */
+.management {
+  color: #edf2ff;
+  font-size: .875rem;
+  line-height: 1.55;
+  min-width: 0;
+  --text: #edf2ff;
+  --muted: #a4adbf;
+  --border: #ffffff1f;
+  --accent: #6b9fff;
+  --panel: #ffffff08;
+  --surface: #1b2538;
+  --danger: #fca5a5;
+  --success: #6ee7b7;
+
+  & [hidden] { display: none !important; }
+  & * { min-width: 0; box-sizing: border-box; }
+  & h2 { font-size: 1rem; font-weight: 650; margin-bottom: .8rem; }
+  & h3, & h4, & legend { font-weight: 600; margin-block: .6rem; }
+  & p { margin-block: .6rem; overflow-wrap: anywhere; }
+  & small, & .hint, & .subtitle { display: block; color: var(--muted); font-size: .8rem; }
+  & a { color: #a9c8ff; }
+  & svg { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+  & img { max-width: 100%; }
+  & .panel { padding: 1.2rem; background: var(--panel); border: 1px solid var(--border); border-radius: 1rem; margin-block: 1rem; }
+  & .panel-heading, & .management-dialog-heading, & .form-actions, & .service-buttons, & .service-title, & .service-meta, & .service-summary, & .engine-actions, & .engine-container-heading, & .engine-inspector-header, & .engine-batch, & .engine-group-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+  & .panel-heading, & .management-dialog-heading, & .service-title, & .engine-inspector-header { justify-content: space-between; }
+  & .panel-heading h2, & .panel-heading h3 { margin: 0; }
+  & .form-actions { margin-top: 1rem; }
+  & .button, & .security-tab, & [role="tab"] { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; cursor: pointer; padding: .6rem .9rem; border: 1px solid var(--border); border-radius: .7rem; background: #ffffff0d; color: #edf2ff; font: inherit; text-decoration: none; }
+  & button:hover:not(:disabled), & a.button:hover { background: #ffffff18; }
+  & button:disabled, & input:disabled, & select:disabled { opacity: .4; cursor: default; }
+  & .primary, & [aria-selected="true"] { background: #4086ef !important; color: #fff; }
+  & .danger, & .error-text, & .form-error, & [data-dialog-error] { color: #fca5a5; }
+  & .small { font-size: .8rem; padding: .4rem .7rem; }
+  & :focus-visible { outline: 2px solid #8dbbff; outline-offset: 3px; }
+  & label { display: flex; flex-direction: column; gap: .4rem; margin-block: .75rem; font-size: .85rem; }
+  & input:not([type="checkbox"]):not([type="radio"]), & select, & textarea { width: 100%; background: #101a2bd9; border: 1px solid var(--border); color: #edf2ff; border-radius: .65rem; padding: .65rem .75rem; font: inherit; }
+  & select option { background: #192336; color: #edf2ff; }
+  & input[type="checkbox"], & input[type="radio"] { accent-color: #5598fa; width: 1rem; height: 1rem; flex-shrink: 0; }
+  & .check-label, & .checkbox-list label, & label:has(>input[type="checkbox"]), & label:has(>input[type="radio"]) { flex-direction: row; align-items: center; gap: .7rem; }
+  & fieldset { border: 1px solid var(--border); border-radius: .8rem; padding: .8rem; margin-block: 1rem; }
+  & summary { cursor: pointer; font-weight: 600; padding-block: .3rem; }
+  & .notice { padding: .85rem 1rem; border-radius: .8rem; background: #488fff18; border: 1px solid #629dff30; margin-block: .8rem; }
+  & .notice.warning { background: #e9aa2214; border-color: #e9aa2240; color: #ffe2a3; }
+  & .pill { display: inline-block; border-radius: 2rem; padding: .15rem .6rem; font-size: .75rem; background: #68dbaa18; color: #9aebc9; }
+  & .pill.gray { background: #ffffff10; color: var(--muted); }
+  & .pill.red { background: #ff767619; color: #fca5a5; }
+  & .pill.purple { background: #9c87ff20; color: #c7baff; }
+  & .list-row, & .backup-version, & .storage-snapshot, & .service-card, & .login-block, & .monitoring-event, & .security-session { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; border-bottom: 1px solid var(--border); padding-block: 1rem; overflow-wrap: anywhere; }
+  & .service-card, & .job-result { display: block; }
+  & .service-name { text-align: left; font-weight: 600; }
+  & .form-grid, & .two-columns, & .web-access-fields, & .service-filter, & .deployment-grid, & .monitoring-controls, & .security-cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,14rem),1fr)); gap: 1rem; }
+  & .code, & pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 26rem; overflow: auto; background: #080d16; border-radius: .65rem; padding: 1rem; font-size: .8rem; }
+  & code { overflow-wrap: anywhere; }
+  & .security-secret { display: block; padding: 1rem; border: 1px solid var(--border); user-select: all; }
+  & .security-tabs, & .engine-tabs, & [role="tablist"] { display: flex; flex-wrap: wrap; gap: .4rem; margin-block: .7rem; }
+  & table { width: 100%; border-collapse: collapse; text-align: left; font-size: .8rem; }
+  & th { color: var(--muted); font-weight: 500; }
+  & th, & td { padding: .65rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+  & .table-wrap { overflow: auto; }
+  & dl > div { display: grid; grid-template-columns: minmax(6rem,1fr) 2fr; gap: 1rem; padding-block: .4rem; }
+  & dt { color: var(--muted); }
+  & dd { overflow-wrap: anywhere; }
+  & progress { width: 100%; height: .6rem; accent-color: #5598fa; }
+  & .backup-stepper { display: flex; flex-wrap: wrap; gap: .8rem; color: var(--muted); margin-block: 1rem; }
+  & .backup-stepper .current { color: #a9c8ff; }
+  & .backup-browser-row { display: grid; grid-template-columns: 1rem minmax(0,1fr) auto; gap: .8rem; padding: .65rem; }
+  & .backup-browser-row button { text-align: left; overflow-wrap: anywhere; }
+  & .engine-workbench, & .engine-main, & .engine-content, & .engine-inspector { min-width: 0; }
+  & .engine-sidebar, & .engine-navigation { margin-bottom: 1rem; }
+  & .engine-summary, & .engine-filter, & .engine-toolbar { display: flex; flex-wrap: wrap; gap: .6rem; margin-block: 1rem; }
+  & .engine-filter > * { flex: 1 1 10rem; }
+  & .engine-group, & .engine-inspector, & .network-card { border: 1px solid var(--border); border-radius: .85rem; padding: 1rem; margin-block: .8rem; background: #ffffff04; }
+  & .engine-service, & .engine-service-row { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+  & .engine-container-heading { flex: 1; }
+  & .engine-container-heading img, & .app-artwork { width: 2rem; height: 2rem; object-fit: contain; }
+  & .engine-container-name { text-align: left; }
+  & .engine-project-controls { margin-block: .5rem; }
+  & .engine-inspector-scroll { overflow: auto; }
+  & .engine-resource, & .app-live-grid, & .resource-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,9rem),1fr)); gap: .7rem; }
+  & .engine-resource article, & .resource-card, & .app-live-metric { padding: .8rem; border-radius: .7rem; background: #ffffff08; }
+  & .metric-chart, & .resource-chart, & [data-live-resources] svg { width: 100%; height: 5rem; }
+  & .storage-recovery-members > div, & .storage-recovery-candidates > div { display: flex; justify-content: space-between; gap: 1rem; padding-block: .8rem; border-bottom: 1px solid var(--border); }
+}
+.management-modal { position: fixed; margin: auto; width: min(48rem,calc(100vw - 2rem)); max-height: 88dvh; overflow: auto; border: 1px solid #ffffff24; border-radius: 1.5rem; padding: 1.5rem; background: #192338; box-shadow: 0 25px 80px #0009; }
+.management-modal::backdrop { background: #030917aa; backdrop-filter: blur(5px); }
+@media (max-width: 600px) {
+  .management .list-row, .management .backup-version, .management .storage-snapshot, .management .monitoring-event, .management .login-block { flex-direction: column; }
+  .management .panel { padding: .85rem; }
+}

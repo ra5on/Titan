@@ -23,9 +23,10 @@ from .demo_packages_vm import DemoPackagesVMMixin
 from .demo_storage_services import DemoStorageMixin, OPERATIONS as STORAGE_OPERATIONS, demo_io_metrics
 from .service_manager import CUSTOM_PREFIX, SERVICE_ACTIONS, ServiceManagerMixin, service_name, _text, _scalar
 from . import __version__, __release_stage__
+from .demo_plugins import DemoPluginsMixin
 
 
-class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
+class Demo(DemoPluginsMixin, DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
     def __init__(self, directory):
         self.directory = directory
         self.pools = [{"name": "tank", "size": 8 * 1024**4, "used": 2.34 * 1024**4,
@@ -195,6 +196,10 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
 
     def call(self, operation, **args):
         with self._account_lock:
+            if operation == 'plugins':
+                return self.plugins()
+            if operation == 'plugin_action':
+                return self.plugin_action(**args)
             extension = self.demo_packages_vm_call(operation, **args)
             if extension is not NotImplemented:
                 return extension
@@ -478,7 +483,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
                     "config_path": item.get("config_path", "/var/lib/titan-agent/apps/" + item["id"] + "/config"), "data_path": item.get("data", "/var/srv/titan/apps/" + item["id"])}
         if operation == "file":
             allowed = {"list": {"offset", "limit", "search", "recursive", "type", "min_size", "max_size", "modified_after", "modified_before"}, "read": {"offset", "size"}, "mkdir": set(),
-                       "write": {"data", "revision"}, "create": {"data"}, "delete": {"confirmation_path"},
+                       "write": {"data", "revision"}, "create": {"data"}, "create_document": {"document_type"}, "delete": {"confirmation_path"},
                        "upload": {"offset", "data", "upload_id", "total", "finish", "cancel"}, "rename": {"destination"}, "trash": set(), "trash_list": {"offset", "limit", "search"},
                        "restore": {"trash_name", "destination"}, "copy": {"destination", "destination_share"},
                        "move": {"destination", "destination_share"}}

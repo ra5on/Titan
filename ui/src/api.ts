@@ -80,7 +80,7 @@ export type InstallStatus = {
 };
 
 export type Share = { name: string; path: string; readers: string[]; writers: string[]; external?: boolean; label?: string; free_bytes?: number | null };
-export type FileEntry = { name: string; directory: boolean; symlink: boolean; size: number; modified: number };
+export type FileEntry = { name: string; directory: boolean; symlink: boolean; size: number; modified: number; readable?: boolean; mutable?: boolean; editable?: boolean };
 export type FileListing = { entries: FileEntry[]; path: string; total: number; has_more: boolean };
 
 export type Vm = {
@@ -120,7 +120,7 @@ export type Monitoring = {
   alerts: { id: string; severity: string; title: string; detail: string; active: boolean; acknowledged: boolean }[];
   services: Record<string, { installed: boolean; active: boolean }>;
 };
-export type Users = { web: { name: string; role: string; enabled: boolean; display_name: string }[] };
+export type Users = { web: { name: string; role: string; enabled: boolean; display_name: string; description?: string }[] };
 export type Updates = { current: string; channel: string; available: boolean; latest?: string | null };
 export type Job = { id: string; action: string; status: 'queued' | 'running' | 'completed' | 'failed'; result: Record<string, unknown> };
 

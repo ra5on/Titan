@@ -1,24 +1,33 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Archive, BellRing, Boxes, Globe, SquareTerminal, CheckCircle2, Download, FolderOpen, UsersRound, HardDrive, Info, KeyRound, LogOut, Power, RefreshCw, RotateCw, Users as UsersIcon } from 'lucide-react';
+import { Archive, BellRing, Boxes, Globe, SquareTerminal, Activity, ShieldCheck, Network, Wrench, ScrollText, Gauge, Download, FolderOpen, UsersRound, HardDrive, Info, KeyRound, LogOut, Power, RotateCw, Users as UsersIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { action, get, post, waitJob } from '../api';
-import type { Monitoring, Session, Status, Updates } from '../api';
+import { action, get, post } from '../api';
+import type { Monitoring, Session, Status } from '../api';
 import { bytes, cx, duration, go, message, percent, useApi } from '../lib';
 import { SharesSection } from './Shares';
 import { StorageSection } from './StorageSection';
 import { BackupsSection } from './Backups';
+import { ManagementPanel } from '../management/Panel';
+import type { Feature } from '../management/features';
 import { GroupsSection } from './Groups';
 import { DockerSection } from './Docker';
 import { TerminalSection } from './Terminal';
 import { RemoteSection } from './Remote';
 import { GraphicsCard } from './Graphics';
 import { AccountSection, UsersSection } from './Users';
-import { Button, Card, Confirm, Loading, Meter, Notice, Sheet, useToast } from '../ui';
+import { Button, Card, Confirm, Meter, Notice, Sheet, useToast } from '../ui';
 
 type Section = { id: string; label: string; icon: LucideIcon; admin?: boolean };
 const SECTIONS: Section[] = [
   { id: 'system', label: 'System', icon: Info },
+  { id: 'resources', label: 'Ressourcen', icon: Gauge, admin: true },
+  { id: 'security', label: 'Sicherheit', icon: ShieldCheck },
+  { id: 'web', label: 'Server und Webzugriff', icon: Network, admin: true },
+  { id: 'monitoring', label: 'Meldungen und E-Mail', icon: BellRing, admin: true },
+  { id: 'services', label: 'Systemdienste', icon: Wrench, admin: true },
+  { id: 'activity', label: 'Aktivität', icon: Activity },
+  { id: 'logs', label: 'Protokoll', icon: ScrollText, admin: true },
   { id: 'storage', label: 'Speicher', icon: HardDrive, admin: true },
   { id: 'shares', label: 'Freigaben', icon: FolderOpen, admin: true },
   { id: 'users', label: 'Benutzer', icon: UsersIcon, admin: true },
@@ -172,93 +181,10 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
   );
 }
 
-function UpdatesSection() {
-  const toast = useToast();
-  const updates = useApi<Updates>('/api/updates');
-  const [checking, setChecking] = useState(false);
-  const [installing, setInstalling] = useState(false);
-  const [confirm, setConfirm] = useState(false);
-  const [error, setError] = useState('');
-
-  const check = async () => {
-    setChecking(true);
-    setError('');
-    try {
-      const { job } = await post<{ job: string }>('/api/updates/check', { update_kind: 'all' });
-      await waitJob(job, 5 * 60 * 1000);
-      await updates.reload();
-    } catch (reason) {
-      setError(message(reason));
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const install = async () => {
-    const version = updates.data?.latest;
-    if (!version) return;
-    setInstalling(true);
-    setError('');
-    try {
-      await action('update_install', { expected_version: version, update_kind: 'all' });
-      toast(`Update ${version} ist installiert. Es wird nach einem Neustart aktiv (Einstellungen → System).`);
-      await updates.reload();
-    } catch (reason) {
-      setError(message(reason));
-    } finally {
-      setInstalling(false);
-    }
-  };
-
-  if (updates.loading) return <Loading />;
-  const data = updates.data;
-  return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            {data?.available ? <Download className="size-9 text-brand" aria-hidden /> : <CheckCircle2 className="size-9 text-ok" aria-hidden />}
-            <div>
-              <div className="font-semibold">{data?.available ? `Titan ${data.latest} ist verfügbar` : 'Titan ist aktuell'}</div>
-              <div className="text-sm text-white/50">
-                Installiert: {data?.current} · Kanal: {data?.channel}
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button busy={checking} disabled={installing} onClick={check}>
-              <RefreshCw className="size-4" /> Suchen
-            </Button>
-            {data?.available && data.latest && (
-              <Button variant="primary" busy={installing} onClick={() => setConfirm(true)}>
-                Installieren
-              </Button>
-            )}
-          </div>
-        </div>
-        {error && <div className="mt-4"><Notice>{error}</Notice></div>}
-      </Card>
-      <Notice tone="info">
-        Updates werden in den zweiten Systembereich geschrieben. Startet das neue System nicht, wechselt Titan automatisch auf den bisherigen Stand zurück.
-      </Notice>
-      {confirm && data?.latest && (
-        <Confirm
-          title={`Titan ${data.latest} installieren?`}
-          text="Das Update wird heruntergeladen, geprüft und in den inaktiven Systembereich geschrieben. Apps und VMs laufen dabei weiter; aktiv wird es erst nach einem Neustart."
-          confirmLabel="Installieren"
-          onClose={() => setConfirm(false)}
-          onConfirm={() => {
-            void install();
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
 export function Settings({ session, section, onSessionChange }: { session: Session; section?: string; onSessionChange: () => Promise<void> }) {
   const admin = session.user?.role === 'admin';
-  const sections = SECTIONS.filter(item => !item.admin || admin);
+  const sections = SECTIONS.filter(item => item.id === 'backups' ? admin || session.permissions.backups?.allowed : item.id === 'docker' ? admin || session.permissions.apps?.allowed : !item.admin || admin);
+  const managed: Feature[] = ['resources', 'security', 'web', 'monitoring', 'services', 'activity', 'logs', 'updates'];
   const active = sections.find(item => item.id === section)?.id || 'system';
 
   const logout = async () => {
@@ -276,9 +202,6 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
       subtitle={`Angemeldet als ${session.user?.name}`}
       actions={
         <>
-          <Button size="sm" variant="ghost" onClick={() => window.open('/classic', '_blank', 'noopener')}>
-            Klassische Oberfläche
-          </Button>
           <Button size="sm" onClick={logout}>
             <LogOut className="size-4" /> Abmelden
           </Button>
@@ -302,7 +225,7 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
             ))}
           </ul>
         </nav>
-        <div className={cx('min-w-0', active === 'terminal' || active === 'docker' ? 'max-w-4xl' : 'max-w-2xl')}>
+        <div className={cx('min-w-0', ['account', 'users', 'remote'].includes(active) ? 'max-w-2xl' : 'max-w-5xl')}>
           {active === 'system' && <SystemSection session={session} admin={admin} />}
           {active === 'storage' && <StorageSection />}
           {active === 'shares' && <SharesSection />}
@@ -311,9 +234,9 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
           {active === 'docker' && <DockerSection />}
           {active === 'terminal' && <TerminalSection />}
           {active === 'groups' && <GroupsSection />}
-          {active === 'backups' && <BackupsSection />}
+          {active === 'backups' && <BackupsSection session={session} />}
           {active === 'account' && <AccountSection name={session.user?.name || ''} onChanged={onSessionChange} />}
-          {active === 'updates' && <UpdatesSection />}
+          {managed.includes(active as Feature) && <ManagementPanel key={active} feature={active as Feature} session={session} />}
         </div>
       </div>
     </Sheet>

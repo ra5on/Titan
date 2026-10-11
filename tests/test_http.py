@@ -124,7 +124,7 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(self.request(path)[0], 200, path)
         status, classic, headers = self.request('/classic')
         self.assertEqual(status, 200)
-        self.assertIn(b'/app.js', classic)
+        self.assertIn(b'/ui-assets/', classic)
         self.assertNotIn(b'__TITAN_STYLE_NONCE__', classic)
         self.assertIn("'nonce-", headers['Content-Security-Policy'])
         self.assertEqual(self.request('/ui-assets/../server.py')[0], 404)
@@ -212,8 +212,30 @@ class HTTPTests(unittest.TestCase):
         user={"name":"reader","role":"user","system_user":"reader","csrf":"demo-only"}
         from unittest.mock import patch
         with patch.object(Handler, "user", return_value=user):
-            for path in ("/api/status","/api/users","/api/settings","/api/managed-shares","/api/storage"):
+            for path in ("/api/status","/api/users","/api/settings","/api/managed-shares","/api/storage","/api/plugins"):
                 self.assertEqual(self.request(path)[0],403,path)
+
+    def test_plugin_actions_require_admin_csrf_and_current_revision(self):
+        import time
+        from unittest.mock import patch
+        user = {"name": "reader", "role": "user", "system_user": "reader", "csrf": "demo-only"}
+        args = {'operation': 'plugin_action', 'arguments': {'plugin': 'cloudflare', 'action': 'check', 'expected_revision': 'stale'}}
+        with patch.object(Handler, 'user', return_value=user):
+            self.assertEqual(self.request('/api/actions', args)[0], 403)
+        self.assertEqual(self.request('/api/actions', args, csrf='wrong')[0], 403)
+        status, body, _ = self.request('/api/plugins')
+        self.assertEqual(status, 200)
+        self.assertEqual({item['id'] for item in json.loads(body)['items']}, {'cloudflare', 'nvidia'})
+        status, body, _ = self.request('/api/actions', args)
+        self.assertEqual(status, 202)
+        job = json.loads(body)['job']
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            row = next(row for row in self.app.store.jobs() if row['id'] == job)
+            if row['status'] == 'failed': break
+            time.sleep(0.01)
+        self.assertEqual(row['status'], 'failed')
+        self.assertIn('geändert', row['result']['error'])
 
 
 if __name__ == "__main__": unittest.main()

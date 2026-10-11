@@ -5,6 +5,7 @@ import { get, post, waitJob } from '../api';
 import type { CatalogApp, InstallStatus, InstalledApp, SchemaField } from '../api';
 import { bytes, cx, go, message, useApi } from '../lib';
 import { AppIcon, Button, Card, Empty, Field, Input, Loading, Notice, Select, Sheet, Spinner, useToast } from '../ui';
+import { PluginStore, PluginTiles } from './Plugins';
 
 type Catalog = { apps: CatalogApp[]; error?: string | null };
 type Locations = { resources: { id: string; label: string; available: boolean; free_bytes: number; capabilities?: string[] }[]; default_storage: string };
@@ -294,16 +295,18 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
   );
 }
 
-export function Store({ appId }: { appId?: string }) {
+export function Store({ appId, admin = false }: { appId?: string; admin?: boolean }) {
   const catalog = useApi<Catalog>('/api/catalog');
   const apps = useApi<{ installed: InstalledApp[] }>('/api/apps', 15000);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
 
   const installed = useMemo(() => new Map((apps.data?.installed || []).map(app => [app.id, app])), [apps.data]);
-  const all = catalog.data?.apps || [];
+  const all = (catalog.data?.apps || []).filter(app => app.id !== TUNNEL || installed.has(app.id));
   const selected = appId ? all.find(app => app.id === appId) : undefined;
 
+  if (appId === 'plugins' || appId?.startsWith('plugin-')) return <PluginStore key={appId} pluginId={appId === 'plugins' ? undefined : appId.slice(7)} admin={admin} />;
+  if (appId === TUNNEL && !apps.loading && !installed.has(TUNNEL)) return <PluginStore pluginId="cloudflare" admin={admin} />;
   if (appId) {
     if (catalog.loading) return <Sheet title="App Store"><Loading /></Sheet>;
     if (!selected)
@@ -325,7 +328,7 @@ export function Store({ appId }: { appId?: string }) {
   return (
     <Sheet
       title="App Store"
-      subtitle="Geprüfte Apps, mit einem Klick als Docker-Compose-Verbund installiert"
+      subtitle="Apps und optionale Plugins für dein NAS"
       actions={
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/40" aria-hidden />
@@ -339,6 +342,7 @@ export function Store({ appId }: { appId?: string }) {
         <Notice>{catalog.error}</Notice>
       ) : (
         <div className="space-y-7">
+          {admin && <PluginTiles query={query} />}
           {featured && !needle && !category && (
             <button
               type="button"

@@ -12,7 +12,7 @@ while [[ $# -gt 0 ]]; do
         *) exit 2 ;;
     esac
 done
-[[ "$component" =~ ^(all|docker|vms|nvidia)$ ]] || exit 2
+[[ "$component" =~ ^(all|docker|vms|nvidia|nvidia-check|nvidia-install|nvidia-update|nvidia-remove)$ ]] || exit 2
 if $dry_run; then echo 'Debian: vorinstallierte Komponenten prüfen; nur der NVIDIA-Treiber wird auf Wunsch nachinstalliert, keine Datenlaufwerke verändern.'; exit 0; fi
 [[ "$EUID" == 0 && -d /run/systemd/system ]] || exit 1
 /usr/bin/python3 - <<'PY'
@@ -24,6 +24,10 @@ assert osinfo['ID']=='debian' and osinfo['VERSION_ID']=='13'
 assert (info['platform'],info['format'])in (('debian-preview','titan-debian-preview-v1'),('debian-rauc','titan-debian-ab-v1'))
 PY
 source /usr/share/titan/component-functions.sh
+if [[ "$component" == nvidia-* ]]; then
+    nvidia_plugin_action "${component#nvidia-}"
+    exit $?
+fi
 failed=0
 docker_state=skip
 vm_state=skip

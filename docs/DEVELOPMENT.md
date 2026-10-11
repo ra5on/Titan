@@ -25,7 +25,15 @@ npm run build    # schreibt titan/ui; das Ergebnis mit committen
 npm run e2e      # Browsertests gegen die Demo (Linux; unter Windows ohne Dateitest)
 ```
 
-Der Server liefert `/` aus `titan/ui/` aus. Gemeinsame Dateien (App-Symbole, Hintergründe, VM-Konsole) und die bisherige Oberfläche unter `/classic` kommen weiter aus `titan/web/`.
+Der Server liefert `/` ausschließlich aus `titan/ui/` aus. `/classic` leitet auf diesen Desktop um; alte Lesezeichen werden passenden Bereichen zugeordnet. Gemeinsame Dateien (App-Symbole, Hintergründe, VM-Konsole) kommen weiter aus `titan/web/`. Die Verwaltungsmodule werden über `ui/src/management` in denselben React-Desktop eingebunden. Die alten Shell-Dateien `app.js` und `workspace.js` werden dabei nicht geladen.
+
+## Optionale Systemplugins
+
+Der Appstore verwaltet die festen Plugin-Kennungen `cloudflare` und `nvidia` über `/api/plugins` und die Administratoraktion `plugin_action`. Neue Plugins erfordern geprüften Produktcode; es gibt keine API zum Ausführen beliebiger Installationsskripte. Änderungen laufen als exklusive Verwaltungsaufträge mit erneuter Rechteprüfung und einer Revision des zuvor angezeigten Stands.
+
+Cloudflared wird erst bei Installation aus einem stabilen offiziellen GitHub-Release geladen und anhand der SHA-256-Summe geprüft. Binärdatei und Registry liegen im persistenten Datenbereich; der Token liegt separat mit Modus 0600 im Agent-Verzeichnis. Systemd erhält ihn über `LoadCredential`. Der Dienst verwendet einen dynamischen Benutzer und wird nach fehlgeschlagener Einrichtung auf den vorherigen Zustand zurückgesetzt. Nach einem Agent-Neustart bleibt ein bewusst gestoppter Dienst gestoppt. Die öffentliche Route muss im Cloudflare-Konto auf **HTTP `127.0.0.1:5102`** zeigen. Der Tunnel-Token erlaubt keine automatische Änderung dieser Kontoeinstellung.
+
+NVIDIA-Pakete kommen bei ausdrücklicher Installation aus dem offiziellen, per APT-Signatur geprüften Archiv. Der feste Komponentenhelfer übernimmt Installation, Updateprüfung, Aktualisierung und Entfernung. Updates oder Entfernung werden bei laufenden GPU-Containern oder GPU-Prozessen abgewiesen. Eine NVIDIA-Paketänderung ist keine atomare Transaktion; bei Fehlern wird der Auftrag als unvollständig gemeldet. Nach einem A/B-Systemwechsel wird ein zuvor gewünschter Treiber für den neuen Kernel erneut eingerichtet. Beide Plugins tragen eine eigene Beta-Kennzeichnung; Titan-Releases bleiben Stable.
 
 ## App-Abnahme und eingefrorene Quellen
 

@@ -1,3 +1,4 @@
+import { VmBackups } from './VmBackups';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { action } from '../api';
@@ -84,7 +85,7 @@ export function VmSettings({ vm, onClose, onChanged }: { vm: Vm; onClose: () => 
   return <Modal title={`Einstellungen · ${label}`} onClose={onClose} wide>
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="VM-Einstellungen">
-        {[['general', 'Allgemein'], ['disks', 'Laufwerke und ISO'], ['network', 'Netzwerk'], ['devices', 'Geräte']].map(([id, title]) => <Button key={id} role="tab" aria-selected={id === tab} onClick={() => setTab(id)} variant={id === tab ? 'primary' : 'secondary'}>{title}</Button>)}
+        {[['general', 'Allgemein'], ['disks', 'Laufwerke und ISO'], ['network', 'Netzwerk'], ['devices', 'Geräte'], ['backups', 'Sicherungen und Klone']].map(([id, title]) => <Button key={id} role="tab" aria-selected={id === tab} onClick={() => setTab(id)} variant={id === tab ? 'primary' : 'secondary'}>{title}</Button>)}
       </div>
       {!off && <Notice tone="info">Zum Ändern der Hardware die VM zuerst vollständig herunterfahren. Die aktuellen Einstellungen bleiben sichtbar.
         {vm.state === 'running' && <Button className="mt-2" busy={busy} onClick={() => run('vm_action', { action: 'shutdown' }, 'Herunterfahren angefordert.')}>VM herunterfahren</Button>}
@@ -138,6 +139,7 @@ export function VmSettings({ vm, onClose, onChanged }: { vm: Vm; onClose: () => 
           {network === null ? <Button onClick={() => setNetwork('new')}>Netzwerkkarte hinzufügen</Button> : <NetworkEditor key={network} network={hardware.data.networks.find(nic => nic.index === network)} options={options.data} run={run} onClose={() => setNetwork(null)} />}
           {options.data.network_options?.warnings.map(warning => <Notice key={warning} tone="warn">{warning}</Notice>)}
         </fieldset>}
+        {tab === 'backups' && <VmBackups vm={vm} options={options.data} onChanged={onChanged} />}
         {tab === 'devices' && <div className="space-y-4">
           <div className="flex flex-wrap gap-2"><Button onClick={() => setDevices('usb')}>USB-Geräte zuordnen</Button><Button onClick={() => setDevices('pci')}>Grafikkarte und PCI-Geräte zuordnen</Button></div>
           <label className="flex gap-2 text-sm"><input type="checkbox" disabled={!off || busy} checked={hardware.data.guest_agent.configured} onChange={event => run('vm_guest_agent', { enabled: event.target.checked }, 'Gastagent-Kanal gespeichert.')} /> QEMU-Gastagent aktivieren</label>

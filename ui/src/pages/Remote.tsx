@@ -68,8 +68,8 @@ export function RemoteSection() {
     <form onSubmit={submit} className="space-y-4">
       {data.connectors.length === 0 && (
         <Notice tone="info">
-          Für den Fernzugriff wird die App „Cloudflare Tunnel“ benötigt.{' '}
-          <button type="button" className="underline underline-offset-4" onClick={() => go('store', 'titan-cloudflared')}>
+          Für den Fernzugriff kannst du das Plugin „Cloudflare Tunnel“ installieren.{' '}
+          <button type="button" className="underline underline-offset-4" onClick={() => go('store', 'plugin-cloudflare')}>
             Im App Store öffnen
           </button>
         </Notice>
