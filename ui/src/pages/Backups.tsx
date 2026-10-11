@@ -182,7 +182,7 @@ export function BackupsSection() {
           <fieldset>
             <legend className="mb-1 text-[13px] font-medium text-white/70">Freigaben sichern</legend>
             {(shares.data || []).map(share => (
-              <Toggle key={share.name} label={share.name} checked={form.shares.includes(share.name)} onChange={on => set('shares', on ? [...form.shares, share.name] : form.shares.filter(name => name !== share.name))} />
+              <Toggle key={share.name} label={share.label || share.name} checked={form.shares.includes(share.name)} onChange={on => set('shares', on ? [...form.shares, share.name] : form.shares.filter(name => name !== share.name))} />
             ))}
             {shares.data?.length === 0 && <p className="text-sm text-white/50">Noch keine Freigabe vorhanden.</p>}
           </fieldset>

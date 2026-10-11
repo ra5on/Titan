@@ -53,8 +53,8 @@ class HTTPTests(unittest.TestCase):
 
     def test_binary_upload_preserves_bytes_and_requires_explicit_commit(self):
         metadata = {"share": "dokumente", "path": "Grüße-测试.bin", "upload_id": "e" * 64,
-                    "offset": 0, "total": 4 * 1024 * 1024}
-        payload = bytes(range(256)) * 16384
+                    "offset": 0, "total": 8 * 1024 * 1024}
+        payload = bytes(range(256)) * 32768
         status, result = self.binary_upload(metadata, payload)
         self.assertEqual(status, 200, result)
         self.assertEqual(json.loads(result)["offset"], len(payload))
@@ -77,7 +77,7 @@ class HTTPTests(unittest.TestCase):
             client.sendall(("POST /api/file-upload HTTP/1.1\r\nHost: localhost\r\n"
                             "Content-Type: application/octet-stream\r\nX-CSRF-Token: demo-only\r\n"
                             "X-Titan-Upload: " + urllib.parse.quote(json.dumps(metadata)) +
-                            "\r\nContent-Length: 4194305\r\nConnection: close\r\n\r\n").encode())
+                            "\r\nContent-Length: 8388609\r\nConnection: close\r\n\r\n").encode())
             with HTTPResponse(client) as response:
                 response.begin()
                 self.assertEqual(response.status, 400)

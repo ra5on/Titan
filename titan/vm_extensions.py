@@ -276,6 +276,30 @@ class VMExtensionsMixin:
         self.redefine_vm(record, root)
         return {"ok": True, "message": "Netzwerkkarte hinzugefügt."}
 
+    def op_vm_nic_update(self, vm, index, network):
+        record = self._offline_vm(vm)
+        root = ET.fromstring(record['xml'])
+        devices = root.find('devices')
+        nodes = devices.findall('interface')
+        index = integer(index, 0, max(0, len(nodes) - 1))
+        if not nodes or not isinstance(network, dict) or network.get('mode') == 'none':
+            raise Error('Eine vorhandene Netzwerkkarte und ein verfügbares Netzwerk auswählen.')
+        old = nodes[index]
+        # Validate the selected interface as the primary one in a temporary
+        # tree, retaining the other cards for duplicate-MAC validation.
+        temporary = ET.fromstring(record['xml'])
+        temporary_devices = temporary.find('devices')
+        selected = temporary_devices.findall('interface')[index]
+        temporary_devices.remove(selected)
+        temporary_devices.insert(0, selected)
+        self.apply_vm_network(temporary, network)
+        replacement = temporary.find('./devices/interface')
+        position = list(devices).index(old)
+        devices.remove(old)
+        devices.insert(position, replacement)
+        self.redefine_vm(record, root)
+        return {'ok': True, 'message': 'Netzwerkkarte gespeichert.'}
+
     def op_vm_nic_remove(self, vm, index):
         record = self._offline_vm(vm)
         root = ET.fromstring(record["xml"])

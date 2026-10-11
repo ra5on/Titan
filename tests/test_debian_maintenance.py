@@ -63,9 +63,12 @@ class MaintenancePlanTests(unittest.TestCase):
              patch.object(maintenance,'api',side_effect=lambda path,t:{'sha':path.split('/')[-1],
                  'committer':{'date':dates[path.split('/')[-1]]}}), \
              patch.object(maintenance,'checked_inventory',side_effect=lambda *a,**k:(k['verified'][0],inventory())) as full:
-            result=maintenance.supported_sources(records)
+            result=maintenance.supported_sources(records, stages=('alpha', 'beta', 'stable'))
+            stable = maintenance.supported_sources(records)
+            self.assertEqual(len(stable), 2)
+            self.assertTrue(all(value['metadata']['titan_stage'] == 'stable' for value in stable))
         self.assertEqual(len(result),6)
-        self.assertEqual(full.call_count,6)
+        self.assertEqual(full.call_count,8)
         self.assertEqual([x['release']['tag_name'] for x in result if x['metadata']['titan_stage']=='alpha'],
                          ['v0.5.3-alpha.9','v0.5.3-alpha.2'])
         self.assertTrue(all(x['inventory']==inventory() for x in result))
@@ -76,7 +79,7 @@ class MaintenancePlanTests(unittest.TestCase):
                        {'sha':'c'*40,'committer':{'date':'2026-10-04T00:00:00'}}):
             with self.subTest(commit=commit), patch.object(maintenance,'checked_release',return_value=(identity(),{})), \
                  patch.object(maintenance,'api',return_value=commit), self.assertRaises(ValueError):
-                maintenance.supported_sources([release])
+                maintenance.supported_sources([release], stages=('alpha',))
 
     def test_first_release_without_inventory_skips_maintenance_safely(self):
         with tempfile.TemporaryDirectory() as temporary, \

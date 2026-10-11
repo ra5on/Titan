@@ -5,6 +5,7 @@ import { ISO_NAME, action, uploadIso } from '../api';
 import type { Vm, VmList, VmOptions } from '../api';
 import { bytes, go, message, useApi } from '../lib';
 import { VmPciDialog, VmUsbDialog } from './Devices';
+import { VmSettings } from './VmSettings';
 import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Menu, Meter, Modal, Notice, Select, Sheet, StateDot, useToast } from '../ui';
 
 const STATES: Record<string, string> = { running: 'Läuft', 'shut off': 'Aus', paused: 'Pausiert', 'in shutdown': 'Fährt herunter', crashed: 'Abgestürzt' };
@@ -121,6 +122,7 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
   const [confirm, setConfirm] = useState<'poweroff' | 'remove' | null>(null);
   const [usb, setUsb] = useState(false);
   const [pci, setPci] = useState(false);
+  const [editing, setEditing] = useState(false);
   const label = vm.display_name || vm.name;
   const running = vm.state === 'running';
   const off = vm.state === 'shut off';
@@ -165,7 +167,8 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
           <dd className="mt-0.5 tabular-nums">{vm.disk_gb} GB</dd>
         </div>
       </dl>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={() => setEditing(true)}>Bearbeiten</Button>
         {running ? (
           <>
             <Button size="sm" variant="primary" onClick={() => go('vms', vm.id)}>
@@ -194,6 +197,7 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
         />
       </div>
       {usb && <VmUsbDialog vm={vm.id} label={label} onClose={() => setUsb(false)} />}
+      {editing && <VmSettings vm={vm} onClose={() => setEditing(false)} onChanged={onChanged} />}
       {pci && <VmPciDialog vm={vm.id} label={label} onClose={() => setPci(false)} />}
       {confirm === 'poweroff' && (
         <Confirm
@@ -208,7 +212,7 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
       {confirm === 'remove' && (
         <Confirm
           title={`${label} löschen?`}
-          text="Die VM und ihre virtuellen Datenträger werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen."
+          text="Die VM wird aus der Verwaltung entfernt. Ihre virtuellen Laufwerke bleiben auf dem Datenträger erhalten."
           confirmLabel="Endgültig löschen"
           danger
           onClose={() => setConfirm(null)}

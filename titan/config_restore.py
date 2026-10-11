@@ -63,12 +63,17 @@ def validate_config(host, data):
         names.add(name)
     if not any(user["role"] == "admin" and user.get("enabled", 1) for user in users):
         raise Error("Konfiguration enthält keinen aktiven Administrator.")
-    share_names, paths = set(), set()
+    share_names, paths, network_names = set(), set(), set()
+    from .share_names import network_name
     from .backups import directory_fd
     for share in agent["shares"]:
-        if not isinstance(share, dict) or set(share) - {"name", "path", "readers", "writers", "dataset", "blocked", "volume", "storage_id"}:
+        if not isinstance(share, dict) or set(share) - {"name", "label", "path", "readers", "writers", "dataset", "blocked", "volume", "storage_id"}:
             raise Error("Ungültige Freigabenkonfiguration.")
         name = identifier(share.get("name"))
+        label = network_name(share).casefold()
+        if label in network_names:
+            raise Error('Gesicherte Freigaben verwenden denselben Netzwerknamen.')
+        network_names.add(label)
         path = Path(share.get("path", ""))
         if (name in share_names or str(path) in paths or not path.is_absolute() or ".." in path.parts or
                 not path.is_relative_to(host.share_root) or path == host.share_root or any(char in str(path) for char in "\n\r\x00")):

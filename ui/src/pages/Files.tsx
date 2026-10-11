@@ -44,10 +44,10 @@ function NameDialog({ title, label, initial, confirmLabel, onSubmit, onClose }: 
 
 type UploadState = { name: string; index: number; count: number; fraction: number };
 
-export function Files() {
+export function Files({ initialShare = '' }: { initialShare?: string }) {
   const toast = useToast();
   const shares = useApi<Share[]>('/api/shares');
-  const [share, setShare] = useState('');
+  const [share, setShare] = useState(initialShare);
   const [path, setPath] = useState('');
   const [listing, setListing] = useState<FileListing | null>(null);
   const [entries, setEntries] = useState<FileEntry[]>([]);
@@ -122,7 +122,7 @@ export function Files() {
   };
 
   const current = shares.data?.find(item => item.name === share);
-  const title = (item: Share) => (item.external ? item.label || 'USB-Laufwerk' : item.name);
+  const title = (item: Share) => item.label || (item.external ? 'USB-Laufwerk' : item.name);
 
   const eject = async (item: Share) => {
     try {

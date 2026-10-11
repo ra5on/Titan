@@ -96,8 +96,8 @@ def allocate_version(app_version, stage, releases, previous=None):
     return '.'.join(map(str, base))
 
 
-def supported_sources(releases, token=None):
-    """Keep the two most recent frozen Titan sources per stage, at most six."""
+def supported_sources(releases, token=None, *, stages=('stable',)):
+    """Maintain stable releases; historical prereleases remain readable."""
     groups = {}
     for release in releases:
         if not any(a.get('name') == 'debian-packages.json' for a in release.get('assets', []) if isinstance(a, dict)):
@@ -109,7 +109,7 @@ def supported_sources(releases, token=None):
         if key not in groups or updates.version(manifest['version']) > updates.version(groups[key]['manifest']['version']):
             groups[key] = value
     result = []
-    for stage in ('alpha', 'beta', 'stable'):
+    for stage in stages:
         entries = [v for k, v in groups.items() if k[0] == stage]
         # The source's commit date distinguishes multiple Titan prereleases with
         # the same bare application version; OS-only release dates do not.
@@ -220,6 +220,8 @@ def main():
         raise SystemExit('Requires disposable GitHub Actions runner')
     token = os.environ.get('GH_TOKEN')
     if args.mode == 'titan':
+        if __release_stage__ != 'stable':
+            raise SystemExit('Titan publishes stable releases only; mark experimental features individually.')
         version = allocate_version(__version__, __release_stage__, release_list(token))
         output('version', version); output('app_version', __version__); output('app_stage', __release_stage__)
         print('Next Titan system release: ' + version)

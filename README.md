@@ -7,11 +7,11 @@
 Titan macht aus einem PC oder Mini-Server ein NAS mit Apps, virtuellen Maschinen und Sicherungen,
 bedient komplett im Browser.
 
-[![Version](https://img.shields.io/badge/Version-0.8.0%20Beta-5b8cff?style=for-the-badge)](https://github.com/ra5on/Titan/releases)
+[![Version](https://img.shields.io/badge/Version-0.8.1%20Stable-5b8cff?style=for-the-badge)](https://github.com/ra5on/Titan/releases)
 [![Plattform](https://img.shields.io/badge/Debian%2013-AMD64-a80030?style=for-the-badge&logo=debian&logoColor=white)](docs/INSTALL.md)
 [![Lizenz](https://img.shields.io/badge/Lizenz-PolyForm%20Noncommercial-34d399?style=for-the-badge)](#lizenz)
 
-[**Image herunterladen**](https://github.com/ra5on/Titan/releases) · [Installation](docs/INSTALL.md) · [Was ist neu in 0.8.0](docs/RELEASE-0.8.0.md)
+[**Image herunterladen**](https://github.com/ra5on/Titan/releases) · [Installation](docs/INSTALL.md) · [Was ist neu in 0.8.1](docs/RELEASE-0.8.1.md)
 
 ![Titan Startseite mit Apps, einer virtuellen Maschine und Live-Kacheln](docs/images/titan-080-start.jpg)
 
@@ -67,9 +67,9 @@ Ausführlich: [Installation](docs/INSTALL.md) · [Image, Partitionen und Proxmox
 
 ## Stand der Entwicklung
 
-Titan 0.8.0 ist eine **Beta**. Start, Updates und Rückfall werden bei jedem Release automatisch in einer virtuellen Maschine geprüft, die Oberfläche in einem echten Browser.
+Titan 0.8.1 erscheint als **Stable**. Neue Releases und automatische Debian-Wartungsupdates werden ausschließlich als Stable veröffentlicht. Einzelne experimentelle Funktionen tragen eine eigene Beta-Kennzeichnung. Start, Updates und Rückfall werden bei jedem Release automatisch in einer virtuellen Maschine geprüft, die Oberfläche in einem echten Browser.
 
-Noch nicht auf echter Hardware erprobt sind USB-Laufwerke, der laufende Abgleich, der Btrfs-Spiegel, der NVIDIA-Treiber und das Durchreichen von Grafikkarten. Eine vollständige Liste der Grenzen steht in den [Hinweisen zur Version](docs/RELEASE-0.8.0.md#grenzen). Wichtige Daten gehören zusätzlich auf eine unabhängige Sicherung.
+Als **Beta-Funktionen** gelten USB-Automount, laufender Abgleich, Btrfs-Spiegel, NVIDIA-Treiberinstallation und USB-/PCI-Durchreichung. Sie sind noch nicht umfassend auf echter Hardware erprobt. Die [Hinweise zur Version](docs/RELEASE-0.8.1.md) beschreiben Änderungen und Grenzen. Wichtige Daten gehören zusätzlich auf eine unabhängige Sicherung.
 
 Einige selten gebrauchte Bereiche (Zwei-Faktor-Einrichtung, Webzugriff, Plattentausch, Snapshots) liegen noch in der bisherigen Oberfläche unter `/classic`.
 

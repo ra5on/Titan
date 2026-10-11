@@ -11,6 +11,7 @@ import threading
 import time
 import uuid
 from .core import Error, identifier, integer
+from .share_names import identity as share_identity, network_name
 from .vm_names import identity as vm_identity, display_name as vm_display_name
 from .catalog import APPS, published_ports, validate_options
 from .cpu_topology import demo_topology
@@ -114,7 +115,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
 
     def demo_storage_locations(self):
         purposes = ["files", "apps", "shares", "vms", "backups"]
-        resources = [{"id": "system", "label": "Interner Speicher", "kind": "internal", "path": "/var/srv/titan", "filesystem": "ext4", "available": True, "status": "ready", "free_bytes": 110 * 1024**3, "total_bytes": 128 * 1024**3, "capabilities": purposes[:-1]}]
+        internal = self.system_disk()
+        resources = [{"id": "system", "label": "Interner Speicher", "kind": "internal", "path": "/var/srv/titan", "filesystem": "ext4", "available": True, "status": "ready", "free_bytes": internal['filesystem_available'], "used_bytes": internal['filesystem_used'], "total_bytes": internal['filesystem_size'], "capabilities": purposes[:-1]}]
         for volume in self.volume_records:
             ready = volume.get("mounted", True)
             resources.append({"id": "volume:" + volume["name"], "label": volume["name"], "kind": "volume", "path": "/var/srv/titan/volumes/" + volume["name"], "filesystem": volume["filesystem"], "available": ready, "status": "ready" if ready else "offline", "free_bytes": volume.get("total", 1024**4) - volume.get("used", 0) if ready else 0, "total_bytes": volume.get("total", 1024**4), "capabilities": purposes})
@@ -652,8 +654,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
                 share["writers"] = [name for name in share["writers"] if name != item["name"]]
             return {"ok": True, "data_retained": True, "linux_account_retained": True}
         elif operation == "share_create":
-            name = identifier(args["name"])
-            if any(item["name"] == name for item in self.shares): raise Error("Freigabe existiert bereits.", 409)
+            name, label = share_identity(args["name"])
+            if any(item["name"] == name or network_name(item).casefold() == label.casefold() for item in self.shares): raise Error("Freigabe existiert bereits.", 409)
             self.validate_rights(args["readers"], args["writers"])
             volume = args.get("volume")
             storage = args.get("storage", "volume:" + volume if volume else "pool:" + args["dataset"].split("/", 1)[0] if args.get("dataset") else self._default_storage)
@@ -668,6 +670,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             directory.mkdir(parents=True, exist_ok=True)
             self._share_paths[name] = directory
             self.shares.append({"name": name, "path": display_path, "readers": args["readers"], "writers": args["writers"], "volume": volume, "storage_id": storage})
+            if label != name: self.shares[-1]['label'] = label
         elif operation == "share_update":
             item = self.share(args["name"])
             self.validate_rights(args["readers"], args["writers"], previous=item)
@@ -975,12 +978,12 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
     def system_disk(self):
         if self._system_disk_state is None:
             gib = 1024 ** 3
-            size, used = int(20.5 * gib), 8 * gib
-            growable = int(42 * gib)
+            size, used = 128 * gib, 18 * gib
+            growable = int(95.5 * gib)
             self._system_disk_state = {"supported": True, "available": True, "reason": "", "demo": True,
                 "revision": hashlib.sha256(str(size).encode()).hexdigest(), "disk": "/dev/vda",
-                "partition": "/dev/vda4", "partition_number": 4, "filesystem": "xfs", "mountpoint": "/var",
-                "disk_size": 64 * gib, "partition_size": size, "filesystem_size": size,
+                "partition": "/dev/vda5", "partition_number": 5, "filesystem": "ext4", "mountpoint": "/var/lib/titan-system",
+                "disk_size": 256 * gib, "partition_size": size, "filesystem_size": size,
                 "filesystem_used": used, "filesystem_available": size - used,
                 "partition_growable_bytes": growable, "filesystem_growable_bytes": 0, "growable_bytes": growable}
         return self._system_disk_state

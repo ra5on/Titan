@@ -202,7 +202,7 @@ export function Home({ session, onSessionChange }: { session: Session; onSession
   const s = status.data;
 
   return (
-    <div className="scroll-area h-full overflow-y-auto px-4 pb-36 pt-[9vh]">
+    <div className="scroll-area h-full overflow-y-auto px-4 pb-[calc(var(--dock-clearance,108px)+2rem)] pt-[9vh]">
       <SystemMenu name={s?.hostname || 'Titan'} admin={admin} session={session} onSessionChange={onSessionChange} />
       <div className="mx-auto max-w-5xl">
         <h1 className="text-center text-4xl font-semibold tracking-tight drop-shadow-lg sm:text-5xl">

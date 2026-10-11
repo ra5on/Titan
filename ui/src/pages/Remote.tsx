@@ -6,13 +6,15 @@ import { go, message, useApi } from '../lib';
 import { forgetRemoteAccess } from '../system';
 import { Button, Card, Field, Input, Loading, Notice, Select, useToast } from '../ui';
 
-type Remote = { enabled: boolean; public_origin: string; connector: string; app_urls: Record<string, string> };
+type Remote = { enabled: boolean; public_origin: string; connector: string; app_urls: Record<string, string>; service_url?: string };
+type Diagnosis = { connected: boolean; message: string; checks: { name: string; ok: boolean | null; message: string }[] };
 type Overview = {
   remote: Remote;
   revision: string;
   connectors: { id: string; name: string }[];
   apps: { id: string; name: string }[];
   demo?: boolean;
+  diagnosis?: Diagnosis;
 };
 
 /**
@@ -26,6 +28,8 @@ export function RemoteSection() {
   const [form, setForm] = useState<Remote | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
 
   const revision = overview.data?.revision;
   useEffect(() => {
@@ -50,6 +54,7 @@ export function RemoteSection() {
         expected_revision: data.revision,
       });
       forgetRemoteAccess();
+      setDiagnosis(null);
       toast('Fernzugriff gespeichert.');
       await overview.reload();
     } catch (reason) {
@@ -90,6 +95,12 @@ export function RemoteSection() {
           </Field>
         )}
       </Card>
+      {data.remote.enabled && data.remote.service_url && <Card className="space-y-3">
+        <h2 className="text-sm font-semibold">Zieladresse für Cloudflare</h2>
+        <p className="text-sm text-white/65">In der öffentlichen Route von Cloudflare den Service-Typ <strong>HTTP</strong> wählen und diese Zieladresse verwenden. Deine öffentliche Titan-Adresse bleibt HTTPS.</p>
+        <Input aria-label="Tunnel-Zieladresse" readOnly value={data.remote.service_url} onFocus={event => event.target.select()} />
+        <p className="text-xs text-white/50">Keinen HTTP-Host-Header mit der internen NAS-IP erzwingen. Titan prüft hier den öffentlichen Domainnamen.</p>
+      </Card>}
       <Card className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold">Apps von unterwegs</h2>
@@ -117,8 +128,15 @@ export function RemoteSection() {
       {error && <Notice>{error}</Notice>}
       <div className="flex flex-wrap gap-2">
         <Button type="submit" variant="primary" busy={busy}>Speichern</Button>
-        <Button onClick={() => window.open('/classic#remote', '_blank', 'noopener')}>Verbindung prüfen</Button>
+        <Button busy={checking} disabled={busy || !data.remote.enabled || data.demo} onClick={async () => {
+          setChecking(true);
+          setError('');
+          try { setDiagnosis(await post<Diagnosis>('/api/remote-access/diagnose', {})); }
+          catch (reason) { setError(message(reason)); }
+          finally { setChecking(false); }
+        }}>Verbindung prüfen</Button>
       </div>
+      {(diagnosis || data.diagnosis)?.checks?.map(check => <Notice key={check.name} tone={check.ok ? 'info' : 'warn'}><strong>{check.name}:</strong> {check.message}</Notice>)}
     </form>
   );
 }

@@ -53,7 +53,7 @@ function EditRights({ share, onClose, onDone }: { share: Share; onClose: () => v
     try {
       // One user at a time: the agent patches a single identity per call.
       for (const user of changed) await action('share_user_permission', { name: share.name, user: user.name, permission: value(user.name) });
-      toast('Zugriff auf „' + share.name + '“ geändert.');
+      toast('Zugriff auf „' + (share.label || share.name) + '“ geändert.');
       onDone();
       onClose();
     } catch (reason) {
@@ -64,7 +64,7 @@ function EditRights({ share, onClose, onDone }: { share: Share; onClose: () => v
   };
 
   return (
-    <Modal title={'Zugriff auf „' + share.name + '“'} onClose={onClose}>
+    <Modal title={'Zugriff auf „' + (share.label || share.name) + '“'} onClose={onClose}>
       {accounts.loading ? (
         <Loading />
       ) : (
@@ -121,8 +121,8 @@ function CreateShare({ onClose, onCreated }: { onClose: () => void; onCreated: (
         <Notice tone="info">Lege zuerst unter „Benutzer“ ein Konto an. Eine Freigabe braucht mindestens einen Benutzer mit Zugriff.</Notice>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          <Field label="Name" help="Kleinbuchstaben, Ziffern, - und _; beginnt mit einem Buchstaben. Unter diesem Namen erscheint die Freigabe im Netzwerk.">
-            <Input value={name} onChange={event => setName(event.target.value)} required pattern="[a-z][a-z0-9_\-]{0,30}" autoCapitalize="none" spellCheck={false} />
+          <Field label="Name" help="Zum Beispiel „Meine Dateien“ oder „Familienfotos“. Leerzeichen, Großbuchstaben und Umlaute sind erlaubt. So erscheint die Freigabe auch im Netzwerk.">
+            <Input value={name} onChange={event => setName(event.target.value)} required maxLength={80} placeholder="Meine Dateien" />
           </Field>
           <Field label="Speicherort">
             <Select value={storage || locations.data?.default_storage} onChange={event => setStorage(event.target.value)}>
@@ -176,15 +176,15 @@ export function SharesSection() {
               <li key={share.name} className="flex items-center gap-3 py-3">
                 <FolderOpen className="size-5 shrink-0 text-amber-300" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{share.name}</div>
+                  <div className="truncate text-sm font-medium">{share.label || share.name}</div>
                   <div className="truncate text-xs text-white/45">{people(share)}</div>
-                  {address && <div className="truncate font-mono text-xs text-white/35">\\{address}\{share.name}</div>}
+                  {address && <div className="truncate font-mono text-xs text-white/35">\\{address}\{share.label || share.name}</div>}
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => go('files')}>Öffnen</Button>
-                <IconButton label={`Zugriff auf ${share.name} ändern`} onClick={() => setEditing(share)}>
+                <Button size="sm" variant="ghost" onClick={() => go('files', share.name)}>Öffnen</Button>
+                <IconButton label={`Zugriff auf ${share.label || share.name} ändern`} onClick={() => setEditing(share)}>
                   <KeyRound className="size-4" />
                 </IconButton>
-                <IconButton label={`Freigabe ${share.name} entfernen`} onClick={() => setRemoving(share)}>
+                <IconButton label={`Freigabe ${share.label || share.name} entfernen`} onClick={() => setRemoving(share)}>
                   <Trash2 className="size-4" />
                 </IconButton>
               </li>
@@ -201,7 +201,7 @@ export function SharesSection() {
       {creating && <CreateShare onClose={() => setCreating(false)} onCreated={shares.reload} />}
       {removing && (
         <Confirm
-          title={`Freigabe „${removing.name}“ entfernen?`}
+          title={`Freigabe „${removing.label || removing.name}“ entfernen?`}
           text="Die Freigabe verschwindet aus dem Netzwerk und dem Dateimanager. Die Dateien im Ordner bleiben auf dem Datenträger erhalten."
           confirmLabel="Entfernen"
           danger
@@ -209,7 +209,7 @@ export function SharesSection() {
           onConfirm={async () => {
             try {
               await action('share_remove', { name: removing.name });
-              toast(`Freigabe „${removing.name}“ entfernt.`);
+              toast(`Freigabe „${removing.label || removing.name}“ entfernt.`);
             } catch (reason) {
               toast(message(reason), true);
             }

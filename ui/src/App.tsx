@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FolderOpen, Home as HomeIcon, MonitorPlay, Settings as SettingsIcon, Store as StoreIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { get, setCsrf } from './api';
@@ -34,7 +34,29 @@ function Dock({ route, session }: { route: string[]; session: Session }) {
   const wantsVms = allowed('vms') && prefs.dock.some(entry => entry.startsWith('vm:'));
   const apps = useApi<{ installed: InstalledApp[] }>(wantsApps ? '/api/apps' : null, 30000);
   const vms = useApi<VmList>(wantsVms ? '/api/vms' : null, 30000);
-  const size = DOCK_SIZE[prefs.dock_size] || DOCK_SIZE.medium;
+  const nav = useRef<HTMLElement>(null);
+  const [width, setWidth] = useState(window.innerWidth);
+  const gap = width < 640 ? 8 : 12;
+  const preferred = DOCK_SIZE[prefs.dock_size] || DOCK_SIZE.medium;
+  // Fit the account's dock to the viewport; crowded phone docks may wrap.
+  const count = Math.max(1, prefs.dock.length);
+  const size = Math.max(32, Math.min(preferred, Math.floor((width - 40 - gap * (count - 1)) / count)));
+  useLayoutEffect(() => {
+    const element = nav.current!;
+    const measure = () => {
+      setWidth(window.innerWidth);
+      document.documentElement.style.setProperty('--dock-clearance', `${element.getBoundingClientRect().height + 12}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    window.addEventListener('resize', measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+      document.documentElement.style.removeProperty('--dock-clearance');
+    };
+  }, []);
   const page = route[0] || '';
 
   const items = prefs.dock.flatMap(entry => {
@@ -56,8 +78,8 @@ function Dock({ route, session }: { route: string[]; session: Session }) {
   });
 
   return (
-    <nav aria-label="Hauptnavigation" className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-2 pb-4">
-      <ul className="glass scroll-area pointer-events-auto flex max-w-full items-end gap-2 overflow-x-auto rounded-[26px] p-2.5 shadow-2xl sm:gap-3">
+    <nav ref={nav} aria-label="Hauptnavigation" className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <ul className="glass pointer-events-auto flex max-w-full flex-wrap items-end justify-center gap-2 overflow-visible rounded-[26px] p-2.5 shadow-2xl sm:gap-3">
         {items.map(item => (
           <li key={item.key} className="group relative shrink-0">
             <button
@@ -143,7 +165,7 @@ export function App() {
           ) : page === 'apps' && route[1] && allowed('apps') ? (
             <AppDetail key={route[1]} appId={route[1]} />
           ) : page === 'files' && allowed('files') ? (
-            <Files />
+            <Files key={route[1] || ''} initialShare={route[1]} />
           ) : page === 'vms' && allowed('vms') ? (
             <Vms />
           ) : page === 'settings' ? (

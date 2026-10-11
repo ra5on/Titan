@@ -250,12 +250,12 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         return {"ok": True, "default_storage": default_storage, "data_moved": False}
 
     def op_system_disk(self):
-        from .system_disk import SystemDisk
-        return SystemDisk().status()
+        from .debian_system_disk import DebianSystemDisk
+        return DebianSystemDisk().status()
 
     def op_system_disk_grow(self, expected_revision, confirmation):
-        from .system_disk import SystemDisk
-        return SystemDisk().grow(expected_revision=expected_revision, confirmation=confirmation)
+        from .debian_system_disk import DebianSystemDisk
+        return DebianSystemDisk().grow(expected_revision=expected_revision, confirmation=confirmation)
 
     def op_volume_create(self, name, disk, filesystem="ext4", confirmation_name=None, confirmation_disk=None, mirror=None):
         if any(item["name"] == "volumes" for item in self.op_storage()["pools"]):

@@ -42,6 +42,7 @@ MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardw
              "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_pci_update", "external_drive_mount", "external_drive_eject", "sync_job_save", "sync_job_remove", "sync_job_run", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
              "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "backup_app_restore", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore_new", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
+MUTATIONS.add('vm_nic_update')
 FILE_ACTIONS = {"mkdir", "upload", "rename", "trash", "trash_list", "restore", "copy", "move", "read", "write", "create", "create_document", "delete"}
 
 
@@ -737,7 +738,7 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 raise Error("Ungültige Upload-Metadaten.") from None
             if not isinstance(body, dict) or set(body) != {"share", "path", "upload_id", "offset", "total"}:
                 raise Error("Ungültige Upload-Metadaten.")
-            length = integer(self.headers.get("Content-Length", ""), 0, 4 * 1024 * 1024)
+            length = integer(self.headers.get("Content-Length", ""), 0, 8 * 1024 * 1024)
             data = self.rfile.read(length)
             if len(data) != length:
                 raise Error("Dateiblock wurde unvollständig übertragen.")

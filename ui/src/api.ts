@@ -92,8 +92,15 @@ export type Vm = {
   memory_mb: number;
   disk_gb: number;
   autostart: boolean;
+  cpu_ids?: number[];
+  firmware?: string;
+  boot?: string;
+  iso?: string | null;
+  network?: VmNetwork;
+  storage?: string;
   metrics?: { cpu_percent?: number; memory_resident_bytes?: number };
 };
+export type VmNetwork = { mode: string; source: string; model: string; mac: string; connected: boolean };
 export type VmList = { vms: Vm[]; available: boolean; error?: string };
 export type VmOptions = {
   storage: { id: string; label: string; available: boolean; free_bytes: number }[];
@@ -101,6 +108,8 @@ export type VmOptions = {
   isos: string[];
   disk_images: { id: string; name: string; virtual_size: number }[];
   firmwares: string[];
+  cpu_topology?: { cpus: { id: number; online: boolean; core_type?: string }[]; warnings?: string[] };
+  network_options?: { networks: { name: string; mode: string }[]; bridges: string[]; interfaces: string[]; warnings: string[] };
 };
 
 export type Storage = {
@@ -171,7 +180,7 @@ export async function action(operation: string, args: Record<string, unknown> = 
   return waitJob(job);
 }
 
-const CHUNK = 2 * 1024 * 1024;
+const CHUNK = 8 * 1024 * 1024;
 
 /** Chunked upload using the server's private staging and atomic commit protocol. */
 export async function uploadFile(share: string, path: string, file: File, onProgress: (fraction: number) => void, signal: AbortSignal) {
@@ -180,7 +189,7 @@ export async function uploadFile(share: string, path: string, file: File, onProg
   const base = { share, path, upload_id, total: file.size };
   let offset = 0;
   try {
-    while (offset < file.size) {
+    do {
       const chunk = file.slice(offset, offset + CHUNK);
       const response = await fetch('/api/file-upload', {
         method: 'POST',
@@ -194,9 +203,11 @@ export async function uploadFile(share: string, path: string, file: File, onProg
         body: chunk,
       });
       const result = await parse<{ offset: number }>(response);
+      if (result.offset !== Math.min(offset + CHUNK, file.size)) throw new ApiError('Upload-Position stimmt nicht überein.', 409);
       offset = result.offset;
       onProgress(file.size ? offset / file.size : 1);
-    }
+    } while (offset < file.size);
+    if (signal.aborted) throw new ApiError('Upload abgebrochen.', 499);
     await post('/api/files', { ...base, action: 'upload', finish: true });
     onProgress(1);
   } catch (error) {

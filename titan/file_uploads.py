@@ -150,7 +150,10 @@ def upload(directory, leaf, args):
         if value.st_uid != os.geteuid() or value.st_mode & 0o077:
             raise Error('Privates Upload-Verzeichnis ist nicht geschützt.', 409)
         fcntl.flock(private, fcntl.LOCK_SH)
-        _prune(private)
+        # A large transfer can have thousands of blocks. Cleanup is needed
+        # when beginning a transfer, not on every write of the same journal.
+        if args.get('offset', 0) == 0 and not finish and not cancel:
+            _prune(private)
         fd = os.open(token + '.json', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600, dir_fd=private)
         try:
             _regular(fd)
@@ -214,7 +217,7 @@ def upload(directory, leaf, args):
                 data = base64.b64decode(args.get('data', ''), validate=True)
             except (ValueError, TypeError, binascii.Error):
                 raise Error('Ungültiger Upload-Block.') from None
-            if len(data) > 4 * 1024 * 1024 or offset + len(data) > total:
+            if len(data) > 8 * 1024 * 1024 or offset + len(data) > total:
                 raise Error('Upload-Block ist zu groß.')
             if not raw:
                 try:
