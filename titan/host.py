@@ -21,6 +21,7 @@ from .vm_names import identity as vm_identity, set_title as set_vm_title
 from .vm_networks import VMNetworkMixin
 from .app_stores import StoreMixin
 from .vm_usb import USBMixin
+from .external_drives import ExternalDrivesMixin
 from .vm_storage import VMStorageMixin
 from .cpu_topology import CpuMixin
 from .components import ComponentsMixin
@@ -61,7 +62,7 @@ from .app_installation import AppInstallationMixin
 from .core import OperationCoordinator, job_resources
 
 
-class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ExternalDrivesMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -88,6 +89,8 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         if self.directory == Path('/var/lib/titan-agent'):
             self.web_access.resume()
             threading.Thread(target=self.reconcile_app_firewall, name='titan-app-firewall', daemon=True).start()
+            self.external_stop = threading.Event()
+            threading.Thread(target=self.external_automount_loop, args=(self.external_stop,), name='titan-usb-drives', daemon=True).start()
 
     def load(self, name, default):
         from .app_state import load_state
@@ -114,6 +117,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove", "identity_apply", "identity_home", "user_quota"}
         read_ops = {"web_health","app_office_runtime", "identity_capabilities", "identity_baseline", "identity_homes", "user_quotas", "storage_maintenance", "backup_browse", "notification_settings", "vm_extensions", "package_details", "package_diagnose", "package_logs", "docker_engine", "docker_metrics", "docker_container_details","services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
                     "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "app_devices", "app_metrics", "shares_access"}
+        read_ops |= {'external_drives', 'vm_pci'}
         read_ops |= {'root_terminal_create', 'root_terminal_poll', 'root_terminal_write', 'root_terminal_resize', 'root_terminal_close', 'pool_recovery'}
         file_read = operation in {"file", "admin_file", "system_file", "root_system_file"} and args.get("action") in {"list", "read", "trash_list"}
         share_ops = {"share_create", "share_update", "share_user_permission", "share_remove", "identity_apply", "identity_home", "user_quota"}
@@ -340,6 +344,10 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
     def op_file(self, user, share, action, path="", **arguments):
         return self._file_operation(user, share, action, path, arguments, False)
 
+    def open_file_root(self, record):
+        """Open a verified share root or a mounted USB drive root."""
+        return self.open_external_root(record["path"]) if record.get("external") else self.open_share_root(record["path"])
+
     def _file_operation(self, user, share, action, path, arguments, _admin):
         allowed = {"list": {"offset", "limit", "search", "recursive", "type", "min_size", "max_size", "modified_after", "modified_before"}, "read": {"offset", "size"},
                    "office_write": {"data", "revision"}, "write": {"data", "revision"}, "create": {"data"}, "create_document": {"document_type"}, "delete": {"confirmation_path"},
@@ -351,7 +359,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         if action == "delete" and not _admin:
             raise Error("Diese Dateiaktion erfordert Administratorrechte.", 403)
         self.require_active_account(user)
-        record = next((item for item in self.op_shares() if item["name"] == share), None)
+        record = next((item for item in self.op_shares() if item["name"] == share), None) or self.external_record(share)
         if not record:
             raise Error("Freigabe nicht gefunden.", 404)
         if record.get("blocked"):
@@ -360,13 +368,14 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
             raise Error("Kein Zugriff auf diese Freigabe.", 403)
         if not _admin and action not in ("list", "read", "trash_list", "copy") and user not in record["writers"]:
             raise Error("Die Freigabe ist schreibgeschützt.", 403)
-        source_fd = self.open_share_root(record["path"])
+        source_fd = self.open_file_root(record)
         os.close(source_fd)
         arguments = dict(arguments)
         if action == "delete" and arguments.pop("confirmation_path", None) != share + "/" + path:
             raise Error("Zum Löschen muss der vollständige angezeigte Pfad bestätigt werden.")
         target_system = False
         target_devices = {}
+        destination_record = None
         if action in ("copy", "move"):
             target_share = arguments.pop("destination_share", None) or share
             if target_share == SYSTEM_SHARE and _admin:
@@ -378,12 +387,13 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
                 arguments["destination"] = destination
                 arguments["destination_root"] = str(self.system_root)
             else:
-                target = next((item for item in self.op_shares() if item["name"] == target_share), None)
+                target = next((item for item in self.op_shares() if item["name"] == target_share), None) or self.external_record(target_share)
                 if not target or target.get("blocked") or (not _admin and user not in target["writers"]):
                     raise Error("Keine Schreibrechte auf der Zielfreigabe.", 403)
-                target_fd = self.open_share_root(target["path"])
+                target_fd = self.open_file_root(target)
                 os.close(target_fd)
                 arguments["destination_root"] = target["path"]
+                destination_record = target
         account = pwd.getpwnam("root" if _admin else user)
         with contextlib.ExitStack() as descriptors:
             inherited = []
@@ -391,11 +401,11 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
             if _admin:
                 # Administrators use root only within already verified, descriptor-bound shares.
                 # No user-controlled absolute path reaches the privileged worker.
-                root = self.open_share_root(root)
+                root = self.open_file_root(record)
                 descriptors.callback(os.close, root)
                 inherited.append(root)
                 if "destination_root" in arguments:
-                    target = os.open(self.system_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW) if target_system else self.open_share_root(arguments["destination_root"])
+                    target = os.open(self.system_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW) if target_system else self.open_file_root(destination_record)
                     descriptors.callback(os.close, target)
                     inherited.append(target)
                     arguments["destination_root"] = target

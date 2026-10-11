@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ChevronRight, Download, File as FileIcon, Folder, FolderPlus, HardDrive, Pencil, Trash2, Upload, X } from 'lucide-react';
-import { get, post, uploadFile } from '../api';
+import { ChevronRight, Download, ArrowUpFromLine, File as FileIcon, Folder, FolderPlus, HardDrive, Pencil, Trash2, Upload, Usb, X } from 'lucide-react';
+import { action, get, post, uploadFile } from '../api';
 import type { FileEntry, FileListing, Share } from '../api';
 import { bytes, cx, dateTime, message, useApi } from '../lib';
 import { Button, Confirm, Empty, Field, IconButton, Input, Loading, Meter, Modal, Notice, Sheet, useToast } from '../ui';
@@ -121,13 +121,30 @@ export function Files() {
     }
   };
 
+  const current = shares.data?.find(item => item.name === share);
+  const title = (item: Share) => (item.external ? item.label || 'USB-Laufwerk' : item.name);
+
+  const eject = async (item: Share) => {
+    try {
+      const result = await action('external_drive_eject', { name: item.name });
+      toast(String(result.message || 'Das Laufwerk kann jetzt abgezogen werden.'));
+      if (item.name === share) {
+        setShare('');
+        setPath('');
+      }
+      await shares.reload();
+    } catch (reason) {
+      toast(message(reason), true);
+    }
+  };
+
   const segments = path ? path.split('/') : [];
   const downloadUrl = (entry: FileEntry) => `/api/file?${new URLSearchParams({ share, path: join(path, entry.name) })}`;
 
   return (
     <Sheet
       title="Dateien"
-      subtitle={share ? `Freigabe „${share}“` : undefined}
+      subtitle={current ? (current.external ? `USB-Laufwerk „${title(current)}“` : `Freigabe „${share}“`) : undefined}
       actions={
         share && (
           <>
@@ -164,7 +181,7 @@ export function Files() {
             <div className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-white/40">Freigaben</div>
             <ul className="flex gap-1 overflow-x-auto md:block md:space-y-1">
               {shares.data.map(item => (
-                <li key={item.name}>
+                <li key={item.name} className="flex items-center gap-1">
                   <button
                     type="button"
                     aria-current={item.name === share}
@@ -174,8 +191,14 @@ export function Files() {
                     }}
                     className={cx('flex w-full items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm transition-colors', item.name === share ? 'bg-white/14 font-medium text-white' : 'text-white/65 hover:bg-white/8')}
                   >
-                    <HardDrive className="size-4 shrink-0" aria-hidden /> {item.name}
+                    {item.external ? <Usb className="size-4 shrink-0" aria-hidden /> : <HardDrive className="size-4 shrink-0" aria-hidden />}
+                    <span className="truncate">{title(item)}</span>
                   </button>
+                  {item.external && (
+                    <IconButton label={`${title(item)} auswerfen`} className="size-8 shrink-0" onClick={() => eject(item)}>
+                      <ArrowUpFromLine className="size-4" />
+                    </IconButton>
+                  )}
                 </li>
               ))}
             </ul>
@@ -199,7 +222,7 @@ export function Files() {
           >
             <nav aria-label="Pfad" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
               <button type="button" onClick={() => setPath('')} className="rounded-lg px-2 py-1 text-white/70 hover:bg-white/10 hover:text-white">
-                {share}
+                {current ? title(current) : share}
               </button>
               {segments.map((segment, index) => (
                 <span key={index} className="flex items-center gap-1">

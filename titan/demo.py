@@ -68,6 +68,12 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         self._temporary = tempfile.TemporaryDirectory(prefix="titan-demo-")
         self._private = Path(self._temporary.name)
         self._share_paths = {"dokumente": directory}
+        # One simulated USB stick: files live in an isolated demo folder.
+        self.external = [{"name": "extern-usb-stick-1a2b3c", "label": "USB-Stick", "device": "/dev/sdx1", "filesystem": "exfat", "size": 64 * 1024**3,
+                          "path": "/var/media/extern-usb-stick-1a2b3c", "mounted": True, "in_use_elsewhere": False, "total_bytes": 64 * 1024**3, "free_bytes": 48 * 1024**3}]
+        self._share_paths["extern-usb-stick-1a2b3c"] = self._private / "usb-stick"
+        self._share_paths["extern-usb-stick-1a2b3c"].mkdir()
+        (self._share_paths["extern-usb-stick-1a2b3c"] / "Urlaub.txt").write_text("Beispieldatei auf dem simulierten USB-Stick.\n")
         self._system_path = self._private / "system"
         for name in ("etc", "home/demo", "srv", "tmp", "var/media/demo-backup/Archiv", "var/media/demo-backup/Computer"):
             (self._system_path / name).mkdir(parents=True, exist_ok=True)
@@ -239,6 +245,13 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             return {'stores':[{'id':'titan','name':'Titan AppStore','enabled':True,'apps':len(APPS),'skipped':[]}],'presets':[]}
         if operation in ("app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle"):
             raise Error("Eigene Stores benötigen ein installiertes Titan-System. Die Demo lädt keine fremden Vorlagen.")
+        if operation == "external_drives":
+            return {"drives": copy.deepcopy(self.external)}
+        if operation in ("external_drive_eject", "external_drive_mount"):
+            drive = next((item for item in self.external if item["name"] == args.get("name")), None)
+            if drive is None: raise Error("USB-Laufwerk ist nicht angeschlossen.", 404)
+            drive["mounted"] = operation == "external_drive_mount"
+            return {"ok": True, "message": "Demo: Laufwerk eingehängt." if drive["mounted"] else "Demo: Das Laufwerk kann jetzt abgezogen werden."}
         if operation == "vm_usb":
             return {"devices": [], "selected": [], "editable": True}
         if operation == "vm_usb_update":
@@ -849,6 +862,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
                     "message": "Demo: Dienst ausschließlich simuliert; kein Hostprogramm oder systemd verändert."}
 
     def share(self, name):
+        if any(drive["name"] == name and drive["mounted"] for drive in self.external):
+            return {"name": name, "readers": [], "writers": [], "external": True}
         item = next((item for item in self.shares if item["name"] == name), None)
         if not item: raise Error("Freigabe nicht gefunden.", 404)
         if item.get("volume") and not any(volume["name"] == item["volume"] and volume["mounted"] for volume in self.volume_records):

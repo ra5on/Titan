@@ -79,7 +79,7 @@ export type InstallStatus = {
   demo?: boolean;
 };
 
-export type Share = { name: string; path: string; readers: string[]; writers: string[] };
+export type Share = { name: string; path: string; readers: string[]; writers: string[]; external?: boolean; label?: string; free_bytes?: number | null };
 export type FileEntry = { name: string; directory: boolean; symlink: boolean; size: number; modified: number };
 export type FileListing = { entries: FileEntry[]; path: string; total: number; has_more: boolean };
 

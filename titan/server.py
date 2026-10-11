@@ -38,7 +38,7 @@ WEB = Path(__file__).parent / "web"
 # the previous interface under /classic are still served from WEB.
 UI = Path(__file__).parent / "ui"
 MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "pool_replace", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
-             "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
+             "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_pci_update", "external_drive_mount", "external_drive_eject", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
              "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "backup_app_restore", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore_new", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
 FILE_ACTIONS = {"mkdir", "upload", "rename", "trash", "trash_list", "restore", "copy", "move", "read", "write", "create", "create_document", "delete"}
@@ -468,7 +468,13 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 return self.reply(load_layout(self.app.store, user["name"]))
             if path == "/api/shares":
                 shares = self.app.agent.call("shares")
-                return self.reply([item for item in shares if user["role"] == "admin" or user["system_user"] in item["readers"] + item["writers"]])
+                visible = [item for item in shares if user["role"] == "admin" or user["system_user"] in item["readers"] + item["writers"]]
+                if user["role"] == "admin":
+                    # Mounted USB drives are browsable locations for administrators.
+                    visible += [{"name": drive["name"], "path": drive["path"], "readers": [], "writers": [], "external": True,
+                                 "label": drive["label"], "free_bytes": drive.get("free_bytes"), "total_bytes": drive.get("total_bytes")}
+                                for drive in self.app.agent.call("external_drives")["drives"] if drive["mounted"]]
+                return self.reply(visible)
             if path == "/api/files":
                 if "recursive" in query and query["recursive"] not in ("0", "1"):
                     raise Error("Rekursive Suche muss 0 oder 1 sein.")
@@ -547,6 +553,12 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 return self.reply(self.app.agent.call("app_stores"))
             if path == "/api/vm-usb":
                 return self.reply(self.app.agent.call("vm_usb", vm=query["vm"]))
+            if path == "/api/vm-pci":
+                if set(query) != {"vm"}: raise Error("Genau eine VM auswählen.")
+                return self.reply(self.app.agent.call("vm_pci", vm=query["vm"]))
+            if path == "/api/external-drives":
+                if query: raise Error("Laufwerksübersicht unterstützt keine Optionen.")
+                return self.reply(self.app.agent.call("external_drives"))
             if path == "/api/catalog":
                 if self.app.demo:
                     from .catalog import catalog

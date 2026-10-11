@@ -504,6 +504,8 @@ class ManagementMixin:
 
     def op_share_create(self, name, readers, writers, dataset=None, volume=None, storage=None):
         name = identifier(name)
+        if name.startswith("extern-"):
+            raise Error("Namen mit „extern-“ sind für angeschlossene USB-Laufwerke reserviert.")
         shares = self.op_shares()
         if any(item["name"] == name for item in shares):
             raise Error("Freigabe existiert bereits.")

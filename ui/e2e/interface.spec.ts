@@ -265,6 +265,16 @@ test('the web terminal opens a session without style violations', async ({ page 
   expect(violations).toEqual([]);
 });
 
+test('a plugged-in USB drive appears in the file manager and can be ejected', async ({ page }) => {
+  await page.goto('/#/files');
+  await page.getByRole('button', { name: 'USB-Stick', exact: true }).click();
+  await expect(page.getByText('USB-Laufwerk „USB-Stick“')).toBeVisible();
+  if (!linuxOnly) await expect(page.getByText('Urlaub.txt', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'USB-Stick auswerfen' }).click();
+  await expect(page.getByText(/kann jetzt abgezogen werden/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'USB-Stick', exact: true })).toHaveCount(0);
+});
+
 test('previous interface stays reachable', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);
