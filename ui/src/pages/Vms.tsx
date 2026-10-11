@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Disc3, Usb, MonitorPlay, Plus, Power, PowerOff, RotateCw, Play, Trash2, X, Zap } from 'lucide-react';
+import { Cpu, Disc3, Usb, MonitorPlay, Plus, Power, PowerOff, RotateCw, Play, Trash2, X, Zap } from 'lucide-react';
 import { ISO_NAME, action, uploadIso } from '../api';
 import type { Vm, VmList, VmOptions } from '../api';
 import { bytes, message, useApi } from '../lib';
-import { VmUsbDialog } from './Devices';
+import { VmPciDialog, VmUsbDialog } from './Devices';
 import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Meter, Modal, Notice, Select, Sheet, StateDot, useToast } from '../ui';
 
 const STATES: Record<string, string> = { running: 'Läuft', 'shut off': 'Aus', paused: 'Pausiert', 'in shutdown': 'Fährt herunter', crashed: 'Abgestürzt' };
@@ -120,6 +120,7 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<'poweroff' | 'remove' | null>(null);
   const [usb, setUsb] = useState(false);
+  const [pci, setPci] = useState(false);
   const label = vm.display_name || vm.name;
   const running = vm.state === 'running';
   const off = vm.state === 'shut off';
@@ -179,6 +180,9 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
             <IconButton label={`USB-Geräte für ${label}`} disabled={busy} onClick={() => setUsb(true)}>
               <Usb className="size-4" />
             </IconButton>
+            <IconButton label={`Grafikkarte und PCI-Geräte für ${label}`} disabled={busy} onClick={() => setPci(true)}>
+              <Cpu className="size-4" />
+            </IconButton>
             <IconButton label="Neu starten" disabled={busy} onClick={() => run('reboot', 'Neustart angefordert.')}>
               <RotateCw className="size-4" />
             </IconButton>
@@ -195,6 +199,9 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
             <IconButton label={`USB-Geräte für ${label}`} disabled={busy} onClick={() => setUsb(true)}>
               <Usb className="size-4" />
             </IconButton>
+            <IconButton label={`Grafikkarte und PCI-Geräte für ${label}`} disabled={busy} onClick={() => setPci(true)}>
+              <Cpu className="size-4" />
+            </IconButton>
             {off ? (
               <IconButton label="VM löschen" disabled={busy} onClick={() => setConfirm('remove')}>
                 <Trash2 className="size-4" />
@@ -208,6 +215,7 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
         )}
       </div>
       {usb && <VmUsbDialog vm={vm.id} label={label} onClose={() => setUsb(false)} />}
+      {pci && <VmPciDialog vm={vm.id} label={label} onClose={() => setPci(false)} />}
       {confirm === 'poweroff' && (
         <Confirm
           title={`${label} sofort ausschalten?`}

@@ -22,6 +22,7 @@ from .vm_networks import VMNetworkMixin
 from .app_stores import StoreMixin
 from .vm_usb import USBMixin
 from .external_drives import ExternalDrivesMixin
+from .vm_pci import PCIMixin
 from .sync_jobs import SyncMixin
 from .vm_storage import VMStorageMixin
 from .cpu_topology import CpuMixin
@@ -63,7 +64,7 @@ from .app_installation import AppInstallationMixin
 from .core import OperationCoordinator, job_resources
 
 
-class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ExternalDrivesMixin, SyncMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, PCIMixin, ExternalDrivesMixin, SyncMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)

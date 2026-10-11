@@ -154,3 +154,70 @@ export function VmUsbDialog({ vm, label, onClose }: { vm: string; label: string;
     </Modal>
   );
 }
+
+type PciDevice = { address: string; kind: 'gpu' | 'accelerator'; name: string; driver: string | null; companions: string[]; blocked: boolean; reason: string; warning?: string };
+type VmPci = { devices: PciDevice[]; selected: string[]; iommu: boolean; editable: boolean };
+
+/** Graphics cards and accelerators handed to a virtual machine as whole PCI devices. */
+export function VmPciDialog({ vm, label, onClose }: { vm: string; label: string; onClose: () => void }) {
+  const toast = useToast();
+  const pci = useApi<VmPci>(`/api/vm-pci?vm=${encodeURIComponent(vm)}`);
+  const [selected, setSelected] = useState<string[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const current = selected ?? pci.data?.selected ?? [];
+
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await action('vm_pci_update', { vm, devices: current });
+      toast(`PCI-Geräte für „${label}“ gespeichert.`);
+      onClose();
+    } catch (reason) {
+      setError(message(reason));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={`Grafikkarte und PCI-Geräte für „${label}“`} onClose={onClose}>
+      {pci.loading ? (
+        <Loading />
+      ) : pci.error || !pci.data ? (
+        <Notice>{pci.error || 'PCI-Geräte konnten nicht gelesen werden.'}</Notice>
+      ) : (
+        <div className="space-y-4">
+          {!pci.data.iommu && <Notice tone="warn">IOMMU ist nicht aktiv. Schalte VT-d (Intel) oder AMD-Vi im BIOS/UEFI des NAS ein und starte neu.</Notice>}
+          {!pci.data.editable && <Notice tone="info">Zum Ändern die VM zuerst herunterfahren.</Notice>}
+          {pci.data.devices.length === 0 ? (
+            <p className="text-sm text-white/55">Titan hat keine Grafikkarte und keinen Beschleuniger gefunden, der sich durchreichen lässt.</p>
+          ) : (
+            <div>
+              {pci.data.devices.map(device => (
+                <Check
+                  key={device.address}
+                  title={device.name}
+                  detail={[device.address, device.companions.length ? `mit ${device.companions.join(', ')}` : '', device.reason || device.warning].filter(Boolean).join(' · ')}
+                  checked={current.includes(device.address)}
+                  disabled={!pci.data!.editable || busy || (device.blocked && !current.includes(device.address))}
+                  onChange={on => setSelected(on ? [...current, device.address] : current.filter(item => item !== device.address))}
+                />
+              ))}
+            </div>
+          )}
+          <p className="text-xs leading-relaxed text-white/45">
+            Ein durchgereichtes Gerät gehört der VM, solange sie läuft. Titan und Apps können es in dieser Zeit nicht verwenden; nach dem Ausschalten erhält Titan es zurück. Für Grafikkarten sollte die VM mit UEFI angelegt sein.
+          </p>
+          {error && <Notice>{error}</Notice>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>Abbrechen</Button>
+            <Button variant="primary" busy={busy} disabled={!pci.data.editable || selected === null} onClick={save}>
+              Speichern
+            </Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}

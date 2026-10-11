@@ -245,6 +245,24 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             return {'stores':[{'id':'titan','name':'Titan AppStore','enabled':True,'apps':len(APPS),'skipped':[]}],'presets':[]}
         if operation in ("app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle"):
             raise Error("Eigene Stores benötigen ein installiertes Titan-System. Die Demo lädt keine fremden Vorlagen.")
+        if operation in ("vm_pci", "vm_pci_update"):
+            record = next((item for item in self.vms if args.get("vm") in (item["id"], item["name"])), None)
+            if record is None: raise Error("VM nicht gefunden.", 404)
+            chosen = self.__dict__.setdefault("vm_pci_records", {})
+            taken = {address: owner for owner, addresses in chosen.items() if owner != record["id"] for address in addresses}
+            devices = [{"address": "0000:01:00.0", "kind": "gpu", "name": "Demo-Grafikkarte", "driver": "demo", "boot_vga": False,
+                        "companions": ["0000:01:00.1"], "blocked": "0000:01:00.0" in taken, "reason": "Zugeordnet: andere VM" if "0000:01:00.0" in taken else "",
+                        "selected": "0000:01:00.0" in chosen.get(record["id"], [])},
+                       {"address": "0000:05:00.0", "kind": "accelerator", "name": "Demo-Beschleuniger", "driver": None, "boot_vga": False, "companions": [],
+                        "blocked": True, "reason": "Teilt sich die IOMMU-Gruppe mit anderen Geräten (0000:06:00.0). Einen anderen Steckplatz verwenden.", "selected": False}]
+            if operation == "vm_pci":
+                return {"devices": devices, "selected": list(chosen.get(record["id"], [])), "iommu": True, "editable": record["state"] == "shut off", "firmware": record.get("firmware")}
+            if record["state"] != "shut off": raise Error("VM vor Änderungen an PCI-Geräten herunterfahren.", 409)
+            wanted = args.get("devices")
+            if not isinstance(wanted, list) or any(item not in ("0000:01:00.0",) for item in wanted) or ("0000:01:00.0" in wanted and "0000:01:00.0" in taken):
+                raise Error("PCI-Gerät nicht verfügbar.", 409)
+            chosen[record["id"]] = list(wanted)
+            return {"ok": True, "devices": list(wanted), "passed": ["0000:01:00.0", "0000:01:00.1"] if wanted else []}
         if operation == "sync_jobs":
             return {"jobs": copy.deepcopy(getattr(self, "sync_records", []))}
         if operation in ("sync_job_save", "sync_job_remove", "sync_job_run"):

@@ -123,6 +123,20 @@ test('device passthrough is offered for apps and virtual machines', async ({ pag
   await expect(page.getByRole('dialog').getByRole('option', { name: /linux-cloud\.qcow2/ })).toBeAttached();
 });
 
+test('a graphics card can be passed through to a stopped virtual machine', async ({ page }) => {
+  await page.goto('/#/vms');
+  await page.getByRole('button', { name: 'Grafikkarte und PCI-Geräte für E2E Gast' }).click();
+  const dialog = page.getByRole('dialog', { name: /Grafikkarte und PCI-Geräte/ });
+  await expect(dialog.getByRole('checkbox', { name: /Demo-Beschleuniger/ })).toBeDisabled();
+  await expect(dialog.getByText(/Teilt sich die IOMMU-Gruppe/)).toBeVisible();
+  await dialog.getByRole('checkbox', { name: /Demo-Grafikkarte/ }).check();
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('PCI-Geräte für „E2E Gast“ gespeichert.')).toBeVisible();
+  // The card now belongs to that VM and is no longer free for another one.
+  await page.getByRole('button', { name: 'Grafikkarte und PCI-Geräte für linux-lab' }).click();
+  await expect(page.getByRole('dialog').getByText('Zugeordnet: andere VM')).toBeVisible();
+});
+
 test('share access can be changed per user', async ({ page }) => {
   await page.goto('/#/settings/shares');
   await page.getByRole('button', { name: 'Zugriff auf dokumente ändern' }).click();
