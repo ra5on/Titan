@@ -109,6 +109,20 @@ class VMExtensionTests(unittest.TestCase):
         self.host.backups=manager
         return manager,target
 
+    def test_grow_selected_disk_preserves_guest_data_and_other_disks(self):
+        extra = self.host.op_vm_disk_add(self.vm, 1)['disk']
+        self.write(self.disk, 0x11)
+        self.write(Path(extra['disk']), 0x22)
+        with patch.object(self.host, 'prepare_vm_storage_access', create=True):
+            self.host.op_vm_disk_grow(self.vm, 2, target=extra['target'])
+        self.check(self.disk, 0x11)
+        self.check(Path(extra['disk']), 0x22)
+        info = self.host.op_vm_extensions(self.vm)
+        self.assertEqual(info['disks'][0]['virtual_size'], 16 * 1024**2)
+        self.assertEqual(info['disks'][1]['virtual_size'], 2 * 1024**3)
+        with self.assertRaises(Error):
+            self.host.op_vm_disk_grow(self.vm, 3, target='vdz')
+
     def test_real_snapshot_roundtrip_restores_all_disks_and_keeps_vm_off(self):
         added = self.host.op_vm_disk_add(self.vm, 1)
         extra = Path(added['disk']['disk'])

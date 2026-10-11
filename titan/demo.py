@@ -11,6 +11,7 @@ import threading
 import time
 import uuid
 from .core import Error, identifier, integer
+from .share_names import identity as share_identity, network_name
 from .vm_names import identity as vm_identity, display_name as vm_display_name
 from .catalog import APPS, published_ports, validate_options
 from .cpu_topology import demo_topology
@@ -653,8 +654,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
                 share["writers"] = [name for name in share["writers"] if name != item["name"]]
             return {"ok": True, "data_retained": True, "linux_account_retained": True}
         elif operation == "share_create":
-            name = identifier(args["name"])
-            if any(item["name"] == name for item in self.shares): raise Error("Freigabe existiert bereits.", 409)
+            name, label = share_identity(args["name"])
+            if any(item["name"] == name or network_name(item).casefold() == label.casefold() for item in self.shares): raise Error("Freigabe existiert bereits.", 409)
             self.validate_rights(args["readers"], args["writers"])
             volume = args.get("volume")
             storage = args.get("storage", "volume:" + volume if volume else "pool:" + args["dataset"].split("/", 1)[0] if args.get("dataset") else self._default_storage)
@@ -669,6 +670,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             directory.mkdir(parents=True, exist_ok=True)
             self._share_paths[name] = directory
             self.shares.append({"name": name, "path": display_path, "readers": args["readers"], "writers": args["writers"], "volume": volume, "storage_id": storage})
+            if label != name: self.shares[-1]['label'] = label
         elif operation == "share_update":
             item = self.share(args["name"])
             self.validate_rights(args["readers"], args["writers"], previous=item)

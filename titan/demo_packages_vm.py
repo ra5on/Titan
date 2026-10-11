@@ -11,7 +11,7 @@ from .vm_names import identity as vm_identity
 
 OPERATIONS = frozenset({'app_memory_preflight','package_details','package_diagnose','package_logs','package_repair','package_update','package_settings',
                         'vm_extensions','vm_clone','vm_snapshot_create','vm_snapshot_restore','vm_snapshot_restore_new','vm_snapshot_remove',
-                        'vm_disk_add','vm_disk_remove','vm_nic_add','vm_nic_remove','vm_guest_agent','vm_guest_action',
+                        'vm_disk_add','vm_disk_remove','vm_disk_grow','vm_nic_add','vm_nic_update','vm_nic_remove','vm_guest_agent','vm_guest_action',
                         'vm_backup','vm_restore'})
 
 
@@ -144,6 +144,14 @@ class DemoPackagesVMMixin:
             self._demo_vm_hardware[cloned['id']]=hardware
             return {'ok':True,'demo':True,'id':cloned['id'],'name':name,'source_vm':item['id'],'source_preserved':True,
                     'message':'Demo: Eigenständige neue VM simuliert; ursprüngliche VM bleibt erhalten.'}
+        elif operation == 'vm_disk_grow':
+            disk = next((disk for disk in state['disks'] if disk['target'] == args.get('target', 'vda')), None)
+            if not disk: raise Error('Laufwerk gehört nicht zu dieser VM.', 404)
+            size = integer(args['disk_gb'], 1, 16384) * 1024**3
+            if size <= disk['virtual_size']: raise Error('Nur vergrößern erlaubt.')
+            if state['snapshots']: raise Error('Vor dem Vergrößern vorhandene VM-Snapshots entfernen.', 409)
+            disk['virtual_size'] = size
+            if disk['boot']: item.update(disk_gb=size // 1024**3, virtual_size=size)
         elif operation == 'vm_disk_add':
             if state['snapshots']: raise Error('Vor dem Ändern der Laufwerksanzahl Snapshots entfernen.',409)
             if len(state['disks'])>=8: raise Error('Bis zu acht Laufwerke werden unterstützt.')
@@ -161,6 +169,13 @@ class DemoPackagesVMMixin:
             network=args.get('network',{})
             if not isinstance(network,dict) or network.get('mode') not in ('network','bridge','direct'): raise Error('Verfügbares Netzwerk auswählen.')
             state['networks'].append({'index':len(state['networks']),**network})
+        elif operation == 'vm_nic_update':
+            index = integer(args['index'], 0, max(0, len(state['networks']) - 1))
+            network = args.get('network', {})
+            if not state['networks'] or not isinstance(network, dict) or network.get('mode') not in ('network', 'bridge', 'direct'):
+                raise Error('Vorhandene Netzwerkkarte und verfügbares Netzwerk auswählen.')
+            state['networks'][index] = {'index': index, **network}
+            if index == 0: item['network'] = copy.deepcopy(network)
         elif operation == 'vm_nic_remove':
             index=integer(args['index'],0,len(state['networks'])-1)
             state['networks'].pop(index)

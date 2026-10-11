@@ -41,6 +41,18 @@ class AtomicUploadTests(unittest.TestCase):
     def chunk(self, value=b'abc', offset=0, **args):
         return self.call(offset=offset, data=base64.b64encode(value).decode(), **args)
 
+    def test_eight_mib_block_and_empty_file_use_atomic_commit(self):
+        for size in (0, 8 * 1024**2):
+            with self.subTest(size=size):
+                token = ('b' if size else 'c') * 64
+                name = str(size) + '.bin'
+                payload = b'x' * size
+                result = operate(self.root, 'upload', name, upload_id=token, total=size, offset=0, data=base64.b64encode(payload).decode())
+                self.assertEqual(result['offset'], size)
+                self.assertFalse((self.root / name).exists())
+                operate(self.root, 'upload', name, upload_id=token, total=size, finish=True)
+                self.assertEqual((self.root / name).read_bytes(), payload)
+
     def test_complete_file_is_exposed_only_by_confirmed_atomic_commit(self):
         self.assertEqual(self.chunk()['offset'], 3)
         self.assertFalse((self.root / 'upload.txt').exists())

@@ -84,6 +84,16 @@ class ManagedHostTests(unittest.TestCase):
             raise KeyError(name)
         return SimpleNamespace(pw_uid=uids[name], pw_gid=uids[name])
 
+    def test_friendly_smb_name_is_used_when_revoking_access(self):
+        shares = self.host.op_shares()
+        shares[0]['label'] = 'Meine Dateien'
+        self.host.save('shares', shares)
+        self.assertIn('[Meine Dateien]', self.host.share_config_text(shares))
+        self.host.close_user_shares('alice')
+        self.assertIn(['smbcontrol', 'smbd', 'close-share', 'Meine Dateien'], [call[0] for call in self.calls])
+        self.host.share_config_transaction([], close=['documents'])
+        self.assertEqual([call[0] for call in self.calls].count(['smbcontrol', 'smbd', 'close-share', 'Meine Dateien']), 2)
+
     def command(self, args, **kwargs):
         self.calls.append((args, kwargs))
         if args[0] == "pdbedit" and "-L" in args:

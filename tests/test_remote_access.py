@@ -131,6 +131,14 @@ class PublicProbeTests(unittest.TestCase):
         self.connection.request.assert_called_once_with('GET', '/api/tunnel-health?challenge=' + self.challenge,
             headers={'Host': 'nas.example.com', 'Accept': 'application/json'})
         self.response.read.assert_called_once_with(4097)
+
+    def test_empty_public_response_explains_tunnel_target(self):
+        self.response.read.return_value = b''
+        result = probe_public(self.config)
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['status'], 200)
+        self.assertIn('5102', result['message'])
+        self.assertIn('HTTP', result['message'])
         self.connection.close.assert_called_once()
 
     def test_any_nonpublic_dns_answer_prevents_all_network_connections(self):

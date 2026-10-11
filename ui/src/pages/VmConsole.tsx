@@ -38,7 +38,7 @@ export function VmConsole({ vmId }: { vmId: string }) {
   };
 
   return (
-    <section className="mx-auto flex h-full w-full max-w-[110rem] flex-col px-2 pb-24 pt-2 sm:px-4 sm:pt-4">
+    <section aria-label="VM-Konsole" className="mx-auto flex h-full w-full max-w-[110rem] flex-col px-2 pb-[var(--dock-clearance,108px)] pt-2 sm:px-4 sm:pt-4">
       <div className="glass flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl shadow-2xl animate-rise">
         <header className="flex flex-wrap items-center gap-2 border-b border-white/8 px-3 py-2">
           <IconButton label="Zurück zu den virtuellen Maschinen" onClick={() => go('vms')}>

@@ -24,7 +24,7 @@ export function AppWindow({ appId }: { appId: string }) {
 
   const running = app?.state === 'running';
   return (
-    <section className="mx-auto flex h-full w-full max-w-[110rem] flex-col px-2 pb-24 pt-2 sm:px-4 sm:pt-4">
+    <section className="mx-auto flex h-full w-full max-w-[110rem] flex-col px-2 pb-[var(--dock-clearance,108px)] pt-2 sm:px-4 sm:pt-4">
       <div className="glass flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl shadow-2xl animate-rise">
         <header className="flex items-center gap-2 border-b border-white/8 px-3 py-2">
           <IconButton label="Zurück zur Startseite" onClick={() => go()}>

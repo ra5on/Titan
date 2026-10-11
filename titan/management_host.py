@@ -10,6 +10,7 @@ import stat
 import tempfile
 
 from .core import Error, identifier, password_hash
+from .share_names import identity as share_identity, network_name
 
 
 PROTECTED = {"root", "titan", "titan-files", "titan-proxy"}
@@ -200,7 +201,7 @@ class ManagementMixin:
     def close_user_shares(self, name):
         for share in self.op_shares():
             if name in share["readers"] + share["writers"]:
-                self.command(["smbcontrol", "smbd", "close-share", share["name"]])
+                self.command(["smbcontrol", "smbd", "close-share", network_name(share)])
 
     def op_account_set_enabled(self, name, enabled):
         if type(enabled) is not bool:
@@ -480,7 +481,7 @@ class ManagementMixin:
         for share in shares:
             readers = [name for name in share["readers"] if name in active]
             writers = [name for name in share["writers"] if name in active]
-            config += [f"[{identifier(share['name'])}]", f"path = {share['path']}", "browseable = yes", "guest ok = no",
+            config += [f"[{network_name(share)}]", f"path = {share['path']}", "browseable = yes", "guest ok = no",
                        "access based share enum = yes", "inherit acls = yes",
                        "available = " + ("yes" if (readers or writers) and not share.get("blocked") and share["name"] not in self.suspended_shares else "no"), "read only = yes",
                        "valid users = " + " ".join(readers + writers), "write list = " + " ".join(writers),
@@ -489,6 +490,7 @@ class ManagementMixin:
 
     def share_config_transaction(self, shares, accounts=None, close=()):
         with self.account_lock, self.samba_lock:
+            closing_names = {item['name']: network_name(item) for item in self.op_shares()} if close else {}
             destination = self.samba_config
             previous = destination.read_text() if destination.exists() else ""
             destination.write_text(self.share_config_text(shares, accounts))
@@ -496,18 +498,18 @@ class ManagementMixin:
                 self.command(["testparm", "-s", "/etc/samba/smb.conf"])
                 self.command(["systemctl", "reload", host_platform().samba_unit.removesuffix(".service")])
                 for name in close:
-                    self.command(["smbcontrol", "smbd", "close-share", name])
+                    self.command(["smbcontrol", "smbd", "close-share", closing_names.get(name, name)])
             except Exception:
                 destination.write_text(previous)
                 self.command(["systemctl", "reload", host_platform().samba_unit.removesuffix(".service")])
                 raise
 
     def op_share_create(self, name, readers, writers, dataset=None, volume=None, storage=None):
-        name = identifier(name)
+        name, label = share_identity(name)
         if name.startswith("extern-"):
             raise Error("Namen mit „extern-“ sind für angeschlossene USB-Laufwerke reserviert.")
         shares = self.op_shares()
-        if any(item["name"] == name for item in shares):
+        if any(item["name"] == name or network_name(item).casefold() == label.casefold() for item in shares):
             raise Error("Freigabe existiert bereits.")
         readers, writers = self.share_members(readers, writers)
         if not readers and not writers:
@@ -540,6 +542,8 @@ class ManagementMixin:
         if any(item["path"] == str(path) for item in shares):
             raise Error("Dieser Pfad ist bereits freigegeben.")
         record = {"name": name, "path": str(path), "readers": readers, "writers": writers, "dataset": dataset, "storage_id": storage}
+        if label != name:
+            record['label'] = label
         if volume:
             record["volume"] = identifier(volume)
         updated = shares + [record]

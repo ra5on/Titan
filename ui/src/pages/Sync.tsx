@@ -50,7 +50,7 @@ function JobDialog({ shares, targets, taken, onClose, onSaved }: { shares: Share
           <Field label="Freigabe">
             <Select value={share} onChange={event => setShare(event.target.value)}>
               {free.map(item => (
-                <option key={item.name} value={item.name}>{item.name}</option>
+                <option key={item.name} value={item.name}>{item.label || item.name}</option>
               ))}
             </Select>
           </Field>

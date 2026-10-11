@@ -76,8 +76,11 @@ class VMNetworkMixin:
         ET.SubElement(node,'link',state='up' if connected else 'down')
         if old is not None:
             for child in old.findall('address'): node.append(child)
+            position = list(devices).index(old)
             devices.remove(old)
-        devices.append(node)
+            devices.insert(position, node)
+        else:
+            devices.append(node)
 
     def vm_selected_network_ready(self, root):
         for value in self.vm_network_interfaces(root):

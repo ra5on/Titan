@@ -139,7 +139,12 @@ def probe_public(config):
                         302: 'Weiterleitung oder Cloudflare Access verlangt eine Anmeldung.',
                         308: 'HTTP/HTTPS-Weiterleitung. Die angezeigte Tunnel-Zieladresse verwenden.'}
             return {'ok': False, 'status': response.status, 'message': messages.get(response.status, 'Öffentlicher Zugang antwortet mit HTTP ' + str(response.status) + '.')}
-        data = json.loads(payload) if len(payload) <= 4096 else {}
+        if not payload.strip():
+            return {'ok': False, 'status': 200, 'message': 'Die Domain antwortet leer (HTTP 200, 0 Bytes). In Cloudflare als Service-Typ HTTP und die angezeigte Tunnel-Zieladresse mit Port 5102 verwenden. Den HTTP-Host-Header nicht auf eine interne IP überschreiben.'}
+        try:
+            data = json.loads(payload) if len(payload) <= 4096 else {}
+        except (ValueError, UnicodeError):
+            data = {}
         ok = data == {'service': 'Titan', 'challenge': challenge, 'proof': proof(config)}
         return {'ok': ok, 'status': 200, 'message': 'Öffentliche HTTPS-Adresse erreicht dieses Titan.' if ok else 'Die Domain liefert nicht den Prüfendpunkt dieses Titan. Route oder Cloudflare Access prüfen.'}
     except ssl.SSLError:
