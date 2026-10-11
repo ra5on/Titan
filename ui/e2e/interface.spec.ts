@@ -203,6 +203,20 @@ test('a backup to another drive can be configured, run and verified', async ({ p
   await expect(page.locator('[aria-live=polite]')).toContainText(/geprüft|unverändert/);
 });
 
+test('a share can be mirrored continuously to another drive', async ({ page }) => {
+  await page.goto('/#/settings/backups');
+  await page.getByRole('button', { name: 'Einrichten' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Laufenden Abgleich einrichten' });
+  await dialog.getByRole('combobox', { name: /^Ziel/ }).selectOption('/var/media/demo-backup');
+  await dialog.getByLabel('Rhythmus').selectOption('1');
+  await dialog.getByRole('button', { name: 'Einrichten' }).click();
+  await expect(page.getByText('dokumente → /var/media/demo-backup/titan-sync/dokumente')).toBeVisible();
+  await page.getByRole('button', { name: 'Abgleich für dokumente jetzt starten' }).click();
+  await expect(page.getByText(/zuletzt .*Abgleich simuliert/)).toBeVisible();
+  await page.getByRole('button', { name: 'Abgleich für dokumente entfernen' }).click();
+  await expect(page.getByText('dokumente → /var/media/demo-backup/titan-sync/dokumente')).toHaveCount(0);
+});
+
 test('application rights and groups can be changed', async ({ page }) => {
   await page.goto('/#/settings/groups');
   await page.getByLabel('Apps und Docker für patrick').selectOption('allow');

@@ -22,6 +22,7 @@ from .vm_networks import VMNetworkMixin
 from .app_stores import StoreMixin
 from .vm_usb import USBMixin
 from .external_drives import ExternalDrivesMixin
+from .sync_jobs import SyncMixin
 from .vm_storage import VMStorageMixin
 from .cpu_topology import CpuMixin
 from .components import ComponentsMixin
@@ -62,7 +63,7 @@ from .app_installation import AppInstallationMixin
 from .core import OperationCoordinator, job_resources
 
 
-class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ExternalDrivesMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
+class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHostMixin, StorageServicesMixin, OfficeHostMixin, DockerEngineMixin, VMMetricsMixin, VMNetworkMixin, StoreMixin, USBMixin, ExternalDrivesMixin, SyncMixin, ManagementMixin, VMMixin, VMStorageMixin, CpuMixin, ComponentsMixin, IsoMixin, AppMixin, ServicesMixin, SystemFilesMixin, TerminalMixin, ServiceManagerMixin, LocationsMixin):
     def __init__(self, directory="/var/lib/titan-agent", share_root="/var/srv/titan", vm_root="/var/lib/libvirt/images/titan", samba_config="/etc/samba/titan-shares.conf"):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -91,6 +92,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
             threading.Thread(target=self.reconcile_app_firewall, name='titan-app-firewall', daemon=True).start()
             self.external_stop = threading.Event()
             threading.Thread(target=self.external_automount_loop, args=(self.external_stop,), name='titan-usb-drives', daemon=True).start()
+            threading.Thread(target=self.sync_loop, args=(self.external_stop,), name='titan-share-mirror', daemon=True).start()
 
     def load(self, name, default):
         from .app_state import load_state
@@ -117,7 +119,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         account_ops = {"accounts", "account_create", "account_password", "account_set_enabled", "account_update", "account_remove", "identity_apply", "identity_home", "user_quota"}
         read_ops = {"web_health","app_office_runtime", "identity_capabilities", "identity_baseline", "identity_homes", "user_quotas", "storage_maintenance", "backup_browse", "notification_settings", "vm_extensions", "package_details", "package_diagnose", "package_logs", "docker_engine", "docker_metrics", "docker_container_details","services", "service_details", "terminal_create", "terminal_poll", "terminal_write", "terminal_resize", "terminal_close", "components", "status", "storage", "snapshots", "apps", "app_details", "shares", "vms", "vm_options", "vm_usb", "vm_image_details", "cpu_topology", "isos", "iso_library", "update_check",
                     "monitoring", "monitoring_check", "monitoring_ack", "backup_settings", "volumes", "storage_locations", "system_updates", "update_progress", "system_disk", "app_networks", "app_devices", "app_metrics", "shares_access"}
-        read_ops |= {'external_drives', 'vm_pci'}
+        read_ops |= {'external_drives', 'vm_pci', 'sync_jobs'}
         read_ops |= {'root_terminal_create', 'root_terminal_poll', 'root_terminal_write', 'root_terminal_resize', 'root_terminal_close', 'pool_recovery'}
         file_read = operation in {"file", "admin_file", "system_file", "root_system_file"} and args.get("action") in {"list", "read", "trash_list"}
         share_ops = {"share_create", "share_update", "share_user_permission", "share_remove", "identity_apply", "identity_home", "user_quota"}

@@ -245,6 +245,26 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             return {'stores':[{'id':'titan','name':'Titan AppStore','enabled':True,'apps':len(APPS),'skipped':[]}],'presets':[]}
         if operation in ("app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle"):
             raise Error("Eigene Stores benötigen ein installiertes Titan-System. Die Demo lädt keine fremden Vorlagen.")
+        if operation == "sync_jobs":
+            return {"jobs": copy.deepcopy(getattr(self, "sync_records", []))}
+        if operation in ("sync_job_save", "sync_job_remove", "sync_job_run"):
+            records = self.__dict__.setdefault("sync_records", [])
+            share = self.share(args["share"])["name"]
+            current = next((item for item in records if item["share"] == share), None)
+            if operation == "sync_job_save":
+                self.demo_target(args["target"])
+                interval = integer(args.get("interval_minutes", 15), 1, 1440)
+                if type(args.get("delete", False)) is not bool or type(args.get("enabled", True)) is not bool: raise Error("Ungültiger Schalter.")
+                job = {"share": share, "target": args["target"], "interval_minutes": interval, "delete": args.get("delete", False), "enabled": args.get("enabled", True),
+                       "last_run": None, "last_ok": None, "last_message": "", "running": False, "destination": args["target"] + "/titan-sync/" + share}
+                records[:] = [item for item in records if item["share"] != share] + [job]
+                return {"ok": True, "job": copy.deepcopy(job)}
+            if current is None: raise Error("Für diese Freigabe ist kein Abgleich eingerichtet.", 404)
+            if operation == "sync_job_remove":
+                records.remove(current)
+                return {"ok": True, "data_retained": True}
+            current.update(last_run=time.time(), last_ok=True, last_message="Demo: Abgleich simuliert, keine Dateien kopiert.")
+            return {"ok": True, "message": current["last_message"], "stats": {"copied": 0, "unchanged": 0, "deleted": 0, "skipped": 0, "errors": 0, "bytes": 0}}
         if operation == "external_drives":
             return {"drives": copy.deepcopy(self.external)}
         if operation in ("external_drive_eject", "external_drive_mount"):

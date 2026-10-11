@@ -4,6 +4,7 @@ import { Archive, HardDriveDownload, RotateCcw, ShieldCheck } from 'lucide-react
 import { action, post } from '../api';
 import type { Share } from '../api';
 import { bytes, dateTime, message, useApi } from '../lib';
+import { SyncCard } from './Sync';
 import { Button, Card, Empty, Field, IconButton, Input, Loading, Modal, Notice, Select, useToast } from '../ui';
 
 type Settings = {
@@ -227,6 +228,8 @@ export function BackupsSection() {
           </div>
         </form>
       </Card>
+
+      <SyncCard shares={shares.data || []} targets={targets.map(item => ({ label: item.label, path: item.path }))} />
 
       <Card>
         <h2 className="text-sm font-semibold">Vorhandene Sicherungen</h2>
