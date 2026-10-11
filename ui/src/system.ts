@@ -19,6 +19,11 @@ export type AppAddress = { url: string | null; embeddable: boolean; reason?: str
 type RemoteAccess = { remote?: { enabled?: boolean; public_origin?: string; app_urls?: Record<string, string> } };
 let remote: Promise<RemoteAccess | null> | null = null;
 
+/** Forget the cached remote access settings after they changed. */
+export const forgetRemoteAccess = () => {
+  remote = null;
+};
+
 /**
  * Address of an app for this browser. On the NAS address it is the app's own
  * port; when Titan is opened through the configured public address, it is the

@@ -364,6 +364,14 @@ test('transparency, dock and start page can be customised per account', async ({
   await expect(dock.getByRole('button')).toHaveCount(5);
 });
 
+test('remote access settings explain the tunnel and report why the demo cannot save', async ({ page }) => {
+  await page.goto('/#/settings/remote');
+  await expect(page.getByText(/wird die App „Cloudflare Tunnel“ benötigt/)).toBeVisible();
+  await page.getByLabel('Öffentliche Adresse von Titan').fill('https://nas.example.org');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByRole('alert')).toContainText('echte Titan-Installation');
+});
+
 test('previous interface stays reachable', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);
