@@ -183,7 +183,7 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
 
 export function Settings({ session, section, onSessionChange }: { session: Session; section?: string; onSessionChange: () => Promise<void> }) {
   const admin = session.user?.role === 'admin';
-  const sections = SECTIONS.filter(item => !item.admin || admin);
+  const sections = SECTIONS.filter(item => item.id === 'backups' ? admin || session.permissions.backups?.allowed : item.id === 'docker' ? admin || session.permissions.apps?.allowed : !item.admin || admin);
   const managed: Feature[] = ['resources', 'security', 'web', 'monitoring', 'services', 'activity', 'logs', 'updates'];
   const active = sections.find(item => item.id === section)?.id || 'system';
 
@@ -234,7 +234,7 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
           {active === 'docker' && <DockerSection />}
           {active === 'terminal' && <TerminalSection />}
           {active === 'groups' && <GroupsSection />}
-          {active === 'backups' && <BackupsSection />}
+          {active === 'backups' && <BackupsSection session={session} />}
           {active === 'account' && <AccountSection name={session.user?.name || ''} onChanged={onSessionChange} />}
           {managed.includes(active as Feature) && <ManagementPanel key={active} feature={active as Feature} session={session} />}
         </div>

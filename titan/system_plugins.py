@@ -45,7 +45,7 @@ def offer(version=VERSION, digest=None):
     arch = architecture()
     if not isinstance(version, str) or not re.fullmatch(r'20[0-9]{2}\.[0-9]{1,2}\.[0-9]+', version):
         raise Error('Ungültige Cloudflare-Version.')
-    digest = digest or DIGESTS[arch]
+    digest = DIGESTS[arch] if digest is None else digest
     if not isinstance(digest, str) or not re.fullmatch(r'[a-f0-9]{64}', digest):
         raise Error('Cloudflare-Prüfsumme fehlt oder ist ungültig.')
     return {'version': version, 'sha256': digest, 'architecture': arch,
@@ -72,7 +72,7 @@ def latest_offer():
         if asset['browser_download_url'] != result['url']:
             raise ValueError()
         return result
-    except (OSError, ValueError, KeyError, TypeError, StopIteration):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, StopIteration):
         raise Error('Cloudflare-Update konnte nicht über das offizielle GitHub-Release geprüft werden. Bisheriger Stand bleibt erhalten.', 503) from None
 
 

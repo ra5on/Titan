@@ -49,7 +49,8 @@ export async function mountFeature(feature: Feature, host: HTMLElement, ctx: Dat
       paint(m.TitanServices.render(data, helpers));
       m.TitanServices.mount(host, { ...ctx, navigate: refresh }, data);
     } else if (feature === 'backups') {
-      const [data, settings, shares, locations] = await Promise.all([read('/api/backups'), read('/api/backup/settings'), read('/api/managed-shares'), read('/api/storage-locations?purpose=backup')]);
+      const admin = session?.user?.role === 'admin';
+      const [data, settings, shares, locations] = await Promise.all([read('/api/backups'), read('/api/backup/settings'), read(admin ? '/api/managed-shares' : '/api/shares'), admin ? read('/api/storage-locations?purpose=backup') : { items: [] }]);
       if (!valid()) return;
       current = { data, settings, shares, locations };
       paint(button('Jetzt sichern', 'backup-create', settings.target ? '' : 'disabled', 'primary') + m.TitanBackupCenter.render(data, settings, shares, locations, helpers));
@@ -125,7 +126,7 @@ export async function mountFeature(feature: Feature, host: HTMLElement, ctx: Dat
       });
       m.TitanBackupCenter.wireAppFields(ctx.dialogRoot()); return;
     }
-    if (command === 'backup-verify') { await ctx.action('backup_verify', { backup: ds.id }); await refresh(); return; }
+    if (command === 'backup-verify') { await ctx.action('backup_verify', { backup: ds.id }); ctx.toast('Sicherung geprüft; Dateien sind unverändert.'); await refresh(); return; }
     if (command === 'vm-restore') { ctx.dialog('VM als neue Maschine wiederherstellen', `<form><p>Die geprüfte Sicherung wird als neue ausgeschaltete VM importiert.</p>${field('Name der neuen VM', 'name', 'text', '', 'required maxlength="96"')}${formEnd('Wiederherstellen')}</form>`, (form: FormData) => ctx.action('vm_restore', { backup: ds.id, name: form.get('name') })); return; }
     if (command === 'backup-config-restore') { ctx.dialog('NAS-Konfiguration wiederherstellen', `<p class="notice warning">Gesicherte Benutzer, Freigabenrechte und NAS-Einstellungen ersetzen den aktuellen Stand. Datenordner bleiben erhalten. Titan sichert die aktuelle Konfiguration vorher. Weboberfläche und SMB werden kurz gestoppt. Alle Sitzungen enden; danach gelten die Konten und Passwörter aus der Sicherung.</p><form>${formEnd('Ja, wiederherstellen')}</form>`, () => ctx.action('backup_config_restore', { backup: ds.id, confirmation: ds.id })); return; }
     if (command === 'update-check') { const result = await ctx.api('/api/updates/check', { update_kind: 'all' }); await waitJob(result.job); await refresh(); return; }

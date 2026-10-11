@@ -62,6 +62,7 @@ export function PluginStore({ pluginId, admin }: { pluginId?: string; admin: boo
   return <Sheet title={item?.name || 'Plugins'} subtitle="Optionale Erweiterungen für dein Titan-System" actions={<Button size="sm" onClick={() => go('store')}><ArrowLeft className="size-4" /> App Store</Button>}>
     {!admin ? <Notice tone="info">Plugins werden von einem Administrator verwaltet.</Notice> : !pluginId ? <PluginTiles /> : data.loading ? <Loading /> : !item ? <Notice>{data.error || 'Plugin nicht gefunden.'}</Notice> : <div className="mx-auto max-w-3xl space-y-4">
       {data.data?.demo && <Notice tone="info">Demo: Plugin-Aktionen werden simuliert. Es werden keine Pakete oder Dienste auf dem Host verändert.</Notice>}
+      {data.error && <Notice>{data.error}</Notice>}
       <Card className="space-y-4">
         <div className="flex items-center gap-3"><PackageCheck className="size-8 text-brand" /><div><h2 className="font-semibold">{item.installed ? 'Installiert' : 'Verfügbar zur Installation'}{item.beta && <span className="ml-2 rounded-full bg-warn/15 px-2 py-0.5 text-xs text-warn">Beta</span>}</h2><p className="text-sm text-white/55">{item.description}</p></div></div>
         {item.beta && <p className="text-sm text-white/55">Dieses optionale Plugin ist noch nicht umfassend auf physischer Hardware erprobt.</p>}

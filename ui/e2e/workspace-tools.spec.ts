@@ -12,7 +12,7 @@ test('files can be created, edited with conflict protection, copied and restored
   await dialog.getByLabel('Dateiinhalt').fill('Erste Version ✓');
   await dialog.getByRole('button', { name: 'Speichern' }).click();
   await expect(dialog).toHaveCount(0);
-  await page.getByRole('button', { name: `Weitere Aktionen für ${name}` }).click();
+  await page.getByRole('button', { name: `Weitere Aktionen für ${name}`, exact: true }).click();
   await page.getByRole('menuitem', { name: 'Text bearbeiten' }).click();
   dialog = page.getByRole('dialog', { name: 'Text bearbeiten' });
   await expect(dialog.getByLabel('Dateiinhalt')).toHaveValue('Erste Version ✓');
@@ -27,7 +27,7 @@ test('files can be created, edited with conflict protection, copied and restored
   await page.unroute('**/api/files');
   await dialog.getByRole('button', { name: 'Speichern' }).click();
   await expect(dialog).toHaveCount(0);
-  await page.getByRole('button', { name: `Weitere Aktionen für ${name}` }).click();
+  await page.getByRole('button', { name: `Weitere Aktionen für ${name}`, exact: true }).click();
   await page.getByRole('menuitem', { name: 'Kopieren', exact: true }).click();
   dialog = page.getByRole('dialog', { name: 'Kopieren' });
   await dialog.getByLabel('Zielordner').fill(destination);
