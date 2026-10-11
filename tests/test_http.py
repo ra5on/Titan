@@ -110,6 +110,9 @@ class HTTPTests(unittest.TestCase):
         asset = re.search(rb'/ui-assets/[A-Za-z0-9_.-]+\.js', data)
         self.assertIsNotNone(asset, 'root page must load the built interface')
         self.assertIn("script-src 'self'", headers['Content-Security-Policy'])
+        # The terminal renderer needs the per-response style nonce on the new page too.
+        self.assertNotIn(b'__TITAN_STYLE_NONCE__', data)
+        self.assertIn("'nonce-", headers['Content-Security-Policy'])
         status, _, headers = self.request(asset[0].decode())
         self.assertEqual(status, 200)
         self.assertEqual(headers.get_all('Cache-Control'), ['private, no-cache'])

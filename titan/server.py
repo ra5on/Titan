@@ -662,7 +662,7 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         data = target.read_bytes()
         content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
         nonce = None
-        if target == (WEB / 'index.html').resolve():
+        if target in ((WEB / 'index.html').resolve(), (UI / 'index.html').resolve()):
             nonce = secrets.token_urlsafe(24)
             data = data.replace(b'__TITAN_STYLE_NONCE__', nonce.encode())
         extra = None

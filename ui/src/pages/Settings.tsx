@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Archive, BellRing, CheckCircle2, Download, FolderOpen, UsersRound, HardDrive, Info, KeyRound, LogOut, Power, RefreshCw, RotateCw, Users as UsersIcon } from 'lucide-react';
+import { Archive, BellRing, Boxes, SquareTerminal, CheckCircle2, Download, FolderOpen, UsersRound, HardDrive, Info, KeyRound, LogOut, Power, RefreshCw, RotateCw, Users as UsersIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { action, get, post, waitJob } from '../api';
 import type { Monitoring, Session, Status, Updates } from '../api';
@@ -9,6 +9,8 @@ import { SharesSection } from './Shares';
 import { StorageSection } from './StorageSection';
 import { BackupsSection } from './Backups';
 import { GroupsSection } from './Groups';
+import { DockerSection } from './Docker';
+import { TerminalSection } from './Terminal';
 import { AccountSection, UsersSection } from './Users';
 import { Button, Card, Confirm, Loading, Meter, Notice, Sheet, useToast } from '../ui';
 
@@ -20,6 +22,8 @@ const SECTIONS: Section[] = [
   { id: 'users', label: 'Benutzer', icon: UsersIcon, admin: true },
   { id: 'groups', label: 'Gruppen und Rechte', icon: UsersRound, admin: true },
   { id: 'backups', label: 'Sicherungen', icon: Archive, admin: true },
+  { id: 'docker', label: 'Docker', icon: Boxes, admin: true },
+  { id: 'terminal', label: 'Terminal', icon: SquareTerminal, admin: true },
   { id: 'updates', label: 'Updates', icon: Download, admin: true },
   { id: 'account', label: 'Mein Konto', icon: KeyRound },
 ];
@@ -294,11 +298,13 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
             ))}
           </ul>
         </nav>
-        <div className="min-w-0 max-w-2xl">
+        <div className={cx('min-w-0', active === 'terminal' || active === 'docker' ? 'max-w-4xl' : 'max-w-2xl')}>
           {active === 'system' && <SystemSection session={session} admin={admin} />}
           {active === 'storage' && <StorageSection />}
           {active === 'shares' && <SharesSection />}
           {active === 'users' && <UsersSection current={session.user?.name || ''} />}
+          {active === 'docker' && <DockerSection />}
+          {active === 'terminal' && <TerminalSection />}
           {active === 'groups' && <GroupsSection />}
           {active === 'backups' && <BackupsSection />}
           {active === 'account' && <AccountSection name={session.user?.name || ''} onChanged={onSessionChange} />}

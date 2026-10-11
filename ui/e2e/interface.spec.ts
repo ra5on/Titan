@@ -240,6 +240,31 @@ test('the system drive can be used fully and a new storage area created', async 
   await expect(page.getByText('btrfs', { exact: true })).toBeVisible();
 });
 
+test('containers are listed with controls and logs', async ({ page }) => {
+  await page.goto('/#/settings/docker');
+  await expect(page.getByText('titan-jellyfin')).toBeVisible();
+  await page.getByRole('button', { name: 'Protokoll von titan-jellyfin' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Demo');
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: /Images/ }).click();
+  await expect(page.getByText('nginx')).toBeVisible();
+});
+
+test('the web terminal opens a session without style violations', async ({ page }) => {
+  const violations: string[] = [];
+  page.on('console', entry => {
+    if (/Content Security Policy/i.test(entry.text())) violations.push(entry.text());
+  });
+  await page.goto('/#/settings/terminal');
+  await expect(page.locator('.xterm-screen')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.locator('.xterm-helper-textarea').focus();
+  await page.keyboard.type('help');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(800);
+  expect(violations).toEqual([]);
+});
+
 test('previous interface stays reachable', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);
