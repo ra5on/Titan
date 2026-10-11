@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('Cloudflare plugin has a complete lifecycle and keeps token out of persisted browser state', async ({ page, request }) => {
   const token = Buffer.from(JSON.stringify({ a: 'a'.repeat(32), t: '2c9069cd-5cf1-470f-9ddd-df156d3f2c57', s: Buffer.from('only-a-disposable-test-secret-12345').toString('base64') })).toString('base64');
   await page.goto('/#/store');
-  await page.getByRole('button', { name: /Cloudflare Tunnel Plugin/ }).click();
+  await page.getByRole('button', { name: /Cloudflare Tunnel.*Plugin/ }).click();
   await expect(page.getByText('Cloudflare-Ziel: Typ HTTP · URL 127.0.0.1:5102')).toBeVisible();
   await page.getByRole('button', { name: 'Installieren', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Plugin installieren' });

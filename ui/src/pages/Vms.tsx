@@ -6,6 +6,7 @@ import type { Vm, VmList, VmOptions } from '../api';
 import { bytes, go, message, useApi } from '../lib';
 import { VmPciDialog, VmUsbDialog } from './Devices';
 import { VmSettings } from './VmSettings';
+import { IsoLibrary } from './IsoLibrary';
 import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Menu, Meter, Modal, Notice, Select, Sheet, StateDot, useToast } from '../ui';
 
 const STATES: Record<string, string> = { running: 'Läuft', 'shut off': 'Aus', paused: 'Pausiert', 'in shutdown': 'Fährt herunter', crashed: 'Abgestürzt' };
@@ -227,6 +228,7 @@ export function Vms() {
   const vms = useApi<VmList>('/api/vms', 5000);
   const toast = useToast();
   const [creating, setCreating] = useState(false);
+  const [library, setLibrary] = useState(false);
   const [iso, setIso] = useState<{ name: string; fraction: number } | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
@@ -256,6 +258,7 @@ export function Vms() {
       actions={
         <>
           <Button size="sm" variant="ghost" onClick={() => go('settings', 'backups')}>VM-Sicherung wiederherstellen</Button>
+          <Button size="sm" onClick={() => setLibrary(true)}>ISO-Bibliothek</Button>
           <Button size="sm" disabled={!available || Boolean(iso)} onClick={() => picker.current?.click()}>
             <Disc3 className="size-4" /> ISO hochladen
           </Button>
@@ -276,6 +279,7 @@ export function Vms() {
         </>
       }
     >
+      {library && <IsoLibrary onClose={() => setLibrary(false)} />}
       {iso && (
         <div className="glass-soft mb-4 flex items-center gap-3 rounded-xl px-4 py-3">
           <div className="min-w-0 flex-1">

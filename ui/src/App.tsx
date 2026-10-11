@@ -165,7 +165,7 @@ export function App() {
           ) : page === 'apps' && route[1] && allowed('apps') ? (
             <AppDetail key={route[1]} appId={route[1]} />
           ) : page === 'files' && allowed('files') ? (
-            <Files key={route[1] || ''} initialShare={route[1]} />
+            <Files key={route[1] || ''} initialShare={route[1]} admin={session.user.role === 'admin'} />
           ) : page === 'vms' && allowed('vms') ? (
             <Vms />
           ) : page === 'settings' ? (

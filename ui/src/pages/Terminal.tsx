@@ -3,6 +3,7 @@ import { RotateCw } from 'lucide-react';
 import { post } from '../api';
 import { message } from '../lib';
 import { Button, Notice } from '../ui';
+import { RootAccess } from './RootAccess';
 
 // The terminal renderer is the locally vendored xterm build that the previous
 // interface ships; it is loaded on demand and never bundled into the app.
@@ -48,8 +49,11 @@ export function TerminalSection() {
   const [error, setError] = useState('');
   const [ended, setEnded] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [root, setRoot] = useState(false);
 
   useEffect(() => {
+    setError(''); setEnded('');
+    const endpoint = root ? '/api/root-terminal' : '/api/terminal';
     let disposed = false;
     let session = '';
     let stream: EventSource | null = null;
@@ -58,7 +62,7 @@ export function TerminalSection() {
     // Keystrokes are sent in order; a failed write ends the session visibly.
     let queue = Promise.resolve();
     const send = (body: Record<string, unknown>) => {
-      queue = queue.then(() => post('/api/terminal', body)).then(() => undefined, reason => { if (!disposed) setEnded(message(reason)); });
+      queue = queue.then(() => post(endpoint, body)).then(() => undefined, reason => { if (!disposed) setEnded(message(reason)); });
     };
 
     (async () => {
@@ -71,10 +75,10 @@ export function TerminalSection() {
         if (fit) terminal.loadAddon(fit);
         terminal.open(host.current);
         fit?.fit();
-        const created = await post<{ id: string }>('/api/terminal', { action: 'create', cols: terminal.cols, rows: terminal.rows });
+        const created = await post<{ id: string }>(endpoint, { action: 'create', cols: terminal.cols, rows: terminal.rows });
         session = created.id;
-        if (disposed) return void post('/api/terminal', { action: 'close', id: session }).catch(() => undefined);
-        stream = new EventSource(`/api/terminal/output?id=${session}`);
+        if (disposed) return void post(endpoint, { action: 'close', id: session }).catch(() => undefined);
+        stream = new EventSource(`${endpoint}/output?id=${session}`);
         stream.addEventListener('output', event => terminal?.write(decode(JSON.parse((event as MessageEvent).data).data)));
         stream.addEventListener('exit', event => {
           const result = JSON.parse((event as MessageEvent).data) as { error?: string };
@@ -96,9 +100,9 @@ export function TerminalSection() {
       observer?.disconnect();
       stream?.close();
       terminal?.dispose();
-      if (session) post('/api/terminal', { action: 'close', id: session }).catch(() => undefined);
+      if (session) post(endpoint, { action: 'close', id: session }).catch(() => undefined);
     };
-  }, [attempt]);
+  }, [attempt, root]);
 
   const restart = () => {
     setError('');
@@ -108,14 +112,15 @@ export function TerminalSection() {
 
   return (
     <div className="space-y-3">
+      <RootAccess onChange={setRoot} />
       {error && <Notice>{error}</Notice>}
       {ended && <Notice tone="info">{ended}</Notice>}
-      <div key={attempt} ref={host} aria-label="Terminal" className="h-[58dvh] min-h-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0e19] p-3" />
+      <div key={`${attempt}-${root}`} ref={host} aria-label="Terminal" className="h-[58dvh] min-h-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0e19] p-3" />
       <div className="flex flex-wrap items-center gap-3">
         <Button size="sm" onClick={restart}>
           <RotateCw className="size-4" /> Neue Sitzung
         </Button>
-        <span className="text-xs text-white/45">Das Terminal läuft ohne Root-Rechte im Datenbereich des NAS.</span>
+        <span className="text-xs text-white/45">{root ? 'Root-Terminal · endet mit dem Root-Modus.' : 'Das Terminal läuft ohne Root-Rechte im Datenbereich des NAS.'}</span>
       </div>
     </div>
   );

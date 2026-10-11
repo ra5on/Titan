@@ -224,7 +224,7 @@ test('a backup to another drive can be configured, run and verified', async ({ p
   await page.getByRole('dialog', { name: 'Sicherung starten' }).getByRole('button', { name: 'Sicherung starten', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Sicherung starten' })).not.toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Prüfen', exact: true }).first().click();
-  await expect(page.locator('[aria-live=polite]')).toContainText(/geprüft|unverändert/);
+  await expect(page.locator('[aria-live=polite]').filter({ hasText: /geprüft|unverändert/ })).toBeVisible();
 });
 
 test('a share can be mirrored continuously to another drive', async ({ page }) => {

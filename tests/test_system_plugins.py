@@ -71,8 +71,9 @@ class PluginTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.binary_root = self.root / 'plugins'
-        self.unit = self.root / 'unit.service'
-        self.host = Host(self.root)
+        self.unit = self.root / 'systemd' / 'unit.service'
+        directory = self.root / 'agent'; directory.mkdir(mode=0o700)
+        self.host = Host(directory)
         self.enterContext(patch('titan.system_plugins.ROOT', self.binary_root))
         self.enterContext(patch('titan.system_plugins.UNIT_PATH', self.unit))
         self.enterContext(patch('titan.system_plugins.platform.machine', return_value='x86_64'))
@@ -93,7 +94,7 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(remote['connector'], 'plugin-cloudflare')
         self.assertEqual(remote['service_url'], 'http://127.0.0.1:5102')
         self.assertEqual(remote['sources'], [])
-        private = self.root / 'cloudflare-plugin-token'
+        private = self.host.directory / 'cloudflare-plugin-token'
         self.assertEqual(private.read_text(), credential())
         self.assertEqual(private.stat().st_mode & 0o777, 0o600)
         unit = self.unit.read_text()
@@ -130,7 +131,7 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(self.host.web_access.config(), before)
         self.assertFalse(self.host.running)
         self.assertFalse(self.host.enabled)
-        self.assertEqual((self.root / 'cloudflare-plugin-token').read_text(), credential())
+        self.assertEqual((self.host.directory / 'cloudflare-plugin-token').read_text(), credential())
 
     def test_first_install_failure_removes_new_files_and_never_uses_stale_backup(self):
         self.binary_root.mkdir()
@@ -139,7 +140,7 @@ class PluginTests(unittest.TestCase):
         with patch('titan.system_plugins.time.monotonic', side_effect=[0, 30]):
             with self.assertRaises(Error): self.install()
         self.assertFalse((self.binary_root / 'cloudflared').exists())
-        self.assertFalse((self.root / 'cloudflare-plugin-token').exists())
+        self.assertFalse((self.host.directory / 'cloudflare-plugin-token').exists())
         self.assertFalse(self.unit.exists())
         self.assertFalse(self.host.enabled)
         self.assertFalse(self.host._cloudflare_installed())
@@ -183,7 +184,7 @@ class PluginTests(unittest.TestCase):
         self.act('remove')
         self.assertFalse(self.host.web_access.config()['remote']['enabled'])
         self.assertFalse(self.unit.exists())
-        self.assertFalse((self.root / 'cloudflare-plugin-token').exists())
+        self.assertFalse((self.host.directory / 'cloudflare-plugin-token').exists())
         self.assertEqual(neighbor.read_text(), 'keep')
 
     def test_state_revision_and_fixed_registry_reject_unreviewed_actions(self):
@@ -193,7 +194,7 @@ class PluginTests(unittest.TestCase):
         self.download.assert_not_called()
 
     def test_private_file_symlinks_and_other_user_access_are_rejected(self):
-        private = self.root / 'cloudflare-plugin-token'
+        private = self.host.directory / 'cloudflare-plugin-token'
         private.symlink_to(self.root / 'outside')
         with self.assertRaises(Error): self.install()
         private.unlink(); private.write_text(credential()); private.chmod(0o644)
