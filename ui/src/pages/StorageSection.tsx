@@ -113,6 +113,7 @@ function CreateDialog({ storage, onClose, onDone }: { storage: Storage; onClose:
                   ))}
                 </Select>
               </Field>
+              {filesystem === 'btrfs' && <p className="text-xs text-white/50">Beta · Btrfs-Spiegel und Laufwerkstausch sind noch nicht umfassend auf physischer Hardware erprobt.</p>}
               {filesystem === 'btrfs' && blank.length >= 2 && (
                 <Field label="Spiegeln auf" help="Mit einem zweiten Laufwerk liegt alles doppelt vor; eines darf ausfallen.">
                   <Select value={partner} onChange={event => setMirror(event.target.value)}>

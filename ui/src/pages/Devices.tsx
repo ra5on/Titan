@@ -122,6 +122,7 @@ export function VmUsbDialog({ vm, label, onClose }: { vm: string; label: string;
         <Notice>{usb.error || 'USB-Geräte konnten nicht gelesen werden.'}</Notice>
       ) : (
         <div className="space-y-4">
+          <p className="text-xs text-white/50">Beta · USB-Durchreichung ist noch nicht umfassend auf physischer Hardware erprobt.</p>
           {!usb.data.editable && <Notice tone="info">Zum Ändern die VM zuerst herunterfahren.</Notice>}
           {usb.data.devices.length === 0 ? (
             <p className="flex items-center gap-2 text-sm text-white/55">
@@ -188,6 +189,7 @@ export function VmPciDialog({ vm, label, onClose }: { vm: string; label: string;
         <Notice>{pci.error || 'PCI-Geräte konnten nicht gelesen werden.'}</Notice>
       ) : (
         <div className="space-y-4">
+          <p className="text-xs text-white/50">Beta · PCI-Durchreichung ist noch nicht umfassend auf physischer Hardware erprobt.</p>
           {!pci.data.iommu && <Notice tone="warn">IOMMU ist nicht aktiv. Schalte VT-d (Intel) oder AMD-Vi im BIOS/UEFI des NAS ein und starte neu.</Notice>}
           {!pci.data.editable && <Notice tone="info">Zum Ändern die VM zuerst herunterfahren.</Notice>}
           {pci.data.devices.length === 0 ? (

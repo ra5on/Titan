@@ -112,7 +112,7 @@ export function SyncCard({ shares, targets }: { shares: Share[]; targets: Target
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <RefreshCw className="size-4 text-white/50" aria-hidden /> Laufender Abgleich
           </h2>
-          <p className="mt-0.5 text-sm text-white/50">Hält eine Freigabe laufend als Kopie auf einer zweiten Platte.</p>
+          <p className="mt-0.5 text-sm text-white/50">Beta · Hält eine Freigabe laufend als Kopie auf einer zweiten Platte.</p>
         </div>
         <Button size="sm" onClick={() => setAdding(true)}>Einrichten</Button>
       </div>

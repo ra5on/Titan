@@ -18,7 +18,13 @@ for (const size of ['small', 'medium', 'large']) {
         return a && b ? b.y - (a.y + a.height) : -1;
       }).toBeGreaterThanOrEqual(11);
       await expect(dock.locator('ul')).toHaveCSS('overflow-x', 'visible');
-      expect(await dock.locator('ul').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      // Tooltips deliberately extend beyond the dock's glass surface. Check
+      // the controls themselves: every icon must remain inside the viewport.
+      for (const button of await dock.getByRole('button').all()) {
+        const box = await button.boundingBox();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      }
     }
   });
 }

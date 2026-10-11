@@ -46,6 +46,7 @@ export function GraphicsCard() {
       <h2 className="flex items-center gap-2 text-sm font-semibold">
         <Cpu className="size-4 text-white/50" aria-hidden /> Grafikkarte
       </h2>
+      {nvidia?.card && <p className="mt-2 text-xs text-white/50">Beta · Die optionale NVIDIA-Treiberinstallation ist noch nicht umfassend auf physischer Hardware erprobt.</p>}
       <ul className="mt-2 divide-y divide-white/6">
         {gpus.map(gpu => (
           <li key={gpu.pci} className="flex items-center justify-between gap-4 py-2.5 text-sm">
