@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { HardDrive, Maximize2, Plus } from 'lucide-react';
+import { HardDrive, Maximize2, Plus, Replace } from 'lucide-react';
 import { action } from '../api';
 import { bytes, cx, message, percent, useApi } from '../lib';
 import { Button, Card, Confirm, Field, Input, Loading, Meter, Modal, Notice, Select, useToast } from '../ui';
 
 type Disk = { name: string; size: number; model: string; type?: string; fstype: string | null; mountpoints?: (string | null)[]; children?: unknown[]; ro?: boolean };
-type Volume = { name: string; filesystem: string; mounted: boolean; state: string; total: number; used: number; free: number; error?: string | null };
+type Volume = {
+  name: string; filesystem: string; mounted: boolean; state: string; total: number; used: number; free: number; error?: string | null;
+  disks?: string[]; mirror?: boolean; degraded?: boolean; errors?: number; replacing?: { disk: string; percent: number | null } | null;
+};
 type Storage = {
   pools: { name: string; size: number; used: number; free: number; health: string }[];
   disks: Disk[];
@@ -47,13 +50,15 @@ function CreateDialog({ storage, onClose, onDone }: { storage: Storage; onClose:
   const [name, setName] = useState('');
   const [disk, setDisk] = useState(blank[0]?.name || '');
   const [filesystem, setFilesystem] = useState(filesystems[0] || 'ext4');
+  const [mirror, setMirror] = useState('');
   const [layout, setLayout] = useState('mirror');
   const [members, setMembers] = useState<string[]>([]);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const chosen = kind === 'single' ? [disk] : members;
+  const partner = filesystem === 'btrfs' && mirror !== disk ? mirror : '';
+  const chosen = kind === 'single' ? [disk, partner] : members;
   const expected = kind === 'single' ? disk : name;
   const enough = kind === 'single' ? Boolean(disk) : members.length >= LAYOUTS[layout].minimum;
 
@@ -62,7 +67,7 @@ function CreateDialog({ storage, onClose, onDone }: { storage: Storage; onClose:
     setBusy(true);
     setError('');
     try {
-      if (kind === 'single') await action('volume_create', { name, disk, filesystem, confirmation_name: name, confirmation_disk: typed });
+      if (kind === 'single') await action('volume_create', { name, disk, filesystem, confirmation_name: name, confirmation_disk: typed, ...(partner ? { mirror: [partner] } : {}) });
       else await action('pool_create', { name, layout, disks: members, confirmation: typed });
       toast(`Speicherbereich „${name}“ angelegt.`);
       onDone();
@@ -81,8 +86,8 @@ function CreateDialog({ storage, onClose, onDone }: { storage: Storage; onClose:
         <form onSubmit={submit} className="space-y-4">
           <Field label="Art">
             <Select value={kind} onChange={event => { setKind(event.target.value as 'single' | 'pool'); setTyped(''); }}>
-              <option value="single">Ein Laufwerk</option>
-              {blank.length >= 2 && <option value="pool">Verbund aus mehreren Laufwerken (ZFS, schützt vor Plattenausfall)</option>}
+              <option value="single">Einzelnes Laufwerk oder Btrfs-Spiegel</option>
+              {blank.length >= 2 && <option value="pool">ZFS-Verbund aus mehreren Laufwerken</option>}
             </Select>
           </Field>
           <Field label="Name" help="Kleinbuchstaben, Ziffern, - und _; beginnt mit einem Buchstaben.">
@@ -104,6 +109,16 @@ function CreateDialog({ storage, onClose, onDone }: { storage: Storage; onClose:
                   ))}
                 </Select>
               </Field>
+              {filesystem === 'btrfs' && blank.length >= 2 && (
+                <Field label="Spiegeln auf" help="Mit einem zweiten Laufwerk liegt alles doppelt vor; eines darf ausfallen.">
+                  <Select value={partner} onChange={event => setMirror(event.target.value)}>
+                    <option value="">Nicht spiegeln</option>
+                    {blank.filter(item => item.name !== disk).map(item => (
+                      <option key={item.name} value={item.name}>{item.model || 'Laufwerk'} · {bytes(item.size)} · {item.name}</option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
             </div>
           ) : (
             <>
@@ -143,12 +158,79 @@ function CreateDialog({ storage, onClose, onDone }: { storage: Storage; onClose:
   );
 }
 
+function ReplaceDialog({ volume, storage, onClose, onDone }: { volume: Volume; storage: Storage; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const blank = storage.disks.filter(isBlank);
+  const current = volume.disks || [];
+  const [member, setMember] = useState(current[0] || '');
+  const [disk, setDisk] = useState(blank[0]?.name || '');
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await action('volume_replace', { name: volume.name, disk, confirmation_name: volume.name, confirmation_disk: typed, ...(volume.degraded ? {} : { member }) });
+      toast('Der Austausch läuft. Die Daten bleiben währenddessen erreichbar.');
+      onDone();
+      onClose();
+    } catch (reason) {
+      setError(message(reason));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={`Laufwerk in „${volume.name}“ ersetzen`} onClose={onClose}>
+      {blank.length === 0 ? (
+        <Notice tone="info">Schließe zuerst ein leeres Ersatzlaufwerk an. Es muss mindestens so groß sein wie das alte.</Notice>
+      ) : (
+        <form onSubmit={submit} className="space-y-4">
+          {volume.degraded ? (
+            <Notice tone="warn">Dem Verbund fehlt ein Laufwerk. Titan baut dessen Inhalt aus der verbliebenen Kopie auf dem Ersatzlaufwerk neu auf.</Notice>
+          ) : (
+            <Field label="Altes Laufwerk" help="Es bleibt bis zum Abschluss im Verbund und kann danach entfernt werden.">
+              <Select value={member} onChange={event => setMember(event.target.value)}>
+                {current.map(item => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Field label="Ersatzlaufwerk">
+            <Select value={disk} onChange={event => { setDisk(event.target.value); setTyped(''); }}>
+              {blank.map(item => (
+                <option key={item.name} value={item.name}>{item.model || 'Laufwerk'} · {bytes(item.size)} · {item.name}</option>
+              ))}
+            </Select>
+          </Field>
+          <Notice tone="warn">
+            {disk} wird überschrieben. Zur Bestätigung <span className="font-mono font-semibold">{disk || '…'}</span> eingeben.
+          </Notice>
+          <Field label="Bestätigung">
+            <Input value={typed} onChange={event => setTyped(event.target.value)} autoCapitalize="none" spellCheck={false} autoComplete="off" required />
+          </Field>
+          {error && <Notice>{error}</Notice>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>Abbrechen</Button>
+            <Button type="submit" variant="danger" busy={busy} disabled={!disk || typed !== disk}>Ersetzen</Button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
 export function StorageSection() {
   const toast = useToast();
   const storage = useApi<Storage>('/api/storage', 30000);
   const system = useApi<SystemDisk>('/api/system-disk', 60000);
   const [creating, setCreating] = useState(false);
   const [growing, setGrowing] = useState(false);
+  const [replacing, setReplacing] = useState<Volume | null>(null);
 
   if (storage.loading) return <Loading />;
   if (storage.error && !storage.data) return <Notice>{storage.error}</Notice>;
@@ -189,12 +271,29 @@ export function StorageSection() {
               <HardDrive className="size-5 text-white/50" aria-hidden />
               <div>
                 <div className="font-semibold">{volume.name}</div>
-                <div className="text-xs uppercase text-white/45">{volume.filesystem}</div>
+                <div className="text-xs text-white/45">
+                  <span className="uppercase">{volume.filesystem}</span>
+                  {volume.mirror && ` · Spiegel aus ${(volume.disks || []).length} Laufwerken`}
+                </div>
               </div>
             </div>
-            <span className={cx('rounded-full px-2.5 py-0.5 text-xs font-medium', volume.mounted ? 'bg-ok/15 text-ok' : 'bg-warn/15 text-warn')}>{volume.state}</span>
+            <span className={cx('rounded-full px-2.5 py-0.5 text-xs font-medium', volume.degraded || volume.errors ? 'bg-bad/15 text-bad' : volume.mounted && !volume.replacing ? 'bg-ok/15 text-ok' : 'bg-warn/15 text-warn')}>{volume.state}</span>
           </div>
-          {volume.mounted ? <Usage used={volume.used} total={volume.total} free={volume.free} /> : volume.error && <p className="mt-3 text-sm text-warn">{volume.error}</p>}
+          {volume.mounted && <Usage used={volume.used} total={volume.total} free={volume.free} />}
+          {volume.replacing && (
+            <p className="mt-3 text-sm text-white/60">
+              Die Daten werden auf {volume.replacing.disk} übertragen{volume.replacing.percent != null ? ` (${Math.round(volume.replacing.percent)} %)` : ''}. Das NAS bleibt dabei benutzbar.
+            </p>
+          )}
+          {!volume.replacing && volume.error && <p className="mt-3 text-sm text-warn">{volume.error}</p>}
+          {volume.mirror && !volume.replacing && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-xs text-white/45">{(volume.disks || []).join(' · ')}</span>
+              <Button size="sm" variant={volume.degraded || volume.errors ? 'primary' : 'secondary'} onClick={() => setReplacing(volume)}>
+                <Replace className="size-4" /> Laufwerk ersetzen
+              </Button>
+            </div>
+          )}
         </Card>
       ))}
       {data.pools.map(pool => (
@@ -236,6 +335,7 @@ export function StorageSection() {
         <Button onClick={() => window.open('/classic#storage', '_blank', 'noopener')}>Plattentausch, Prüfläufe und Snapshots</Button>
       </div>
       {creating && <CreateDialog storage={data} onClose={() => setCreating(false)} onDone={storage.reload} />}
+      {replacing && <ReplaceDialog volume={replacing} storage={data} onClose={() => setReplacing(null)} onDone={storage.reload} />}
       {growing && disk && (
         <Confirm
           title="Ganzes Systemlaufwerk nutzen?"

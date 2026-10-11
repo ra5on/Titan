@@ -288,6 +288,9 @@ class Monitor:
                         warn("volume:" + name, "Datenvolume ist nicht eingehängt: " + name,
                              volume.get("error") or "Freigaben und Apps auf diesem Volume sind gesperrt.")
                         continue
+                    if volume.get("degraded") or volume.get("errors"):
+                        warn("volume:" + name, "Datenvolume braucht Aufmerksamkeit: " + name,
+                             volume.get("error") or "Ein Laufwerk des Verbunds ist ausgefallen oder meldet Fehler.", "error")
                     ratio = volume["used"] / volume["total"] if volume["total"] else 1
                     state["storage"].append({"name": "volume:" + name, "path": volume["mountpoint"],
                                              "total": volume["total"], "used": volume["used"],

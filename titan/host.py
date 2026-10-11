@@ -2,6 +2,7 @@ from .vm_metrics import VMMetricsMixin
 from .platforms import current as host_platform
 import contextlib
 import json
+import logging
 import os
 from pathlib import Path
 import pwd
@@ -95,6 +96,7 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
             self.external_stop = threading.Event()
             threading.Thread(target=self.external_automount_loop, args=(self.external_stop,), name='titan-usb-drives', daemon=True).start()
             threading.Thread(target=self.sync_loop, args=(self.external_stop,), name='titan-share-mirror', daemon=True).start()
+            threading.Thread(target=self.volume_loop, args=(self.external_stop,), name='titan-volume-care', daemon=True).start()
 
     def load(self, name, default):
         from .app_state import load_state
@@ -255,10 +257,26 @@ class Host(AppInstallationMixin, RemoteAccessMixin, WebAccessMixin, IdentityHost
         from .system_disk import SystemDisk
         return SystemDisk().grow(expected_revision=expected_revision, confirmation=confirmation)
 
-    def op_volume_create(self, name, disk, filesystem="ext4", confirmation_name=None, confirmation_disk=None):
+    def op_volume_create(self, name, disk, filesystem="ext4", confirmation_name=None, confirmation_disk=None, mirror=None):
         if any(item["name"] == "volumes" for item in self.op_storage()["pools"]):
             raise Error("Der vorhandene ZFS-Pool volumes belegt den reservierten Volume-Bereich.")
-        return self.volume_manager.create(name, disk, filesystem, confirmation_name, confirmation_disk)
+        return self.volume_manager.create(name, disk, filesystem, confirmation_name, confirmation_disk, mirror)
+
+    def op_volume_replace(self, name, disk, confirmation_name=None, confirmation_disk=None, member=None):
+        return self.volume_manager.replace(name, disk, confirmation_name, confirmation_disk, member)
+
+    def op_volume_maintain(self):
+        self.volume_manager.maintain()
+        return {"ok": True}
+
+    def volume_loop(self, stop, interval=60):
+        """Finish disk replacements and start the monthly Btrfs check."""
+        while not stop.wait(interval):
+            try:
+                if any(item["filesystem"] == "btrfs" for item in self.volume_manager.records()):
+                    self.dispatch("volume_maintain")
+            except Exception as exc:
+                logging.warning("Volume maintenance failed: %s", type(exc).__name__)
 
     def op_volume_mount(self, name):
         return self.volume_manager.mount(name)

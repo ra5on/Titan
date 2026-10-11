@@ -272,6 +272,33 @@ test('the system drive can be used fully and a new storage area created', async 
   await expect(page.getByText('btrfs', { exact: true })).toBeVisible();
 });
 
+test('a Btrfs mirror is created over two drives and a drive can be replaced', async ({ page }) => {
+  await page.goto('/#/settings/storage');
+  await page.getByRole('button', { name: 'Neuer Speicherbereich' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Neuer Speicherbereich' });
+  await dialog.getByLabel('Name').fill('spiegel');
+  await dialog.getByRole('combobox', { name: 'Laufwerk', exact: true }).selectOption('/dev/sde');
+  await dialog.getByLabel('Dateisystem').selectOption('btrfs');
+  await dialog.getByLabel('Spiegeln auf').selectOption('/dev/sdf');
+  await expect(dialog.getByText('/dev/sde, /dev/sdf wird formatiert.')).toBeVisible();
+  await dialog.getByLabel('Bestätigung').fill('/dev/sde');
+  await dialog.getByRole('button', { name: 'Formatieren und anlegen' }).click();
+  await expect(page.getByText('Spiegel aus 2 Laufwerken')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Laufwerk ersetzen' }).click();
+  const replace = page.getByRole('dialog', { name: /Laufwerk in „spiegel“ ersetzen/ });
+  await replace.getByLabel('Altes Laufwerk').selectOption('/dev/sdf');
+  await replace.getByLabel('Ersatzlaufwerk').selectOption('/dev/sdg');
+  // The spare drive is only overwritten after its exact path is typed.
+  await expect(replace.getByRole('button', { name: 'Ersetzen' })).toBeDisabled();
+  await replace.getByLabel('Bestätigung').fill('/dev/sdg');
+  await replace.getByRole('button', { name: 'Ersetzen' }).click();
+  await expect(page.getByText('Austausch läuft', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3500);
+  await page.reload();
+  await expect(page.getByText('/dev/sde · /dev/sdg')).toBeVisible();
+});
+
 test('containers are listed with controls and logs', async ({ page }) => {
   await page.goto('/#/settings/docker');
   await expect(page.getByText('titan-jellyfin')).toBeVisible();

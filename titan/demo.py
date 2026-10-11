@@ -63,7 +63,10 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         self.volume_records = []
         self.demo_disks = [{"name": "/dev/sda", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": "zfs_member", "ro": False, "mountpoints": []},
                            {"name": "/dev/sdb", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": "zfs_member", "ro": False, "mountpoints": []},
-                           {"name": "/dev/sdc", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []}]
+                           {"name": "/dev/sdc", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []},
+                           {"name": "/dev/sde", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []},
+                           {"name": "/dev/sdf", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []},
+                           {"name": "/dev/sdg", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []}]
         self.snapshots = []
         self._temporary = tempfile.TemporaryDirectory(prefix="titan-demo-")
         self._private = Path(self._temporary.name)
@@ -92,6 +95,22 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         self.directory.mkdir(parents=True, exist_ok=True)
         (self.directory / "Dokumente").mkdir(exist_ok=True)
         (self.directory / "Willkommen.txt").write_text("Willkommen bei Titan!\nDies ist eine isolierte Demo.\nDateien in dieser Vorschau liegen nur im Demo-Verzeichnis.\n")
+
+    def demo_volume_progress(self):
+        """Complete a simulated disk replacement a few seconds after it started."""
+        for volume in self.volume_records:
+            replacing = volume.get("replacing")
+            if not replacing:
+                continue
+            elapsed = time.time() - replacing["started"]
+            if elapsed < 3:
+                replacing["percent"] = round(elapsed / 3 * 100, 1)
+                continue
+            old = next((item for item in self.demo_disks if item["name"] == replacing["member"]), None)
+            if old:
+                old.update(fstype=None, uuid=None, mountpoints=[])
+            volume["disks"] = [replacing["disk"] if item == replacing["member"] else item for item in volume["disks"]]
+            volume.update(disk=volume["disks"][0], replacing=None, state="Eingehängt")
 
     def demo_storage_locations(self):
         purposes = ["files", "apps", "shares", "vms", "backups"]
@@ -349,6 +368,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             self._default_storage = resource["id"]
             return {"ok": True, "default_storage": resource["id"], "data_moved": False}
         if operation == "storage":
+            self.demo_volume_progress()
             return {"pools": copy.deepcopy(self.pools), "datasets": copy.deepcopy(self.datasets),
                     "disks": copy.deepcopy(self.demo_disks), "volumes": copy.deepcopy(self.volume_records),
                     "filesystems": {"ext4": {"available": True}, "xfs": {"available": True}, "btrfs": {"available": True}},
@@ -567,18 +587,39 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         if operation == "volume_create":
             name = identifier(args["name"])
             filesystem = args.get("filesystem", "ext4")
-            disk = next((item for item in self.demo_disks if item["name"] == args["disk"]), None)
+            mirror = args.get("mirror") or []
+            names = [args["disk"]] + mirror if isinstance(mirror, list) else []
+            disks = [next((item for item in self.demo_disks if item["name"] == value), None) for value in names]
             if args.get("confirmation_name") != name or args.get("confirmation_disk") != args["disk"] or filesystem not in ("ext4", "xfs", "btrfs"):
                 raise Error("Dateisystem oder Bestätigung ist ungültig.")
+            if mirror and (filesystem != "btrfs" or not isinstance(mirror, list) or len(names) > 4 or len(set(names)) != len(names)):
+                raise Error("Ein Btrfs-Verbund besteht aus zwei bis 4 verschiedenen Laufwerken.")
             if any(item["name"] == name for item in self.volume_records): raise Error("Volume existiert bereits.", 409)
+            if not disks or any(not disk or disk.get("fstype") or disk.get("children") or any(disk.get("mountpoints") or []) or disk.get("ro") for disk in disks):
+                raise Error("Nur ein vollständig leeres unpartitioniertes Laufwerk ist zulässig.")
+            size = min(disk["size"] for disk in disks) * len(disks) // (2 if mirror else 1)
+            volume = {"name": name, "disk": names[0], "disks": names, "mirror": bool(mirror), "filesystem": filesystem, "uuid": str(uuid.uuid4()),
+                      "mountpoint": "/var/srv/titan/volumes/" + name, "mounted": True, "state": "Eingehängt", "phase": "ready",
+                      "degraded": False, "errors": 0, "replacing": None, "total": size, "used": 0, "free": size}
+            self.volume_records.append(volume)
+            for disk in disks:
+                disk.update(fstype=filesystem, uuid=volume["uuid"], mountpoints=[volume["mountpoint"]] if disk is disks[0] else [])
+            return {"ok": True, "message": "Demo: " + filesystem.upper() + "-Volume isoliert simuliert; kein Laufwerk wurde formatiert."}
+        if operation == "volume_replace":
+            volume = next((item for item in self.volume_records if item["name"] == args.get("name")), None)
+            disk = next((item for item in self.demo_disks if item["name"] == args.get("disk")), None)
+            if not volume: raise Error("Volume nicht gefunden.", 404)
+            if not volume.get("mirror"): raise Error("Nur ein Btrfs-Verbund aus mehreren Laufwerken kann ein Laufwerk ersetzen.")
+            if args.get("confirmation_name") != volume["name"] or args.get("confirmation_disk") != args.get("disk"):
+                raise Error("Bestätigung ungültig. Volume-Name und exakten Laufwerkspfad bestätigen.")
+            if volume.get("replacing"): raise Error("Für diesen Verbund läuft bereits ein Austausch.", 409)
             if not disk or disk.get("fstype") or disk.get("children") or any(disk.get("mountpoints") or []) or disk.get("ro"):
                 raise Error("Nur ein vollständig leeres unpartitioniertes Laufwerk ist zulässig.")
-            volume = {"name": name, "disk": disk["name"], "filesystem": filesystem, "uuid": str(uuid.uuid4()),
-                      "mountpoint": "/var/srv/titan/volumes/" + name, "mounted": True, "state": "Eingehängt", "phase": "ready",
-                      "total": disk["size"], "used": 0, "free": disk["size"]}
-            self.volume_records.append(volume)
-            disk.update(fstype=filesystem, uuid=volume["uuid"], mountpoints=[volume["mountpoint"]])
-            return {"ok": True, "message": "Demo: " + filesystem.upper() + "-Volume isoliert simuliert; kein Laufwerk wurde formatiert."}
+            if args.get("member") not in volume["disks"]:
+                raise Error("Dem Verbund fehlt kein Laufwerk. Das zu ersetzende Laufwerk auswählen.", 409)
+            disk.update(fstype="btrfs", uuid=volume["uuid"])
+            volume.update(replacing={"disk": disk["name"], "member": args["member"], "percent": 0, "started": time.time()}, state="Austausch läuft")
+            return {"ok": True, "message": "Demo: Austausch nur simuliert; kein Laufwerk wurde verändert."}
         if operation == "volume_mount":
             volume = next((item for item in self.volume_records if item["name"] == args["name"]), None)
             if not volume: raise Error("Volume nicht gefunden.", 404)
