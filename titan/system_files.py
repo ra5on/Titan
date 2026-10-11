@@ -235,10 +235,11 @@ class SystemFilesMixin:
             raise Error(value["error"], value.get("status", 400))
         return value["result"]
 
-    def op_root_system_file(self, action, path="", **arguments):
-        """Trusted RPC; HTTP grants are checked before this operation is sent."""
+    def op_root_system_file(self, action, path="", owner=None, **arguments):
+        """Root file access; the agent requires its own confirmed lease for the caller."""
         if action not in ALLOWED or set(arguments) - ALLOWED[action]:
             raise Error("Ungültige Systemdateiaktion oder zusätzliche Parameter.")
+        self.require_root_grant(owner)
         destructive = action in ("delete", "rename", "move")
         relative = canonical_relative(self.system_root, path, parent_only=destructive or action in ("create", "create_document"))
         arguments = dict(arguments)

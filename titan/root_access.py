@@ -87,6 +87,10 @@ class RootAccessApplicationMixin:
         if not self._root_user_active(user):
             raise Error('Administratoranmeldung ist nicht mehr gültig.', 403)
         owner = terminal_owner(user)
+        if not self.demo:
+            # The agent confirms the password against the stored hash itself and
+            # keeps its own lease; without it no root operation is accepted.
+            self.agent.call('root_grant', owner=owner, name=user['name'], password=password, minutes=minutes)
         with self.root_access_lock:
             if owner not in self.root_access_grants and len(self.root_access_grants) >= 64:
                 raise Error('Zu viele aktive Administratorfreigaben.', 429)
@@ -101,6 +105,11 @@ class RootAccessApplicationMixin:
         with self.root_access_lock:
             grant = self.root_access_grants.pop(owner, None)
         self.close_root_terminal_owner(owner)
+        if grant and not self.demo:
+            try:
+                self.agent.call('root_revoke', owner=owner)
+            except Error:
+                pass  # The agent lease also ends at its deadline.
         if grant:
             self.store.audit(user['name'], 'root_access_disabled', reason)
         return {'enabled': False, 'expires': None, 'remaining_seconds': 0, 'demo': self.demo}
@@ -168,7 +177,7 @@ class RootAccessHTTPMixin:
         self.app.require_root_access(user)
         if self.app.demo:
             return demo_root_file(self.app.agent, **arguments)
-        return self.app.agent.call('root_system_file', **arguments)
+        return self.app.agent.call('root_system_file', owner=terminal_owner(user), **arguments)
 
 
 def demo_root_file(demo, action, path='', **arguments):
