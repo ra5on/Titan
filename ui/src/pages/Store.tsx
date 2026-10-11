@@ -3,10 +3,15 @@ import type { FormEvent } from 'react';
 import { ArrowLeft, BookOpen, Check, CircleDashed, ExternalLink, Search, XCircle } from 'lucide-react';
 import { get, post, waitJob } from '../api';
 import type { CatalogApp, InstallStatus, InstalledApp, SchemaField } from '../api';
-import { cx, go, message, useApi } from '../lib';
+import { bytes, cx, go, message, useApi } from '../lib';
 import { AppIcon, Button, Card, Empty, Field, Input, Loading, Notice, Select, Sheet, Spinner, useToast } from '../ui';
 
 type Catalog = { apps: CatalogApp[]; error?: string | null };
+type Locations = { resources: { id: string; label: string; available: boolean; free_bytes: number; capabilities?: string[] }[]; default_storage: string };
+type MemoryPlan = { allowed: boolean; available_bytes: number; required_available_bytes: number; package_limit_bytes: number; plan?: { container_count: number } };
+
+// Cloudflare Tunnel has its own installer contract: token and optional public address only.
+const TUNNEL = 'titan-cloudflared';
 
 const initial = (field: SchemaField) => String(field.display_default ?? field.default ?? '');
 
@@ -40,8 +45,16 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
   const toast = useToast();
   const statusPath = `/api/app-install?app=${encodeURIComponent(app.id)}`;
   const install = useApi<InstallStatus>(statusPath);
-  const fields = useMemo(() => (app.install_schema || []).filter(field => !field.generated), [app]);
+  const tunnel = app.id === TUNNEL;
+  const fields = useMemo(() => (app.install_schema || []).filter(field => !field.generated && !(app.id === TUNNEL && field.key === 'resource_profile')), [app]);
+  const hasWeb = app.web_available !== false && Boolean(app.default_port);
+  const locations = useApi<Locations>(tunnel ? null : '/api/storage-locations');
+  const targets = (locations.data?.resources || []).filter(item => item.available && (!item.capabilities || item.capabilities.includes('apps')));
   const [values, setValues] = useState<Record<string, string>>({});
+  const [storage, setStorage] = useState('');
+  const [port, setPort] = useState(String(app.default_port || ''));
+  const [publicOrigin, setPublicOrigin] = useState('');
+  const [plan, setPlan] = useState<MemoryPlan | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [live, setLive] = useState<InstallStatus | null>(null);
@@ -70,6 +83,19 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
     };
   }, [running, statusPath]);
 
+  // Ask the agent whether the selected RAM profile fits before offering the install.
+  const profile = values.resource_profile;
+  useEffect(() => {
+    if (tunnel || !profile) return;
+    let stale = false;
+    post<MemoryPlan>('/api/apps/memory-plan', { app: app.id, options: { resource_profile: profile } })
+      .then(value => !stale && setPlan(value))
+      .catch(() => !stale && setPlan(null));
+    return () => {
+      stale = true;
+    };
+  }, [app.id, profile, tunnel]);
+
   const state = live || install.data;
   const installed = Boolean(installedApp) || Boolean(state?.installed);
 
@@ -78,7 +104,11 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
     setError('');
     setRunning(true);
     try {
-      const options = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== ''));
+      const numeric = new Set(fields.filter(field => field.type === 'number').map(field => field.key));
+      const entered = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== '').map(([key, value]) => [key, numeric.has(key) ? Number(value) : value]));
+      const options = tunnel
+        ? { tunnel_token: entered.tunnel_token, ...(publicOrigin ? { public_origin: publicOrigin } : {}) }
+        : { ...entered, storage_id: storage || locations.data?.default_storage || 'system', ...(hasWeb ? { port: Number(port) } : {}) };
       const { job } = resume
         ? await post<{ job: string }>('/api/app-install/resume', { app: app.id, expected_revision: state.revision })
         : await post<{ job: string }>('/api/app-install', { app: app.id, options, expected_revision: state.revision });
@@ -159,22 +189,25 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
                   <ExternalLink className="size-4" /> Öffnen
                 </Button>
               ) : (
-                <p className="text-sm text-white/55">Die App ist gestoppt. Auf der Startseite über das App-Menü starten.</p>
+                <p className="text-sm text-white/55">Die App läuft gerade nicht oder hat keine eigene Weboberfläche.</p>
               )}
+              <Button className="w-full" onClick={() => go('apps', installedApp?.id || app.id)}>
+                Verwalten und Protokoll
+              </Button>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
               <dl className="grid grid-cols-2 gap-3 text-sm">
-                {app.port && (
+                {plan?.plan && (
                   <div>
-                    <dt className="text-xs text-white/45">Port</dt>
-                    <dd className="mt-0.5 font-medium tabular-nums">{app.port}</dd>
+                    <dt className="text-xs text-white/45">Container</dt>
+                    <dd className="mt-0.5 font-medium tabular-nums">{plan.plan.container_count}</dd>
                   </div>
                 )}
-                {app.memory && (
+                {(plan || app.memory) && (
                   <div>
-                    <dt className="text-xs text-white/45">RAM-Grenze</dt>
-                    <dd className="mt-0.5 font-medium">{app.memory.toUpperCase()}</dd>
+                    <dt className="text-xs text-white/45">RAM-Obergrenze</dt>
+                    <dd className="mt-0.5 font-medium">{plan ? bytes(plan.package_limit_bytes) : app.memory!.toUpperCase()}</dd>
                   </div>
                 )}
               </dl>
@@ -183,7 +216,7 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
                   <Field key={field.key} label={field.label + (field.required ? '' : ' (optional)')} help={field.help}>
                     {field.choices ? (
                       <Select value={values[field.key] ?? ''} onChange={event => setValues({ ...values, [field.key]: event.target.value })} required={field.required}>
-                        {field.choices.map(([value, label]) => (
+                        {field.choices.filter(([value]) => value !== 'legacy').map(([value, label]) => (
                           <option key={value} value={value}>
                             {label}
                           </option>
@@ -201,6 +234,32 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
                     )}
                   </Field>
                 ))}
+              {!showSteps && tunnel && (
+                <Field label="Öffentliche Adresse (optional)" help="Die HTTPS-Adresse, die im Cloudflare-Konto auf dieses NAS zeigt, z. B. https://nas.example.org.">
+                  <Input type="url" value={publicOrigin} onChange={event => setPublicOrigin(event.target.value)} placeholder="https://" autoComplete="off" />
+                </Field>
+              )}
+              {!showSteps && !tunnel && targets.length > 0 && (
+                <Field label="Speicherort" help="Konfiguration und Daten der App liegen auf diesem Speicher und bleiben beim Deinstallieren erhalten.">
+                  <Select value={storage || locations.data?.default_storage} onChange={event => setStorage(event.target.value)}>
+                    {targets.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.label} · {bytes(item.free_bytes)} frei
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+              {!showSteps && hasWeb && (
+                <Field label="Port" help="Unter diesem Port ist die App im Heimnetz erreichbar.">
+                  <Input type="number" min={1024} max={65535} value={port} onChange={event => setPort(event.target.value)} required />
+                </Field>
+              )}
+              {!showSteps && plan && !plan.allowed && (
+                <Notice tone="warn">
+                  Zu wenig freier Arbeitsspeicher: benötigt werden {bytes(plan.required_available_bytes)} verfügbar, vorhanden sind {bytes(plan.available_bytes)}. Andere Apps oder VMs stoppen oder ein kleineres RAM-Profil wählen.
+                </Notice>
+              )}
               {showSteps && state && (
                 <ol className="space-y-2.5">
                   {state.steps.map(step => (
@@ -223,7 +282,7 @@ function Detail({ app, installedApp, onChanged }: { app: CatalogApp; installedAp
                   Installation fortsetzen
                 </Button>
               ) : (
-                <Button type="submit" variant="primary" className="w-full" busy={running} disabled={!state || state.demo}>
+                <Button type="submit" variant="primary" className="w-full" busy={running} disabled={!state || state.demo || Boolean(plan && !plan.allowed)}>
                   {running ? 'Wird installiert …' : 'Installieren'}
                 </Button>
               )}

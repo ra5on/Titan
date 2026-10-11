@@ -52,6 +52,8 @@ export type CatalogApp = {
   category: string;
   description: string;
   port: number | null;
+  default_port?: number;
+  web_available?: boolean;
   memory?: string;
   color?: string;
   symbol?: string;

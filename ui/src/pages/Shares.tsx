@@ -6,7 +6,7 @@ import type { Share } from '../api';
 import { bytes, go, message, useApi } from '../lib';
 import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Modal, Notice, Select, useToast } from '../ui';
 
-type Locations = { resources: { id: string; label: string; available: boolean; free_bytes: number }[]; default_storage: string };
+type Locations = { resources: { id: string; label: string; available: boolean; free_bytes: number; capabilities?: string[] }[]; default_storage: string };
 type Accounts = { system: { name: string; enabled: boolean }[] };
 type Access = { host_addresses: { address: string; scope: string }[]; service_active: boolean };
 type Right = 'none' | 'read' | 'write';
@@ -92,7 +92,7 @@ function CreateShare({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [error, setError] = useState('');
 
   const users = (accounts.data?.system || []).filter(user => user.enabled && user.name !== SERVICE_USER);
-  const targets = (locations.data?.resources || []).filter(item => item.available);
+  const targets = (locations.data?.resources || []).filter(item => item.available && (!item.capabilities || item.capabilities.includes('shares')));
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();

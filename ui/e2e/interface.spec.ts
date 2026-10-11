@@ -39,6 +39,17 @@ test('app store lists, filters and opens an app', async ({ page }) => {
   await expect(page).toHaveURL(/#\/store$/);
 });
 
+test('Immich install form offers storage, port and a RAM check', async ({ page }) => {
+  await page.goto('/#/store/titan-immich');
+  await expect(page.getByRole('heading', { name: 'Immich' })).toBeVisible();
+  await expect(page.getByLabel('Speicherort')).toBeVisible();
+  await expect(page.getByLabel('Port')).toHaveValue('2283');
+  await expect(page.getByLabel('RAM-Profil').getByRole('option')).toHaveCount(2);
+  // The demo host has 8 GiB; the full Immich stack does not fit and must say so up front.
+  await expect(page.getByText(/Zu wenig freier Arbeitsspeicher/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Installieren' })).toBeDisabled();
+});
+
 test('virtual machines can be created and controlled', async ({ page }) => {
   await page.goto('/#/vms');
   await expect(page.getByText('linux-lab')).toBeVisible();

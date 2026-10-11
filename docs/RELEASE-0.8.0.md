@@ -7,8 +7,9 @@ im Stable-Kanal erhalten sie nicht als Update.
 
 - Neue Startseite ohne Fensterverwaltung: installierte Apps als Symbole, drei
   Live-Kacheln für CPU, RAM und Speicher, feste Navigation am unteren Rand.
-- App Store mit Empfehlung, Kategorien, Suche und einer Detailseite, die die
-  echten Installationsschritte des Systemdienstes anzeigt.
+- App Store mit Empfehlung, Kategorien, Suche und einer Detailseite. Vor der
+  Installation wählst du Speicherort, Port und RAM-Profil; Titan prüft vorab,
+  ob der Arbeitsspeicher reicht, und zeigt danach die echten Installationsschritte.
 - Dateimanager mit Upload-Fortschritt, Abbrechen, Download, Umbenennen und
   Papierkorb.
 - Virtuelle Maschinen: Start, Herunterfahren, Neustart, Konsole, neue VM und
@@ -24,7 +25,8 @@ im Stable-Kanal erhalten sie nicht als Update.
 Agent-API, Datenbankschema und alle Serverfunktionen bleiben wie in 0.7.0. Die
 bisherige Oberfläche ist unter `/classic` erreichbar. Dort liegen weiterhin
 Speicherbereiche anlegen, Gruppen und App-Rechte, Sicherungen, Docker-Ansicht,
-Terminal, Fotos und die erweiterte VM-Verwaltung.
+Terminal und die erweiterte VM-Verwaltung. Die eigene Fotos-Anwendung wird
+nicht übernommen; für Fotos ist Immich aus dem App Store vorgesehen.
 
 ## Grenzen
 
