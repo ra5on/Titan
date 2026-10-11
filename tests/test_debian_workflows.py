@@ -103,6 +103,46 @@ class DebianWorkflowTests(unittest.TestCase):
         self.assertNotEqual(result.returncode,0)
         self.assertEqual(result.stdout,b'');self.assertEqual(result.stderr,b'')
 
+    def test_standalone_web_workflow_checks_compatibility_before_tag_or_registry(self):
+        steps = self.load('web-container.yml')['jobs']['container']['steps']
+        names = [step.get('name', '') for step in steps]
+        guard = names.index('Require explicit compatibility with existing host agents')
+        self.assertIn('require-standalone-web.py', steps[guard]['run'])
+        self.assertLess(guard, names.index('Reserve immutable web release tag before building'))
+        self.assertLess(guard, names.index('Publish immutable version and commit images'))
+
+    def test_system_publication_keeps_web_image_bundled_and_refuses_stale_web_offer(self):
+        for stale in (False, True):
+            with self.subTest(stale=stale), tempfile.TemporaryDirectory() as temporary:
+                work = Path(temporary)
+                release = work / 'dist/debian-image'
+                release.mkdir(parents=True)
+                (work / 'dist/web-container').mkdir()
+                (work / 'dist/web-container/web-image.tar').write_bytes(b'bundled-only')
+                (work / 'dist/web-container/web-image.json').write_text('{}')
+                (release / 'debian-sources.tar.part-000').write_bytes(b'source')
+                (work / 'docs').mkdir()
+                (work / 'docs/DEBIAN-SOURCES.md').write_text('sources')
+                (work / 'bin').mkdir()
+                validator = work / 'bin/python3'
+                validator.write_text('#!/bin/sh\ncase "$1" in *system-release-metadata.py) exit 73;; *) exit 0;; esac\n')
+                validator.chmod(0o755)
+                if stale:
+                    (release / 'web-container.tar.xz').write_bytes(b'old-offer')
+                environment = {**os.environ, 'PATH': str(work / 'bin') + os.pathsep + os.environ['PATH'],
+                               'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'ra5on/Titan',
+                               'TITAN_SYSTEM_VERSION': '0.8.3', 'TITAN_UPDATE_KIND': 'titan',
+                               'TITAN_APP_SOURCE_COMMIT': 'a' * 40}
+                result = subprocess.run(['bash', str(ROOT / 'scripts/publish-debian-system.sh')],
+                                        cwd=work, env=environment, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1 if stale else 73, result.stderr)
+                self.assertFalse((release / 'web-image.json').exists())
+                if stale:
+                    self.assertIn('Standalone web assets must not be mixed', result.stderr)
+                else:
+                    self.assertFalse((release / 'web-container.tar.xz').exists())
+                self.assertEqual((work / 'dist/web-container/web-image.tar').read_bytes(), b'bundled-only')
+
     def test_dependency_mirror_setup_refuses_local_and_self_hosted_execution(self):
         for github_actions,runner_environment in (('', ''), ('true', 'self-hosted'), ('', 'github-hosted')):
             environment={**os.environ,'GITHUB_ACTIONS':github_actions,'RUNNER_ENVIRONMENT':runner_environment}

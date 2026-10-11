@@ -12,6 +12,19 @@ spec.loader.exec_module(controller)
 
 
 class ContainerTests(unittest.TestCase):
+    def test_system_only_release_is_not_offered_to_legacy_web_updater(self):
+        from titan import updates
+        releases = [{'tag_name': 'v0.8.3', 'draft': False, 'prerelease': False,
+                     'assets': [{'name': 'titan-0.8.3-amd64.raucb'}, {'name': 'manifest.json'}]}]
+        with patch.object(controller, 'selection', return_value={'current': {'version': '0.8.1'}}), \
+                patch.object(updates, 'read_token', return_value=None), \
+                patch.object(updates, 'fetch', return_value=json.dumps(releases)), \
+                patch.object(updates, 'verified_release') as verify:
+            offer = controller.check_release()
+        self.assertFalse(offer['available'])
+        self.assertIsNone(offer['latest'])
+        verify.assert_not_called()
+
     def test_only_matching_protocol_and_version_are_accepted(self):
         value = {'Id': 'sha256:'+'a'*64, 'Config': {'Labels': {'org.titan.agent-api': '1', 'org.titan.state-schema': '1', 'org.opencontainers.image.version': '0.6.1'}}}
         with patch.object(controller, 'command', return_value=json.dumps([value])):
