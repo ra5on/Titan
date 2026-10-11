@@ -14,7 +14,7 @@ import { TerminalSection } from './Terminal';
 import { RemoteSection } from './Remote';
 import { GraphicsCard } from './Graphics';
 import { AccountSection, UsersSection } from './Users';
-import { Button, Card, Confirm, Loading, Meter, Notice, Sheet, useToast } from '../ui';
+import { Button, Card, Confirm, Field, Loading, Meter, Notice, Select, Sheet, useToast } from '../ui';
 
 type Section = { id: string; label: string; icon: LucideIcon; admin?: boolean };
 const SECTIONS: Section[] = [
@@ -172,6 +172,14 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
   );
 }
 
+// A channel offers its own stage and every more finished one.
+const CHANNELS: [string, string][] = [
+  ['stable', 'Stable · nur fertige Versionen'],
+  ['beta', 'Beta · auch Vorabversionen zum Testen'],
+  ['alpha', 'Alpha · auch frühe Entwicklungsstände'],
+];
+const STAGE_ORDER: Record<string, number> = { alpha: 0, beta: 1, stable: 2 };
+
 function UpdatesSection() {
   const toast = useToast();
   const updates = useApi<Updates>('/api/updates');
@@ -194,6 +202,18 @@ function UpdatesSection() {
     }
   };
 
+  const changeChannel = async (channel: string) => {
+    setError('');
+    try {
+      await post('/api/settings', { channel });
+      await updates.reload();
+    } catch (reason) {
+      setError(message(reason));
+      return;
+    }
+    await check();
+  };
+
   const install = async () => {
     const version = updates.data?.latest;
     if (!version) return;
@@ -212,6 +232,8 @@ function UpdatesSection() {
 
   if (updates.loading) return <Loading />;
   const data = updates.data;
+  const stage = data?.current_stage || 'stable';
+  const behind = data ? (STAGE_ORDER[stage] ?? 2) < (STAGE_ORDER[data.channel] ?? 2) : false;
   return (
     <div className="space-y-4">
       <Card>
@@ -237,6 +259,22 @@ function UpdatesSection() {
           </div>
         </div>
         {error && <div className="mt-4"><Notice>{error}</Notice></div>}
+      </Card>
+      <Card>
+        <Field label="Update-Kanal" help="Titan sucht in diesem Kanal nach neuen Versionen auf GitHub.">
+          <Select value={data?.channel || 'stable'} disabled={checking || installing} onChange={event => void changeChannel(event.target.value)}>
+            {CHANNELS.map(([id, label]) => (
+              <option key={id} value={id}>{label}</option>
+            ))}
+          </Select>
+        </Field>
+        {behind && (
+          <div className="mt-3">
+            <Notice tone="warn">
+              Installiert ist eine {stage === 'alpha' ? 'Alpha' : 'Beta'}. Im gewählten Kanal bietet Titan erst wieder eine Version an, wenn eine {data?.channel === 'stable' ? 'fertige' : 'Beta- oder fertige'} Version erscheint. Für weitere Vorabversionen den Kanal „{stage === 'alpha' ? 'Alpha' : 'Beta'}“ wählen.
+            </Notice>
+          </div>
+        )}
       </Card>
       <Notice tone="info">
         Updates werden in den zweiten Systembereich geschrieben. Startet das neue System nicht, wechselt Titan automatisch auf den bisherigen Stand zurück.

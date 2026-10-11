@@ -1,7 +1,10 @@
 # Titan-Systemupdates und Rollback
 
-Unter **Systemsteuerung → Updates & Rollback** den Kanal **Alpha** wählen und nach
-Updates suchen. Beta und Stable bieten erst dann Versionen an, wenn entsprechende
+Unter **Einstellungen → Updates** den Update-Kanal wählen und nach Updates
+suchen. Wer eine Vorabversion installiert hat, wählt **Beta** oder **Alpha**:
+Der Standardkanal Stable bietet keine Vorabversionen an. Rollback und die
+automatische Update-Regel liegen in der bisherigen Oberfläche unter
+`/classic` (**Systemsteuerung → Updates & Rollback**). Beta und Stable bieten erst dann Versionen an, wenn entsprechende
 Veröffentlichungen vorhanden sind. Der Alpha-Kanal berücksichtigt später auch
 Beta- und Stable-Versionen.
 
