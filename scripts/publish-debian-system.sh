@@ -36,13 +36,13 @@ done
 python3 scripts/verify-debian-source-archive.py --index "$task_dir/debian-sources.json" \
     --parts "${task_source_assets[@]}"
 cp docs/DEBIAN-SOURCES.md "$task_dir/SOURCES.md"
-task_web_assets=()
-task_web_checks=()
-if [[ -f dist/web-container/web-image.tar ]]; then
-    xz -T2 -3 -c dist/web-container/web-image.tar > "$task_dir/web-container.tar.xz"
-    cp dist/web-container/web-image.json "$task_dir/web-image.json"
-    task_web_assets=("$task_dir/web-container.tar.xz" "$task_dir/web-image.json")
-    task_web_checks=(web-container.tar.xz web-image.json)
+# A system release may add host APIs. Legacy web updaters discover standalone
+# offers by this archive name and cannot check a minimum host version. Keep the
+# tested web image inside the system image/bundle; independent compatible web
+# releases use publish-web-container.sh with an explicit source opt-in.
+if [[ -e "$task_dir/web-container.tar.xz" || -e "$task_dir/web-image.json" ]]; then
+    echo 'Standalone web assets must not be mixed into a system release.' >&2
+    exit 1
 fi
 TITAN_PACKAGE_CHANGES="$task_dir/package-changes.json" python3 scripts/system-release-metadata.py manifest --version "$TITAN_SYSTEM_VERSION" \
     --accounts "$task_dir/ab-input/system-accounts.json" --output "$task_dir/manifest.json" --bundle "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
@@ -83,7 +83,7 @@ fi
     cd "$task_dir"
     sha256sum "${task_image_checks[@]}" "titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
         manifest.json manifest.json.sig runtime-test.json ab-test.json INSTALLATION.md debian-base.json debian-packages.json rauc-root.pem \
-        "${task_source_checks[@]}" "${task_web_checks[@]}" > SHA256SUMS
+        "${task_source_checks[@]}" > SHA256SUMS
     openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/titan-signing/root.key" -in SHA256SUMS -out SHA256SUMS.sig
     openssl pkeyutl -verify -rawin -pubin -inkey release-public.pem -in SHA256SUMS -sigfile SHA256SUMS.sig
 )
@@ -99,7 +99,7 @@ task_stage=()
 if [[ "$TITAN_SYSTEM_VERSION" == *-alpha.* || "$TITAN_SYSTEM_VERSION" == *-beta.* ]]; then task_stage=(--prerelease); fi
 gh release create "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag "${task_stage[@]}" --latest=false \
     --title "Titan $TITAN_SYSTEM_VERSION · Debian A/B" --notes-file "$task_release_notes" \
-    "${task_image_assets[@]}" "${task_web_assets[@]}" "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
+    "${task_image_assets[@]}" "$task_dir/titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
     "$task_dir/manifest.json" "$task_dir/manifest.json.sig" "$task_dir/SHA256SUMS" "$task_dir/SHA256SUMS.sig" \
     "$task_dir/release-public.pem" "$task_dir/rauc-root.pem" "$task_dir/runtime-test.json" "$task_dir/ab-test.json" \
     "$task_dir/INSTALLATION.md" "$task_dir/debian-base.json" "$task_dir/debian-packages.json" \

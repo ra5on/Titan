@@ -2,6 +2,7 @@
 # Independent web-only release. System discovery ignores the web-v namespace.
 set -euo pipefail
 [[ "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ra5on/Titan ]] || exit 1
+python3 "$(dirname "${BASH_SOURCE[0]}")/require-standalone-web.py"
 [[ -n "${TITAN_SIGNING_KEY:-}" && -n "${RUNNER_TEMP:-}" ]]
 task_dir=$(realpath dist/web-container)
 task_version=$(python3 -c 'from titan import __version__; print(__version__)')

@@ -1,4 +1,4 @@
-# Titan 0.8.2 · Stable
+# Titan 0.8.3 · Stable
 
 Ein gemeinsamer Desktop für Alltag und Verwaltung. Optionale Dienste und
 Treiber lassen sich als Plugins im Appstore nachinstallieren. Titan selbst
@@ -62,6 +62,11 @@ Systemupdate. Ein reines Oberflächenupdate reicht für die neuen Plugin-APIs
 und den Komponentenhelfer nicht aus. Installierte NVIDIA-Treiber werden nach
 einem Systemwechsel für den neuen Kernel erneut eingerichtet; dafür wird
 Internetzugang benötigt.
+
+Diese Version wird deshalb ausschließlich als vollständiges Systemupdate
+angeboten. Ältere Web-Updater erhalten keinen separaten Download der neuen
+Oberfläche. Der vorbereitete Stand 0.8.2 wurde vor der Veröffentlichung
+gestoppt; sein bereits reservierter Git-Tag wird nicht nachträglich verändert.
 
 USB-Automount, laufender Abgleich, Btrfs-Spiegel und USB-/PCI-Durchreichung
 behalten ihre individuellen Beta-Kennzeichen. Ein erfolgreicher öffentlicher
