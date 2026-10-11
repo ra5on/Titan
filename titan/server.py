@@ -29,6 +29,7 @@ from .office_gateway import OfficeApplicationMixin, OfficeHTTPMixin
 from .user_deletion import validate_removal
 from .dashboard_layout import load_layout, save_layout
 from . import launcher_layout
+from . import interface_layout
 from .diagnostics import report as diagnostics_report
 from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal_owner
 from .root_access import RootAccessApplicationMixin, RootAccessHTTPMixin
@@ -481,6 +482,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                     require_application(self.app.store, user, "files")
             if path == "/api/launcher-layout":
                 return self.reply(launcher_layout.load(self.app.store, user["name"]))
+            if path == "/api/interface":
+                return self.reply(interface_layout.load(self.app.store, user["name"]))
             if path == "/api/dashboard-layout":
                 return self.reply(load_layout(self.app.store, user["name"]))
             if path == "/api/shares":
@@ -786,6 +789,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             return
         if path == "/api/launcher-layout":
             return self.reply(launcher_layout.save(self.app.store, user["name"], body))
+        if path == "/api/interface":
+            return self.reply(interface_layout.save(self.app.store, user["name"], body))
         if path == "/api/apps/memory-plan":
             require_application(self.app.store, user, "apps")
             if set(body) - {"app", "options"} or "app" not in body:

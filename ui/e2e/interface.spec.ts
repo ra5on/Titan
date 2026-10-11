@@ -331,6 +331,39 @@ test('apps and VM consoles open inside Titan and the system menu confirms before
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('transparency, dock and start page can be customised per account', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Systemmenü' }).click();
+  await page.getByRole('menuitem', { name: 'Darstellung' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Darstellung' });
+  await dialog.getByRole('slider').fill('90');
+  // The slider previews immediately on the glass surfaces.
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--glass-alpha'))).toBe('0.312');
+  await dialog.getByLabel('Größe').selectOption('large');
+  await dialog.getByLabel('Hinzufügen').selectOption('app:syncthing');
+  await dialog.getByRole('button', { name: 'Syncthing nach oben' }).click();
+  await dialog.getByRole('checkbox', { name: 'Prozessor' }).uncheck();
+  await dialog.getByRole('checkbox', { name: 'linux-lab' }).check();
+  await expect(dialog.getByRole('button', { name: 'Einstellungen aus dem Dock entfernen' })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Darstellung gespeichert.')).toBeVisible();
+
+  await page.reload();
+  const dock = page.getByRole('navigation', { name: 'Hauptnavigation' });
+  await expect(dock.getByRole('button')).toHaveCount(6);
+  await expect(dock.getByRole('button').nth(4)).toHaveAccessibleName('Syncthing');
+  await expect(page.getByText('CPU', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'linux-lab öffnen' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--glass-alpha'))).toBe('0.312');
+
+  // Restore the defaults so later runs against the same server start clean.
+  await page.getByRole('button', { name: 'Systemmenü' }).click();
+  await page.getByRole('menuitem', { name: 'Darstellung' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Zurücksetzen' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Speichern' }).click();
+  await expect(dock.getByRole('button')).toHaveCount(5);
+});
+
 test('previous interface stays reachable', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);
