@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowUpCircle, ExternalLink, Play, RefreshCw, RotateCw, Squa
 import { action } from '../api';
 import type { InstalledApp } from '../api';
 import { go, message, useApi } from '../lib';
+import { AppDevicesCard } from './Devices';
 import { AppIcon, Button, Card, Confirm, Empty, Loading, Notice, Sheet, StateDot, useToast } from '../ui';
 
 type Details = {
@@ -132,6 +133,7 @@ export function AppDetail({ appId }: { appId: string }) {
               {details.data.data_path && <Row label="Daten">{details.data.data_path}</Row>}
             </div>
           </Card>
+          <AppDevicesCard app={app.id} assigned={(app.hardware || []).map(item => item.id)} running={running} onSaved={details.reload} />
           <Card className="space-y-3">
             <h2 className="text-sm font-semibold">Wartung</h2>
             <Button className="w-full" busy={busy === 'update'} disabled={Boolean(busy)} onClick={() => run('update', 'aktualisiert.')}>

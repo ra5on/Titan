@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Disc3, MonitorPlay, Plus, Power, PowerOff, RotateCw, Play, Trash2, X, Zap } from 'lucide-react';
+import { Disc3, Usb, MonitorPlay, Plus, Power, PowerOff, RotateCw, Play, Trash2, X, Zap } from 'lucide-react';
 import { ISO_NAME, action, uploadIso } from '../api';
 import type { Vm, VmList, VmOptions } from '../api';
 import { bytes, message, useApi } from '../lib';
+import { VmUsbDialog } from './Devices';
 import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Meter, Modal, Notice, Select, Sheet, StateDot, useToast } from '../ui';
 
 const STATES: Record<string, string> = { running: 'Läuft', 'shut off': 'Aus', paused: 'Pausiert', 'in shutdown': 'Fährt herunter', crashed: 'Abgestürzt' };
@@ -73,7 +74,7 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <Input type="number" min={8} value={form.disk} onChange={set('disk')} required />
             </Field>
           </div>
-          <Field label="Startmedium" help="Weitere Installationsmedien fügst du über „ISO hochladen“ hinzu.">
+          <Field label="Startmedium" help="ISO-Abbilder fügst du über „ISO hochladen“ hinzu. Eine vorhandene Festplatte (QCOW2, IMG) lädst du unter „Dateien“ in eine Freigabe; sie erscheint dann hier unter „Laufwerksimages“ und wird als unabhängige Kopie übernommen.">
             <Select value={form.source || sources[0].value} onChange={set('source')}>
               {['ISO-Abbilder', 'Laufwerksimages'].map(group => {
                 const items = sources.filter(item => item.group === group);
@@ -118,6 +119,7 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<'poweroff' | 'remove' | null>(null);
+  const [usb, setUsb] = useState(false);
   const label = vm.display_name || vm.name;
   const running = vm.state === 'running';
   const off = vm.state === 'shut off';
@@ -174,6 +176,9 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
               <Power className="size-4" /> Herunterfahren
             </Button>
             <span className="flex-1" />
+            <IconButton label={`USB-Geräte für ${label}`} disabled={busy} onClick={() => setUsb(true)}>
+              <Usb className="size-4" />
+            </IconButton>
             <IconButton label="Neu starten" disabled={busy} onClick={() => run('reboot', 'Neustart angefordert.')}>
               <RotateCw className="size-4" />
             </IconButton>
@@ -187,6 +192,9 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
               <Play className="size-4" /> Starten
             </Button>
             <span className="flex-1" />
+            <IconButton label={`USB-Geräte für ${label}`} disabled={busy} onClick={() => setUsb(true)}>
+              <Usb className="size-4" />
+            </IconButton>
             {off ? (
               <IconButton label="VM löschen" disabled={busy} onClick={() => setConfirm('remove')}>
                 <Trash2 className="size-4" />
@@ -199,6 +207,7 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
           </>
         )}
       </div>
+      {usb && <VmUsbDialog vm={vm.id} label={label} onClose={() => setUsb(false)} />}
       {confirm === 'poweroff' && (
         <Confirm
           title={`${label} sofort ausschalten?`}

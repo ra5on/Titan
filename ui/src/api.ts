@@ -30,6 +30,7 @@ export type InstalledApp = {
   scheme: string;
   state: string;
   status: string;
+  hardware?: { id: string }[];
 };
 
 export type SchemaField = {

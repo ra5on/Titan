@@ -106,6 +106,23 @@ test('an installed app has a detail page with log and controls', async ({ page }
   await expect(page.getByText('Syncthing: neu gestartet.')).toBeVisible();
 });
 
+test('device passthrough is offered for apps and virtual machines', async ({ page }) => {
+  await page.goto('/#/apps/syncthing');
+  await expect(page.getByRole('heading', { name: 'Grafikkarte und Geräte' })).toBeVisible();
+  // The demo host has no passthrough devices; the card must say so instead of staying empty.
+  await expect(page.getByText(/keine Grafikkarte und kein USB-Gerät gefunden/)).toBeVisible();
+
+  await page.goto('/#/vms');
+  await page.getByRole('button', { name: 'USB-Geräte für linux-lab' }).click();
+  const dialog = page.getByRole('dialog', { name: /USB-Geräte für/ });
+  await expect(dialog.getByText(/kein USB-Gerät angeschlossen/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Abbrechen' }).click();
+
+  // An existing QCOW2 disk from a share is offered as boot source.
+  await page.getByRole('button', { name: 'Neue VM' }).click();
+  await expect(page.getByRole('dialog').getByRole('option', { name: /linux-cloud\.qcow2/ })).toBeAttached();
+});
+
 test('share access can be changed per user', async ({ page }) => {
   await page.goto('/#/settings/shares');
   await page.getByRole('button', { name: 'Zugriff auf dokumente ändern' }).click();

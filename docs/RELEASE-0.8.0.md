@@ -12,8 +12,11 @@ im Stable-Kanal erhalten sie nicht als Update.
   ob der Arbeitsspeicher reicht, und zeigt danach die echten Installationsschritte.
 - Dateimanager mit Upload-Fortschritt, Abbrechen, Download, Umbenennen und
   Papierkorb.
-- Virtuelle Maschinen: Start, Herunterfahren, Neustart, Konsole, neue VM und
-  ISO-Upload.
+- Virtuelle Maschinen: Start, Herunterfahren, Neustart, Konsole, neue VM aus
+  ISO oder vorhandener QCOW2-/IMG-Festplatte, ISO-Upload und USB-Geräte
+  durchreichen.
+- Apps: Grafikkarte (Intel, AMD, NVIDIA bei vorhandenem Treiber), KI-Beschleuniger
+  und USB-Geräte an eine App durchreichen.
 - Detailseite für installierte Apps mit Protokoll, Neustart, Aktualisieren und
   Deinstallieren.
 - Einstellungen für System (mit Neustart und Meldungen), Speicher, Freigaben
