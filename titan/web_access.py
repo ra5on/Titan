@@ -125,7 +125,7 @@ def caddy_config(value):
         authority = '[' + host + ']' if ':' in host else host
         http = 'http://' + authority + (':' + str(settings['http_port']) if settings['http_port'] != 80 else '')
         result += http + ' {\n    redir ' + main + '{uri} 308\n}\n'
-    result += ('http://:5101 {\n    @office path /office/internal/*\n    handle @office {\n'
+    result += ('http://:5101 {\n    @office path /office/internal/* /apps/internal/*\n    handle @office {\n'
                '        reverse_proxy 127.0.0.1:5001 {\n            header_up Host ' + urllib.parse.urlsplit(main).netloc + '\n'
                '        }\n    }\n    handle {\n        respond 404\n    }\n}\n')
     from .remote_access import tunnel_caddy
@@ -358,6 +358,29 @@ class WebAccess:
         if config.get('pending'):
             revision = config['revision']
             self.timer = self.schedule(max(0, config['pending']['deadline'] - self.clock()), lambda: self._expire(revision))
+
+    def ensure_app_gateway(self):
+        """Activate the narrow app-auth bridge on existing installations too."""
+        with self.lock:
+            config = self.config()
+            if config.get('pending'):
+                raise Error('Zuerst den laufenden Webadresswechsel abschließen.', 409)
+            target = self.directory / 'Caddyfile'
+            desired = caddy_config(config)
+            previous = target.read_text() if target.is_file() else None
+            if previous == desired:
+                return
+            try:
+                self._write_text('Caddyfile', desired)
+                self._validate()
+                self._restart()
+            except Exception:
+                if previous is not None:
+                    self._write_text('Caddyfile', previous)
+                    self._restart()
+                else:
+                    target.unlink(missing_ok=True)
+                raise
 
     def resume(self):
         with self.lock:

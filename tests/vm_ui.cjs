@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const nodes=new Map();
-const node=selector=>{if(!nodes.has(selector))nodes.set(selector,{innerHTML:'',textContent:'',hidden:false,style:{},classList:{remove(){},toggle(){}},addEventListener(){},append(){},setAttribute(){},showModal(){},close(){}});return nodes.get(selector);};
+const node=selector=>{if(!nodes.has(selector))nodes.set(selector,{innerHTML:'',textContent:'',hidden:false,style:{},classList:{remove(){},toggle(){}},addEventListener(){},append(){},setAttribute(){},showModal(){},close(){},querySelector:node});return nodes.get(selector);};
 const document={querySelector:node,querySelectorAll:()=>[],addEventListener(){},createElement:()=>({remove(){}})};
 const context=vm.createContext({document,window:{addEventListener(){},getSelection:()=>({toString:()=>''})},location:{hostname:'nas',hash:'#vms'},setTimeout:()=>0,setInterval:()=>0,clearInterval(){},fetch(){throw Error('Unexpected request');},URLSearchParams,FormData,AbortController,Uint8Array,TextEncoder,TextDecoder,console});
 vm.runInContext(fs.readFileSync('titan/web/vm_live.js','utf8'),context);

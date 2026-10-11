@@ -19,6 +19,34 @@ PYCHANGES
     fi
 fi
 python3 scripts/validate-system-evidence.py "$task_dir"
+task_product_assets=()
+task_product_checks=()
+# Frozen older applications retain their original maintenance acceptance. The
+# new store/recovery product may not enter a release with only legacy VM checks.
+if [[ -f "${TITAN_APP_SOURCE_ROOT:-.}/titan/umbrel_catalog.py" ]]; then
+    python3 scripts/validate-product-acceptance.py "$task_dir"
+    python3 scripts/collect-debian-sources.py --verify-index "$task_dir/recovery-sources.json" \
+        --inventory "$task_dir/recovery-packages.json" --titan-source-ref "$TITAN_APP_SOURCE_COMMIT"
+    shopt -s nullglob
+    task_recovery_sources=("$task_dir"/recovery-sources.tar.part-*)
+    [[ ${#task_recovery_sources[@]} -gt 0 ]]
+    task_product_checks=("titan-$TITAN_SYSTEM_VERSION-recovery-amd64.iso" product-acceptance.json \
+        umbrel-coverage.json recovery-packages.json recovery-sources.json)
+    for task_recovery_index in "${!task_recovery_sources[@]}"; do
+        task_recovery_part=${task_recovery_sources[$task_recovery_index]}
+        printf -v task_recovery_expected 'recovery-sources.tar.part-%03d' "$task_recovery_index"
+        [[ "$(basename "$task_recovery_part")" == "$task_recovery_expected" ]]
+        task_recovery_size=$(stat -c %s "$task_recovery_part")
+        [[ "$task_recovery_size" -gt 0 && "$task_recovery_size" -le 1800000000 ]]
+        task_product_checks+=("$task_recovery_expected")
+    done
+    python3 scripts/verify-debian-source-archive.py --index "$task_dir/recovery-sources.json" \
+        --parts "${task_recovery_sources[@]}"
+    [[ $(stat -c %s "$task_dir/titan-$TITAN_SYSTEM_VERSION-recovery-amd64.iso") -lt 2147483648 ]]
+    for task_product_file in "${task_product_checks[@]}"; do
+        task_product_assets+=("$task_dir/$task_product_file")
+    done
+fi
 python3 scripts/collect-debian-sources.py --verify-index "$task_dir/debian-sources.json" \
     --inventory "$task_dir/debian-packages.json" --titan-source-ref "$TITAN_APP_SOURCE_COMMIT"
 shopt -s nullglob
@@ -83,7 +111,7 @@ fi
     cd "$task_dir"
     sha256sum "${task_image_checks[@]}" "titan-$TITAN_SYSTEM_VERSION-amd64.raucb" \
         manifest.json manifest.json.sig runtime-test.json ab-test.json INSTALLATION.md debian-base.json debian-packages.json rauc-root.pem \
-        "${task_source_checks[@]}" "${task_web_checks[@]}" > SHA256SUMS
+        "${task_source_checks[@]}" "${task_web_checks[@]}" "${task_product_checks[@]}" > SHA256SUMS
     openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/titan-signing/root.key" -in SHA256SUMS -out SHA256SUMS.sig
     openssl pkeyutl -verify -rawin -pubin -inkey release-public.pem -in SHA256SUMS -sigfile SHA256SUMS.sig
 )
@@ -103,4 +131,4 @@ gh release create "v$TITAN_SYSTEM_VERSION" --repo "$GITHUB_REPOSITORY" --verify-
     "$task_dir/manifest.json" "$task_dir/manifest.json.sig" "$task_dir/SHA256SUMS" "$task_dir/SHA256SUMS.sig" \
     "$task_dir/release-public.pem" "$task_dir/rauc-root.pem" "$task_dir/runtime-test.json" "$task_dir/ab-test.json" \
     "$task_dir/INSTALLATION.md" "$task_dir/debian-base.json" "$task_dir/debian-packages.json" \
-    "$task_dir/debian-sources.json" "$task_dir/SOURCES.md" "${task_source_assets[@]}"
+    "$task_dir/debian-sources.json" "$task_dir/SOURCES.md" "${task_source_assets[@]}" "${task_product_assets[@]}"

@@ -390,21 +390,30 @@ class ChannelSettingsTests(unittest.TestCase):
             self.app.admin_action("demo", "update_install", {"expected_version": "v1.0.0"})
         self.app.agent.call.assert_not_called()
 
-    def test_actual_automatic_queue_uses_settings_at_execution(self):
+    def test_actual_automatic_queue_rejects_changed_source_at_execution(self):
         self.app.demo = False
         self.app.save_settings({"channel": "alpha", "installation": "automatic", "auto_check": False})
-        self.app.store.set_config("update", {"available": True, "signed": True, "latest": "v1.0.0-alpha.1"})
+        offer = {"available": True, "signed": True, "latest": "v1.0.0-alpha.1"}
+        self.app.agent.call.side_effect = lambda operation, **kwargs: (
+            offer if operation == "update_check" else {"available": False})
         self.app.stop = Mock()
         self.app.stop.wait.side_effect = [False, True]
         now = SimpleNamespace(tm_year=2026, tm_yday=273, tm_wday=6, tm_hour=3)
         with patch("titan.server.time.localtime", return_value=now):
             self.app.updater()
         self.assertEqual(len(self.app.jobs.pending), 1)
+        plan = self.app.unified_updates.load()
+        self.assertEqual(plan["state"], "queued")
+        self.assertTrue(plan["automatic"])
+        self.assertEqual(plan["system_version"], offer["latest"])
+        self.assertEqual([call.args[0] for call in self.app.agent.call.call_args_list],
+                         ["update_check", "web_update_check"])
+        self.app.agent.call.reset_mock()
         self.app.save_settings({"channel": "stable", "repository": "example/titan"})
-        with patch("titan.server.time.localtime", return_value=now):
+        with patch("titan.server.time.localtime", return_value=now), self.assertRaises(Error):
             self.app.jobs.pending.pop()()
-        self.app.agent.call.assert_called_once_with("update_install", repository="example/titan", channel="stable",
-                                                   expected_version="v1.0.0-alpha.1")
+        self.assertEqual(self.app.unified_updates.load()["state"], "failed")
+        self.app.agent.call.assert_not_called()
 
     def test_inflight_old_channel_check_cannot_overwrite_completed_settings_change(self):
         self.app.save_settings({"channel": "alpha"})

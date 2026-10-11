@@ -198,3 +198,11 @@ html[data-color-theme] .widget-gallery{padding:20px;max-height:calc(100dvh - 24p
  html[data-color-theme] :is(.desktop-dock,.desktop-widget-card,.desktop-menu-dialog,.desktop-account,.desktop-quick-actions,.desktop-folder-dialog,.widget-gallery,.desktop-window-titlebar){background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none;color:var(--text)}
  #shell[data-desktop=true] .desktop-dock :is(.desktop-task,.shell-button){color:var(--text)}
 }
+/* Home overview: distinct file shortcuts, capacity and two live system meters. */
+.desktop-widget-card .widget-file-links{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:2px 0}
+.desktop-widget-card .widget-file-links button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:0;background:none;border:0;color:inherit;font-size:12px}
+.desktop-widget-card .widget-file-links img{width:54px;height:54px;filter:drop-shadow(0 4px 7px #0003)}
+.desktop-widget-card .widget-content>.widget-system-overview{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;text-align:left}
+.widget-system-meter{display:grid;gap:7px;font-size:11px}
+.widget-system-meter progress{width:100%;height:5px}
+.desktop-widget-card .widget-system-overview small{grid-column:1/-1}

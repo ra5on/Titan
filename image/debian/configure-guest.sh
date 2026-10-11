@@ -42,6 +42,13 @@ SOURCES
 apt-get -o APT::Update::Error-Mode=any -o Acquire::Retries=3 update
 python3 /tmp/titan-package-state.py inventory --output /tmp/titan-before-packages.json
 apt-get --no-remove -y dist-upgrade
+# A portable NAS image must not depend on the virtual build appliance's devices.
+# Ship the general AMD64 kernel and firmware before selecting the ZFS ABI.
+apt-get install -y --no-install-recommends linux-image-amd64 \
+    firmware-realtek firmware-bnx2 firmware-bnx2x firmware-qlogic \
+    firmware-misc-nonfree intel-microcode amd64-microcode
+mkdir -p /etc/initramfs-tools/conf.d
+printf 'MODULES=most\n' > /etc/initramfs-tools/conf.d/titan-portable
 # Headers must match the actual installed boot kernel, never the appliance's
 # uname. Limit automatic DKMS work and keep its temporary private key out of the
 # distributable filesystem. Packages remain in the official trixie repositories.

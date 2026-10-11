@@ -148,6 +148,12 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
 
     def _app_unregister(self, app):
         """Forget an explicitly removed installation, retaining private app data."""
+        if APPS.get(app, {}).get('umbrel_catalog'):
+            record = next((item for item in self.load('apps', []) if item['id'] == app), None)
+            if record is not None:
+                retained = self.load('retained-app-installations-v1', {})
+                retained[app] = record
+                self.save('retained-app-installations-v1', retained)
         self._app_patch_record(app, remove=True)
         from .native_catalog import AVAILABLE_APP_IDS
         if app in AVAILABLE_APP_IDS:
@@ -200,7 +206,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 "containers": sorted(original_ids), "output": "\n".join(value for value in output if value),
                 "message": "Paket deinstalliert. Konfiguration, Datenbanken und Nutzdaten bleiben erhalten." if action == "remove" else "Alle vorhandenen Paketdienste sind gestoppt."}
 
-    def _app_declared_volumes(self, container, expected_bindings):
+    def _app_declared_volumes(self, container, expected_bindings, expected_tmpfs=()):
         """Accept Docker's own anonymous image volumes, never extra host binds.
 
         Redis/Valkey and document-server init images declare VOLUME entries even
@@ -208,6 +214,11 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         the actual local, option-free volume before accepting those entries.
         """
         mounts = container.get("Mounts", [])
+        declared_tmpfs = {value.split(':', 1)[0]: value.split(':', 1)[1] if ':' in value else '' for value in expected_tmpfs}
+        if declared_tmpfs:
+            if (container.get('HostConfig', {}).get('Tmpfs') or {}) != declared_tmpfs:
+                return False
+            mounts = [mount for mount in mounts if not (mount.get('Type') == 'tmpfs' and mount.get('Destination') in declared_tmpfs)]
         if len(mounts) == len(expected_bindings):
             return True
         extras = [value for value in mounts if value.get("Destination") not in expected_bindings]
@@ -413,6 +424,18 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             self._app_inspected_containers(), installation=True, vms=vm_memory_reservations(_run))
         return {**result, "plan": plan}
 
+    @staticmethod
+    def _app_capabilities_match(app, service_key, definition, host):
+        from .app_gateway import IMAGE
+        actual = {str(value).removeprefix('CAP_') for value in host.get('CapAdd') or []}
+        gateway = (service_key == app and APPS.get(app, {}).get('app_gateway')
+                   and definition.get('image') == IMAGE)
+        if not gateway:
+            return not actual
+        return (actual == {'NET_BIND_SERVICE'} and host.get('ReadonlyRootfs') is True
+                and set(host.get('CapDrop') or []) == {'ALL'}
+                and set(host.get('SecurityOpt') or []) in ({'no-new-privileges'}, {'no-new-privileges:true'}))
+
     def _app_container(self, app, record, rows=None, options=None, service_key=None):
         service_key = service_key or app
         if rows is None:
@@ -467,8 +490,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             if (container.get("Name") != "/titan-" + service_key or container.get("Id") != identifier or
                     container.get("Config", {}).get("Image") != definition["image"] or
                     bindings != expected_bindings or actual_ports != expected_ports or
-                    not self._app_declared_volumes(container, expected_bindings) or
-                    host.get("Privileged") or host.get("CapAdd") or
+                    not self._app_declared_volumes(container, expected_bindings, definition.get("tmpfs", [])) or
+                    host.get("Privileged") or not self._app_capabilities_match(app, service_key, definition, host) or
                     (host.get("Devices") or []) != [{"PathOnHost":v.split(":")[0],"PathInContainer":v.split(":")[1],"CgroupPermissions":v.split(":")[2]} for v in definition.get("devices", [])]):
                 raise Error("Container und verwaltete App-Konfiguration stimmen nicht überein.", 409)
             expected_requests=definition.get("deploy",{}).get("resources",{}).get("reservations",{}).get("devices",[])
@@ -748,9 +771,19 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         self._app_patch_record(app, {"phase": "failed" if error else "ready",
             "last_error": self._package_redact(app, str(error))[-4000:] if error else "", "changed": time.time()})
 
+    def op_app_gateway_info(self, app):
+        from .app_access import app_id
+        app_id(app)
+        record = next((row for row in self.load("apps", []) if row['id'] == app), None)
+        if not record or not APPS.get(app, {}).get('app_gateway'):
+            raise Error("Geschützter App-Zugang ist nicht installiert.", 404)
+        return {'id': app, 'port': record['port'], 'scheme': record.get('scheme', 'http')}
+
     def op_apps(self):
         records = [dict(record) for record in self.load("apps", [])]
         for record in records:
+            if APPS.get(record["id"], {}).get("app_gateway"):
+                record["app_gateway"] = True
             if record.get("last_error"):
                 record["last_error"] = self._package_redact(record["id"], str(record["last_error"]))
         if not shutil.which("docker", path="/usr/sbin:/usr/bin:/sbin:/bin"):
@@ -850,6 +883,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             raise Error("App-Vorlage nicht gefunden.")
         if APPS[app].get("catalog_status") == "preparation":
             raise Error("Diese Titan-Vorlage ist noch in Vorbereitung. Neue Installation ist nicht freigegeben.")
+        if APPS[app].get("app_gateway"):
+            self.web_access.ensure_app_gateway()
         with self.app_memory_lock:
             return self._install_app(app, port, share, options, network, hardware, storage_id)
 
@@ -873,6 +908,18 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             raise Error("App-Vorlage nicht gefunden.")
         if APPS[app].get("catalog_status")=="preparation":
             raise Error("Diese Titan-Vorlage ist noch in Vorbereitung. Neue Installation ist nicht freigegeben.")
+        retained = self.load('retained-app-installations-v1', {}).get(app) if APPS[app].get('umbrel_catalog') else None
+        if retained:
+            if storage_id is not None and storage_id != retained.get('storage_id'):
+                raise Error('Vorhandene App-Daten liegen auf einem anderen Speicher. Für die Wiederinstallation den bisherigen Speicher auswählen.', 409)
+            storage_id = retained.get('storage_id')
+            frozen = self.load('installed-app-recipes-v1', {}).get(app)
+            if not frozen or not frozen.get('umbrel_catalog'):
+                raise Error('Die gespeicherte App-Version fehlt. Vorhandene Daten bleiben unverändert.', 409)
+            from .app_credentials import private_recipe
+            APPS[app] = private_recipe(frozen)
+            if network is None:
+                network = retained.get('network')
         available_devices=app_devices_inventory()
         hardware_ids=validate_devices(hardware,available_devices)
         hardware=[item for item in available_devices if item["id"] in hardware_ids]
@@ -880,6 +927,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         port = self._app_valid_port(app, port, network)
         from .app_packages import prepare_options
         previous = self._app_options(app) if (self.directory / "apps" / app / "options.json").exists() else None
+        if retained:
+            options = {**(previous or {}), **(options or {})}
         options = validate_options(app, prepare_options(app, options, previous))
         if APPS[app].get('provision') == 'nextcloud-office':
             from .app_package_setup import validate_host
@@ -936,11 +985,17 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
             record["network_id"] = network_id
         self._app_container(app, record, rows, options)
         proposed = compose(app,str(path),owner.pw_uid,owner.pw_gid,port,str(data),options,network,record.get("hardware"), config_path=record.get("config_path"))
+        if retained and (any(record.get(key) != retained.get(key) for key in ('data', 'config_path', 'storage_id', 'storage_uuid'))):
+            raise Error('Der bisherige App-Speicher oder Datenpfad stimmt nicht mehr überein. Keine Daten wurden verändert.', 409)
         for service_key in proposed["services"]:
             if service_key != app: self._app_container(app,record,rows,options,service_key)
         from .app_memory import check_install_memory
         memory = check_install_memory(app, options, self._app_inspected_containers(rows))
         record["memory_plan"] = memory["plan"]
+        from .umbrel_files import validate as validate_seeds, install as install_seeds
+        seeds = APPS[app].get('seed_files', [])
+        validate_seeds(seeds)
+        file_slots = {row['slot'] for row in seeds if not row['path']}
         # Pin the chosen filesystem while creating the complete package tree.
         # No mkdir is allowed to manufacture an offline pool on the system disk.
         with self.storage_locations.fd(storage_id, purpose="apps", create=True, write=True):
@@ -954,6 +1009,8 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                 for binding in service["volumes"]:
                     source = Path(binding["source"])
                     if source.is_relative_to(config) and source != config:
+                        if source.parent == config and source.name in file_slots:
+                            continue
                         mount_owner = owner
                         user = service.get('user')
                         if user:
@@ -961,6 +1018,7 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
                             parts = user.split(':')
                             mount_owner = SimpleNamespace(pw_uid=int(parts[0]), pw_gid=int(parts[-1]))
                         self._app_directory(source, Path(resource["path"]), mount_owner)
+            install_seeds(config, seeds, proposed, owner.pw_uid, owner.pw_gid)
         atomic_json(path / "options.json", options)
         atomic_json(path / "compose.json", compose(app, str(path), owner.pw_uid, owner.pw_gid, port, str(data), options, network, record.get("hardware"), config_path=record.get("config_path")))
         if (APPS[app].get("titan_package") or APPS[app].get("imported_stack")):
@@ -1018,7 +1076,9 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         self._app_record_result(app)
         return {"ok": True, "scope": "package", "app": app, "action": action, **result}
 
-    def op_app_backup(self, app):
+    def op_app_backup(self, app, keep_stopped=False):
+        if type(keep_stopped) is not bool:
+            raise Error('Ungültige Sicherungsoption.')
         self.app_storage_ready(app)
         record = self.managed_app(app)
         container = self._app_container(app, record)
@@ -1041,19 +1101,21 @@ class AppMixin(PackageCenterMixin, AppMetricsMixin, AppDevicesMixin, AppNetworkM
         destination = self.directory / "backups"
         destination.mkdir(exist_ok=True, mode=0o700)
         backup = destination / f"{app}-{time.time_ns()}.tar.gz"
+        completed = False
         try:
             arguments = ["tar", "-czf", str(backup), "-C", str(self.directory / "apps"), app]
             config = self._app_config_path(app, record)
             if config != self.directory / "apps" / app / "config":
                 arguments += ["--transform=s,^config," + app + "/package-config,", "-C", str(config.parent), "config"]
             _run(arguments, timeout=600)
+            completed = True
         except Exception:
             backup.unlink(missing_ok=True)
             raise
         finally:
-            if package_running:
+            if package_running and (not keep_stopped or not completed):
                 # Restore only services that were running before the cold backup.
                 _run(['docker', 'start', *package_running], timeout=180)
-            elif running:
+            elif running and (not keep_stopped or not completed):
                 self.docker(app, "up", "-d")
-        return {"path": str(backup), "scope": "App-Konfiguration; Nutzdaten separat sichern.", "kept_stopped": not running}
+        return {"path": str(backup), "scope": "App-Konfiguration; Nutzdaten separat sichern.", "kept_stopped": keep_stopped or not running}

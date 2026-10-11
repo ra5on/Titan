@@ -4,6 +4,10 @@ from .notification_delivery import NotificationDelivery
 
 
 class StorageServicesMixin:
+    def op_recovery_inventory(self):
+        from .recovery_host import inventory
+        return inventory(self)
+
     @property
     def storage_recovery(self):
         if not hasattr(self, "_storage_recovery"):

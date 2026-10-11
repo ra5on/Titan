@@ -26,6 +26,17 @@ def options(office='disabled', profile='balanced'):
 
 
 class AppMemoryTests(unittest.TestCase):
+    def test_gateway_capacity_includes_private_backend_and_proxy(self):
+        from titan.catalog import APPS
+        recipe = {'memory': '1g', 'app_gateway': True,
+                  'stack': {'primary': 'web', 'services': {'web': {'memory': '1g'}}}}
+        with patch.dict(APPS, {'test-gateway': recipe}):
+            plan = package_memory_plan('test-gateway')
+        self.assertEqual(plan['steady_limit_bytes'], GIB + 128 * MIB)
+        self.assertEqual(plan['startup_limit_bytes'], GIB + 128 * MIB)
+        self.assertEqual(plan['container_count'], 2)
+        self.assertEqual({row['id'] for row in plan['services']}, {'test-gateway', 'test-gateway-backend'})
+
     def test_imported_fractional_gib_limits_are_budgeted_and_bounded(self):
         from titan.compose_templates import memory_size
         value = memory_size('10.5gb')

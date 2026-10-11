@@ -3,6 +3,7 @@
 set -euo pipefail
 export LC_ALL=C.UTF-8
 task_runtime_options=()
+if [[ -n "${TITAN_QCOW2_TEST_GUEST:-}" ]]; then task_runtime_options+=(--qcow2-guest "$TITAN_QCOW2_TEST_GUEST"); fi
 case "${2:-}" in
     "") ;;
     --debian-preview) task_runtime_options+=(--debian-preview) ;;

@@ -5,11 +5,11 @@
  --carbon-plate:linear-gradient(145deg,#373c43,#14171b 48%,#242930);
 }
 /* Third-party app identities remain their own assets, presented without color. */
-.app-artwork,.ac-app-icon img,.ac-existing-icon img{filter:grayscale(1);}
+.app-artwork,.ac-app-icon img,.ac-existing-icon img{filter:none;}
 .desktop-shortcut .desktop-app-icon>.app-artwork,
 .desktop-menu-app .desktop-app-icon>.app-artwork,
 #shell[data-desktop=true] .desktop-dock .desktop-task>img.app-artwork{
- filter:grayscale(1) drop-shadow(0 3px 5px #0005);
+ filter:drop-shadow(0 3px 5px #0005);
 }
 /* Smoked glass stays dark in both desktop modes; account opacity still applies. */
 html[data-color-theme] :is(.desktop-dock,.desktop-widget-card){
@@ -66,7 +66,7 @@ html[data-color-theme] .desktop-shortcut .shortcut-folder-icon{
 .apps-center .ac-feature-photos,.apps-center .ac-feature-cloud{
  background-image:linear-gradient(115deg,var(--panel),var(--panel-soft));
 }
-.ac-photo-scene{filter:grayscale(1)}
+.ac-photo-scene{filter:none}
 .apps-center .ac-cloud-scene>i{
  color:#d3d9e1;background-image:var(--carbon-weave),var(--carbon-plate);
  border:1px solid #a0a9b43d;box-shadow:0 12px 28px #0003,0 1px 0 #ffffff25 inset;
