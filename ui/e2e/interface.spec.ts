@@ -181,6 +181,36 @@ test('own password, alerts and restart are available in settings', async ({ page
   await expect(page.getByText('Passwort geändert.')).toBeVisible({ timeout: 20_000 });
 });
 
+test('a backup to another drive can be configured, run and verified', async ({ page }) => {
+  await page.goto('/#/settings/backups');
+  await page.getByLabel('Sicherungsziel').selectOption('/var/media/demo-backup');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Sicherungseinstellungen gespeichert.')).toBeVisible();
+  test.skip(linuxOnly, 'the demo copies share files, which needs Linux');
+  await page.getByRole('button', { name: 'Jetzt sichern' }).click();
+  await expect(page.getByRole('button', { name: /Sicherung vom .* prüfen/ })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: /Sicherung vom .* prüfen/ }).click();
+  await expect(page.locator('[aria-live=polite]')).toContainText(/geprüft|unverändert/);
+});
+
+test('application rights and groups can be changed', async ({ page }) => {
+  await page.goto('/#/settings/groups');
+  await page.getByLabel('Apps und Docker für patrick').selectOption('allow');
+  await page.getByRole('button', { name: 'Neue Gruppe' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Neue Gruppe' });
+  await dialog.getByLabel('Name').fill('familie-vm');
+  await dialog.getByRole('checkbox', { name: 'familie' }).check();
+  await dialog.getByLabel('Virtuelle Maschinen für die Gruppe').selectOption('allow');
+  await dialog.getByRole('button', { name: 'Übernehmen' }).click();
+  await page.getByRole('button', { name: 'Änderungen speichern' }).click();
+  await expect(page.getByText('Gruppen und Rechte gespeichert.')).toBeVisible({ timeout: 20_000 });
+  await page.reload();
+  await expect(page.getByLabel('Apps und Docker für patrick')).toHaveValue('allow');
+  await expect(page.getByText('familie-vm')).toBeVisible();
+  // The group grants VM access to its member without a personal override.
+  await expect(page.getByLabel('Virtuelle Maschinen für familie').getByRole('option', { name: 'Wie Gruppe (erlaubt)' })).toBeAttached();
+});
+
 test('previous interface stays reachable', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { BellRing, CheckCircle2, Download, FolderOpen, HardDrive, Info, KeyRound, LogOut, Power, RefreshCw, RotateCw, Users as UsersIcon } from 'lucide-react';
+import { Archive, BellRing, CheckCircle2, Download, FolderOpen, UsersRound, HardDrive, Info, KeyRound, LogOut, Power, RefreshCw, RotateCw, Users as UsersIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { action, get, post, waitJob } from '../api';
 import type { Monitoring, Session, Status, Storage, Updates } from '../api';
 import { bytes, cx, duration, go, message, percent, useApi } from '../lib';
 import { SharesSection } from './Shares';
+import { BackupsSection } from './Backups';
+import { GroupsSection } from './Groups';
 import { AccountSection, UsersSection } from './Users';
 import { Button, Card, Confirm, Loading, Meter, Notice, Sheet, useToast } from '../ui';
 
@@ -15,6 +17,8 @@ const SECTIONS: Section[] = [
   { id: 'storage', label: 'Speicher', icon: HardDrive, admin: true },
   { id: 'shares', label: 'Freigaben', icon: FolderOpen, admin: true },
   { id: 'users', label: 'Benutzer', icon: UsersIcon, admin: true },
+  { id: 'groups', label: 'Gruppen und Rechte', icon: UsersRound, admin: true },
+  { id: 'backups', label: 'Sicherungen', icon: Archive, admin: true },
   { id: 'updates', label: 'Updates', icon: Download, admin: true },
   { id: 'account', label: 'Mein Konto', icon: KeyRound },
 ];
@@ -340,6 +344,8 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
           {active === 'storage' && <StorageSection />}
           {active === 'shares' && <SharesSection />}
           {active === 'users' && <UsersSection current={session.user?.name || ''} />}
+          {active === 'groups' && <GroupsSection />}
+          {active === 'backups' && <BackupsSection />}
           {active === 'account' && <AccountSection name={session.user?.name || ''} onChanged={onSessionChange} />}
           {active === 'updates' && <UpdatesSection />}
         </div>

@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { Pencil, UserPlus } from 'lucide-react';
 import { post, waitJob } from '../api';
 import type { Users } from '../api';
-import { message, useApi } from '../lib';
+import { go, message, useApi } from '../lib';
 import { Button, Card, Field, IconButton, Input, Loading, Modal, Notice, Select, useToast } from '../ui';
 
 type WebUser = Users['web'][number];
@@ -186,7 +186,7 @@ export function UsersSection({ current }: { current: string }) {
         <Button variant="primary" onClick={() => setAdding(true)}>
           <UserPlus className="size-4" /> Benutzer anlegen
         </Button>
-        <Button onClick={() => window.open('/classic#users', '_blank', 'noopener')}>Gruppen und App-Rechte</Button>
+        <Button onClick={() => go('settings', 'groups')}>Gruppen und Rechte</Button>
       </div>
       {adding && <AddUser onClose={() => setAdding(false)} onDone={users.reload} />}
       {editing && <EditUser user={editing} self={editing.name === current} onClose={() => setEditing(null)} onDone={users.reload} />}

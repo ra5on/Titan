@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, X } from 'lucide-react';
 import { cx } from './lib';
@@ -175,7 +176,9 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
       previous?.focus();
     };
   }, [onClose]);
-  return (
+  // Rendered at the document root: a sheet's backdrop filter would otherwise
+  // confine the dialog to the sheet and leave it underneath the dock.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-0 animate-fade sm:items-center sm:p-6" onMouseDown={event => event.target === event.currentTarget && onClose()}>
       <div
         ref={panel}
@@ -192,7 +195,8 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
