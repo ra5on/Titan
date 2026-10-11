@@ -16,7 +16,7 @@ from titan import __version__
 
 DEPENDENCIES = ('python3 (>= 3.13)', 'systemd', 'systemd-sysv', 'caddy', 'openssl',
     'acl', 'util-linux', 'smartmontools', 'tar', 'curl', 'ca-certificates', 'kmod',
-    'iproute2', 'e2fsprogs', 'xfsprogs', 'zfsutils-linux', 'zfs-dkms', 'cloud-guest-utils', 'gdisk', 'samba',
+    'iproute2', 'e2fsprogs', 'xfsprogs', 'btrfs-progs', 'zfsutils-linux', 'zfs-dkms', 'cloud-guest-utils', 'gdisk', 'samba',
     'samba-common-bin', 'docker.io', 'docker-cli', 'docker-compose (>= 2)', 'qemu-system-x86',
     'qemu-utils', 'ovmf', 'python3-yaml', 'libvirt-daemon-system', 'libvirt-daemon-driver-qemu',
     'libvirt-daemon', 'libvirt-daemon-lock', 'libvirt-daemon-log', 'libvirt-daemon-config-network', 'libvirt-clients', 'novnc', 'websockify', 'firewalld', 'apparmor')

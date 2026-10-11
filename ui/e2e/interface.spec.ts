@@ -162,6 +162,16 @@ test('a user can be created, locked and deleted', async ({ page }) => {
   await expect(page.getByText('e2e-gast', { exact: true })).toHaveCount(0);
 });
 
+test('a storage quota can be set per user', async ({ page }) => {
+  await page.goto('/#/settings/users');
+  await page.getByRole('button', { name: 'Benutzer patrick bearbeiten' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Kontingent für dokumente in GB').fill('50');
+  await dialog.getByRole('button', { name: 'Setzen' }).click();
+  await expect(page.getByText('Kontingent für „dokumente“ auf 50 GB gesetzt.')).toBeVisible({ timeout: 20_000 });
+  await expect(dialog.getByLabel('Kontingent für dokumente in GB')).toHaveValue('50');
+});
+
 test('own password, alerts and restart are available in settings', async ({ page }) => {
   await page.goto('/#/settings');
   await expect(page.getByText('Beispiel: Sicherungsziel fehlt')).toBeVisible();
@@ -209,6 +219,25 @@ test('application rights and groups can be changed', async ({ page }) => {
   await expect(page.getByText('familie-vm')).toBeVisible();
   // The group grants VM access to its member without a personal override.
   await expect(page.getByLabel('Virtuelle Maschinen für familie').getByRole('option', { name: 'Wie Gruppe (erlaubt)' })).toBeAttached();
+});
+
+test('the system drive can be used fully and a new storage area created', async ({ page }) => {
+  await page.goto('/#/settings/storage');
+  await expect(page.getByText('Interner Speicher')).toBeVisible();
+  await page.getByRole('button', { name: 'Ganze Platte nutzen' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Erweitern' }).click();
+  await expect(page.getByRole('button', { name: 'Ganze Platte nutzen' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Neuer Speicherbereich' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Neuer Speicherbereich' });
+  await dialog.getByLabel('Name').fill('medien');
+  await dialog.getByLabel('Dateisystem').selectOption('btrfs');
+  // Formatting stays locked until the exact drive path is typed.
+  await expect(dialog.getByRole('button', { name: 'Formatieren und anlegen' })).toBeDisabled();
+  await dialog.getByLabel('Bestätigung').fill('/dev/sdc');
+  await dialog.getByRole('button', { name: 'Formatieren und anlegen' }).click();
+  await expect(page.getByText('Speicherbereich „medien“ angelegt.')).toBeVisible();
+  await expect(page.getByText('btrfs', { exact: true })).toBeVisible();
 });
 
 test('previous interface stays reachable', async ({ request }) => {

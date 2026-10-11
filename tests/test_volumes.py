@@ -43,7 +43,7 @@ class VolumeTests(unittest.TestCase):
         self.calls.append((args, kwargs))
         if args[0].startswith("mkfs."):
             fs = args[0][5:]
-            value = args[args.index("-U") + 1] if fs == "ext4" else args[args.index("-m") + 1].split("=", 1)[1]
+            value = args[args.index("-m") + 1].split("=", 1)[1] if fs == "xfs" else args[args.index("-U") + 1]
             self.disk.update(fstype=fs, uuid=value)
             self.formatted = value
         if args[0] == "blkid": return f"TYPE={self.disk['fstype']}\nUUID={self.disk['uuid']}"
@@ -123,6 +123,16 @@ class VolumeTests(unittest.TestCase):
         self.assertLessEqual(len(command[command.index("-L") + 1]), 12)
         self.assertNotIn("-f", command)
         self.assertIn(" xfs defaults,nofail,nodev,nosuid 0 0", self.fstab.read_text())
+
+    def test_btrfs_is_created_by_uuid_without_force_and_mounted_by_fstab(self):
+        with self.safe_format_simulation():
+            self.manager.create("medien", "/dev/sdb", "btrfs", "medien", "/dev/sdb")
+        command = next(args for args, _ in self.calls if args[0] == "mkfs.btrfs")
+        record = next(item for item in self.manager.records() if item["name"] == "medien")
+        self.assertEqual(command[command.index("-U") + 1], record["uuid"])
+        self.assertNotIn("-f", command)
+        self.assertNotIn("-m", command)
+        self.assertIn(" btrfs defaults,nofail,nodev,nosuid 0 0", self.fstab.read_text())
 
     def test_mount_failure_is_visible_and_fstab_addition_is_rolled_back(self):
         self.fail_mount = True

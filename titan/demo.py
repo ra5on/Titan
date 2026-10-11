@@ -296,7 +296,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         if operation == "storage":
             return {"pools": copy.deepcopy(self.pools), "datasets": copy.deepcopy(self.datasets),
                     "disks": copy.deepcopy(self.demo_disks), "volumes": copy.deepcopy(self.volume_records),
-                    "filesystems": {"ext4": {"available": True}, "xfs": {"available": True}},
+                    "filesystems": {"ext4": {"available": True}, "xfs": {"available": True}, "btrfs": {"available": True}},
                     "existing_filesystems": [{key: item.get(key) for key in ("name", "type", "fstype", "uuid", "size", "mountpoints")} for item in self.demo_disks if item.get("fstype") in ("ext4", "xfs")],
                     "status": "pool: tank\nstate: ONLINE\nscan: scrub repaired 0B with 0 errors\nerrors: No known data errors"}
         if operation == "system_disk":
@@ -513,7 +513,7 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             name = identifier(args["name"])
             filesystem = args.get("filesystem", "ext4")
             disk = next((item for item in self.demo_disks if item["name"] == args["disk"]), None)
-            if args.get("confirmation_name") != name or args.get("confirmation_disk") != args["disk"] or filesystem not in ("ext4", "xfs"):
+            if args.get("confirmation_name") != name or args.get("confirmation_disk") != args["disk"] or filesystem not in ("ext4", "xfs", "btrfs"):
                 raise Error("Dateisystem oder Bestätigung ist ungültig.")
             if any(item["name"] == name for item in self.volume_records): raise Error("Volume existiert bereits.", 409)
             if not disk or disk.get("fstype") or disk.get("children") or any(disk.get("mountpoints") or []) or disk.get("ro"):

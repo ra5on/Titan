@@ -13,7 +13,9 @@ import uuid
 from .core import Error, identifier
 
 DISK = re.compile(r"/dev/(?:(?:sd|vd|xvd|hd)[a-z]+|nvme[0-9]+n[0-9]+|mmcblk[0-9]+)\Z")
-FILESYSTEMS = {"ext4": "mkfs.ext4", "xfs": "mkfs.xfs"}
+FILESYSTEMS = {"ext4": "mkfs.ext4", "xfs": "mkfs.xfs", "btrfs": "mkfs.btrfs"}
+# Smallest disk each mkfs accepts with headroom for metadata, in MiB.
+MINIMUM_MIB = {"ext4": 64, "xfs": 512, "btrfs": 256}
 OPTIONS = "defaults,nofail,nodev,nosuid"
 
 
@@ -153,7 +155,7 @@ class Volumes:
         item = candidates[0]
         if (item.get("type") != "disk" or item.get("fstype") or item.get("children") or
                 any(item.get("mountpoints") or []) or item.get("ro") not in (False, 0, "0") or
-                int(item.get("size", 0)) < (512 if filesystem == "xfs" else 64) * 1024**2):
+                int(item.get("size", 0)) < MINIMUM_MIB[filesystem] * 1024**2):
             raise Error("Nur vollständig leere, ausreichend große, unpartitionierte, beschreibbare und ungemountete Laufwerke sind zulässig.")
         info = os.stat(disk, follow_symlinks=False)
         if not stat.S_ISBLK(info.st_mode):
@@ -269,7 +271,7 @@ class Volumes:
             self.host.save("volumes", self.records() + [record])
             journaled = True
             arguments = [FILESYSTEMS[filesystem], "-L", name[:12]]
-            arguments += ["-U", record["uuid"]] if filesystem == "ext4" else ["-m", "uuid=" + record["uuid"]]
+            arguments += ["-m", "uuid=" + record["uuid"]] if filesystem == "xfs" else ["-U", record["uuid"]]
             arguments += ["/proc/self/fd/" + str(fd)]
             self.run(arguments, timeout=900, pass_fds=(fd,))
             formatted = True

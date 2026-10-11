@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { Pencil, UserPlus } from 'lucide-react';
 import { post, waitJob } from '../api';
 import type { Users } from '../api';
-import { go, message, useApi } from '../lib';
+import { bytes, go, message, useApi } from '../lib';
 import { Button, Card, Field, IconButton, Input, Loading, Modal, Notice, Select, useToast } from '../ui';
 
 type WebUser = Users['web'][number];
@@ -57,6 +57,66 @@ function AddUser({ onClose, onDone }: { onClose: () => void; onDone: () => void 
         </div>
       </form>
     </Modal>
+  );
+}
+
+type QuotaTarget = { id: string; label: string; supported: boolean; used_bytes: number; limit_bytes: number };
+const GIB = 1024 ** 3;
+
+/** Storage limit per user and share. The agent enforces it in the file system, currently on ZFS datasets. */
+function UserQuotas({ name }: { name: string }) {
+  const toast = useToast();
+  const quotas = useApi<{ targets: QuotaTarget[] }>(`/api/identity/quotas?name=${encodeURIComponent(name)}`);
+  const [limits, setLimits] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState('');
+  const targets = (quotas.data?.targets || []).filter(target => target.supported);
+
+  const save = async (target: QuotaTarget) => {
+    const gib = Number(limits[target.id] ?? target.limit_bytes / GIB);
+    if (!Number.isFinite(gib) || gib < 0) return toast('Ein Kontingent in GB eingeben; 0 bedeutet unbegrenzt.', true);
+    setSaving(target.id);
+    try {
+      await job('/api/identity/quotas', { name, target: target.id, limit_bytes: Math.round(gib * GIB) });
+      toast(gib ? `Kontingent für „${target.label}“ auf ${gib} GB gesetzt.` : `Kontingent für „${target.label}“ aufgehoben.`);
+      await quotas.reload();
+    } catch (reason) {
+      toast(message(reason), true);
+    } finally {
+      setSaving('');
+    }
+  };
+
+  if (quotas.loading || quotas.error) return null;
+  return (
+    <fieldset>
+      <legend className="mb-1.5 text-[13px] font-medium text-white/70">Speicherkontingent</legend>
+      {targets.length === 0 ? (
+        <p className="text-xs leading-relaxed text-white/45">Kontingente lassen sich für Freigaben setzen, die auf einem ZFS-Verbund liegen. Für diesen Benutzer gibt es noch keine solche Freigabe.</p>
+      ) : (
+        <ul className="divide-y divide-white/6 rounded-xl border border-white/10">
+          {targets.map(target => (
+            <li key={target.id} className="flex items-center gap-2 px-3.5 py-2">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{target.label}</span>
+                <span className="block text-xs text-white/45">{bytes(target.used_bytes)} belegt</span>
+              </span>
+              <Input
+                type="number"
+                min={0}
+                step="any"
+                aria-label={`Kontingent für ${target.label} in GB`}
+                className="h-9 w-24"
+                value={limits[target.id] ?? String(target.limit_bytes / GIB)}
+                onChange={event => setLimits({ ...limits, [target.id]: event.target.value })}
+              />
+              <span className="text-xs text-white/45">GB</span>
+              <Button size="sm" busy={saving === target.id} disabled={Boolean(saving)} onClick={() => save(target)}>Setzen</Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-1.5 text-xs text-white/45">0 bedeutet unbegrenzt.</p>
+    </fieldset>
   );
 }
 
@@ -138,6 +198,7 @@ function EditUser({ user, self, onClose, onDone }: { user: WebUser; self: boolea
             <Input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" />
           </Field>
         )}
+        {user.role !== 'admin' && <UserQuotas name={user.name} />}
         {error && <Notice>{error}</Notice>}
         <div className="flex items-center justify-between gap-2">
           {self ? <span /> : <Button variant="danger" onClick={() => setDeleting(true)}>Löschen</Button>}
