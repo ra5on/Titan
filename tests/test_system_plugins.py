@@ -70,7 +70,8 @@ class PluginTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        self.binary_root = self.root / 'plugins'
+        state_root = self.root / 'state'; state_root.mkdir(mode=0o755)
+        self.binary_root = state_root / 'plugins' / 'cloudflare'
         self.unit = self.root / 'systemd' / 'unit.service'
         directory = self.root / 'agent'; directory.mkdir(mode=0o700)
         self.host = Host(directory)
@@ -88,7 +89,9 @@ class PluginTests(unittest.TestCase):
         return self.act(token=credential(), public_origin='https://nas.example.org', **options)
 
     def test_install_sets_restricted_local_target_and_keeps_secret_out_of_status(self):
-        result = self.install()
+        previous_umask = os.umask(0o027)
+        try: result = self.install()
+        finally: os.umask(previous_umask)
         self.assertTrue(result['connected'])
         remote = self.host.web_access.config()['remote']
         self.assertEqual(remote['connector'], 'plugin-cloudflare')
@@ -104,6 +107,8 @@ class PluginTests(unittest.TestCase):
         self.assertNotIn(credential(), public)
         self.assertTrue(self.host.enabled)
         self.assertTrue(self.host.running)
+        self.assertEqual(self.binary_root.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(self.binary_root.parent.stat().st_mode & 0o777, 0o755)
 
     def test_download_failure_leaves_existing_stopped_service_and_files_untouched(self):
         self.install()
@@ -134,7 +139,7 @@ class PluginTests(unittest.TestCase):
         self.assertEqual((self.host.directory / 'cloudflare-plugin-token').read_text(), credential())
 
     def test_first_install_failure_removes_new_files_and_never_uses_stale_backup(self):
-        self.binary_root.mkdir()
+        self.binary_root.mkdir(parents=True)
         (self.binary_root / 'cloudflared.previous').write_bytes(b'stale')
         self.ready.return_value = False
         with patch('titan.system_plugins.time.monotonic', side_effect=[0, 30]):

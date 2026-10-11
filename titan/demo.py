@@ -483,7 +483,7 @@ class Demo(DemoPluginsMixin, DemoIdentityMixin, DemoStorageMixin, DemoPackagesVM
                     "config_path": item.get("config_path", "/var/lib/titan-agent/apps/" + item["id"] + "/config"), "data_path": item.get("data", "/var/srv/titan/apps/" + item["id"])}
         if operation == "file":
             allowed = {"list": {"offset", "limit", "search", "recursive", "type", "min_size", "max_size", "modified_after", "modified_before"}, "read": {"offset", "size"}, "mkdir": set(),
-                       "write": {"data", "revision"}, "create": {"data"}, "delete": {"confirmation_path"},
+                       "write": {"data", "revision"}, "create": {"data"}, "create_document": {"document_type"}, "delete": {"confirmation_path"},
                        "upload": {"offset", "data", "upload_id", "total", "finish", "cancel"}, "rename": {"destination"}, "trash": set(), "trash_list": {"offset", "limit", "search"},
                        "restore": {"trash_name", "destination"}, "copy": {"destination", "destination_share"},
                        "move": {"destination", "destination_share"}}

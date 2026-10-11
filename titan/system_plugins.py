@@ -114,6 +114,15 @@ def read_owned(path, *, private=False):
         return stream.read()
 
 
+def prepare_plugin_root():
+    # The agent has umask 0027. Public executable directories must still be
+    # traversable by the service's DynamicUser; credentials live elsewhere.
+    secure_directory(ROOT.parent)
+    ROOT.parent.chmod(0o755)
+    secure_directory(ROOT)
+    ROOT.chmod(0o755)
+
+
 def download(candidate, path):
     expected = offer(candidate['version'], candidate['sha256'])
     if candidate != expected:
@@ -149,6 +158,7 @@ def service_unit(token_path):
 Description=Titan Cloudflare Tunnel Plugin
 After=network-online.target titan-web.service
 Wants=network-online.target
+RequiresMountsFor={ROOT}
 ConditionPathExists={token_path}
 
 [Service]
@@ -291,7 +301,7 @@ class SystemPluginsMixin:
         remote = validate_remote(config.get('remote'))
         if remote['enabled'] and remote['connector'] not in ('', CONNECTOR, 'titan-cloudflared'):
             raise Error('Ein anderer Fernzugriff ist aktiv. Diesen zuerst unter Fernzugriff deaktivieren.', 409)
-        secure_directory(ROOT)
+        prepare_plugin_root()
         stage = ROOT / ('.download-' + secrets.token_hex(12))
         binary = ROOT / 'cloudflared'; backup = ROOT / ('.previous-' + secrets.token_hex(12))
         old_unit = read_owned(UNIT_PATH)
@@ -388,6 +398,7 @@ class SystemPluginsMixin:
     def op_plugins_restore(self):
         """Recreate the optional service after a system-slot switch; no download."""
         if self._cloudflare_installed():
+            prepare_plugin_root()
             binary = read_owned(ROOT / 'cloudflared')
             if not binary or hashlib.sha256(binary).hexdigest() != self._plugin_state()['cloudflare'].get('sha256'):
                 raise Error('Cloudflare-Plugin fehlt im persistenten Speicher. Im Appstore erneut installieren.')
