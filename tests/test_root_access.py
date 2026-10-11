@@ -106,7 +106,9 @@ class RootAccessTests(unittest.TestCase):
         self.app.track_terminal(self.user, ID, root_mode=True)
         self.app.track_terminal(self.user, 'b' * 64)
         self.app.disable_root_access(self.user)
-        self.app.agent.call.assert_called_with('root_terminal_close', owner=terminal_owner(self.user), id=ID)
+        self.app.agent.call.assert_any_call('root_terminal_close', owner=terminal_owner(self.user), id=ID)
+        # Ending root mode also drops the agent's own lease.
+        self.app.agent.call.assert_called_with('root_revoke', owner=terminal_owner(self.user))
         self.assertIn((terminal_owner(self.user), 'b' * 64), self.app.terminal_sessions)
         self.assertFalse(self.app.root_access_active(self.user))
 
