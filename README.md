@@ -7,11 +7,11 @@
 Titan macht aus einem PC oder Mini-Server ein NAS mit Apps, virtuellen Maschinen und Sicherungen,
 bedient komplett im Browser.
 
-[![Version](https://img.shields.io/badge/Version-0.8.1%20Stable-5b8cff?style=for-the-badge)](https://github.com/ra5on/Titan/releases)
+[![Version](https://img.shields.io/badge/Version-0.8.2%20Stable-5b8cff?style=for-the-badge)](https://github.com/ra5on/Titan/releases)
 [![Plattform](https://img.shields.io/badge/Debian%2013-AMD64-a80030?style=for-the-badge&logo=debian&logoColor=white)](docs/INSTALL.md)
 [![Lizenz](https://img.shields.io/badge/Lizenz-PolyForm%20Noncommercial-34d399?style=for-the-badge)](#lizenz)
 
-[**Image herunterladen**](https://github.com/ra5on/Titan/releases) · [Installation](docs/INSTALL.md) · [Was ist neu in 0.8.1](docs/RELEASE-0.8.1.md)
+[**Image herunterladen**](https://github.com/ra5on/Titan/releases) · [Installation](docs/INSTALL.md) · [Was ist neu in 0.8.2](docs/RELEASE-0.8.2.md)
 
 ![Titan Startseite mit Apps, einer virtuellen Maschine und Live-Kacheln](docs/images/titan-080-start.jpg)
 
@@ -67,11 +67,11 @@ Ausführlich: [Installation](docs/INSTALL.md) · [Image, Partitionen und Proxmox
 
 ## Stand der Entwicklung
 
-Titan 0.8.1 erscheint als **Stable**. Neue Releases und automatische Debian-Wartungsupdates werden ausschließlich als Stable veröffentlicht. Einzelne experimentelle Funktionen tragen eine eigene Beta-Kennzeichnung. Start, Updates und Rückfall werden bei jedem Release automatisch in einer virtuellen Maschine geprüft, die Oberfläche in einem echten Browser.
+Titan 0.8.2 erscheint als **Stable**. Neue Releases und automatische Debian-Wartungsupdates werden ausschließlich als Stable veröffentlicht. Einzelne experimentelle Funktionen tragen eine eigene Beta-Kennzeichnung. Start, Updates und Rückfall werden bei jedem Release automatisch in einer virtuellen Maschine geprüft, die Oberfläche in einem echten Browser.
 
-Als **Beta-Funktionen** gelten USB-Automount, laufender Abgleich, Btrfs-Spiegel, NVIDIA-Treiberinstallation und USB-/PCI-Durchreichung. Sie sind noch nicht umfassend auf echter Hardware erprobt. Die [Hinweise zur Version](docs/RELEASE-0.8.1.md) beschreiben Änderungen und Grenzen. Wichtige Daten gehören zusätzlich auf eine unabhängige Sicherung.
+Als **Beta-Funktionen** gelten USB-Automount, laufender Abgleich, Btrfs-Spiegel, die optionalen Cloudflare-/NVIDIA-Plugins und USB-/PCI-Durchreichung. Sie sind noch nicht umfassend auf echter Hardware erprobt. Die [Hinweise zur Version](docs/RELEASE-0.8.2.md) beschreiben Änderungen und Grenzen. Wichtige Daten gehören zusätzlich auf eine unabhängige Sicherung.
 
-Einige selten gebrauchte Bereiche (Zwei-Faktor-Einrichtung, Webzugriff, Plattentausch, Snapshots) liegen noch in der bisherigen Oberfläche unter `/classic`.
+Alltag und Verwaltung verwenden einen gemeinsamen Desktop. Alte `/classic`-Lesezeichen führen auf die entsprechenden Bereiche. Im Appstore lassen sich Cloudflare als Debian-Dienst und NVIDIA-Treiber als optionale Plugins installieren, aktualisieren und entfernen; ihre Programme werden erst bei Bedarf heruntergeladen.
 
 ## Lizenz
 
