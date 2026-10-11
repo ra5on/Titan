@@ -81,6 +81,19 @@ test('settings sections load their data', async ({ page }) => {
   await expect(page.getByText(/Titan ist aktuell|ist verfügbar/)).toBeVisible();
 });
 
+test('the update channel can be changed so a beta keeps receiving betas', async ({ page }) => {
+  await page.goto('/#/settings/updates');
+  // The installed version is a beta, so the stable channel explains why nothing is offered.
+  await expect(page.getByLabel('Update-Kanal')).toHaveValue('stable');
+  await expect(page.getByText(/Installiert ist eine Beta/)).toBeVisible();
+  await page.getByLabel('Update-Kanal').selectOption('beta');
+  await expect(page.getByText(/Kanal: beta/)).toBeVisible();
+  await expect(page.getByText(/-beta\.\d+ ist verfügbar/)).toBeVisible();
+  await expect(page.getByText(/Installiert ist eine Beta/)).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel('Update-Kanal')).toHaveValue('beta');
+});
+
 test('a share can be created and removed', async ({ page }) => {
   await page.goto('/#/settings/shares');
   await expect(page.getByText('dokumente', { exact: true })).toBeVisible();

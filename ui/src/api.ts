@@ -112,7 +112,7 @@ export type Monitoring = {
   services: Record<string, { installed: boolean; active: boolean }>;
 };
 export type Users = { web: { name: string; role: string; enabled: boolean; display_name: string }[] };
-export type Updates = { current: string; channel: string; available: boolean; latest?: string | null };
+export type Updates = { current: string; current_stage?: string; channel: string; available: boolean; latest?: string | null };
 export type Job = { id: string; action: string; status: 'queued' | 'running' | 'completed' | 'failed'; result: Record<string, unknown> };
 
 export class ApiError extends Error {
