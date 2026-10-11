@@ -141,6 +141,17 @@ class PublicProbeTests(unittest.TestCase):
         self.assertIn('HTTP', result['message'])
         self.connection.close.assert_called_once()
 
+    def test_disconnected_cloudflare_tunnel_is_distinguished_from_wrong_origin(self):
+        self.response.status = 530
+        self.response.read.return_value = b'error code: 1033'
+        result = probe_public(self.config)
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['status'], 530)
+        self.assertIn('Kein verbundener Tunnel-Connector', result['message'])
+        self.assertIn('7844', result['message'])
+        self.response.read.return_value = b'error code: 1016'
+        self.assertNotIn('1033', probe_public(self.config)['message'])
+
     def test_any_nonpublic_dns_answer_prevents_all_network_connections(self):
         for address in ('0.0.0.0', '127.0.0.1', '10.0.0.1', '169.254.169.254', '192.168.10.18',
                 '100.64.0.1', '::1', '::ffff:127.0.0.1', 'fc00::18', 'fe80::1', '224.0.0.1', 'ff02::1', '240.0.0.1'):

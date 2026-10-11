@@ -133,6 +133,8 @@ def probe_public(config):
         response = connection.getresponse()
         payload = response.read(4097)
         if response.status != 200:
+            if response.status == 530 and re.search(rb'\b1033\b', payload):
+                return {'ok': False, 'status': 530, 'message': 'Cloudflare meldet 1033: Kein verbundener Tunnel-Connector erreichbar. Cloudflare-Dienst bzw. bisherigen Docker-Tunnel starten und Token, Internetzugang sowie Port 7844 prüfen.'}
             messages = {403: 'Domain/Host-Prüfung oder Cloudflare-Zugriffsregel blockiert den Zugang.',
                         502: 'Der Tunnel erreicht den Zieldienst nicht. Netzwerk, Port und Protokoll prüfen.',
                         301: 'Weiterleitung statt Tunnel-Zugang. Die angezeigte Tunnel-Zieladresse verwenden.',
