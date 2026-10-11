@@ -114,7 +114,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
 
     def demo_storage_locations(self):
         purposes = ["files", "apps", "shares", "vms", "backups"]
-        resources = [{"id": "system", "label": "Interner Speicher", "kind": "internal", "path": "/var/srv/titan", "filesystem": "ext4", "available": True, "status": "ready", "free_bytes": 110 * 1024**3, "total_bytes": 128 * 1024**3, "capabilities": purposes[:-1]}]
+        internal = self.system_disk()
+        resources = [{"id": "system", "label": "Interner Speicher", "kind": "internal", "path": "/var/srv/titan", "filesystem": "ext4", "available": True, "status": "ready", "free_bytes": internal['filesystem_available'], "used_bytes": internal['filesystem_used'], "total_bytes": internal['filesystem_size'], "capabilities": purposes[:-1]}]
         for volume in self.volume_records:
             ready = volume.get("mounted", True)
             resources.append({"id": "volume:" + volume["name"], "label": volume["name"], "kind": "volume", "path": "/var/srv/titan/volumes/" + volume["name"], "filesystem": volume["filesystem"], "available": ready, "status": "ready" if ready else "offline", "free_bytes": volume.get("total", 1024**4) - volume.get("used", 0) if ready else 0, "total_bytes": volume.get("total", 1024**4), "capabilities": purposes})
@@ -975,12 +976,12 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
     def system_disk(self):
         if self._system_disk_state is None:
             gib = 1024 ** 3
-            size, used = int(20.5 * gib), 8 * gib
-            growable = int(42 * gib)
+            size, used = 128 * gib, 18 * gib
+            growable = int(95.5 * gib)
             self._system_disk_state = {"supported": True, "available": True, "reason": "", "demo": True,
                 "revision": hashlib.sha256(str(size).encode()).hexdigest(), "disk": "/dev/vda",
-                "partition": "/dev/vda4", "partition_number": 4, "filesystem": "xfs", "mountpoint": "/var",
-                "disk_size": 64 * gib, "partition_size": size, "filesystem_size": size,
+                "partition": "/dev/vda5", "partition_number": 5, "filesystem": "ext4", "mountpoint": "/var/lib/titan-system",
+                "disk_size": 256 * gib, "partition_size": size, "filesystem_size": size,
                 "filesystem_used": used, "filesystem_available": size - used,
                 "partition_growable_bytes": growable, "filesystem_growable_bytes": 0, "growable_bytes": growable}
         return self._system_disk_state

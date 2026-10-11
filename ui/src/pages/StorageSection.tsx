@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { HardDrive, Maximize2, Plus, Replace } from 'lucide-react';
 import { action } from '../api';
-import { bytes, cx, message, percent, useApi } from '../lib';
+import { bytes, cx, go, message, percent, useApi } from '../lib';
 import { Button, Card, Confirm, Field, Input, Loading, Meter, Modal, Notice, Select, useToast } from '../ui';
 
 type Disk = { name: string; size: number; model: string; type?: string; fstype: string | null; mountpoints?: (string | null)[]; children?: unknown[]; ro?: boolean };
@@ -19,6 +19,10 @@ type Storage = {
 type SystemDisk = {
   supported: boolean; available: boolean; reason: string; revision: string; disk: string;
   filesystem_size: number; filesystem_used: number; disk_size: number; growable_bytes: number;
+};
+type Locations = {
+  resources: { id: string; available: boolean; total_bytes: number; free_bytes: number; used_bytes?: number; error?: string }[];
+  default_storage: string;
 };
 
 const FS_LABEL: Record<string, string> = { ext4: 'Ext4 · bewährter Standard', xfs: 'XFS · für sehr große Dateien', btrfs: 'Btrfs · mit Prüfsummen und Snapshots' };
@@ -228,6 +232,8 @@ export function StorageSection() {
   const toast = useToast();
   const storage = useApi<Storage>('/api/storage', 30000);
   const system = useApi<SystemDisk>('/api/system-disk', 60000);
+  const locations = useApi<Locations>('/api/storage-locations', 30000);
+  const [savingDefault, setSavingDefault] = useState(false);
   const [creating, setCreating] = useState(false);
   const [growing, setGrowing] = useState(false);
   const [replacing, setReplacing] = useState<Volume | null>(null);
@@ -236,34 +242,56 @@ export function StorageSection() {
   if (storage.error && !storage.data) return <Notice>{storage.error}</Notice>;
   const data = storage.data!;
   const disk = system.data?.supported ? system.data : null;
+  const internal = locations.data?.resources.find(item => item.id === 'system');
+  const isDefault = locations.data?.default_storage === 'system';
 
   return (
     <div className="space-y-4">
-      {disk && (
+      <section aria-label="Interner Speicher">
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <HardDrive className="size-5 text-white/50" aria-hidden />
               <div>
                 <div className="font-semibold">Interner Speicher</div>
-                <div className="text-xs text-white/45">Systemlaufwerk {disk.disk} · für Dateien, Apps und virtuelle Maschinen</div>
+                <div className="text-xs text-white/45">Systemlaufwerk{disk ? ` ${disk.disk}` : ''} · für Dateien, Apps und virtuelle Maschinen</div>
               </div>
             </div>
-            {disk.available && disk.growable_bytes > 0 && (
+            {disk?.available && disk.growable_bytes > 0 && (
               <Button size="sm" variant="primary" onClick={() => setGrowing(true)}>
                 <Maximize2 className="size-4" /> Ganze Platte nutzen
               </Button>
             )}
           </div>
-          <Usage used={disk.filesystem_used} total={disk.filesystem_size} />
-          {disk.growable_bytes > 0 && (
+          {locations.loading ? <Loading /> : internal?.available ? (
+            <>
+              <Usage used={internal.used_bytes ?? internal.total_bytes - internal.free_bytes} total={internal.total_bytes} free={internal.free_bytes} />
+              <p className="mt-3 text-sm text-white/60">Der Datenbereich auf der Titan-Systemplatte ist bereits nutzbar. Dafür muss kein neuer Speicherbereich angelegt oder formatiert werden. Ein Teil der Platte bleibt für Titan und Systemupdates reserviert.</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="primary" busy={savingDefault} disabled={isDefault} onClick={async () => {
+                  setSavingDefault(true);
+                  try {
+                    await action('storage_preferences_save', { default_storage: 'system' });
+                    toast('Interner Speicher als Standard für neue Daten gewählt. Vorhandene Daten bleiben an ihrem Speicherort.');
+                    await locations.reload();
+                  } catch (reason) { toast(message(reason), true); }
+                  finally { setSavingDefault(false); }
+                }}>{isDefault ? 'Standard für neue Daten' : 'Für neue Daten verwenden'}</Button>
+                <Button size="sm" onClick={() => go('settings', 'shares')}>Freigaben verwalten</Button>
+              </div>
+            </>
+          ) : <Notice>{internal?.error || locations.error || 'Der interne Datenspeicher ist derzeit nicht erreichbar.'}</Notice>}
+          {!system.loading && (system.error || system.data && !system.data.supported) && (
+            <p className="mt-3 text-sm text-warn">Erweiterung derzeit nicht verfügbar: {system.error || system.data?.reason}</p>
+          )}
+          {disk && disk.growable_bytes > 0 && (
             <p className="mt-3 text-sm text-white/60">
               Auf dem Systemlaufwerk sind noch {bytes(disk.growable_bytes)} ungenutzt.
               {!disk.available && disk.reason ? ` ${disk.reason}` : ''}
             </p>
           )}
         </Card>
-      )}
+      </section>
       {data.volumes.map(volume => (
         <Card key={volume.name}>
           <div className="flex items-center justify-between gap-3">
@@ -339,7 +367,7 @@ export function StorageSection() {
       {growing && disk && (
         <Confirm
           title="Ganzes Systemlaufwerk nutzen?"
-          text={`Der interne Speicher wird um ${bytes(disk.growable_bytes)} auf die volle Größe des Systemlaufwerks erweitert. Vorhandene Daten bleiben erhalten; der Vorgang lässt sich nicht rückgängig machen.`}
+          text={`Der interne Datenbereich wird um ${bytes(disk.growable_bytes)} erweitert. Die System- und Bootpartitionen bleiben unverändert. Vorhandene Daten bleiben erhalten; der Vorgang lässt sich nicht rückgängig machen.`}
           confirmLabel="Erweitern"
           onClose={() => setGrowing(false)}
           onConfirm={async () => {
@@ -349,7 +377,7 @@ export function StorageSection() {
             } catch (reason) {
               toast(message(reason), true);
             }
-            await system.reload();
+            await Promise.all([system.reload(), locations.reload(), storage.reload()]);
           }}
         />
       )}

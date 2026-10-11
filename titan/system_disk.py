@@ -61,6 +61,13 @@ def device_path(value):
 
 
 class SystemDisk:
+    filesystem = 'xfs'
+    mountpoint = '/var'
+    partition_label = 'root'
+    partition_type = ROOT_TYPE
+    other_partition_types = BOOT_TYPES
+    complete_message = 'Die Systempartition und ihr XFS-Dateisystem nutzen jetzt den verfügbaren Systemdatenträgerplatz.'
+
     def __init__(self, runner=None, lock_path=None):
         self.runner = runner or command
         self.lock_path = Path(lock_path or LOCK)
@@ -81,14 +88,14 @@ class SystemDisk:
             return result
         return json.loads(self._run(arguments).stdout, object_pairs_hook=pairs)
 
-    def _mount(self, path):
+    def _mount(self, path, filesystem=None):
         data = self._json(['findmnt', '--json', '--target', path, '--output', 'TARGET,SOURCE,FSTYPE,OPTIONS,MAJ:MIN,FSROOT'])
         rows = data.get('filesystems', [])
         if len(rows) != 1 or rows[0].get('target') != path or rows[0].get('children'):
             unsupported(f'{path} ist nicht eindeutig als Systemdateisystem eingehängt.')
         row = rows[0]
-        if row.get('fstype') != 'xfs' or not MAJMIN.fullmatch(str(row.get('maj:min', ''))):
-            unsupported('Automatische Systemerweiterung unterstützt ausschließlich das unveränderte Titan-XFS-Layout.')
+        if row.get('fstype') != (filesystem or self.filesystem) or not MAJMIN.fullmatch(str(row.get('maj:min', ''))):
+            unsupported('Automatische Systemerweiterung unterstützt ausschließlich das unveränderte Titan-Dateisystemlayout.')
         if os.path.realpath(path) != path:
             unsupported(f'{path} darf kein symbolischer Link sein.')
         actual = os.stat(path).st_dev
@@ -105,12 +112,29 @@ class SystemDisk:
             unsupported('Schreibgeschützte oder entfernbare Systemdatenträger werden nicht automatisch erweitert.')
         return path
 
-    def _inspect(self):
+    def _mount_layout(self):
         var, root = self._mount('/var'), self._mount('/sysroot')
         if var['maj:min'] != root['maj:min'] or root.get('fsroot') != '/':
             unsupported('/var und /sysroot liegen nicht auf derselben unveränderten Systempartition.')
+        return var, root
+
+    def _validate_layout(self, part, disk, rows, number, root, table):
+        pass
+
+    def _geometry(self, partition, filesystem_uuid):
+        geometry = self._run(['xfs_info', '/var']).stdout
+        match = re.search(r'^data\s*=\s*bsize=(\d+)\s+blocks=(\d+)', geometry, re.MULTILINE)
+        if not match or not re.search(r'^log\s*=\s*internal\b', geometry, re.MULTILINE) or not re.search(r'^realtime\s*=\s*none\b', geometry, re.MULTILINE):
+            unsupported('Die XFS-Geometrie benötigt externe Geräte oder ist nicht eindeutig prüfbar.')
+        return tuple(map(positive, match.groups()))
+
+    def _grow_filesystem(self, before):
+        self._run(['xfs_growfs', '-d', '/var'], timeout=120)
+
+    def _inspect(self):
+        var, root = self._mount_layout()
         if 'rw' not in var.get('options', '').split(',') or 'ro' in var.get('options', '').split(','):
-            unsupported('/var ist schreibgeschützt; das Systemdateisystem kann nicht erweitert werden.')
+            unsupported(f'{self.mountpoint} ist schreibgeschützt; das Dateisystem kann nicht erweitert werden.')
         data = self._json(['lsblk', '--json', '--bytes', '--paths', '--list', '--output',
                           'NAME,TYPE,MAJ:MIN,SIZE,RO,RM,FSTYPE,UUID,PARTTYPE,PARTLABEL,PARTUUID,PKNAME,LOG-SEC'])
         rows = data.get('blockdevices', [])
@@ -127,8 +151,8 @@ class SystemDisk:
         if any(row.get('pkname') and device_path(row['pkname']) == partition for row in rows):
             unsupported('Die Systempartition besitzt zusätzliche Gerätezuordnungen; eine Erweiterung ist gesperrt.')
         number = positive(Path(f'/sys/dev/block/{part["maj:min"]}/partition').read_text().strip())
-        if number > 128 or part.get('fstype') != 'xfs' or str(part.get('parttype', '')).lower() != ROOT_TYPE or part.get('partlabel') != 'root':
-            unsupported('Die eingehängte Partition ist nicht die erwartete Titan-XFS-Systempartition mit GPT-Kennung root.')
+        if number > 128 or part.get('fstype') != self.filesystem or str(part.get('parttype', '')).lower() != self.partition_type or part.get('partlabel') != self.partition_label:
+            unsupported('Die eingehängte Partition ist nicht die erwartete Titan-Partition ' + self.partition_label + '.')
         if not UUID.fullmatch(str(part.get('uuid', ''))) or not UUID.fullmatch(str(part.get('partuuid', ''))):
             unsupported('Eindeutige UUIDs der Systempartition und ihres Dateisystems fehlen.')
         table = self._json(['sfdisk', '--json', disk]).get('partitiontable', {})
@@ -141,12 +165,13 @@ class SystemDisk:
         partitions = table.get('partitions', [])
         if not isinstance(partitions, list) or not partitions:
             unsupported('Die GPT-Systempartitionstabelle ist leer oder ungültig.')
+        self._validate_layout(part, disk, rows, number, root, table)
         selected = [item for item in partitions if device_path(item.get('node')) == partition]
         if len(selected) != 1:
             unsupported('Die Systempartition ist in GPT nicht eindeutig vorhanden.')
         selected = selected[0]
         start, size = positive(selected['start']), positive(selected['size'])
-        if (size * sector != partition_size or selected.get('name') != 'root' or str(selected.get('type', '')).lower() != ROOT_TYPE
+        if (size * sector != partition_size or selected.get('name') != self.partition_label or str(selected.get('type', '')).lower() != self.partition_type
                 or str(selected.get('uuid', '')).lower() != part['partuuid'].lower() or selected.get('attrs')):
             unsupported('GPT- und Kernelstatus der Systempartition stimmen nicht überein; nach einem Neustart erneut prüfen.')
         # Linux block sysfs always reports 512-byte sectors, including 4Kn
@@ -163,7 +188,7 @@ class SystemDisk:
                 unsupported('Die Partitionen überlappen oder überschreiten die Systemdatenträgergröße.')
             seen.add(node)
             previous_end = item_start + item_size - 1
-            if node != partition and str(item.get('type', '')).lower() not in BOOT_TYPES:
+            if node != partition and str(item.get('type', '')).lower() not in self.other_partition_types:
                 unsupported('Der Systemdatenträger enthält weitere Datenpartitionen; eine automatische Erweiterung ist gesperrt.')
         if start + size - 1 != previous_end:
             unsupported('Hinter der Systempartition liegt eine weitere Partition. Sie kann nicht sicher erweitert werden.')
@@ -183,15 +208,11 @@ class SystemDisk:
             if (plan_number != number or plan_start != start or old_size != size or old_end != start + size - 1
                     or new_size <= size or new_end != start + new_size - 1 or new_end >= disk_size // sector - 33):
                 unsupported('Der Erweiterungsplan verschiebt oder überschreitet die Systempartition.')
-        geometry = self._run(['xfs_info', '/var']).stdout
-        match = re.search(r'^data\s*=\s*bsize=(\d+)\s+blocks=(\d+)', geometry, re.MULTILINE)
-        if not match or not re.search(r'^log\s*=\s*internal\b', geometry, re.MULTILINE) or not re.search(r'^realtime\s*=\s*none\b', geometry, re.MULTILINE):
-            unsupported('Die XFS-Geometrie benötigt externe Geräte oder ist nicht eindeutig prüfbar.')
-        blocksize, blocks = map(positive, match.groups())
+        blocksize, blocks = self._geometry(partition, part['uuid'])
         filesystem_size = blocksize * blocks
         if filesystem_size > partition_size:
-            unsupported('Das XFS-Dateisystem ist größer als die erkannte Systempartition.')
-        usage = os.statvfs('/var')
+            unsupported('Das Dateisystem ist größer als die erkannte Systempartition.')
+        usage = os.statvfs(self.mountpoint)
         partition_delta = (new_size - size) * sector
         filesystem_delta = partition_size - filesystem_size
         available = partition_delta >= MIN_GROW or filesystem_delta >= MIN_GROW
@@ -202,8 +223,8 @@ class SystemDisk:
                     'filesystem_uuid': part['uuid'], 'partition_uuid': part['partuuid']}
         revision = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
         state = {'supported': True, 'available': available, 'revision': revision,
-                 'reason': 'Freier Platz des Systemdatenträgers kann sicher genutzt werden.' if available else 'Die Systempartition und ihr XFS-Dateisystem nutzen bereits den verfügbaren Platz.',
-                 'disk': disk, 'partition': partition, 'partition_number': number, 'filesystem': 'xfs', 'mountpoint': '/var',
+                 'reason': 'Freier Platz des Systemdatenträgers kann sicher genutzt werden.' if available else 'Der interne Speicher nutzt bereits den verfügbaren Datenbereich der Systemplatte.',
+                 'disk': disk, 'partition': partition, 'partition_number': number, 'filesystem': self.filesystem, 'mountpoint': self.mountpoint,
                  'disk_size': disk_size, 'partition_size': partition_size, 'filesystem_size': filesystem_size,
                  'filesystem_used': (usage.f_blocks - usage.f_bfree) * usage.f_frsize,
                  'filesystem_available': usage.f_bavail * usage.f_frsize,
@@ -219,7 +240,7 @@ class SystemDisk:
         except (Error, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
             reason = str(exc) if isinstance(exc, Error) else 'Die Systemdatenträgerdaten konnten nicht eindeutig geprüft werden: ' + str(exc)
             return {'supported': False, 'available': False, 'revision': None, 'reason': reason,
-                    'disk': None, 'partition': None, 'partition_number': None, 'filesystem': None, 'mountpoint': '/var',
+                    'disk': None, 'partition': None, 'partition_number': None, 'filesystem': None, 'mountpoint': self.mountpoint,
                     'disk_size': None, 'partition_size': None, 'filesystem_size': None,
                     'filesystem_used': None, 'filesystem_available': None,
                     'partition_growable_bytes': None, 'filesystem_growable_bytes': None, 'growable_bytes': None}
@@ -250,9 +271,7 @@ class SystemDisk:
                     self._run(['growpart', '--fudge', '0', '--update=on', before['disk'], str(before['partition_number'])], timeout=120)
                 intermediate, changed_proof = self._inspect()
                 self._verify(before, proof, intermediate, changed_proof)
-                # /sysroot may be RO. The same XFS filesystem is deliberately
-                # grown through its proven writable /var bind mount instead.
-                self._run(['xfs_growfs', '-d', '/var'], timeout=120)
+                self._grow_filesystem(before)
                 after, final_proof = self._inspect()
                 self._verify(before, proof, after, final_proof)
                 if after['available'] or after['filesystem_size'] <= before['filesystem_size']:
@@ -261,7 +280,7 @@ class SystemDisk:
                 filesystem_grown = after['filesystem_size'] > before['filesystem_size']
                 return {'ok': True, 'changed': partition_grown or filesystem_grown,
                         'partition_grown': partition_grown, 'filesystem_grown': filesystem_grown,
-                        'before': before, 'after': after, 'message': 'Die Systempartition und ihr XFS-Dateisystem nutzen jetzt den verfügbaren Systemdatenträgerplatz.'}
+                        'before': before, 'after': after, 'message': self.complete_message}
             except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
                 raise Error(f'Die Systemdatenträgerprüfung ist fehlgeschlagen: {exc}', 503) from None
         finally:

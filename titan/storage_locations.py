@@ -272,6 +272,7 @@ class StorageLocations:
             raise Error('Der gewählte Speicherbereich ist voll. Einen anderen Bereich auswählen; Daten werden nicht umgeleitet.', 409)
         return {**record, 'root_path': record['path'], 'path': str(path), 'device': expected,
                 **({'uuid': uuid} if uuid else {}), 'free_bytes': free, 'total_bytes': total,
+                'used_bytes': total - getattr(usage, 'f_bfree', usage.f_bavail) * usage.f_frsize,
                 'available': True, 'status': 'ready' if free > 0 else 'full',
                 'capabilities': self.capabilities(record)}
 
