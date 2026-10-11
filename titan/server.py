@@ -471,9 +471,14 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 visible = [item for item in shares if user["role"] == "admin" or user["system_user"] in item["readers"] + item["writers"]]
                 if user["role"] == "admin":
                     # Mounted USB drives are browsable locations for administrators.
+                    # A failing drive scan must never hide the regular shares.
+                    try:
+                        drives = self.app.agent.call("external_drives")
+                    except Error:
+                        drives = None
                     visible += [{"name": drive["name"], "path": drive["path"], "readers": [], "writers": [], "external": True,
                                  "label": drive["label"], "free_bytes": drive.get("free_bytes"), "total_bytes": drive.get("total_bytes")}
-                                for drive in self.app.agent.call("external_drives")["drives"] if drive["mounted"]]
+                                for drive in (drives.get("drives", []) if isinstance(drives, dict) else []) if drive.get("mounted")]
                 return self.reply(visible)
             if path == "/api/files":
                 if "recursive" in query and query["recursive"] not in ("0", "1"):
