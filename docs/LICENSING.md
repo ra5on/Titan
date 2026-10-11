@@ -1,6 +1,8 @@
 # Titan-Lizenz
 
-Maßgeblich ist die englische [Titan Noncommercial License 1.0](../LICENSE).
+Ab Version 0.8.0 gilt für den eigenen Titan-Code die [PolyForm Noncommercial License 1.0.0](../LICENSE) (<https://polyformproject.org/licenses/noncommercial/1.0.0>). Maßgeblich ist der englische Originaltext; er wird unverändert mitgeliefert. Der nach der Lizenz weiterzugebende Hinweis lautet: `Required Notice: Copyright (c) 2026 ra5on (https://github.com/ra5on)` und steht in [NOTICE](../NOTICE). Veröffentlichungen bis 0.7.0 bleiben unter der damaligen Titan Noncommercial License 1.0.
+
+Die folgenden Absätze fassen die Lizenz zusammen und ersetzen ihren Wortlaut nicht.
 
 Erlaubt sind nichtkommerzielle Nutzung, Einsicht, Kopien, Änderungen und kostenlose Weitergabe einschließlich veränderter Versionen. Copyright und Lizenz müssen erhalten bleiben; Änderungen müssen kenntlich gemacht werden.
 
@@ -8,7 +10,7 @@ Ohne gesonderte Erlaubnis sind Verkauf, Vermietung, kostenpflichtige Bundles ode
 
 Debian, Linux und andere unabhängige Fremdkomponenten sowie gespeicherte Benutzerdaten sind hiervon ausgenommen. Die jeweiligen Fremdlizenzen gelten unverändert. Hinweise stehen in [NOTICE](../NOTICE) und den mitgelieferten Lizenzen.
 
-Die kommerzielle Einschränkung bedeutet Source available, nicht Open Source gemäß [OSI-Definition](https://opensource.org/osd). Diese projektspezifische Lizenz ist keine anwaltlich geprüfte Rechtsberatung.
+Die kommerzielle Einschränkung bedeutet Source available, nicht Open Source gemäß [OSI-Definition](https://opensource.org/osd). Diese Zusammenfassung ist keine Rechtsberatung.
 
 ## Kommerzielle Zukunft von Titan
 

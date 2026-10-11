@@ -2,3 +2,4 @@
 # so asset hashes in titan/ui do not depend on the checkout platform.
 ui/** text=auto eol=lf
 titan/ui/** -text
+LICENSE -text
