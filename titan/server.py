@@ -35,8 +35,8 @@ from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal
 from .root_access import RootAccessApplicationMixin, RootAccessHTTPMixin
 
 WEB = Path(__file__).parent / "web"
-# Built interface from ui/ (npm run build). Shared assets, the VM console and
-# the previous interface under /classic are still served from WEB.
+# One desktop, built from ui/. WEB supplies shared feature assets and the VM
+# console only. Old desktop URLs remain compatible bookmarks.
 UI = Path(__file__).parent / "ui"
 MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "volume_replace", "pool_create", "pool_replace", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
              "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_pci_update", "external_drive_mount", "external_drive_eject", "sync_job_save", "sync_job_remove", "sync_job_run", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
@@ -688,8 +688,12 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         if path.startswith("/novnc/"):
             require_application(self.app.store, self.require_user(), "vms")
             return self.static(Path("/usr/share/novnc"), path[7:])
-        if path == "/classic":
-            return self.static(WEB, "index.html")
+        if path in ("/classic", "/classic/"):
+            # With no fragment in Location, browsers retain the bookmark's hash.
+            # The React router translates the former desktop's section names.
+            return self.send_headers(302, 0, extra={"Location": "/"})
+        if path in ("/", "/index.html"):
+            return self.static(UI, "index.html")
         relative = "index.html" if path == "/" else path.lstrip("/")
         candidate = (UI / relative).resolve()
         if candidate.is_relative_to(UI.resolve()) and candidate.is_file():

@@ -179,7 +179,7 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
             </Button>
           </>
         ) : (
-          <Button size="sm" variant="primary" busy={busy} disabled={!off && vm.state !== 'paused'} onClick={() => run('start', 'gestartet.')}>
+          <Button size="sm" variant="primary" busy={busy} disabled={!off && vm.state !== 'paused'} onClick={() => run(vm.state === 'paused' ? 'resume' : 'start', 'gestartet.')}>
             <Play className="size-4" /> Starten
           </Button>
         )}
@@ -255,9 +255,7 @@ export function Vms() {
       subtitle="KVM-Gäste direkt auf dem NAS"
       actions={
         <>
-          <Button size="sm" variant="ghost" onClick={() => window.open('/classic#vms', '_blank', 'noopener')}>
-            Erweiterte Verwaltung
-          </Button>
+          <Button size="sm" variant="ghost" onClick={() => go('settings', 'backups')}>VM-Sicherung wiederherstellen</Button>
           <Button size="sm" disabled={!available || Boolean(iso)} onClick={() => picker.current?.click()}>
             <Disc3 className="size-4" /> ISO hochladen
           </Button>

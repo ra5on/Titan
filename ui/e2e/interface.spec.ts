@@ -210,13 +210,18 @@ test('own password, alerts and restart are available in settings', async ({ page
 
 test('a backup to another drive can be configured, run and verified', async ({ page }) => {
   await page.goto('/#/settings/backups');
-  await page.getByLabel('Sicherungsziel').selectOption('/var/media/demo-backup');
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByText('Sicherung einrichten oder ändern', { exact: true }).click();
+  await page.getByRole('button', { name: 'Weiter', exact: true }).click();
+  await page.getByLabel('Sicherungsziel', { exact: true }).selectOption('/var/media/demo-backup');
+  await page.getByRole('button', { name: 'Weiter', exact: true }).click();
+  await page.getByRole('button', { name: 'Weiter', exact: true }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect(page.getByText('Sicherungseinstellungen gespeichert.')).toBeVisible();
   test.skip(linuxOnly, 'the demo copies share files, which needs Linux');
   await page.getByRole('button', { name: 'Jetzt sichern' }).click();
-  await expect(page.getByRole('button', { name: /Sicherung vom .* prüfen/ })).toBeVisible({ timeout: 20_000 });
-  await page.getByRole('button', { name: /Sicherung vom .* prüfen/ }).click();
+  await page.getByRole('dialog', { name: 'Sicherung starten' }).getByRole('button', { name: 'Sicherung starten', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Sicherung starten' })).not.toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Prüfen', exact: true }).first().click();
   await expect(page.locator('[aria-live=polite]')).toContainText(/geprüft|unverändert/);
 });
 
@@ -411,10 +416,10 @@ test('the NVIDIA driver is offered for an NVIDIA card and asks before installing
   await expect(page.getByRole('alert')).toContainText('echten Titan-System', { timeout: 15_000 });
 });
 
-test('previous interface stays reachable', async ({ request }) => {
+test('previous desktop URL opens the unified interface', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);
-  expect(await response.text()).toContain('/app.js');
+  expect(await response.text()).toContain('/ui-assets/');
 });
 
 test('files can be uploaded, downloaded, renamed and moved to the trash', async ({ page }) => {

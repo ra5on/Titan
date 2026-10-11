@@ -124,7 +124,7 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(self.request(path)[0], 200, path)
         status, classic, headers = self.request('/classic')
         self.assertEqual(status, 200)
-        self.assertIn(b'/app.js', classic)
+        self.assertIn(b'/ui-assets/', classic)
         self.assertNotIn(b'__TITAN_STYLE_NONCE__', classic)
         self.assertIn("'nonce-", headers['Content-Security-Policy'])
         self.assertEqual(self.request('/ui-assets/../server.py')[0], 404)

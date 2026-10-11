@@ -1,3 +1,4 @@
+import { ManagementPanel } from '../management/Panel';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { HardDrive, Maximize2, Plus, Replace } from 'lucide-react';
@@ -361,8 +362,9 @@ export function StorageSection() {
         <Button variant="primary" onClick={() => setCreating(true)}>
           <Plus className="size-4" /> Neuer Speicherbereich
         </Button>
-        <Button onClick={() => window.open('/classic#storage', '_blank', 'noopener')}>Plattentausch, Prüfläufe und Snapshots</Button>
+
       </div>
+      <details className="glass-soft rounded-2xl p-4"><summary className="cursor-pointer text-sm font-semibold">Wartung, Wiederherstellungspunkte und Standardspeicher</summary><ManagementPanel feature="storage" /></details>
       {creating && <CreateDialog storage={data} onClose={() => setCreating(false)} onDone={storage.reload} />}
       {replacing && <ReplaceDialog volume={replacing} storage={data} onClose={() => setReplacing(null)} onDone={storage.reload} />}
       {growing && disk && (

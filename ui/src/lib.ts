@@ -29,8 +29,30 @@ export const percent = (used: number, total: number) => (total > 0 ? Math.min(10
 export const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ');
 
 /** Hash route as path segments: "#/store/titan-immich" -> ["store", "titan-immich"]. */
+export function desktopRoute(hash: string) {
+  const raw = hash.replace(/^#\/?/, '');
+  const [path, query = ''] = raw.split('?');
+  const legacy: Record<string, string> = {
+    dashboard: '', apps: 'store', resources: 'settings/resources', docker: 'settings/docker',
+    storage: 'settings/storage', shares: 'settings/shares', users: 'settings/users', groups: 'settings/groups',
+    security: 'settings/security', backups: 'settings/backups', monitoring: 'settings/monitoring',
+    services: 'settings/services', terminal: 'settings/terminal', updates: 'settings/updates', logs: 'settings/logs',
+    photos: 'store',
+  };
+  let route = Object.hasOwn(legacy, path) ? legacy[path] : path;
+  if (path === 'settings' && query) {
+    const section = new URLSearchParams(query).get('section');
+    route = 'settings/' + ({ general: 'web', network: 'remote', components: 'system', updates: 'updates' }[section || ''] || 'system');
+  }
+  if (path === 'vms' && query) {
+    const vm = new URLSearchParams(query).get('vm');
+    if (vm) route = 'vms/' + encodeURIComponent(vm);
+  }
+  return route.split('/').filter(Boolean).map(segment => { try { return decodeURIComponent(segment); } catch { return segment; } });
+}
+
 export function useRoute() {
-  const read = () => window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  const read = () => desktopRoute(window.location.hash);
   const [route, setRoute] = useState(read);
   useEffect(() => {
     const update = () => setRoute(read());
