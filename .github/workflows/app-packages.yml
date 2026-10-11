@@ -161,7 +161,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [titan-immich, titan-adguard]
+        package: [titan-immich, titan-adguard, titan-ollama, titan-pihole, titan-nextcloud-office]
     steps:
       - uses: actions/checkout@v7.0.1
         with:

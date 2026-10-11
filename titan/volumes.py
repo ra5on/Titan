@@ -1,4 +1,4 @@
-"""Managed single-disk Ext4/XFS volumes. No import, force-format or shell commands."""
+"""Managed Ext4/XFS/Btrfs volumes. No import, force-format or shell commands."""
 import contextlib
 import fcntl
 import json
@@ -11,10 +11,30 @@ import tempfile
 import time
 import uuid
 from .core import Error, identifier
+from .volume_mirror import MirrorMixin, members, mirrored
 
 DISK = re.compile(r"/dev/(?:(?:sd|vd|xvd|hd)[a-z]+|nvme[0-9]+n[0-9]+|mmcblk[0-9]+)\Z")
-FILESYSTEMS = {"ext4": "mkfs.ext4", "xfs": "mkfs.xfs"}
+FILESYSTEMS = {"ext4": "mkfs.ext4", "xfs": "mkfs.xfs", "btrfs": "mkfs.btrfs"}
+# Smallest disk each mkfs accepts with headroom for metadata, in MiB.
+MINIMUM_MIB = {"ext4": 64, "xfs": 512, "btrfs": 256}
 OPTIONS = "defaults,nofail,nodev,nosuid"
+
+
+def mount_device(row):
+    """Device number that files on a mount report, from one findmnt row.
+
+    Btrfs gives files a per-subvolume number that differs from the one in the
+    mount table, so there the mounted directory itself is asked. It must sit
+    on another device than its parent, or the filesystem is no longer mounted.
+    """
+    if row.get("fstype") == "btrfs":
+        target = Path(row["target"])
+        device = os.stat(target, follow_symlinks=False).st_dev
+        if target.parent != target and os.stat(target.parent, follow_symlinks=False).st_dev == device:
+            raise Error("Das Btrfs-Dateisystem wurde während der Prüfung ausgehängt.", 503)
+        return device
+    major, minor = map(int, row["maj:min"].split(":"))
+    return os.makedev(major, minor)
 
 
 def flatten(disks):
@@ -23,11 +43,12 @@ def flatten(disks):
         yield from flatten(disk.get("children", []))
 
 
-class Volumes:
+class Volumes(MirrorMixin):
     def __init__(self, host, run, fstab="/etc/fstab", owner_uid=0):
         self.host, self.run = host, run
         self.fstab = Path(fstab)
         self.owner_uid = owner_uid  # Injectable only by local tests, never an RPC argument.
+        self.disk_pattern, self.disk_types = DISK, ("disk",)  # Likewise: the storage check uses loop devices.
 
     @property
     def root(self):
@@ -70,8 +91,7 @@ class Volumes:
             return None
         if len(matches) != 1 or matches[0].get("uuid") != record["uuid"] or matches[0].get("fstype") != record["filesystem"]:
             raise Error("Am Volume-Pfad ist ein anderes Dateisystem eingehängt. Zugriff verweigert.", 409)
-        major, minor = map(int, matches[0]["maj:min"].split(":"))
-        return os.makedev(major, minor)
+        return mount_device(matches[0])
 
     def require(self, name):
         record = self.record(name)
@@ -145,15 +165,15 @@ class Volumes:
             raise Error("Volume-Verzeichnisse müssen root gehören und gegen fremde Schreibzugriffe geschützt sein.")
 
     def blank_disk(self, disk, filesystem):
-        if not isinstance(disk, str) or not DISK.fullmatch(disk):
+        if not isinstance(disk, str) or not self.disk_pattern.fullmatch(disk):
             raise Error("Nur ein direktes physisches Laufwerk darf eingerichtet werden.")
         candidates = [item for item in self.host.disks() if item.get("name") == disk]
         if len(candidates) != 1:
             raise Error("Laufwerk nicht eindeutig gefunden.")
         item = candidates[0]
-        if (item.get("type") != "disk" or item.get("fstype") or item.get("children") or
+        if (item.get("type") not in self.disk_types or item.get("fstype") or item.get("children") or
                 any(item.get("mountpoints") or []) or item.get("ro") not in (False, 0, "0") or
-                int(item.get("size", 0)) < (512 if filesystem == "xfs" else 64) * 1024**2):
+                int(item.get("size", 0)) < MINIMUM_MIB[filesystem] * 1024**2):
             raise Error("Nur vollständig leere, ausreichend große, unpartitionierte, beschreibbare und ungemountete Laufwerke sind zulässig.")
         info = os.stat(disk, follow_symlinks=False)
         if not stat.S_ISBLK(info.st_mode):
@@ -241,7 +261,7 @@ class Volumes:
                 Path(temporary).unlink(missing_ok=True)
             os.close(parent)
 
-    def create(self, name, disk, filesystem="ext4", confirmation_name=None, confirmation_disk=None):
+    def create(self, name, disk, filesystem="ext4", confirmation_name=None, confirmation_disk=None, mirror=None):
         name = identifier(name)
         if filesystem not in FILESYSTEMS or confirmation_name != name or confirmation_disk != disk:
             raise Error("Dateisystem oder Bestätigung ungültig. Volume-Name und exakten Laufwerkspfad bestätigen.")
@@ -249,39 +269,50 @@ class Volumes:
             raise Error("Das Werkzeug für " + filesystem.upper() + " ist nicht installiert.", 503)
         if any(item["name"] == name for item in self.records()):
             raise Error("Volume-Name ist bereits verwaltet.", 409)
+        extra = self.mirror_disks(disk, filesystem, mirror)
+        disks = [disk] + extra
         record = {"name": name, "disk": disk, "filesystem": filesystem, "uuid": str(uuid.uuid4()), "created": time.time(), "phase": "formatted"}
-        device = self.blank_disk(disk, filesystem)
+        if extra:
+            record["disks"] = disks
+        devices = [self.blank_disk(item, filesystem) for item in disks]
         self.persist(record, dry_run=True)
         with self.target_fd(record, create=True) as target:
             if os.listdir(target) or self.mounted(record) is not None:
                 raise Error("Volume-Pfad ist bereits belegt.")
             os.fchmod(target, 0o000)
-        fd = os.open(disk, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        descriptors = []
         formatted = False
         journaled = False
         try:
-            opened = os.fstat(fd)
-            if not stat.S_ISBLK(opened.st_mode) or opened.st_rdev != device:
-                raise Error("Laufwerk wurde ausgetauscht.")
-            if self.blank_disk(disk, filesystem) != device:
-                raise Error("Laufwerk wurde während der Sicherheitsprüfung ausgetauscht.")
+            for item, device in zip(disks, devices):
+                fd = os.open(item, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                descriptors.append(fd)
+                opened = os.fstat(fd)
+                if not stat.S_ISBLK(opened.st_mode) or opened.st_rdev != device:
+                    raise Error("Laufwerk wurde ausgetauscht.")
+                if self.blank_disk(item, filesystem) != device:
+                    raise Error("Laufwerk wurde während der Sicherheitsprüfung ausgetauscht.")
             record["phase"] = "formatting"
             self.host.save("volumes", self.records() + [record])
             journaled = True
             arguments = [FILESYSTEMS[filesystem], "-L", name[:12]]
-            arguments += ["-U", record["uuid"]] if filesystem == "ext4" else ["-m", "uuid=" + record["uuid"]]
-            arguments += ["/proc/self/fd/" + str(fd)]
-            self.run(arguments, timeout=900, pass_fds=(fd,))
+            arguments += ["-m", "uuid=" + record["uuid"]] if filesystem == "xfs" else ["-U", record["uuid"]]
+            if extra:
+                arguments += ["-d", "raid1", "-m", "raid1"]
+            arguments += ["/proc/self/fd/" + str(fd) for fd in descriptors]
+            self.run(arguments, timeout=900, pass_fds=tuple(descriptors))
             formatted = True
-            detected = dict(line.split("=", 1) for line in self.run(["blkid", "-p", "-o", "export", "/proc/self/fd/" + str(fd)], pass_fds=(fd,)).splitlines() if "=" in line)
-            if detected.get("TYPE") != filesystem or detected.get("UUID") != record["uuid"]:
-                raise Error("Neues Dateisystem konnte nicht mit seiner UUID verifiziert werden.")
+            for fd in descriptors:
+                detected = dict(line.split("=", 1) for line in self.run(["blkid", "-p", "-o", "export", "/proc/self/fd/" + str(fd)], pass_fds=(fd,)).splitlines() if "=" in line)
+                if detected.get("TYPE") != filesystem or detected.get("UUID") != record["uuid"]:
+                    raise Error("Neues Dateisystem konnte nicht mit seiner UUID verifiziert werden.")
         except Exception as exc:
             if journaled:
                 self.host.save("volumes", [{**item, "phase": "verify_failed" if formatted else "format_failed", "error": str(exc)} if item["name"] == name else item for item in self.records()])
             raise
         finally:
-            os.close(fd)
+            for fd in descriptors:
+                os.close(fd)
         self.host.save("volumes", [{**item, "phase": "formatted", "error": None} if item["name"] == name else item for item in self.records()])
         return self.mount(name)
 
@@ -298,11 +329,16 @@ class Volumes:
                         raise Error("Unter dem ungemounteten Volume liegen Dateien; Einhängen verweigert.")
                     os.fchmod(target, 0o000)
             if mounted is None:
-                devices = [item for item in flatten(self.host.disks()) if item.get("uuid") == record["uuid"]]
-                if len(devices) != 1 or devices[0].get("type") != "disk" or devices[0].get("fstype") != record["filesystem"] or devices[0].get("children") or any(devices[0].get("mountpoints") or []):
+                devices = self.present(record)
+                if mirrored(record) and 0 < len(devices) < len(members(record)):
+                    raise Error("Dem Verbund fehlt ein Laufwerk. Auf der Speicherseite das Laufwerk ersetzen.", 409)
+                if len(devices) != len(members(record)) or any(item.get("type") not in self.disk_types or item.get("fstype") != record["filesystem"] or item.get("children") or any(item.get("mountpoints") or []) for item in devices):
                     raise Error("Verwaltete UUID fehlt, ist mehrfach vorhanden oder bereits anderweitig verwendet.")
                 changed = self.persist(record)
                 self.run(["systemctl", "daemon-reload"])
+                if mirrored(record):
+                    # Every member must be known to the kernel under its real path before the mount.
+                    self.run(["btrfs", "device", "scan"])
                 self.run(["mount", "--", str(self.root / name)], timeout=120)
                 mounted = self.mounted(record)
                 if mounted is None:
@@ -343,6 +379,9 @@ class Volumes:
                     item["state"] = "Prüfen"
             except Exception as exc:
                 item.update(state="Prüfen", error=str(exc))
+            if record["filesystem"] == "btrfs":
+                with contextlib.suppress(Error, OSError, ValueError):
+                    self.mirror_inventory(record, item)
             volumes.append(item)
         existing = [{key: item.get(key) for key in ("name", "type", "fstype", "uuid", "size", "mountpoints")}
                     for item in flatten(self.host.disks()) if item.get("fstype") in FILESYSTEMS]

@@ -14,7 +14,7 @@ export default defineConfig({
   reporter: [['list']],
   use: { baseURL: `http://127.0.0.1:${port}`, trace: 'retain-on-failure' },
   webServer: {
-    command: `${python} -m titan.server --demo --host 127.0.0.1 --port ${port} --data ${process.env.TITAN_E2E_DATA || '.demo/e2e'}`,
+    command: `${python} -m titan.server --demo --host 127.0.0.1 --port ${port} --data ${process.env.TITAN_E2E_DATA || `.demo/e2e-${Date.now()}`}`,
     cwd: '..',
     url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: false,

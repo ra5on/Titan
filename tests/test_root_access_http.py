@@ -93,6 +93,7 @@ class RootAccessHTTPTests(unittest.TestCase):
 
     def test_separate_login_has_no_grant_and_root_parameters_are_not_caller_selectable(self):
         self.enable()
+        self.app.agent.call.reset_mock()
         status = self.request('GET', '/api/root-access', actor='second')
         self.assertFalse(json.loads(status.wfile.getvalue())['enabled'])
         self.assertEqual(self.request('POST', '/api/root-terminal', {'action': 'create'}, actor='second').statuses, [403])
@@ -104,6 +105,7 @@ class RootAccessHTTPTests(unittest.TestCase):
 
     def test_status_and_output_queries_reject_duplicates_unknown_and_blank_parameters(self):
         self.enable()
+        self.app.agent.call.reset_mock()
         for path in ('/api/root-access?extra=', '/api/root-access?x=1',
                      '/api/root-terminal/output', '/api/root-terminal/output?id=',
                      '/api/root-terminal/output?id=' + ID + '&id=' + ID,
@@ -118,13 +120,16 @@ class RootAccessHTTPTests(unittest.TestCase):
         self.request('POST', '/api/root-terminal', {'action': 'create'})
         self.app.agent.call.reset_mock()
         self.assertEqual(self.request('POST', '/api/root-access', {'enabled': False}).statuses, [200])
-        self.app.agent.call.assert_called_once_with('root_terminal_close', owner=terminal_owner(self.users['admin']), id=ID)
+        self.app.agent.call.assert_any_call('root_terminal_close', owner=terminal_owner(self.users['admin']), id=ID)
+        self.app.agent.call.assert_any_call('root_revoke', owner=terminal_owner(self.users['admin']))
+        self.assertEqual(self.app.agent.call.call_count, 2)
         self.assertFalse(self.app.root_access_grants)
         self.enable()
         self.request('POST', '/api/root-terminal', {'action': 'create'})
         self.app.agent.call.reset_mock()
         self.assertEqual(self.request('POST', '/api/logout', {}).statuses, [200])
-        self.app.agent.call.assert_called_once_with('root_terminal_close', owner=terminal_owner(self.users['admin']), id=ID)
+        self.app.agent.call.assert_any_call('root_terminal_close', owner=terminal_owner(self.users['admin']), id=ID)
+        self.app.agent.call.assert_any_call('root_revoke', owner=terminal_owner(self.users['admin']))
         self.assertFalse(self.app.root_access_grants)
         self.assertEqual(self.request('POST', '/api/root-terminal', {'action': 'create'}).statuses, [401])
 
@@ -169,6 +174,8 @@ class RootAccessHTTPTests(unittest.TestCase):
                 return {'data': 'c2VjcmV0', 'eof': False}
             if operation == 'root_terminal_close':
                 return {'closed': True}
+            if operation == 'root_revoke':
+                return {'ok': True}
             self.fail('Unexpected operation: ' + operation)
         self.app.agent.call.side_effect = dispatch
         handler = self.request('GET', '/api/root-terminal/output?id=' + ID)

@@ -1,6 +1,8 @@
 #!/bin/bash
 # The immutable Titan Debian image supplies packages. Runtime repair only
 # verifies those programs and activates fixed, already installed services.
+# The one exception is the NVIDIA driver: it is proprietary, so the image does
+# not ship it. The administrator installs it from NVIDIA's own archive.
 
 prepare_vm_runtime() {
     local task_cpu_info="${1:-/proc/cpuinfo}" task_kvm_device="${2:-/dev/kvm}" task_cpu_module=""
@@ -91,4 +93,84 @@ install_vm_components() {
 
 component_library_end() {
     :
+}
+
+NVIDIA_REPOSITORY=https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64
+NVIDIA_KEY=/usr/share/keyrings/titan-nvidia.asc
+NVIDIA_SOURCES=/etc/apt/sources.list.d/titan-nvidia.list
+NVIDIA_MARKER=/var/lib/titan-agent/nvidia-component
+
+nvidia_card_present() {
+    local task_vendor
+    for task_vendor in /sys/bus/pci/devices/*/vendor; do
+        [[ -r "$task_vendor" && "$(cat "$task_vendor")" == 0x10de ]] && return 0
+    done
+    return 1
+}
+
+nvidia_ready() {
+    command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1 && docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'
+}
+
+# Packages and kernel module for one kernel. Needs neither a card nor Docker,
+# so CI can exercise the archive, the dependencies and the module build.
+nvidia_packages() {
+    local task_kernel="${1:?Kernel version required}"
+    if [[ ! -e "/lib/modules/$task_kernel/build" ]]; then
+        printf 'Kernel-Header für %s fehlen im Systemimage. Titan-Systemimage aktualisieren.\n' "$task_kernel" >&2
+        return 1
+    fi
+    install -d -m 0755 /usr/share/keyrings /etc/apt/sources.list.d
+    # apt accepts an ASCII-armoured key for signed-by; no extra tool is needed.
+    if ! curl -fsSL --retry 3 --max-time 60 "$NVIDIA_REPOSITORY/8793F200.pub" -o "$NVIDIA_KEY.new"; then
+        printf '%s\n' 'Der NVIDIA-Paketschlüssel konnte nicht geladen werden. Internetverbindung des NAS prüfen.' >&2
+        rm -f "$NVIDIA_KEY.new"
+        return 1
+    fi
+    grep -q 'BEGIN PGP PUBLIC KEY BLOCK' "$NVIDIA_KEY.new" || { rm -f "$NVIDIA_KEY.new"; printf '%s\n' 'NVIDIA lieferte keinen gültigen Paketschlüssel.' >&2; return 1; }
+    mv "$NVIDIA_KEY.new" "$NVIDIA_KEY"
+    chmod 0644 "$NVIDIA_KEY"
+    printf 'deb [signed-by=%s] %s/ /\n' "$NVIDIA_KEY" "$NVIDIA_REPOSITORY" > "$NVIDIA_SOURCES"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get -o Acquire::Retries=3 update || return 1
+    # Compute-only driver with the open kernel modules that current cards require.
+    apt-get install -y --no-install-recommends nvidia-kernel-open-dkms nvidia-driver-cuda nvidia-container-toolkit || return 1
+    dkms autoinstall -k "$task_kernel" || return 1
+    depmod -a "$task_kernel"
+    if ! dkms status -k "$task_kernel" | grep -i '^nvidia' | grep -q installed; then
+        printf 'Das NVIDIA-Kernelmodul wurde für %s nicht gebaut.\n' "$task_kernel" >&2
+        return 1
+    fi
+}
+
+install_nvidia() {
+    local task_free
+    if ! nvidia_card_present; then
+        printf '%s\n' 'Keine NVIDIA-Grafikkarte gefunden. Ist die Karte an eine virtuelle Maschine durchgereicht, zuerst die VM ausschalten.' >&2
+        return 1
+    fi
+    if nvidia_ready; then
+        install -D -m 0600 /dev/null "$NVIDIA_MARKER"
+        return 0
+    fi
+    task_free=$(df --output=avail -k / | tail -n 1)
+    if [[ "$task_free" -lt 4194304 ]]; then
+        printf '%s\n' 'Auf dem Systembereich sind weniger als 4 GB frei; der Treiber passt nicht.' >&2
+        return 1
+    fi
+    nvidia_packages "$(uname -r)" || return 1
+    if ! modprobe nvidia; then
+        printf '%s\n' 'Das NVIDIA-Kernelmodul lässt sich nicht laden. Secure Boot muss ausgeschaltet sein.' >&2
+        return 1
+    fi
+    modprobe nvidia_uvm || true
+    nvidia-ctk runtime configure --runtime=docker || return 1
+    # Running apps restart with Docker; that is the only way they see the new runtime.
+    systemctl restart docker.service || return 1
+    if ! nvidia_ready; then
+        printf '%s\n' 'Treiber installiert, aber nvidia-smi oder die Docker-Laufzeit antwortet nicht.' >&2
+        return 1
+    fi
+    # Survives system updates: the next system slot reinstalls the driver at boot.
+    install -D -m 0600 /dev/null "$NVIDIA_MARKER"
 }

@@ -29,6 +29,7 @@ from .office_gateway import OfficeApplicationMixin, OfficeHTTPMixin
 from .user_deletion import validate_removal
 from .dashboard_layout import load_layout, save_layout
 from . import launcher_layout
+from . import interface_layout
 from .diagnostics import report as diagnostics_report
 from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal_owner
 from .root_access import RootAccessApplicationMixin, RootAccessHTTPMixin
@@ -37,8 +38,8 @@ WEB = Path(__file__).parent / "web"
 # Built interface from ui/ (npm run build). Shared assets, the VM console and
 # the previous interface under /classic are still served from WEB.
 UI = Path(__file__).parent / "ui"
-MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "pool_create", "pool_replace", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
-             "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
+MUTATIONS = {"storage_preferences_save", "app_hardware", "docker_container_hardware", "docker_container_batch", "docker_container_create", "docker_container_action", "docker_image_pull", "docker_resource","service_action", "service_create", "component_install", "volume_create", "volume_mount", "volume_replace", "pool_create", "pool_replace", "dataset_create", "snapshot_create", "scrub", "share_create", "share_update", "share_user_permission", "share_remove",
+             "app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle", "app_install", "app_action", "app_network_create", "app_network_remove", "vm_usb_update", "vm_pci_update", "external_drive_mount", "external_drive_eject", "sync_job_save", "sync_job_remove", "sync_job_run", "vm_create", "vm_action", "vm_update", "vm_disk_grow", "vm_media", "iso_remove", "vm_remove", "vm_backup", "vm_restore",
              "system_updates", "update_install", "update_rollback", "system_reboot", "system_shutdown", "system_disk_grow", "backup_create", "backup_verify", "backup_restore",
              "backup_config_export", "backup_config_restore", "monitoring_check", "smart_test", "storage_maintenance_save", "storage_maintenance_remove", "snapshot_restore", "snapshot_remove", "backup_restore_selection", "backup_app_restore", "notification_test", "package_repair", "package_update", "package_settings", "vm_clone", "vm_snapshot_create", "vm_snapshot_restore_new", "vm_snapshot_restore", "vm_snapshot_remove", "vm_disk_add", "vm_disk_remove", "vm_nic_add", "vm_nic_remove", "vm_guest_agent", "vm_guest_action"}
 FILE_ACTIONS = {"mkdir", "upload", "rename", "trash", "trash_list", "restore", "copy", "move", "read", "write", "create", "create_document", "delete"}
@@ -367,12 +368,29 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         office_page = urllib.parse.urlsplit(self.path).path == "/office_edit.html"
         styles = "'self' 'unsafe-inline'" if office_page else "'self'" + (" 'nonce-" + style_nonce + "'" if style_nonce else "")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src " + styles + "; "
-                         "img-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; "
+                         "img-src 'self' data:; connect-src 'self'; frame-src " + (self.frame_sources() if style_nonce else "'self'") + "; object-src 'none'; "
                          "base-uri 'none'; frame-ancestors 'self'; form-action 'self'")
         for key, value in (extra or {}).items():
             if key.lower() != "cache-control":
                 self.send_header(key, value)
         self.end_headers()
+
+    def frame_sources(self):
+        """Origins the interface may show in an app window: app ports on this NAS and configured public app addresses."""
+        sources = ["'self'"]
+        host = self.headers.get("Host", "").rsplit(":", 1)[0] if not self.headers.get("Host", "").startswith("[") else ""
+        if re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?", host):
+            sources += ["http://" + host + ":*", "https://" + host + ":*"]
+        try:
+            from .web_access import CONFIG, read_config
+            if not self.app.demo and CONFIG.exists():
+                for address in read_config(CONFIG).get("remote", {}).get("app_urls", {}).values():
+                    parts = urllib.parse.urlsplit(address)
+                    if parts.scheme == "https" and re.fullmatch(r"[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?", parts.netloc):
+                        sources.append("https://" + parts.netloc)
+        except (Error, OSError, ValueError, AttributeError):
+            pass
+        return " ".join(dict.fromkeys(sources))
 
     def reply(self, value, status=200, extra=None):
         data = json.dumps(value, ensure_ascii=False).encode()
@@ -464,11 +482,24 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                     require_application(self.app.store, user, "files")
             if path == "/api/launcher-layout":
                 return self.reply(launcher_layout.load(self.app.store, user["name"]))
+            if path == "/api/interface":
+                return self.reply(interface_layout.load(self.app.store, user["name"]))
             if path == "/api/dashboard-layout":
                 return self.reply(load_layout(self.app.store, user["name"]))
             if path == "/api/shares":
                 shares = self.app.agent.call("shares")
-                return self.reply([item for item in shares if user["role"] == "admin" or user["system_user"] in item["readers"] + item["writers"]])
+                visible = [item for item in shares if user["role"] == "admin" or user["system_user"] in item["readers"] + item["writers"]]
+                if user["role"] == "admin":
+                    # Mounted USB drives are browsable locations for administrators.
+                    # A failing drive scan must never hide the regular shares.
+                    try:
+                        drives = self.app.agent.call("external_drives")
+                    except Error:
+                        drives = None
+                    visible += [{"name": drive["name"], "path": drive["path"], "readers": [], "writers": [], "external": True,
+                                 "label": drive["label"], "free_bytes": drive.get("free_bytes"), "total_bytes": drive.get("total_bytes")}
+                                for drive in (drives.get("drives", []) if isinstance(drives, dict) else []) if drive.get("mounted")]
+                return self.reply(visible)
             if path == "/api/files":
                 if "recursive" in query and query["recursive"] not in ("0", "1"):
                     raise Error("Rekursive Suche muss 0 oder 1 sein.")
@@ -547,6 +578,15 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                 return self.reply(self.app.agent.call("app_stores"))
             if path == "/api/vm-usb":
                 return self.reply(self.app.agent.call("vm_usb", vm=query["vm"]))
+            if path == "/api/vm-pci":
+                if set(query) != {"vm"}: raise Error("Genau eine VM auswählen.")
+                return self.reply(self.app.agent.call("vm_pci", vm=query["vm"]))
+            if path == "/api/sync-jobs":
+                if query: raise Error("Abgleichsübersicht unterstützt keine Optionen.")
+                return self.reply(self.app.agent.call("sync_jobs"))
+            if path == "/api/external-drives":
+                if query: raise Error("Laufwerksübersicht unterstützt keine Optionen.")
+                return self.reply(self.app.agent.call("external_drives"))
             if path == "/api/catalog":
                 if self.app.demo:
                     from .catalog import catalog
@@ -662,7 +702,7 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
         data = target.read_bytes()
         content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
         nonce = None
-        if target == (WEB / 'index.html').resolve():
+        if target in ((WEB / 'index.html').resolve(), (UI / 'index.html').resolve()):
             nonce = secrets.token_urlsafe(24)
             data = data.replace(b'__TITAN_STYLE_NONCE__', nonce.encode())
         extra = None
@@ -749,6 +789,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             return
         if path == "/api/launcher-layout":
             return self.reply(launcher_layout.save(self.app.store, user["name"], body))
+        if path == "/api/interface":
+            return self.reply(interface_layout.save(self.app.store, user["name"], body))
         if path == "/api/apps/memory-plan":
             require_application(self.app.store, user, "apps")
             if set(body) - {"app", "options"} or "app" not in body:
@@ -853,8 +895,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
                     extra = {'Set-Cookie': self.session_cookie(cookies['titan_session'].value, secure=False)}
             return self.reply(result, extra=extra)
         if path == "/api/components/install":
-            if set(body) != {"component"} or type(body["component"]) is not str or body["component"] not in ("all", "docker", "vms"):
-                raise Error("Docker, VMs oder alle Komponenten auswählen.")
+            if set(body) != {"component"} or type(body["component"]) is not str or body["component"] not in ("all", "docker", "vms", "nvidia"):
+                raise Error("Docker, VMs, NVIDIA-Treiber oder alle Komponenten auswählen.")
             if any(item["action"] == "component_install" and item["status"] in ("queued", "running") for item in self.app.store.jobs()):
                 raise Error("Eine Komponenteninstallation läuft bereits.", 409)
             return self.reply(self.app.jobs.submit(user["name"], "component_install",

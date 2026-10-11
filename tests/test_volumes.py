@@ -43,7 +43,7 @@ class VolumeTests(unittest.TestCase):
         self.calls.append((args, kwargs))
         if args[0].startswith("mkfs."):
             fs = args[0][5:]
-            value = args[args.index("-U") + 1] if fs == "ext4" else args[args.index("-m") + 1].split("=", 1)[1]
+            value = args[args.index("-m") + 1].split("=", 1)[1] if fs == "xfs" else args[args.index("-U") + 1]
             self.disk.update(fstype=fs, uuid=value)
             self.formatted = value
         if args[0] == "blkid": return f"TYPE={self.disk['fstype']}\nUUID={self.disk['uuid']}"
@@ -123,6 +123,31 @@ class VolumeTests(unittest.TestCase):
         self.assertLessEqual(len(command[command.index("-L") + 1]), 12)
         self.assertNotIn("-f", command)
         self.assertIn(" xfs defaults,nofail,nodev,nosuid 0 0", self.fstab.read_text())
+
+    def test_btrfs_is_created_by_uuid_without_force_and_mounted_by_fstab(self):
+        # Nothing is mounted here, so the device number Btrfs files report is supplied.
+        with self.safe_format_simulation(), patch("titan.volumes.mount_device", return_value=os.stat(self.share_root).st_dev):
+            self.manager.create("medien", "/dev/sdb", "btrfs", "medien", "/dev/sdb")
+        command = next(args for args, _ in self.calls if args[0] == "mkfs.btrfs")
+        record = next(item for item in self.manager.records() if item["name"] == "medien")
+        self.assertEqual(command[command.index("-U") + 1], record["uuid"])
+        self.assertNotIn("-f", command)
+        self.assertNotIn("-m", command)
+        self.assertIn(" btrfs defaults,nofail,nodev,nosuid 0 0", self.fstab.read_text())
+
+    def test_btrfs_device_number_comes_from_the_mounted_directory_not_the_mount_table(self):
+        from titan.volumes import mount_device
+        inside = self.share_root / "mounted"
+        inside.mkdir()
+        table = os.stat(self.share_root).st_dev
+        row = {"target": str(inside), "fstype": "btrfs", "maj:min": "0:99"}
+        files = SimpleNamespace(st_dev=table + 1)
+        with patch("titan.volumes.os.stat", side_effect=lambda path, **_: files if Path(path) == inside else SimpleNamespace(st_dev=table)):
+            self.assertEqual(mount_device(row), table + 1)
+            self.assertEqual(mount_device({**row, "fstype": "ext4", "maj:min": "8:17"}), os.makedev(8, 17))
+        with self.assertRaises(Error) as raised:
+            mount_device(row)  # Same device as the parent: nothing is mounted there.
+        self.assertEqual(raised.exception.status, 503)
 
     def test_mount_failure_is_visible_and_fstab_addition_is_rolled_back(self):
         self.fail_mount = True

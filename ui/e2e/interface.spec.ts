@@ -106,6 +106,40 @@ test('an installed app has a detail page with log and controls', async ({ page }
   await expect(page.getByText('Syncthing: neu gestartet.')).toBeVisible();
 });
 
+test('device passthrough is offered for apps and virtual machines', async ({ page }) => {
+  await page.goto('/#/apps/syncthing');
+  await expect(page.getByRole('heading', { name: 'Grafikkarte und Geräte' })).toBeVisible();
+  // The demo host has no passthrough devices; the card must say so instead of staying empty.
+  await expect(page.getByText(/keine Grafikkarte und kein USB-Gerät gefunden/)).toBeVisible();
+
+  await page.goto('/#/vms');
+  await page.getByRole('button', { name: 'Weitere Aktionen für linux-lab' }).click();
+  await page.getByRole('menuitem', { name: 'USB-Geräte' }).click();
+  const dialog = page.getByRole('dialog', { name: /USB-Geräte für/ });
+  await expect(dialog.getByText(/kein USB-Gerät angeschlossen/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Abbrechen' }).click();
+
+  // An existing QCOW2 disk from a share is offered as boot source.
+  await page.getByRole('button', { name: 'Neue VM' }).click();
+  await expect(page.getByRole('dialog').getByRole('option', { name: /linux-cloud\.qcow2/ })).toBeAttached();
+});
+
+test('a graphics card can be passed through to a stopped virtual machine', async ({ page }) => {
+  await page.goto('/#/vms');
+  await page.getByRole('button', { name: 'Weitere Aktionen für E2E Gast' }).click();
+  await page.getByRole('menuitem', { name: 'Grafikkarte und PCI-Geräte' }).click();
+  const dialog = page.getByRole('dialog', { name: /Grafikkarte und PCI-Geräte/ });
+  await expect(dialog.getByRole('checkbox', { name: /Demo-Beschleuniger/ })).toBeDisabled();
+  await expect(dialog.getByText(/Teilt sich die IOMMU-Gruppe/)).toBeVisible();
+  await dialog.getByRole('checkbox', { name: /Demo-Grafikkarte/ }).check();
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('PCI-Geräte für „E2E Gast“ gespeichert.')).toBeVisible();
+  // The card now belongs to that VM and is no longer free for another one.
+  await page.getByRole('button', { name: 'Weitere Aktionen für linux-lab' }).click();
+  await page.getByRole('menuitem', { name: 'Grafikkarte und PCI-Geräte' }).click();
+  await expect(page.getByRole('dialog').getByText('Zugeordnet: andere VM')).toBeVisible();
+});
+
 test('share access can be changed per user', async ({ page }) => {
   await page.goto('/#/settings/shares');
   await page.getByRole('button', { name: 'Zugriff auf dokumente ändern' }).click();
@@ -145,6 +179,16 @@ test('a user can be created, locked and deleted', async ({ page }) => {
   await expect(page.getByText('e2e-gast', { exact: true })).toHaveCount(0);
 });
 
+test('a storage quota can be set per user', async ({ page }) => {
+  await page.goto('/#/settings/users');
+  await page.getByRole('button', { name: 'Benutzer patrick bearbeiten' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Kontingent für dokumente in GB').fill('50');
+  await dialog.getByRole('button', { name: 'Setzen' }).click();
+  await expect(page.getByText('Kontingent für „dokumente“ auf 50 GB gesetzt.')).toBeVisible({ timeout: 20_000 });
+  await expect(dialog.getByLabel('Kontingent für dokumente in GB')).toHaveValue('50');
+});
+
 test('own password, alerts and restart are available in settings', async ({ page }) => {
   await page.goto('/#/settings');
   await expect(page.getByText('Beispiel: Sicherungsziel fehlt')).toBeVisible();
@@ -162,6 +206,209 @@ test('own password, alerts and restart are available in settings', async ({ page
   await page.getByLabel('Neues Passwort wiederholen').fill('Sehr-Sicher-2026!x');
   await page.getByRole('button', { name: 'Passwort ändern' }).click();
   await expect(page.getByText('Passwort geändert.')).toBeVisible({ timeout: 20_000 });
+});
+
+test('a backup to another drive can be configured, run and verified', async ({ page }) => {
+  await page.goto('/#/settings/backups');
+  await page.getByLabel('Sicherungsziel').selectOption('/var/media/demo-backup');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Sicherungseinstellungen gespeichert.')).toBeVisible();
+  test.skip(linuxOnly, 'the demo copies share files, which needs Linux');
+  await page.getByRole('button', { name: 'Jetzt sichern' }).click();
+  await expect(page.getByRole('button', { name: /Sicherung vom .* prüfen/ })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: /Sicherung vom .* prüfen/ }).click();
+  await expect(page.locator('[aria-live=polite]')).toContainText(/geprüft|unverändert/);
+});
+
+test('a share can be mirrored continuously to another drive', async ({ page }) => {
+  await page.goto('/#/settings/backups');
+  await page.getByRole('button', { name: 'Einrichten' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Laufenden Abgleich einrichten' });
+  await dialog.getByRole('combobox', { name: /^Ziel/ }).selectOption('/var/media/demo-backup');
+  await dialog.getByLabel('Rhythmus').selectOption('1');
+  await dialog.getByRole('button', { name: 'Einrichten' }).click();
+  await expect(page.getByText('dokumente → /var/media/demo-backup/titan-sync/dokumente')).toBeVisible();
+  await page.getByRole('button', { name: 'Abgleich für dokumente jetzt starten' }).click();
+  await expect(page.getByText(/zuletzt .*Abgleich simuliert/)).toBeVisible();
+  await page.getByRole('button', { name: 'Abgleich für dokumente entfernen' }).click();
+  await expect(page.getByText('dokumente → /var/media/demo-backup/titan-sync/dokumente')).toHaveCount(0);
+});
+
+test('application rights and groups can be changed', async ({ page }) => {
+  await page.goto('/#/settings/groups');
+  await page.getByRole('group', { name: 'Apps und Docker für patrick' }).getByRole('button', { name: 'Erlaubt' }).click();
+  await page.getByRole('button', { name: 'Neue Gruppe' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Neue Gruppe' });
+  await dialog.getByLabel('Name').fill('familie-vm');
+  await dialog.getByRole('checkbox', { name: 'familie' }).check();
+  await dialog.getByRole('group', { name: 'Virtuelle Maschinen für die Gruppe' }).getByRole('button', { name: 'Erlaubt' }).click();
+  await dialog.getByRole('button', { name: 'Übernehmen' }).click();
+  await page.getByRole('button', { name: 'Änderungen speichern' }).click();
+  await expect(page.getByText('Gruppen und Rechte gespeichert.')).toBeVisible({ timeout: 20_000 });
+  await page.reload();
+  await expect(page.getByRole('group', { name: 'Apps und Docker für patrick' }).getByRole('button', { name: 'Erlaubt' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('familie-vm')).toBeVisible();
+  // The group grants VM access to its member without a personal override.
+  await expect(page.getByRole('group', { name: 'Virtuelle Maschinen für familie' }).getByRole('button', { name: 'Wie Gruppe' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('derzeit erlaubt').first()).toBeVisible();
+});
+
+test('the system drive can be used fully and a new storage area created', async ({ page }) => {
+  await page.goto('/#/settings/storage');
+  await expect(page.getByText('Interner Speicher')).toBeVisible();
+  await page.getByRole('button', { name: 'Ganze Platte nutzen' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Erweitern' }).click();
+  await expect(page.getByRole('button', { name: 'Ganze Platte nutzen' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Neuer Speicherbereich' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Neuer Speicherbereich' });
+  await dialog.getByLabel('Name').fill('medien');
+  await dialog.getByLabel('Dateisystem').selectOption('btrfs');
+  // Formatting stays locked until the exact drive path is typed.
+  await expect(dialog.getByRole('button', { name: 'Formatieren und anlegen' })).toBeDisabled();
+  await dialog.getByLabel('Bestätigung').fill('/dev/sdc');
+  await dialog.getByRole('button', { name: 'Formatieren und anlegen' }).click();
+  await expect(page.getByText('Speicherbereich „medien“ angelegt.')).toBeVisible();
+  await expect(page.getByText('btrfs', { exact: true })).toBeVisible();
+});
+
+test('a Btrfs mirror is created over two drives and a drive can be replaced', async ({ page }) => {
+  await page.goto('/#/settings/storage');
+  await page.getByRole('button', { name: 'Neuer Speicherbereich' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Neuer Speicherbereich' });
+  await dialog.getByLabel('Name').fill('spiegel');
+  await dialog.getByRole('combobox', { name: 'Laufwerk', exact: true }).selectOption('/dev/sde');
+  await dialog.getByLabel('Dateisystem').selectOption('btrfs');
+  await dialog.getByLabel('Spiegeln auf').selectOption('/dev/sdf');
+  await expect(dialog.getByText('/dev/sde, /dev/sdf wird formatiert.')).toBeVisible();
+  await dialog.getByLabel('Bestätigung').fill('/dev/sde');
+  await dialog.getByRole('button', { name: 'Formatieren und anlegen' }).click();
+  await expect(page.getByText('Spiegel aus 2 Laufwerken')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Laufwerk ersetzen' }).click();
+  const replace = page.getByRole('dialog', { name: /Laufwerk in „spiegel“ ersetzen/ });
+  await replace.getByLabel('Altes Laufwerk').selectOption('/dev/sdf');
+  await replace.getByLabel('Ersatzlaufwerk').selectOption('/dev/sdg');
+  // The spare drive is only overwritten after its exact path is typed.
+  await expect(replace.getByRole('button', { name: 'Ersetzen' })).toBeDisabled();
+  await replace.getByLabel('Bestätigung').fill('/dev/sdg');
+  await replace.getByRole('button', { name: 'Ersetzen' }).click();
+  await expect(page.getByText('Austausch läuft', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3500);
+  await page.reload();
+  await expect(page.getByText('/dev/sde · /dev/sdg')).toBeVisible();
+});
+
+test('containers are listed with controls and logs', async ({ page }) => {
+  await page.goto('/#/settings/docker');
+  await expect(page.getByText('titan-jellyfin')).toBeVisible();
+  await page.getByRole('button', { name: 'Protokoll von titan-jellyfin' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Demo');
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: /Images/ }).click();
+  await expect(page.getByText('nginx')).toBeVisible();
+});
+
+test('the web terminal opens a session without style violations', async ({ page }) => {
+  const violations: string[] = [];
+  page.on('console', entry => {
+    if (/Content Security Policy/i.test(entry.text())) violations.push(entry.text());
+  });
+  await page.goto('/#/settings/terminal');
+  await expect(page.locator('.xterm-screen')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.locator('.xterm-helper-textarea').focus();
+  await page.keyboard.type('help');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(800);
+  expect(violations).toEqual([]);
+});
+
+test('a plugged-in USB drive appears in the file manager and can be ejected', async ({ page }) => {
+  await page.goto('/#/files');
+  await page.getByRole('button', { name: 'USB-Stick', exact: true }).click();
+  await expect(page.getByText('USB-Laufwerk „USB-Stick“')).toBeVisible();
+  if (!linuxOnly) await expect(page.getByText('Urlaub.txt', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'USB-Stick auswerfen' }).click();
+  await expect(page.getByText(/kann jetzt abgezogen werden/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'USB-Stick', exact: true })).toHaveCount(0);
+});
+
+test('apps and VM consoles open inside Titan and the system menu confirms before acting', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Syncthing öffnen' }).click();
+  await expect(page).toHaveURL(/#\/open\/syncthing$/);
+  await expect(page.locator('iframe[title="Syncthing"]')).toHaveAttribute('src', /:8384$/);
+  await page.getByRole('button', { name: 'Zurück zur Startseite' }).click();
+
+  await page.goto('/#/vms');
+  const card = page.locator('div').filter({ hasText: /^linux-lab/ }).first();
+  await expect(card).toBeVisible();
+  const start = page.getByRole('button', { name: 'Starten' }).first();
+  if (await start.isVisible()) await start.click();
+  await page.getByRole('button', { name: 'Konsole' }).first().click();
+  await expect(page).toHaveURL(/#\/vms\/[0-9a-f-]+$/);
+  await expect(page.locator('iframe[title^="Konsole von"]')).toHaveAttribute('src', /console\.html\?vm=.*embedded=1/);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Systemmenü' }).click();
+  await page.getByRole('menuitem', { name: 'Neu starten' }).click();
+  await expect(page.getByRole('dialog', { name: 'NAS neu starten?' })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('transparency, dock and start page can be customised per account', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Systemmenü' }).click();
+  await page.getByRole('menuitem', { name: 'Darstellung' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Darstellung' });
+  await dialog.getByRole('slider').fill('90');
+  // The slider previews immediately on the glass surfaces.
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--glass-alpha'))).toBe('0.312');
+  await dialog.getByLabel('Größe').selectOption('large');
+  await dialog.getByLabel('Hinzufügen').selectOption('app:syncthing');
+  await dialog.getByRole('button', { name: 'Syncthing nach oben' }).click();
+  await dialog.getByRole('checkbox', { name: 'Prozessor' }).uncheck();
+  await dialog.getByRole('checkbox', { name: 'linux-lab' }).check();
+  await expect(dialog.getByRole('button', { name: 'Einstellungen aus dem Dock entfernen' })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Darstellung gespeichert.')).toBeVisible();
+
+  await page.reload();
+  const dock = page.getByRole('navigation', { name: 'Hauptnavigation' });
+  await expect(dock.getByRole('button')).toHaveCount(6);
+  await expect(dock.getByRole('button').nth(4)).toHaveAccessibleName('Syncthing');
+  await expect(page.getByText('CPU', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'linux-lab öffnen' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--glass-alpha'))).toBe('0.312');
+
+  // Restore the defaults so later runs against the same server start clean.
+  await page.getByRole('button', { name: 'Systemmenü' }).click();
+  await page.getByRole('menuitem', { name: 'Darstellung' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Zurücksetzen' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Speichern' }).click();
+  await expect(dock.getByRole('button')).toHaveCount(5);
+});
+
+test('remote access settings explain the tunnel and report why the demo cannot save', async ({ page }) => {
+  await page.goto('/#/settings/remote');
+  await expect(page.getByText(/wird die App „Cloudflare Tunnel“ benötigt/)).toBeVisible();
+  await page.getByLabel('Öffentliche Adresse von Titan').fill('https://nas.example.org');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByRole('alert')).toContainText('echte Titan-Installation');
+});
+
+test('the NVIDIA driver is offered for an NVIDIA card and asks before installing', async ({ page }) => {
+  await page.goto('/#/settings/system');
+  await expect(page.getByRole('heading', { name: 'Grafikkarte' })).toBeVisible();
+  await expect(page.getByText('Demo-Grafikkarte')).toBeVisible();
+  await page.getByRole('button', { name: 'NVIDIA-Treiber installieren' }).click();
+  const dialog = page.getByRole('dialog', { name: 'NVIDIA-Treiber installieren?' });
+  await expect(dialog).toContainText('NVIDIAs Lizenzbedingungen');
+  await dialog.getByRole('button', { name: 'Installieren' }).click();
+  // The demo has no real card; the refusal must be shown, not swallowed.
+  await expect(page.getByRole('alert')).toContainText('echten Titan-System', { timeout: 15_000 });
 });
 
 test('previous interface stays reachable', async ({ request }) => {

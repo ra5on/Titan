@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, ExternalLink, HardDrive, MemoryStick, MoreHorizontal, SlidersHorizontal, Play, Plus, RotateCw, Square, Trash2 } from 'lucide-react';
+import { ChevronDown, Cpu, ExternalLink, HardDrive, LogOut, MemoryStick, MonitorPlay, MoreHorizontal, Palette, Power, SlidersHorizontal, Play, Plus, RotateCw, Square, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { action } from '../api';
-import type { InstalledApp, Session, Status, Storage } from '../api';
+import type { InstalledApp, Session, Status, Storage, VmList } from '../api';
 import { bytes, cx, go, message, percent, useApi } from '../lib';
-import { AppIcon, Confirm, Meter, StateDot, useToast } from '../ui';
+import { usePrefs } from '../prefs';
+import { logout, rebootSystem, shutdownSystem } from '../system';
+import { AppearanceDialog } from './Appearance';
+import { AppIcon, Confirm, Menu, Meter, StateDot, useToast } from '../ui';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -65,12 +68,12 @@ function AppTile({ app, admin, onChanged }: { app: InstalledApp; admin: boolean;
 
   const open = () => {
     if (!running) return toast(`${app.name} ist gestoppt. Über das Menü starten.`, true);
-    if (url) window.open(url, '_blank', 'noopener');
+    if (url) go('open', app.id);
     else toast(`${app.name} hat keine Weboberfläche.`);
   };
 
   const items: { label: string; icon: LucideIcon; onClick: () => void; danger?: boolean }[] = [
-    ...(running && url ? [{ label: 'Öffnen', icon: ExternalLink, onClick: open }] : []),
+    ...(running && url ? [{ label: 'Öffnen', icon: ExternalLink, onClick: open }, { label: 'In neuem Tab öffnen', icon: ExternalLink, onClick: () => { setMenu(false); window.open(url, '_blank', 'noopener'); } }] : []),
     ...(running
       ? [
           { label: 'Neu starten', icon: RotateCw, onClick: () => run('restart', 'neu gestartet.') },
@@ -143,12 +146,55 @@ function AppTile({ app, admin, onChanged }: { app: InstalledApp; admin: boolean;
   );
 }
 
-export function Home({ session }: { session: Session }) {
+/** Top-left system menu: sign out, restart and shut down, each after a confirmation. */
+function SystemMenu({ name, admin, session, onSessionChange }: { name: string; admin: boolean; session: Session; onSessionChange: () => Promise<void> }) {
+  const toast = useToast();
+  const [appearance, setAppearance] = useState(false);
+  const [confirm, setConfirm] = useState<'logout' | 'reboot' | 'shutdown' | null>(null);
+  const actions = {
+    logout: { title: 'Abmelden?', text: 'Du wirst von Titan abgemeldet. Apps und virtuelle Maschinen laufen weiter.', label: 'Abmelden', danger: false,
+      run: async () => { try { await logout(); } finally { await onSessionChange(); } } },
+    reboot: { title: 'NAS neu starten?', text: 'Apps, virtuelle Maschinen und Freigaben sind während des Neustarts für einige Minuten nicht erreichbar.', label: 'Neu starten', danger: false,
+      run: async () => { try { toast(await rebootSystem()); } catch (reason) { toast(message(reason), true); } } },
+    shutdown: { title: 'NAS ausschalten?', text: 'Titan fährt herunter und ist erst wieder erreichbar, wenn das Gerät eingeschaltet wird. Virtuelle Maschinen müssen vorher heruntergefahren sein.', label: 'Ausschalten', danger: true,
+      run: async () => { try { toast(await shutdownSystem()); } catch (reason) { toast(message(reason), true); } } },
+  };
+  const active = confirm && actions[confirm];
+  return (
+    <div className="fixed left-4 top-4 z-30">
+      <Menu
+        label="Systemmenü"
+        placement="below"
+        align="left"
+        trigger={
+          <span className="glass flex h-10 items-center gap-2 rounded-full pl-3 pr-2.5 text-sm font-medium shadow-lg">
+            <Power className="size-4" aria-hidden />
+            <span className="max-w-40 truncate">{name}</span>
+            <ChevronDown className="size-4 text-white/60" aria-hidden />
+          </span>
+        }
+        items={[
+          { label: 'Darstellung', icon: Palette, onClick: () => setAppearance(true) },
+          { label: 'Abmelden', icon: LogOut, onClick: () => setConfirm('logout') },
+          ...(admin ? [{ label: 'Neu starten', icon: RotateCw, onClick: () => setConfirm('reboot') }, { label: 'Ausschalten', icon: Power, danger: true, onClick: () => setConfirm('shutdown') }] : []),
+        ]}
+      />
+      {appearance && <AppearanceDialog session={session} onClose={() => setAppearance(false)} />}
+      {active && <Confirm title={active.title} text={active.text} confirmLabel={active.label} danger={active.danger} onClose={() => setConfirm(null)} onConfirm={active.run} />}
+    </div>
+  );
+}
+
+export function Home({ session, onSessionChange }: { session: Session; onSessionChange: () => Promise<void> }) {
   const admin = session.user?.role === 'admin';
   const canApps = Boolean(session.permissions.apps?.allowed);
   const status = useApi<Status>(canApps || admin ? '/api/status' : null, 5000);
   const storage = useApi<Storage>(admin ? '/api/storage' : null, 60000);
   const apps = useApi<{ installed: InstalledApp[] }>(canApps ? '/api/apps' : null, 10000);
+  const { prefs } = usePrefs();
+  const canVms = Boolean(session.permissions.vms?.allowed);
+  const vms = useApi<VmList>(canVms && prefs.pinned_vms.length ? '/api/vms' : null, 10000);
+  const pinned = (vms.data?.vms || []).filter(vm => prefs.pinned_vms.includes(vm.id));
 
   const pools = storage.data?.pools || [];
   const total = pools.reduce((sum, pool) => sum + pool.size, 0);
@@ -157,24 +203,41 @@ export function Home({ session }: { session: Session }) {
 
   return (
     <div className="scroll-area h-full overflow-y-auto px-4 pb-36 pt-[9vh]">
+      <SystemMenu name={s?.hostname || 'Titan'} admin={admin} session={session} onSessionChange={onSessionChange} />
       <div className="mx-auto max-w-5xl">
         <h1 className="text-center text-4xl font-semibold tracking-tight drop-shadow-lg sm:text-5xl">
           {greeting()}, {session.user?.name}
         </h1>
         <p className="mt-2 text-center text-sm text-white/65 drop-shadow">{s?.hostname || 'Titan'} · Version {session.version}</p>
 
-        {s && (
-          <div className="mx-auto mt-9 grid max-w-2xl grid-cols-3 gap-2 sm:flex sm:justify-center sm:gap-3">
-            <Widget icon={Cpu} label="CPU" value={`${Math.round(s.cpu_percent)} %`} detail={`${s.cpus} Kerne${s.temperature_available && s.cpu_temperature ? ` · ${Math.round(s.cpu_temperature)} °C` : ''}`} fraction={s.cpu_percent} />
-            <Widget icon={MemoryStick} label="RAM" value={bytes(s.memory_used)} detail={`von ${bytes(s.memory_total)}`} fraction={percent(s.memory_used, s.memory_total)} />
-            {total > 0 && <Widget icon={HardDrive} label="Speicher" value={bytes(used)} detail={`von ${bytes(total)}`} fraction={percent(used, total)} />}
+        {s && prefs.widgets.length > 0 && (
+          <div className="mx-auto mt-9 flex max-w-2xl justify-center gap-2 sm:gap-3 [&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none">
+            {prefs.widgets.includes('cpu') && <Widget icon={Cpu} label="CPU" value={`${Math.round(s.cpu_percent)} %`} detail={`${s.cpus} Kerne${s.temperature_available && s.cpu_temperature ? ` · ${Math.round(s.cpu_temperature)} °C` : ''}`} fraction={s.cpu_percent} />}
+            {prefs.widgets.includes('ram') && <Widget icon={MemoryStick} label="RAM" value={bytes(s.memory_used)} detail={`von ${bytes(s.memory_total)}`} fraction={percent(s.memory_used, s.memory_total)} />}
+            {prefs.widgets.includes('storage') && total > 0 && <Widget icon={HardDrive} label="Speicher" value={bytes(used)} detail={`von ${bytes(total)}`} fraction={percent(used, total)} />}
           </div>
         )}
 
         {canApps && (
           <div className="mt-12 flex flex-wrap justify-center gap-x-6 gap-y-8 sm:gap-x-9">
-            {(apps.data?.installed || []).map(app => (
+            {(apps.data?.installed || []).filter(app => !prefs.hidden_apps.includes(app.id)).map(app => (
               <AppTile key={app.id} app={app} admin={admin} onChanged={apps.reload} />
+            ))}
+            {pinned.map(vm => (
+              <div key={vm.id} className="flex w-24 flex-col items-center sm:w-28">
+                <button
+                  type="button"
+                  onClick={() => go('vms', vm.id)}
+                  aria-label={`${vm.display_name || vm.name} öffnen`}
+                  className={cx('flex size-[76px] items-center justify-center rounded-[18px] bg-gradient-to-br from-teal-300 to-cyan-700 shadow-lg shadow-black/30 transition-transform duration-200 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white active:scale-95', vm.state !== 'running' && 'opacity-45 grayscale')}
+                >
+                  <MonitorPlay className="size-9" strokeWidth={1.6} aria-hidden />
+                </button>
+                <div className="mt-2.5 flex max-w-full items-center gap-1.5 text-[13px] font-medium text-white drop-shadow">
+                  <StateDot state={vm.state} />
+                  <span className="truncate">{vm.display_name || vm.name}</span>
+                </div>
+              </div>
             ))}
             {apps.data && (
               <div className="flex w-24 flex-col items-center sm:w-28">

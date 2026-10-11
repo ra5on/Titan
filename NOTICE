@@ -1,8 +1,14 @@
 Titan
 Copyright (c) 2026 ra5on
 
-Original Titan material is licensed under the Titan Noncommercial License 1.0.
-See LICENSE. Preserve these notices and the license when sharing copies.
+Required Notice: Copyright (c) 2026 ra5on (https://github.com/ra5on)
+
+Original Titan material is licensed under the PolyForm Noncommercial License
+1.0.0 from version 0.8.0 on. See LICENSE or
+https://polyformproject.org/licenses/noncommercial/1.0.0. Preserve the
+Required Notice above and the license terms when sharing copies. Releases up
+to 0.7.0 were published under the Titan Noncommercial License 1.0 and keep
+those terms.
 
 Third-party packages, guest operating systems and container images retain
 their own licenses. The Titan license does not cover user files or data.

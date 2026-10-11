@@ -106,7 +106,9 @@ class RootAccessTests(unittest.TestCase):
         self.app.track_terminal(self.user, ID, root_mode=True)
         self.app.track_terminal(self.user, 'b' * 64)
         self.app.disable_root_access(self.user)
-        self.app.agent.call.assert_called_with('root_terminal_close', owner=terminal_owner(self.user), id=ID)
+        self.app.agent.call.assert_any_call('root_terminal_close', owner=terminal_owner(self.user), id=ID)
+        # Ending root mode also drops the agent's own lease.
+        self.app.agent.call.assert_called_with('root_revoke', owner=terminal_owner(self.user))
         self.assertIn((terminal_owner(self.user), 'b' * 64), self.app.terminal_sessions)
         self.assertFalse(self.app.root_access_active(self.user))
 
@@ -230,6 +232,7 @@ class RootAccessTests(unittest.TestCase):
     def test_root_host_requires_and_forwards_fixed_agent_lease(self):
         host = TerminalMixin()
         host.terminal_lock = threading.Lock()
+        host.require_root_grant = Mock()
         fake = Mock()
         with patch('titan.terminal_host.TerminalManager', return_value=fake) as constructor:
             with self.assertRaises(TypeError):
@@ -238,6 +241,7 @@ class RootAccessTests(unittest.TestCase):
             host.op_root_terminal_create('admin', deadline=123.5, cols=80, rows=24)
             constructor.assert_called_once_with(cwd='/', user='root', allow_root=True, max_ttl=1800, sweep_interval=1)
             fake.create.assert_called_once_with('admin', 80, 24, deadline=123.5)
+            host.require_root_grant.assert_called_once_with('admin')
 
 
 class RootFilesTests(unittest.TestCase):
@@ -319,6 +323,7 @@ class RootFilesTests(unittest.TestCase):
 
     def test_root_worker_does_not_follow_ancestor_swapped_after_validation(self):
         host = SystemFilesMixin()
+        host.require_root_grant = Mock()
         host.system_root = self.root
         host.storage_locations = SimpleNamespace(protected_paths=lambda: [])
         with tempfile.TemporaryDirectory() as outside:
@@ -340,6 +345,7 @@ class RootFilesTests(unittest.TestCase):
 
     def test_root_rpc_rejects_caller_controlled_worker_flags(self):
         host = SystemFilesMixin()
+        host.require_root_grant = Mock()
         host.system_root = self.root
         for key in ('root_access', 'canonicalized', 'root', 'allowed_roots', 'system_path_root', 'user'):
             with self.subTest(key=key), self.assertRaises(Error), patch('titan.system_files.subprocess.run') as worker:

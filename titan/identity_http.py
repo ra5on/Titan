@@ -8,7 +8,7 @@ READ_APPLICATIONS = {
     '/api/catalog': 'apps', '/api/apps': 'apps', '/api/app-details': 'apps', '/api/app-networks': 'apps',
     '/api/app-devices': 'apps', '/api/app-metrics': 'apps', '/api/docker-engine': 'apps',
     '/api/docker-metrics': 'apps', '/api/docker-container': 'apps',
-    '/api/vms': 'vms', '/api/vm-usb': 'vms', '/api/vm-options': 'vms', '/api/vm-image-info': 'vms',
+    '/api/vms': 'vms', '/api/vm-usb': 'vms', '/api/vm-pci': 'vms', '/api/vm-options': 'vms', '/api/vm-image-info': 'vms',
     '/api/isos': 'vms', '/api/iso-library': 'vms', '/api/vm-console': 'vms', '/api/vnc': 'vms',
     '/api/managed-shares': 'backups', '/api/backups': 'backups', '/api/backup/settings': 'backups', '/api/backup/browse': 'backups',
     '/api/package-logs': 'apps', '/api/package-details': 'apps', '/api/package-diagnose': 'apps', '/api/vm-extensions': 'vms',

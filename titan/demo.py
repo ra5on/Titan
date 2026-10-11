@@ -63,11 +63,20 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         self.volume_records = []
         self.demo_disks = [{"name": "/dev/sda", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": "zfs_member", "ro": False, "mountpoints": []},
                            {"name": "/dev/sdb", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": "zfs_member", "ro": False, "mountpoints": []},
-                           {"name": "/dev/sdc", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []}]
+                           {"name": "/dev/sdc", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []},
+                           {"name": "/dev/sde", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []},
+                           {"name": "/dev/sdf", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []},
+                           {"name": "/dev/sdg", "size": 4 * 1024**4, "model": "NAS HDD", "type": "disk", "fstype": None, "ro": False, "mountpoints": []}]
         self.snapshots = []
         self._temporary = tempfile.TemporaryDirectory(prefix="titan-demo-")
         self._private = Path(self._temporary.name)
         self._share_paths = {"dokumente": directory}
+        # One simulated USB stick: files live in an isolated demo folder.
+        self.external = [{"name": "extern-usb-stick-1a2b3c", "label": "USB-Stick", "device": "/dev/sdx1", "filesystem": "exfat", "size": 64 * 1024**3,
+                          "path": "/var/media/extern-usb-stick-1a2b3c", "mounted": True, "in_use_elsewhere": False, "total_bytes": 64 * 1024**3, "free_bytes": 48 * 1024**3}]
+        self._share_paths["extern-usb-stick-1a2b3c"] = self._private / "usb-stick"
+        self._share_paths["extern-usb-stick-1a2b3c"].mkdir()
+        (self._share_paths["extern-usb-stick-1a2b3c"] / "Urlaub.txt").write_text("Beispieldatei auf dem simulierten USB-Stick.\n")
         self._system_path = self._private / "system"
         for name in ("etc", "home/demo", "srv", "tmp", "var/media/demo-backup/Archiv", "var/media/demo-backup/Computer"):
             (self._system_path / name).mkdir(parents=True, exist_ok=True)
@@ -86,6 +95,22 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         self.directory.mkdir(parents=True, exist_ok=True)
         (self.directory / "Dokumente").mkdir(exist_ok=True)
         (self.directory / "Willkommen.txt").write_text("Willkommen bei Titan!\nDies ist eine isolierte Demo.\nDateien in dieser Vorschau liegen nur im Demo-Verzeichnis.\n")
+
+    def demo_volume_progress(self):
+        """Complete a simulated disk replacement a few seconds after it started."""
+        for volume in self.volume_records:
+            replacing = volume.get("replacing")
+            if not replacing:
+                continue
+            elapsed = time.time() - replacing["started"]
+            if elapsed < 3:
+                replacing["percent"] = round(elapsed / 3 * 100, 1)
+                continue
+            old = next((item for item in self.demo_disks if item["name"] == replacing["member"]), None)
+            if old:
+                old.update(fstype=None, uuid=None, mountpoints=[])
+            volume["disks"] = [replacing["disk"] if item == replacing["member"] else item for item in volume["disks"]]
+            volume.update(disk=volume["disks"][0], replacing=None, state="Eingehängt")
 
     def demo_storage_locations(self):
         purposes = ["files", "apps", "shares", "vms", "backups"]
@@ -239,6 +264,53 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             return {'stores':[{'id':'titan','name':'Titan AppStore','enabled':True,'apps':len(APPS),'skipped':[]}],'presets':[]}
         if operation in ("app_store_add", "app_store_remove", "app_store_refresh", "app_store_toggle"):
             raise Error("Eigene Stores benötigen ein installiertes Titan-System. Die Demo lädt keine fremden Vorlagen.")
+        if operation in ("vm_pci", "vm_pci_update"):
+            record = next((item for item in self.vms if args.get("vm") in (item["id"], item["name"])), None)
+            if record is None: raise Error("VM nicht gefunden.", 404)
+            chosen = self.__dict__.setdefault("vm_pci_records", {})
+            taken = {address: owner for owner, addresses in chosen.items() if owner != record["id"] for address in addresses}
+            devices = [{"address": "0000:01:00.0", "kind": "gpu", "name": "Demo-Grafikkarte", "driver": "demo", "boot_vga": False,
+                        "companions": ["0000:01:00.1"], "blocked": "0000:01:00.0" in taken, "reason": "Zugeordnet: andere VM" if "0000:01:00.0" in taken else "",
+                        "selected": "0000:01:00.0" in chosen.get(record["id"], [])},
+                       {"address": "0000:05:00.0", "kind": "accelerator", "name": "Demo-Beschleuniger", "driver": None, "boot_vga": False, "companions": [],
+                        "blocked": True, "reason": "Teilt sich die IOMMU-Gruppe mit anderen Geräten (0000:06:00.0). Einen anderen Steckplatz verwenden.", "selected": False}]
+            if operation == "vm_pci":
+                return {"devices": devices, "selected": list(chosen.get(record["id"], [])), "iommu": True, "editable": record["state"] == "shut off", "firmware": record.get("firmware")}
+            if record["state"] != "shut off": raise Error("VM vor Änderungen an PCI-Geräten herunterfahren.", 409)
+            wanted = args.get("devices")
+            if not isinstance(wanted, list) or any(item not in ("0000:01:00.0",) for item in wanted) or ("0000:01:00.0" in wanted and "0000:01:00.0" in taken):
+                raise Error("PCI-Gerät nicht verfügbar.", 409)
+            chosen[record["id"]] = list(wanted)
+            return {"ok": True, "devices": list(wanted), "passed": ["0000:01:00.0", "0000:01:00.1"] if wanted else []}
+        if operation == "component_install" and args.get("component") == "nvidia":
+            raise Error("Demo: Der NVIDIA-Treiber wird nur auf einem echten Titan-System mit NVIDIA-Karte installiert.", 409)
+        if operation == "sync_jobs":
+            return {"jobs": copy.deepcopy(getattr(self, "sync_records", []))}
+        if operation in ("sync_job_save", "sync_job_remove", "sync_job_run"):
+            records = self.__dict__.setdefault("sync_records", [])
+            share = self.share(args["share"])["name"]
+            current = next((item for item in records if item["share"] == share), None)
+            if operation == "sync_job_save":
+                self.demo_target(args["target"])
+                interval = integer(args.get("interval_minutes", 15), 1, 1440)
+                if type(args.get("delete", False)) is not bool or type(args.get("enabled", True)) is not bool: raise Error("Ungültiger Schalter.")
+                job = {"share": share, "target": args["target"], "interval_minutes": interval, "delete": args.get("delete", False), "enabled": args.get("enabled", True),
+                       "last_run": None, "last_ok": None, "last_message": "", "running": False, "destination": args["target"] + "/titan-sync/" + share}
+                records[:] = [item for item in records if item["share"] != share] + [job]
+                return {"ok": True, "job": copy.deepcopy(job)}
+            if current is None: raise Error("Für diese Freigabe ist kein Abgleich eingerichtet.", 404)
+            if operation == "sync_job_remove":
+                records.remove(current)
+                return {"ok": True, "data_retained": True}
+            current.update(last_run=time.time(), last_ok=True, last_message="Demo: Abgleich simuliert, keine Dateien kopiert.")
+            return {"ok": True, "message": current["last_message"], "stats": {"copied": 0, "unchanged": 0, "deleted": 0, "skipped": 0, "errors": 0, "bytes": 0}}
+        if operation == "external_drives":
+            return {"drives": copy.deepcopy(self.external)}
+        if operation in ("external_drive_eject", "external_drive_mount"):
+            drive = next((item for item in self.external if item["name"] == args.get("name")), None)
+            if drive is None: raise Error("USB-Laufwerk ist nicht angeschlossen.", 404)
+            drive["mounted"] = operation == "external_drive_mount"
+            return {"ok": True, "message": "Demo: Laufwerk eingehängt." if drive["mounted"] else "Demo: Das Laufwerk kann jetzt abgezogen werden."}
         if operation == "vm_usb":
             return {"devices": [], "selected": [], "editable": True}
         if operation == "vm_usb_update":
@@ -250,7 +322,9 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             return {"components": {"docker": {"installed": True, "available": docker, "daemon": docker, "compose": True, "missing": [],
                                                **({"error": "Demo: Docker-Dienst ist gestoppt."} if not docker else {})},
                                     "vms": {"installed": True, "available": vms, "daemon": vms, "kvm": True, "missing": [],
-                                            **({"error": "Demo: libvirt-Dienst ist gestoppt."} if not vms else {})}}, "repair": {}}
+                                            **({"error": "Demo: libvirt-Dienst ist gestoppt."} if not vms else {})},
+                                    "nvidia": {"card": True, "installed": False, "available": False, "requested": False, "passthrough": False}}, "repair": {},
+                    "gpus": [{"pci": "0000:01:00.0", "vendor": "NVIDIA", "model": "Demo-Grafikkarte", "driver": None, "bound": False, "passthrough": False}]}
         if operation == "component_install":
             if args.get("component", "all") not in ("all", "docker", "vms"):
                 raise Error("Ungültige Komponente.")
@@ -294,9 +368,10 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
             self._default_storage = resource["id"]
             return {"ok": True, "default_storage": resource["id"], "data_moved": False}
         if operation == "storage":
+            self.demo_volume_progress()
             return {"pools": copy.deepcopy(self.pools), "datasets": copy.deepcopy(self.datasets),
                     "disks": copy.deepcopy(self.demo_disks), "volumes": copy.deepcopy(self.volume_records),
-                    "filesystems": {"ext4": {"available": True}, "xfs": {"available": True}},
+                    "filesystems": {"ext4": {"available": True}, "xfs": {"available": True}, "btrfs": {"available": True}},
                     "existing_filesystems": [{key: item.get(key) for key in ("name", "type", "fstype", "uuid", "size", "mountpoints")} for item in self.demo_disks if item.get("fstype") in ("ext4", "xfs")],
                     "status": "pool: tank\nstate: ONLINE\nscan: scrub repaired 0B with 0 errors\nerrors: No known data errors"}
         if operation == "system_disk":
@@ -512,18 +587,39 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
         if operation == "volume_create":
             name = identifier(args["name"])
             filesystem = args.get("filesystem", "ext4")
-            disk = next((item for item in self.demo_disks if item["name"] == args["disk"]), None)
-            if args.get("confirmation_name") != name or args.get("confirmation_disk") != args["disk"] or filesystem not in ("ext4", "xfs"):
+            mirror = args.get("mirror") or []
+            names = [args["disk"]] + mirror if isinstance(mirror, list) else []
+            disks = [next((item for item in self.demo_disks if item["name"] == value), None) for value in names]
+            if args.get("confirmation_name") != name or args.get("confirmation_disk") != args["disk"] or filesystem not in ("ext4", "xfs", "btrfs"):
                 raise Error("Dateisystem oder Bestätigung ist ungültig.")
+            if mirror and (filesystem != "btrfs" or not isinstance(mirror, list) or len(names) > 4 or len(set(names)) != len(names)):
+                raise Error("Ein Btrfs-Verbund besteht aus zwei bis 4 verschiedenen Laufwerken.")
             if any(item["name"] == name for item in self.volume_records): raise Error("Volume existiert bereits.", 409)
+            if not disks or any(not disk or disk.get("fstype") or disk.get("children") or any(disk.get("mountpoints") or []) or disk.get("ro") for disk in disks):
+                raise Error("Nur ein vollständig leeres unpartitioniertes Laufwerk ist zulässig.")
+            size = min(disk["size"] for disk in disks) * len(disks) // (2 if mirror else 1)
+            volume = {"name": name, "disk": names[0], "disks": names, "mirror": bool(mirror), "filesystem": filesystem, "uuid": str(uuid.uuid4()),
+                      "mountpoint": "/var/srv/titan/volumes/" + name, "mounted": True, "state": "Eingehängt", "phase": "ready",
+                      "degraded": False, "errors": 0, "replacing": None, "total": size, "used": 0, "free": size}
+            self.volume_records.append(volume)
+            for disk in disks:
+                disk.update(fstype=filesystem, uuid=volume["uuid"], mountpoints=[volume["mountpoint"]] if disk is disks[0] else [])
+            return {"ok": True, "message": "Demo: " + filesystem.upper() + "-Volume isoliert simuliert; kein Laufwerk wurde formatiert."}
+        if operation == "volume_replace":
+            volume = next((item for item in self.volume_records if item["name"] == args.get("name")), None)
+            disk = next((item for item in self.demo_disks if item["name"] == args.get("disk")), None)
+            if not volume: raise Error("Volume nicht gefunden.", 404)
+            if not volume.get("mirror"): raise Error("Nur ein Btrfs-Verbund aus mehreren Laufwerken kann ein Laufwerk ersetzen.")
+            if args.get("confirmation_name") != volume["name"] or args.get("confirmation_disk") != args.get("disk"):
+                raise Error("Bestätigung ungültig. Volume-Name und exakten Laufwerkspfad bestätigen.")
+            if volume.get("replacing"): raise Error("Für diesen Verbund läuft bereits ein Austausch.", 409)
             if not disk or disk.get("fstype") or disk.get("children") or any(disk.get("mountpoints") or []) or disk.get("ro"):
                 raise Error("Nur ein vollständig leeres unpartitioniertes Laufwerk ist zulässig.")
-            volume = {"name": name, "disk": disk["name"], "filesystem": filesystem, "uuid": str(uuid.uuid4()),
-                      "mountpoint": "/var/srv/titan/volumes/" + name, "mounted": True, "state": "Eingehängt", "phase": "ready",
-                      "total": disk["size"], "used": 0, "free": disk["size"]}
-            self.volume_records.append(volume)
-            disk.update(fstype=filesystem, uuid=volume["uuid"], mountpoints=[volume["mountpoint"]])
-            return {"ok": True, "message": "Demo: " + filesystem.upper() + "-Volume isoliert simuliert; kein Laufwerk wurde formatiert."}
+            if args.get("member") not in volume["disks"]:
+                raise Error("Dem Verbund fehlt kein Laufwerk. Das zu ersetzende Laufwerk auswählen.", 409)
+            disk.update(fstype="btrfs", uuid=volume["uuid"])
+            volume.update(replacing={"disk": disk["name"], "member": args["member"], "percent": 0, "started": time.time()}, state="Austausch läuft")
+            return {"ok": True, "message": "Demo: Austausch nur simuliert; kein Laufwerk wurde verändert."}
         if operation == "volume_mount":
             volume = next((item for item in self.volume_records if item["name"] == args["name"]), None)
             if not volume: raise Error("Volume nicht gefunden.", 404)
@@ -849,6 +945,8 @@ class Demo(DemoIdentityMixin, DemoStorageMixin, DemoPackagesVMMixin):
                     "message": "Demo: Dienst ausschließlich simuliert; kein Hostprogramm oder systemd verändert."}
 
     def share(self, name):
+        if any(drive["name"] == name and drive["mounted"] for drive in self.external):
+            return {"name": name, "readers": [], "writers": [], "external": True}
         item = next((item for item in self.shares if item["name"] == name), None)
         if not item: raise Error("Freigabe nicht gefunden.", 404)
         if item.get("volume") and not any(volume["name"] == item["volume"] and volume["mounted"] for volume in self.volume_records):

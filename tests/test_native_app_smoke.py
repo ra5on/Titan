@@ -110,7 +110,7 @@ class NativeAcceptanceTests(unittest.TestCase):
         selector = next(step for step in jobs['source']['steps'] if step.get('id') == 'mode')
         self.assertIn('.titan-ci-builder/scripts/ci-app-source.py .', selector['run'])
         self.assertIn('"$GITHUB_OUTPUT"', selector['run'])
-        self.assertEqual(jobs['native-package']['strategy']['matrix']['package'], ['titan-immich', 'titan-adguard'])
+        self.assertEqual(jobs['native-package']['strategy']['matrix']['package'], ['titan-immich', 'titan-adguard', 'titan-ollama', 'titan-pihole', 'titan-nextcloud-office'])
         expected_commands = {
             'native-package': "python3 scripts/smoke-app-packages.py '${{ matrix.package }}'",
             'tailscale-userspace': 'python3 scripts/smoke-tailscale.py',

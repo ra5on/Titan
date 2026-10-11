@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Disc3, MonitorPlay, Plus, Power, PowerOff, RotateCw, Play, Trash2, X, Zap } from 'lucide-react';
+import { Cpu, Disc3, Usb, MonitorPlay, Plus, Power, RotateCw, Play, Trash2, X, Zap } from 'lucide-react';
 import { ISO_NAME, action, uploadIso } from '../api';
 import type { Vm, VmList, VmOptions } from '../api';
-import { bytes, message, useApi } from '../lib';
-import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Meter, Modal, Notice, Select, Sheet, StateDot, useToast } from '../ui';
+import { bytes, go, message, useApi } from '../lib';
+import { VmPciDialog, VmUsbDialog } from './Devices';
+import { Button, Card, Confirm, Empty, Field, IconButton, Input, Loading, Menu, Meter, Modal, Notice, Select, Sheet, StateDot, useToast } from '../ui';
 
 const STATES: Record<string, string> = { running: 'Läuft', 'shut off': 'Aus', paused: 'Pausiert', 'in shutdown': 'Fährt herunter', crashed: 'Abgestürzt' };
 
@@ -73,7 +74,7 @@ function CreateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <Input type="number" min={8} value={form.disk} onChange={set('disk')} required />
             </Field>
           </div>
-          <Field label="Startmedium" help="Weitere Installationsmedien fügst du über „ISO hochladen“ hinzu.">
+          <Field label="Startmedium" help="ISO-Abbilder fügst du über „ISO hochladen“ hinzu. Eine vorhandene Festplatte (QCOW2, IMG) lädst du unter „Dateien“ in eine Freigabe; sie erscheint dann hier unter „Laufwerksimages“ und wird als unabhängige Kopie übernommen.">
             <Select value={form.source || sources[0].value} onChange={set('source')}>
               {['ISO-Abbilder', 'Laufwerksimages'].map(group => {
                 const items = sources.filter(item => item.group === group);
@@ -118,6 +119,8 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<'poweroff' | 'remove' | null>(null);
+  const [usb, setUsb] = useState(false);
+  const [pci, setPci] = useState(false);
   const label = vm.display_name || vm.name;
   const running = vm.state === 'running';
   const off = vm.state === 'shut off';
@@ -134,8 +137,6 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
       onChanged();
     }
   };
-
-  const openConsole = () => window.open(`/console.html?${new URLSearchParams({ vm: vm.id, name: label })}`, '_blank', 'noopener');
 
   return (
     <Card className="flex flex-col gap-4">
@@ -167,38 +168,33 @@ function VmCard({ vm, onChanged }: { vm: Vm; onChanged: () => void }) {
       <div className="flex items-center gap-2">
         {running ? (
           <>
-            <Button size="sm" variant="primary" onClick={openConsole}>
+            <Button size="sm" variant="primary" onClick={() => go('vms', vm.id)}>
               <MonitorPlay className="size-4" /> Konsole
             </Button>
             <Button size="sm" busy={busy} onClick={() => run('shutdown', 'Herunterfahren angefordert.')}>
               <Power className="size-4" /> Herunterfahren
             </Button>
-            <span className="flex-1" />
-            <IconButton label="Neu starten" disabled={busy} onClick={() => run('reboot', 'Neustart angefordert.')}>
-              <RotateCw className="size-4" />
-            </IconButton>
-            <IconButton label="Sofort ausschalten" disabled={busy} onClick={() => setConfirm('poweroff')}>
-              <Zap className="size-4" />
-            </IconButton>
           </>
         ) : (
-          <>
-            <Button size="sm" variant="primary" busy={busy} disabled={!off && vm.state !== 'paused'} onClick={() => run('start', 'gestartet.')}>
-              <Play className="size-4" /> Starten
-            </Button>
-            <span className="flex-1" />
-            {off ? (
-              <IconButton label="VM löschen" disabled={busy} onClick={() => setConfirm('remove')}>
-                <Trash2 className="size-4" />
-              </IconButton>
-            ) : (
-              <IconButton label="Sofort ausschalten" disabled={busy} onClick={() => setConfirm('poweroff')}>
-                <PowerOff className="size-4" />
-              </IconButton>
-            )}
-          </>
+          <Button size="sm" variant="primary" busy={busy} disabled={!off && vm.state !== 'paused'} onClick={() => run('start', 'gestartet.')}>
+            <Play className="size-4" /> Starten
+          </Button>
         )}
+        <span className="flex-1" />
+        <Menu
+          label={`Weitere Aktionen für ${label}`}
+          placement="below"
+          items={[
+            { label: 'USB-Geräte', icon: Usb, onClick: () => setUsb(true) },
+            { label: 'Grafikkarte und PCI-Geräte', icon: Cpu, onClick: () => setPci(true) },
+            ...(running ? [{ label: 'Neu starten', icon: RotateCw, onClick: () => void run('reboot', 'Neustart angefordert.') }] : []),
+            ...(!off ? [{ label: 'Sofort ausschalten', icon: Zap, danger: true, onClick: () => setConfirm('poweroff') }] : []),
+            ...(off ? [{ label: 'Löschen', icon: Trash2, danger: true, onClick: () => setConfirm('remove') }] : []),
+          ]}
+        />
       </div>
+      {usb && <VmUsbDialog vm={vm.id} label={label} onClose={() => setUsb(false)} />}
+      {pci && <VmPciDialog vm={vm.id} label={label} onClose={() => setPci(false)} />}
       {confirm === 'poweroff' && (
         <Confirm
           title={`${label} sofort ausschalten?`}

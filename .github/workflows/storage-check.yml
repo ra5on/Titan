@@ -1,0 +1,26 @@
+name: Btrfs volume check
+# Runs Titan's volume code against the real kernel and btrfs-progs on loop
+# devices: single volume, mirror, missing disk and replacement. Publishes nothing.
+on:
+  push:
+    paths: ['titan/volumes.py', 'titan/volume_mirror.py', 'scripts/check-btrfs-volumes.py', '.github/workflows/storage-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  btrfs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Btrfs tools
+        run: |
+          bash scripts/ci-ubuntu-dependencies.sh python3-yaml btrfs-progs
+          sudo modprobe btrfs
+          btrfs --version
+          uname -r
+      - name: Single volume, mirror, missing disk and replacement
+        run: sudo python3 scripts/check-btrfs-volumes.py
+      - name: Kernel messages on failure
+        if: failure()
+        run: sudo dmesg | tail -n 80

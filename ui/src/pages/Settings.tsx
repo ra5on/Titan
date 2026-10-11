@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { BellRing, CheckCircle2, Download, FolderOpen, HardDrive, Info, KeyRound, LogOut, Power, RefreshCw, RotateCw, Users as UsersIcon } from 'lucide-react';
+import { Archive, BellRing, Boxes, Globe, SquareTerminal, CheckCircle2, Download, FolderOpen, UsersRound, HardDrive, Info, KeyRound, LogOut, Power, RefreshCw, RotateCw, Users as UsersIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { action, get, post, waitJob } from '../api';
-import type { Monitoring, Session, Status, Storage, Updates } from '../api';
+import type { Monitoring, Session, Status, Updates } from '../api';
 import { bytes, cx, duration, go, message, percent, useApi } from '../lib';
 import { SharesSection } from './Shares';
+import { StorageSection } from './StorageSection';
+import { BackupsSection } from './Backups';
+import { GroupsSection } from './Groups';
+import { DockerSection } from './Docker';
+import { TerminalSection } from './Terminal';
+import { RemoteSection } from './Remote';
+import { GraphicsCard } from './Graphics';
 import { AccountSection, UsersSection } from './Users';
 import { Button, Card, Confirm, Loading, Meter, Notice, Sheet, useToast } from '../ui';
 
@@ -15,6 +22,11 @@ const SECTIONS: Section[] = [
   { id: 'storage', label: 'Speicher', icon: HardDrive, admin: true },
   { id: 'shares', label: 'Freigaben', icon: FolderOpen, admin: true },
   { id: 'users', label: 'Benutzer', icon: UsersIcon, admin: true },
+  { id: 'groups', label: 'Gruppen und Rechte', icon: UsersRound, admin: true },
+  { id: 'backups', label: 'Sicherungen', icon: Archive, admin: true },
+  { id: 'remote', label: 'Fernzugriff', icon: Globe, admin: true },
+  { id: 'docker', label: 'Docker', icon: Boxes, admin: true },
+  { id: 'terminal', label: 'Terminal', icon: SquareTerminal, admin: true },
   { id: 'updates', label: 'Updates', icon: Download, admin: true },
   { id: 'account', label: 'Mein Konto', icon: KeyRound },
 ];
@@ -104,6 +116,7 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
           </div>
         </Card>
       )}
+      {admin && <GraphicsCard />}
       {admin && (
         <Card className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -155,52 +168,6 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
           }}
         />
       )}
-    </div>
-  );
-}
-
-function StorageSection() {
-  const storage = useApi<Storage>('/api/storage', 30000);
-  if (storage.loading) return <Loading />;
-  if (storage.error && !storage.data) return <Notice>{storage.error}</Notice>;
-  const data = storage.data!;
-  return (
-    <div className="space-y-4">
-      {data.pools.length === 0 && <Notice tone="info">Noch kein Speicherbereich eingerichtet.</Notice>}
-      {data.pools.map(pool => (
-        <Card key={pool.name}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <HardDrive className="size-5 text-white/50" aria-hidden />
-              <span className="font-semibold">{pool.name}</span>
-            </div>
-            <span className={cx('rounded-full px-2.5 py-0.5 text-xs font-medium', pool.health === 'ONLINE' ? 'bg-ok/15 text-ok' : 'bg-bad/15 text-bad')}>
-              {pool.health === 'ONLINE' ? 'In Ordnung' : pool.health}
-            </span>
-          </div>
-          <div className="mb-2 mt-4 flex justify-between text-sm">
-            <span className="text-white/55">{bytes(pool.used)} belegt</span>
-            <span className="tabular-nums text-white/55">{bytes(pool.free)} frei von {bytes(pool.size)}</span>
-          </div>
-          <Meter value={percent(pool.used, pool.size)} />
-        </Card>
-      ))}
-      <Card>
-        <h2 className="text-sm font-semibold">Laufwerke</h2>
-        <ul className="mt-2 divide-y divide-white/6">
-          {data.disks.map(disk => (
-            <li key={disk.name} className="flex items-center justify-between gap-4 py-2.5 text-sm">
-              <span className="min-w-0 truncate">
-                <span className="font-medium">{disk.model || 'Laufwerk'}</span> <span className="text-white/45">{disk.name}</span>
-              </span>
-              <span className="shrink-0 tabular-nums text-white/65">
-                {bytes(disk.size)} · {disk.fstype ? 'in Verwendung' : 'frei'}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <Button onClick={() => window.open('/classic#storage', '_blank', 'noopener')}>Speicherbereiche verwalten</Button>
     </div>
   );
 }
@@ -335,11 +302,16 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
             ))}
           </ul>
         </nav>
-        <div className="min-w-0 max-w-2xl">
+        <div className={cx('min-w-0', active === 'terminal' || active === 'docker' ? 'max-w-4xl' : 'max-w-2xl')}>
           {active === 'system' && <SystemSection session={session} admin={admin} />}
           {active === 'storage' && <StorageSection />}
           {active === 'shares' && <SharesSection />}
           {active === 'users' && <UsersSection current={session.user?.name || ''} />}
+          {active === 'remote' && <RemoteSection />}
+          {active === 'docker' && <DockerSection />}
+          {active === 'terminal' && <TerminalSection />}
+          {active === 'groups' && <GroupsSection />}
+          {active === 'backups' && <BackupsSection />}
           {active === 'account' && <AccountSection name={session.user?.name || ''} onChanged={onSessionChange} />}
           {active === 'updates' && <UpdatesSection />}
         </div>

@@ -137,6 +137,33 @@ def prepare_tailscale_runtime(host, record):
             os.close(fd)
 
 
+def apply_tailscale_exit_node(host, record, attempts=10, delay=2.0, sleep=None):
+    """Apply the exit-node choice to the running node.
+
+    Start-up arguments only count at the first login (TS_AUTH_ONCE), so a
+    later change would otherwise never reach an already registered node.
+    """
+    app = 'titan-tailscale'
+    wanted = host._app_options(app).get('exit_node') == 'enabled'
+    if not wanted and not record.get('exit_node_advertised'):
+        return False
+    from .host import run
+    import time
+    for attempt in range(attempts):
+        container = host._app_container(app, record)
+        identifier = (container or {}).get('Id', '')
+        if container and container.get('State', {}).get('Running') and re.fullmatch(r'[a-f0-9]{64}', identifier):
+            try:
+                run(['docker', 'exec', identifier, 'tailscale', 'set', '--advertise-exit-node=' + ('true' if wanted else 'false')], timeout=15)
+                host._app_patch_record(app, {'exit_node_advertised': wanted})
+                return wanted
+            except Error:
+                pass
+        if attempt + 1 < attempts:
+            (sleep or time.sleep)(delay)
+    raise Error('Die Exit-Node-Einstellung konnte nicht auf den laufenden Tailscale-Dienst angewendet werden. Tailscale neu starten und erneut versuchen.', 503)
+
+
 def tailscale_runtime(container):
     """Inspect an already ownership-verified container, exposing no peers/key."""
     result = {'connected': False, 'addresses': [], 'routes_approval': 'not_verified'}

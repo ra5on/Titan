@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Lokale Sprachmodelle">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#22b8cf"/></linearGradient></defs>
+  <rect width="128" height="128" rx="30" fill="url(#g)"/>
+  <path d="M34 40a12 12 0 0 1 12-12h36a12 12 0 0 1 12 12v28a12 12 0 0 1-12 12H60l-16 14V80a12 12 0 0 1-10-12Z" fill="#fff" fill-opacity=".95"/>
+  <path d="M64 40l3.6 9.4L77 53l-9.4 3.6L64 66l-3.6-9.4L51 53l9.4-3.6Z" fill="#6b5cf6"/>
+</svg>

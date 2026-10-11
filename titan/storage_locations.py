@@ -210,8 +210,8 @@ class StorageLocations:
             if record.get('uuid') and (record['uuid'] != uuid or record.get('filesystem') != mount['fstype'] or record.get('mountpoint') != mount['target']):
                 raise ValueError('external target was replaced')
             record.update(uuid=uuid, filesystem=mount['fstype'], mountpoint=mount['target'])
-            major, minor = map(int, mount['maj:min'].split(':'))
-            return os.makedev(major, minor), uuid
+            from .volumes import mount_device
+            return mount_device(mount), uuid
         except (Error, OSError, ValueError, KeyError, TypeError):
             raise Error('Das konfigurierte externe Sicherungsziel ist nicht mit seiner bestätigten Dateisystemkennung erreichbar.', 503) from None
 

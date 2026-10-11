@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowUpCircle, ExternalLink, Play, RefreshCw, RotateCw, Squa
 import { action } from '../api';
 import type { InstalledApp } from '../api';
 import { go, message, useApi } from '../lib';
+import { AppDevicesCard } from './Devices';
+import { AppSettingsCard } from './AppSettings';
 import { AppIcon, Button, Card, Confirm, Empty, Loading, Notice, Sheet, StateDot, useToast } from '../ui';
 
 type Details = {
@@ -84,7 +86,7 @@ export function AppDetail({ appId }: { appId: string }) {
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {running && url && (
-                  <Button variant="primary" onClick={() => window.open(url, '_blank', 'noopener')}>
+                  <Button variant="primary" onClick={() => go('open', app.id)}>
                     <ExternalLink className="size-4" /> Öffnen
                   </Button>
                 )}
@@ -132,6 +134,8 @@ export function AppDetail({ appId }: { appId: string }) {
               {details.data.data_path && <Row label="Daten">{details.data.data_path}</Row>}
             </div>
           </Card>
+          <AppSettingsCard app={app.id} running={running} onSaved={details.reload} />
+          <AppDevicesCard app={app.id} assigned={(app.hardware || []).map(item => item.id)} running={running} onSaved={details.reload} />
           <Card className="space-y-3">
             <h2 className="text-sm font-semibold">Wartung</h2>
             <Button className="w-full" busy={busy === 'update'} disabled={Boolean(busy)} onClick={() => run('update', 'aktualisiert.')}>

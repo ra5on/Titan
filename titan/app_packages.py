@@ -36,7 +36,7 @@ def recipe(name, category, description, primary, services, webport, default_port
             'port': webport, 'default_port': default_port, 'memory': memory, 'mount': None, 'scheme': 'http',
             'color': '#2788cf', 'symbol': name[0], 'titan_package': True, 'store_name': 'Titan AppStore',
             'catalog_status': 'available', 'documentation': documentation, 'install_schema': schema,
-            'stack': {'primary': primary, 'services': services}, 'dependencies': [{'immich-server':'Immich · Fotos und Videos', 'immich-machine-learning':'Immich · Bilderkennung', 'database':'PostgreSQL · Datenbank', 'redis':'Cache-Dienst', 'nextcloud':'Nextcloud · Dateien', 'cron':'Hintergrundaufgaben', 'eurooffice':'Euro-Office · Dokumentbearbeitung', 'office-init':'Office-Ersteinrichtung', 'adguard':'AdGuard Home', 'pihole':'Pi-hole', 'tailscale':'Tailscale · privater Netzwerkzugang'}.get(key,key) for key in services],
+            'stack': {'primary': primary, 'services': services}, 'dependencies': [{'immich-server':'Immich · Fotos und Videos', 'immich-machine-learning':'Immich · Bilderkennung', 'database':'PostgreSQL · Datenbank', 'redis':'Cache-Dienst', 'nextcloud':'Nextcloud · Dateien', 'cron':'Hintergrundaufgaben', 'eurooffice':'Euro-Office · Dokumentbearbeitung', 'office-init':'Office-Ersteinrichtung', 'adguard':'AdGuard Home', 'pihole':'Pi-hole', 'open-webui':'Open WebUI · Chat-Oberfläche', 'ollama':'Ollama · Sprachmodelle', 'tailscale':'Tailscale · privater Netzwerkzugang'}.get(key,key) for key in services],
             'first_login': {'mode': 'install' if any(f['type'] == 'password' and not f.get('generated') for f in schema) else 'setup',
                             'instructions': login, 'documentation': documentation, 'verified': '2026-10-04'}, **extra}
 
@@ -81,7 +81,7 @@ PACKAGES = {
   'Beim ersten Öffnen im Assistenten Sprache und eigenes Administratorkonto wählen. Danach unter „Bibliotheken“ den Ordner /media hinzufügen; dort liegen die Dateien des gewählten Speichers.',
   note='Medien liegen im gewählten Speicher unter /media und werden von Jellyfin nur gelesen und katalogisiert. Hardware-Transkodierung wird nicht automatisch eingerichtet; ohne sie wandelt die CPU um, was bei mehreren gleichzeitigen Streams viel Leistung braucht.'),
  'titan-pihole': recipe('Pi-hole', 'Netzwerk', 'DNS-Werbeblocker mit eigenen Filterlisten und Statistiken.', 'pihole', {
-   'pihole': {'image': 'pihole/pihole:2026.09.0', 'environment': {'TZ': 'Europe/Berlin', 'FTLCONF_webserver_api_password': '@option:password', 'FTLCONF_dns_listeningMode': 'ALL'},
+   'pihole': {'image': 'pihole/pihole:2026.09.0@sha256:5b9c8cf51de7d6d3f2240dbe72baf5f06e1fd39cb4d77a99fab4fa13e23bd1be', 'environment': {'TZ': 'Europe/Berlin', 'FTLCONF_webserver_api_password': '@option:password', 'FTLCONF_dns_listeningMode': 'ALL'},
              'mounts': [mount('config', '/etc/pihole')], 'ports': [port(80), port(53, protocol='tcp'), port(53, protocol='udp')]}
   }, 80, 8082, '512m', [secret('password', 'Pi-hole Web-Passwort')], 'https://docs.pi-hole.net/docker/',
   'Unter /admin mit dem hier gewählten Web-Passwort anmelden. Ein Benutzername ist nicht erforderlich. Danach im Router die NAS-IP als DNS-Server eintragen.',
@@ -145,7 +145,10 @@ PACKAGES['titan-tailscale'] = recipe('Tailscale', 'Netzwerk',
         {'key': 'subnet_routing', 'label': 'Heimnetz freigeben', 'type': 'text', 'default': 'disabled', 'required': True,
          'min_length': 7, 'max_length': 8, 'pattern': '(?:enabled|disabled)', 'choices': [['disabled', 'Deaktiviert'], ['enabled', 'Gewählte Bereiche freigeben']]},
         {'key': 'subnet_routes', 'label': 'Freigegebene Heimnetzbereiche', 'type': 'text', 'default': '', 'required': False,
-         'min_length': 0, 'max_length': 512, 'help': 'Private CIDR-Bereiche, mit Komma getrennt, z. B. 192.168.1.0/24. Danach im Tailscale-Konto freigeben.'}],
+         'min_length': 0, 'max_length': 512, 'help': 'Private CIDR-Bereiche, mit Komma getrennt, z. B. 192.168.1.0/24. Danach im Tailscale-Konto freigeben.'},
+        {'key': 'exit_node', 'label': 'Als Exit Node anbieten', 'type': 'text', 'default': 'disabled', 'required': True,
+         'min_length': 7, 'max_length': 8, 'pattern': '(?:enabled|disabled)', 'choices': [['disabled', 'Deaktiviert'], ['enabled', 'Internetverkehr anderer Geräte über dieses NAS leiten']],
+         'help': 'Andere Tailscale-Geräte können ihren gesamten Internetverkehr über den Anschluss dieses NAS führen. Danach im Tailscale-Konto als Exit Node freigeben.'}],
     'https://tailscale.com/docs/features/containers/docker/docker-params',
     'Auth-Key im Tailscale-Konto erstellen. Gewählte Subnet-Routen anschließend in der Tailscale-Verwaltung freigeben und passende Zugriffsregeln erlauben. Diese Freigabe wird von Titan nicht automatisch vorgenommen.',
     web_available=False, note='Isolierter Userspace-Router für TCP und UDP; Ping eingeschränkt, andere IP-Protokolle nicht unterstützt. Verändert weder Host-IP-Forwarding noch Host-Firewall oder Host-DNS. Ohne NAS-IP oder freigegebene Routen werden keine NAS-Dienste bereitgestellt.')
@@ -177,6 +180,24 @@ def prepare_options(app, options, previous=None):
     return result
 
 
+PACKAGES['titan-ollama'] = recipe('Ollama', 'KI',
+    'Sprachmodelle lokal auf dem NAS ausführen und im Browser mit ihnen chatten. Anfragen und Modelle bleiben auf dem Gerät.',
+    'open-webui', {
+        'open-webui': {
+            'image': 'ghcr.io/open-webui/open-webui:v0.12.0@sha256:1565038903151ced924b5a3226f73f40f16963df4b910441f6391f10144afdaa',
+            'environment': {'OLLAMA_BASE_URL': 'http://ollama:11434'},
+            'mounts': [mount('webui', '/app/backend/data')], 'ports': [port(8080)],
+            'depends_on': {'ollama': {'condition': 'service_healthy'}},
+            'healthcheck': {'test': ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health'], 'interval': '15s', 'timeout': '5s', 'start_period': '60s', 'retries': 20}},
+        'ollama': {
+            'image': 'ollama/ollama:0.40.2@sha256:b86366bb528bbf7f1424435d165028497a5b69bf6ddb4fa5a87102e2b79f44fb',
+            # Models are large; they live on the storage the user selects.
+            'mounts': [mount('data', '/root/.ollama')],
+            'healthcheck': {'test': ['CMD', 'ollama', 'list'], 'interval': '10s', 'timeout': '5s', 'start_period': '10s', 'retries': 12}},
+    }, 8080, 8085, '8g', [], 'https://docs.openwebui.com/',
+    'Beim ersten Öffnen ein eigenes Administratorkonto für die Chat-Oberfläche anlegen. Danach unter „Modelle“ ein Sprachmodell herunterladen, zum Beispiel ein kleines Modell mit 3 bis 4 GB.',
+    note='Modelle brauchen etwa so viel Arbeitsspeicher wie ihre Dateigröße. Ohne Grafikkarte rechnet der Prozessor; das genügt für kleine Modelle. Eine NVIDIA-Karte lässt sich der App zuweisen, sobald der NVIDIA-Treiber auf dem System vorhanden ist.')
+
 RESOURCE_PROFILES = {
     'balanced': {'label': 'Ausgewogen', 'help': 'Begrenzte Parallelität für ein privates NAS. Titan prüft vor dem Start eine RAM-Reserve.'},
     'performance': {'label': 'Mehr Parallelität', 'help': 'Größere Obergrenzen; benötigt mehr verfügbaren Arbeitsspeicher.'},
@@ -200,6 +221,8 @@ RESOURCE_LIMITS = {
     'titan-pihole': {'balanced': {'pihole': '512m'}, 'performance': {'pihole': '512m'}},
     'titan-cloudflared': {'balanced': {'cloudflared': '256m'}, 'performance': {'cloudflared': '256m'}},
     'titan-tailscale': {'balanced': {'tailscale': '256m'}, 'performance': {'tailscale': '512m'}},
+    # Model memory is the ceiling of the Ollama service; the chat interface stays small.
+    'titan-ollama': {'balanced': {'open-webui': '2g', 'ollama': '8g'}, 'performance': {'open-webui': '2g', 'ollama': '16g'}},
 }
 
 for package in PACKAGES.values():
@@ -231,6 +254,9 @@ def selected_recipe(app, recipe, options):
     if app == 'titan-tailscale':
         from .native_apps import advertised_routes
         result['stack']['services']['tailscale']['environment']['TS_ROUTES'] = advertised_routes(options)
+        # Installations from before this option have no value and stay as they are.
+        if options.get('exit_node') == 'enabled':
+            result['stack']['services']['tailscale']['environment']['TS_EXTRA_ARGS'] = '--advertise-exit-node'
     profile = options.get('resource_profile', 'legacy')
     if profile not in RESOURCE_PROFILES:
         raise Error('Ungültiges RAM-Profil.')

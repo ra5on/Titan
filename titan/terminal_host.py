@@ -34,6 +34,8 @@ class TerminalMixin:
             return self._root_terminals
 
     def op_root_terminal_create(self, owner, deadline, cols=100, rows=30):
+        # The agent's own lease: the web service alone cannot open a root shell.
+        self.require_root_grant(owner)
         return self.root_terminals.create(owner, cols, rows, deadline=deadline)
 
     def op_root_terminal_poll(self, owner, id, timeout=0):
