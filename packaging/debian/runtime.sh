@@ -13,7 +13,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 [[ "$component" =~ ^(all|docker|vms|nvidia)$ ]] || exit 2
-if $dry_run; then echo 'Debian: vorinstallierte Komponenten prüfen; nur der NVIDIA-Treiber wird auf Wunsch nachinstalliert. Keine Datenlaufwerke verändern.'; exit 0; fi
+if $dry_run; then echo 'Debian: vorinstallierte Komponenten prüfen; nur der NVIDIA-Treiber wird auf Wunsch nachinstalliert, keine Datenlaufwerke verändern.'; exit 0; fi
 [[ "$EUID" == 0 && -d /run/systemd/system ]] || exit 1
 /usr/bin/python3 - <<'PY'
 import json, platform
@@ -36,7 +36,7 @@ if [[ "$component" == all || "$component" == vms ]]; then
 fi
 if [[ "$component" == nvidia ]]; then
     if install_nvidia >&2; then nvidia_state=ok; else nvidia_state=failed; failed=1; fi
-elif [[ "$component" == all && -f "$NVIDIA_MARKER" ]] && ! nvidia_ready; then
+elif [[ "$component" == all && -f "${NVIDIA_MARKER:-/var/lib/titan-agent/nvidia-component}" ]] && declare -F nvidia_ready >/dev/null && ! nvidia_ready; then
     # After a system update the new slot has no driver yet. Rebuild it in the
     # background: the module build takes minutes and must never delay the boot
     # health check that confirms the new system slot.
