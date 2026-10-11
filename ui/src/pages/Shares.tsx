@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { FolderOpen, FolderPlus, Trash2 } from 'lucide-react';
+import { FolderOpen, FolderPlus, KeyRound, Trash2 } from 'lucide-react';
 import { action } from '../api';
 import type { Share } from '../api';
 import { bytes, go, message, useApi } from '../lib';
@@ -12,6 +12,74 @@ type Access = { host_addresses: { address: string; scope: string }[]; service_ac
 type Right = 'none' | 'read' | 'write';
 
 const SERVICE_USER = 'titan-files';
+
+function RightsList({ users, rights, onChange }: { users: { name: string }[]; rights: Record<string, Right>; onChange: (rights: Record<string, Right>) => void }) {
+  return (
+    <fieldset>
+      <legend className="mb-1.5 text-[13px] font-medium text-white/70">Zugriff</legend>
+      <ul className="divide-y divide-white/6 rounded-xl border border-white/10">
+        {users.map(user => (
+          <li key={user.name} className="flex items-center justify-between gap-3 px-3.5 py-2">
+            <span className="truncate text-sm">{user.name}</span>
+            <Select aria-label={'Zugriff für ' + user.name} className="h-9 w-44" value={rights[user.name] || 'none'} onChange={event => onChange({ ...rights, [user.name]: event.target.value as Right })}>
+              <option value="none">Kein Zugriff</option>
+              <option value="read">Nur lesen</option>
+              <option value="write">Lesen und schreiben</option>
+            </Select>
+          </li>
+        ))}
+      </ul>
+    </fieldset>
+  );
+}
+
+const rightOf = (share: Share, user: string): Right => (share.writers.includes(user) ? 'write' : share.readers.includes(user) ? 'read' : 'none');
+
+function EditRights({ share, onClose, onDone }: { share: Share; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const accounts = useApi<Accounts>('/api/users');
+  const [rights, setRights] = useState<Record<string, Right>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const users = (accounts.data?.system || []).filter(user => user.name !== SERVICE_USER && (user.enabled || rightOf(share, user.name) !== 'none'));
+  const value = (user: string) => rights[user] ?? rightOf(share, user);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const changed = users.filter(user => value(user.name) !== rightOf(share, user.name));
+    if (!changed.length) return onClose();
+    setBusy(true);
+    setError('');
+    try {
+      // One user at a time: the agent patches a single identity per call.
+      for (const user of changed) await action('share_user_permission', { name: share.name, user: user.name, permission: value(user.name) });
+      toast('Zugriff auf „' + share.name + '“ geändert.');
+      onDone();
+      onClose();
+    } catch (reason) {
+      setError(message(reason));
+      setBusy(false);
+      onDone();
+    }
+  };
+
+  return (
+    <Modal title={'Zugriff auf „' + share.name + '“'} onClose={onClose}>
+      {accounts.loading ? (
+        <Loading />
+      ) : (
+        <form onSubmit={submit} className="space-y-4">
+          <RightsList users={users} rights={Object.fromEntries(users.map(user => [user.name, value(user.name)]))} onChange={setRights} />
+          {error && <Notice>{error}</Notice>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>Abbrechen</Button>
+            <Button type="submit" variant="primary" busy={busy}>Speichern</Button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
 
 function CreateShare({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const toast = useToast();
@@ -65,26 +133,7 @@ function CreateShare({ onClose, onCreated }: { onClose: () => void; onCreated: (
               ))}
             </Select>
           </Field>
-          <fieldset>
-            <legend className="mb-1.5 text-[13px] font-medium text-white/70">Zugriff</legend>
-            <ul className="divide-y divide-white/6 rounded-xl border border-white/10">
-              {users.map(user => (
-                <li key={user.name} className="flex items-center justify-between gap-3 px-3.5 py-2">
-                  <span className="truncate text-sm">{user.name}</span>
-                  <Select
-                    aria-label={`Zugriff für ${user.name}`}
-                    className="h-9 w-44"
-                    value={rights[user.name] || 'none'}
-                    onChange={event => setRights({ ...rights, [user.name]: event.target.value as Right })}
-                  >
-                    <option value="none">Kein Zugriff</option>
-                    <option value="read">Nur lesen</option>
-                    <option value="write">Lesen und schreiben</option>
-                  </Select>
-                </li>
-              ))}
-            </ul>
-          </fieldset>
+          <RightsList users={users} rights={rights} onChange={setRights} />
           {error && <Notice>{error}</Notice>}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={onClose}>Abbrechen</Button>
@@ -102,6 +151,7 @@ export function SharesSection() {
   const access = useApi<Access>('/api/shares/access');
   const [creating, setCreating] = useState(false);
   const [removing, setRemoving] = useState<Share | null>(null);
+  const [editing, setEditing] = useState<Share | null>(null);
 
   if (shares.loading) return <Loading />;
   if (shares.error && !shares.data) return <Notice>{shares.error}</Notice>;
@@ -131,6 +181,9 @@ export function SharesSection() {
                   {address && <div className="truncate font-mono text-xs text-white/35">\\{address}\{share.name}</div>}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => go('files')}>Öffnen</Button>
+                <IconButton label={`Zugriff auf ${share.name} ändern`} onClick={() => setEditing(share)}>
+                  <KeyRound className="size-4" />
+                </IconButton>
                 <IconButton label={`Freigabe ${share.name} entfernen`} onClick={() => setRemoving(share)}>
                   <Trash2 className="size-4" />
                 </IconButton>
@@ -143,8 +196,8 @@ export function SharesSection() {
         <Button variant="primary" onClick={() => setCreating(true)}>
           <FolderPlus className="size-4" /> Neue Freigabe
         </Button>
-        <Button onClick={() => window.open('/classic#shares', '_blank', 'noopener')}>Rechte einzelner Benutzer ändern</Button>
       </div>
+      {editing && <EditRights share={editing} onClose={() => setEditing(null)} onDone={shares.reload} />}
       {creating && <CreateShare onClose={() => setCreating(false)} onCreated={shares.reload} />}
       {removing && (
         <Confirm

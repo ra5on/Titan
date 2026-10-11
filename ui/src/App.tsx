@@ -8,6 +8,7 @@ import { Loading, Notice } from './ui';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { Store } from './pages/Store';
+import { AppDetail } from './pages/AppDetail';
 import { Files } from './pages/Files';
 import { Vms } from './pages/Vms';
 import { Settings } from './pages/Settings';
@@ -106,6 +107,8 @@ export function App() {
         <main className="h-full">
           {page === 'store' && allowed('apps') ? (
             <Store appId={route[1]} />
+          ) : page === 'apps' && route[1] && allowed('apps') ? (
+            <AppDetail key={route[1]} appId={route[1]} />
           ) : page === 'files' && allowed('files') ? (
             <Files />
           ) : page === 'vms' && allowed('vms') ? (

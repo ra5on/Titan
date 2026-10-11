@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
-import { BellRing, CheckCircle2, Download, FolderOpen, HardDrive, Info, LogOut, Power, RefreshCw, UserPlus, Users as UsersIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { BellRing, CheckCircle2, Download, FolderOpen, HardDrive, Info, KeyRound, LogOut, Power, RefreshCw, RotateCw, Users as UsersIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { action, post, waitJob } from '../api';
-import type { Monitoring, Session, Status, Storage, Updates, Users } from '../api';
+import { action, get, post, waitJob } from '../api';
+import type { Monitoring, Session, Status, Storage, Updates } from '../api';
 import { bytes, cx, duration, go, message, percent, useApi } from '../lib';
 import { SharesSection } from './Shares';
-import { Button, Card, Confirm, Field, Input, Loading, Meter, Modal, Notice, Select, Sheet, useToast } from '../ui';
+import { AccountSection, UsersSection } from './Users';
+import { Button, Card, Confirm, Loading, Meter, Notice, Sheet, useToast } from '../ui';
 
 type Section = { id: string; label: string; icon: LucideIcon; admin?: boolean };
 const SECTIONS: Section[] = [
@@ -15,6 +16,7 @@ const SECTIONS: Section[] = [
   { id: 'shares', label: 'Freigaben', icon: FolderOpen, admin: true },
   { id: 'users', label: 'Benutzer', icon: UsersIcon, admin: true },
   { id: 'updates', label: 'Updates', icon: Download, admin: true },
+  { id: 'account', label: 'Mein Konto', icon: KeyRound },
 ];
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -31,6 +33,16 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
   const status = useApi<Status>('/api/status', 5000);
   const monitoring = useApi<Monitoring>(admin ? '/api/monitoring' : null, 60000);
   const [shutdown, setShutdown] = useState(false);
+  const [reboot, setReboot] = useState(false);
+
+  const acknowledge = async (id: string) => {
+    try {
+      await post('/api/monitoring/ack', { id });
+      await monitoring.reload();
+    } catch (reason) {
+      toast(message(reason), true);
+    }
+  };
   const s = status.data;
   const alerts = (monitoring.data?.alerts || []).filter(alert => alert.active && !alert.acknowledged);
 
@@ -40,6 +52,9 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
         <Notice key={alert.id} tone={alert.severity === 'critical' ? 'bad' : 'warn'}>
           <span className="font-medium">{alert.title}</span>
           <span className="block opacity-80">{alert.detail}</span>
+          <button type="button" onClick={() => acknowledge(alert.id)} className="mt-1 text-[13px] font-medium underline underline-offset-4">
+            Als gelesen markieren
+          </button>
         </Notice>
       ))}
       <Card>
@@ -92,13 +107,36 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
       {admin && (
         <Card className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">NAS ausschalten</h2>
-            <p className="mt-0.5 text-sm text-white/50">Virtuelle Maschinen müssen vorher heruntergefahren sein.</p>
+            <h2 className="text-sm font-semibold">Neu starten oder ausschalten</h2>
+            <p className="mt-0.5 text-sm text-white/50">Zum Ausschalten müssen virtuelle Maschinen heruntergefahren sein.</p>
           </div>
-          <Button variant="danger" onClick={() => setShutdown(true)}>
-            <Power className="size-4" /> Ausschalten
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setReboot(true)}>
+              <RotateCw className="size-4" /> Neu starten
+            </Button>
+            <Button variant="danger" onClick={() => setShutdown(true)}>
+              <Power className="size-4" /> Ausschalten
+            </Button>
+          </div>
         </Card>
+      )}
+      {reboot && (
+        <Confirm
+          title="NAS neu starten?"
+          text="Apps, virtuelle Maschinen und Freigaben sind während des Neustarts für einige Minuten nicht erreichbar. Ein bereits installiertes Update wird dabei aktiv."
+          confirmLabel="Neu starten"
+          onClose={() => setReboot(false)}
+          onConfirm={async () => {
+            try {
+              // The agent only reboots the system state the administrator has seen.
+              const system = await get<{ booted: { digest: string } }>('/api/updates/system');
+              const result = await action('system_reboot', { expected_digest: system.booted.digest, confirmation: 'NEUSTART' });
+              toast(String(result.message || 'Das NAS startet neu.'));
+            } catch (reason) {
+              toast(message(reason), true);
+            }
+          }}
+        />
       )}
       {shutdown && (
         <Confirm
@@ -167,88 +205,6 @@ function StorageSection() {
   );
 }
 
-function UsersSection({ current }: { current: string }) {
-  const toast = useToast();
-  const users = useApi<Users>('/api/users');
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: '', password: '', role: 'user' });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
-      const { job } = await post<{ job: string }>('/api/users', form);
-      await waitJob(job);
-      toast(`Benutzer „${form.name}“ angelegt.`);
-      setAdding(false);
-      setForm({ name: '', password: '', role: 'user' });
-      await users.reload();
-    } catch (reason) {
-      setError(message(reason));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (users.loading) return <Loading />;
-  if (users.error && !users.data) return <Notice>{users.error}</Notice>;
-  return (
-    <div className="space-y-4">
-      <Card>
-        <ul className="divide-y divide-white/6">
-          {users.data!.web.map(user => (
-            <li key={user.name} className="flex items-center gap-3 py-2.5">
-              <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-indigo-600 text-sm font-semibold uppercase">{user.name.slice(0, 1)}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">
-                  {user.display_name || user.name}
-                  {user.name === current && <span className="ml-2 text-xs font-normal text-white/40">Du</span>}
-                </span>
-                <span className="block text-xs text-white/45">
-                  {user.role === 'admin' ? 'Administrator' : 'Benutzer'}
-                  {!user.enabled && ' · gesperrt'}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="primary" onClick={() => setAdding(true)}>
-          <UserPlus className="size-4" /> Benutzer anlegen
-        </Button>
-        <Button onClick={() => window.open('/classic#users', '_blank', 'noopener')}>Rechte und Gruppen verwalten</Button>
-      </div>
-      {adding && (
-        <Modal title="Benutzer anlegen" onClose={() => setAdding(false)}>
-          <form onSubmit={submit} className="space-y-4">
-            <Field label="Benutzername" help="Kleinbuchstaben, Ziffern, - und _; beginnt mit einem Buchstaben.">
-              <Input value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} autoCapitalize="none" spellCheck={false} required pattern="[a-z][a-z0-9_\-]{0,30}" />
-            </Field>
-            <Field label="Passwort">
-              <Input type="password" value={form.password} onChange={event => setForm({ ...form, password: event.target.value })} autoComplete="new-password" required />
-            </Field>
-            <Field label="Rolle">
-              <Select value={form.role} onChange={event => setForm({ ...form, role: event.target.value })}>
-                <option value="user">Benutzer</option>
-                <option value="admin">Administrator</option>
-              </Select>
-            </Field>
-            {error && <Notice>{error}</Notice>}
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setAdding(false)}>Abbrechen</Button>
-              <Button type="submit" variant="primary" busy={busy}>Anlegen</Button>
-            </div>
-          </form>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
 function UpdatesSection() {
   const toast = useToast();
   const updates = useApi<Updates>('/api/updates');
@@ -278,7 +234,7 @@ function UpdatesSection() {
     setError('');
     try {
       await action('update_install', { expected_version: version, update_kind: 'all' });
-      toast(`Update ${version} ist installiert. Zum Abschluss ist ein Neustart nötig.`);
+      toast(`Update ${version} ist installiert. Es wird nach einem Neustart aktiv (Einstellungen → System).`);
       await updates.reload();
     } catch (reason) {
       setError(message(reason));
@@ -318,7 +274,6 @@ function UpdatesSection() {
       <Notice tone="info">
         Updates werden in den zweiten Systembereich geschrieben. Startet das neue System nicht, wechselt Titan automatisch auf den bisherigen Stand zurück.
       </Notice>
-      <Button onClick={() => window.open('/classic#updates', '_blank', 'noopener')}>Neustart und Updateverlauf</Button>
       {confirm && data?.latest && (
         <Confirm
           title={`Titan ${data.latest} installieren?`}
@@ -385,6 +340,7 @@ export function Settings({ session, section, onSessionChange }: { session: Sessi
           {active === 'storage' && <StorageSection />}
           {active === 'shares' && <SharesSection />}
           {active === 'users' && <UsersSection current={session.user?.name || ''} />}
+          {active === 'account' && <AccountSection name={session.user?.name || ''} onChanged={onSessionChange} />}
           {active === 'updates' && <UpdatesSection />}
         </div>
       </div>

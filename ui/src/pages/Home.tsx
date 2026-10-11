@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, ExternalLink, HardDrive, MemoryStick, MoreHorizontal, Play, Plus, RotateCw, Square, Trash2 } from 'lucide-react';
+import { Cpu, ExternalLink, HardDrive, MemoryStick, MoreHorizontal, SlidersHorizontal, Play, Plus, RotateCw, Square, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { action } from '../api';
 import type { InstalledApp, Session, Status, Storage } from '../api';
@@ -77,6 +77,7 @@ function AppTile({ app, admin, onChanged }: { app: InstalledApp; admin: boolean;
           { label: 'Stoppen', icon: Square, onClick: () => run('stop', 'gestoppt.') },
         ]
       : [{ label: 'Starten', icon: Play, onClick: () => run('start', 'gestartet.') }]),
+    { label: 'Details und Protokoll', icon: SlidersHorizontal, onClick: () => go('apps', app.id) },
     { label: 'Deinstallieren', icon: Trash2, danger: true, onClick: () => { setMenu(false); setRemoving(true); } },
   ];
 
@@ -113,7 +114,7 @@ function AppTile({ app, admin, onChanged }: { app: InstalledApp; admin: boolean;
         </button>
       )}
       {menu && (
-        <div role="menu" className="glass absolute left-1/2 top-[88px] z-30 w-44 -translate-x-1/2 rounded-2xl p-1.5 shadow-2xl animate-fade">
+        <div role="menu" className="glass absolute left-1/2 top-[88px] z-30 w-52 -translate-x-1/2 rounded-2xl p-1.5 shadow-2xl animate-fade">
           {items.map(item => (
             <button
               key={item.label}

@@ -84,6 +84,75 @@ test('a share can be created and removed', async ({ page }) => {
   await expect(page.getByText('e2e-freigabe', { exact: true })).toHaveCount(0);
 });
 
+test('an installed app has a detail page with log and controls', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Aktionen für Syncthing' }).click();
+  await page.getByRole('menuitem', { name: 'Details und Protokoll' }).click();
+  await expect(page).toHaveURL(/#\/apps\/syncthing$/);
+  await expect(page.getByRole('heading', { name: 'Syncthing' })).toBeVisible();
+  await expect(page.getByLabel('Protokoll der App')).toContainText('Demo');
+  await page.getByRole('button', { name: 'Neu starten' }).click();
+  await expect(page.getByText('Syncthing: neu gestartet.')).toBeVisible();
+});
+
+test('share access can be changed per user', async ({ page }) => {
+  await page.goto('/#/settings/shares');
+  await page.getByRole('button', { name: 'Zugriff auf dokumente ändern' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Zugriff für patrick')).toHaveValue('write');
+  await dialog.getByLabel('Zugriff für patrick').selectOption('read');
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Zugriff auf „dokumente“ geändert.')).toBeVisible();
+  await page.getByRole('button', { name: 'Zugriff auf dokumente ändern' }).click();
+  await expect(page.getByRole('dialog').getByLabel('Zugriff für patrick')).toHaveValue('read');
+  await page.getByRole('dialog').getByLabel('Zugriff für patrick').selectOption('write');
+  await page.getByRole('dialog').getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('a user can be created, locked and deleted', async ({ page }) => {
+  await page.goto('/#/settings/users');
+  await page.getByRole('button', { name: 'Benutzer anlegen' }).click();
+  let dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Benutzername').fill('e2e-gast');
+  await dialog.getByLabel('Passwort').fill('Sehr-Sicher-2026!x');
+  await dialog.getByRole('button', { name: 'Anlegen' }).click();
+  await expect(page.getByText('e2e-gast', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Benutzer e2e-gast bearbeiten' }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Anmeldung').selectOption('off');
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Benutzer · gesperrt')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Benutzer e2e-gast bearbeiten' }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Löschen' }).click();
+  await expect(dialog.getByRole('button', { name: 'Endgültig löschen' })).toBeDisabled();
+  await dialog.getByRole('textbox').fill('e2e-gast');
+  await dialog.getByRole('button', { name: 'Endgültig löschen' }).click();
+  await expect(page.getByText('e2e-gast', { exact: true })).toHaveCount(0);
+});
+
+test('own password, alerts and restart are available in settings', async ({ page }) => {
+  await page.goto('/#/settings');
+  await expect(page.getByText('Beispiel: Sicherungsziel fehlt')).toBeVisible();
+  await page.getByRole('button', { name: 'Als gelesen markieren' }).click();
+  await expect(page.getByText('Beispiel: Sicherungsziel fehlt')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Neu starten' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Neu starten' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('[aria-live=polite]')).toContainText(/Neustart|neu/i);
+
+  await page.getByRole('button', { name: 'Mein Konto' }).click();
+  await page.getByLabel('Aktuelles Passwort').fill('irgendein-altes');
+  await page.getByLabel('Neues Passwort', { exact: true }).fill('Sehr-Sicher-2026!x');
+  await page.getByLabel('Neues Passwort wiederholen').fill('Sehr-Sicher-2026!x');
+  await page.getByRole('button', { name: 'Passwort ändern' }).click();
+  await expect(page.getByText('Passwort geändert.')).toBeVisible({ timeout: 20_000 });
+});
+
 test('previous interface stays reachable', async ({ request }) => {
   const response = await request.get('/classic');
   expect(response.status()).toBe(200);
