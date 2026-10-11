@@ -36,7 +36,7 @@ def recipe(name, category, description, primary, services, webport, default_port
             'port': webport, 'default_port': default_port, 'memory': memory, 'mount': None, 'scheme': 'http',
             'color': '#2788cf', 'symbol': name[0], 'titan_package': True, 'store_name': 'Titan AppStore',
             'catalog_status': 'available', 'documentation': documentation, 'install_schema': schema,
-            'stack': {'primary': primary, 'services': services}, 'dependencies': [{'immich-server':'Immich · Fotos und Videos', 'immich-machine-learning':'Immich · Bilderkennung', 'database':'PostgreSQL · Datenbank', 'redis':'Cache-Dienst', 'nextcloud':'Nextcloud · Dateien', 'cron':'Hintergrundaufgaben', 'eurooffice':'Euro-Office · Dokumentbearbeitung', 'office-init':'Office-Ersteinrichtung', 'adguard':'AdGuard Home', 'pihole':'Pi-hole', 'tailscale':'Tailscale · privater Netzwerkzugang'}.get(key,key) for key in services],
+            'stack': {'primary': primary, 'services': services}, 'dependencies': [{'immich-server':'Immich · Fotos und Videos', 'immich-machine-learning':'Immich · Bilderkennung', 'database':'PostgreSQL · Datenbank', 'redis':'Cache-Dienst', 'nextcloud':'Nextcloud · Dateien', 'cron':'Hintergrundaufgaben', 'eurooffice':'Euro-Office · Dokumentbearbeitung', 'office-init':'Office-Ersteinrichtung', 'adguard':'AdGuard Home', 'pihole':'Pi-hole', 'open-webui':'Open WebUI · Chat-Oberfläche', 'ollama':'Ollama · Sprachmodelle', 'tailscale':'Tailscale · privater Netzwerkzugang'}.get(key,key) for key in services],
             'first_login': {'mode': 'install' if any(f['type'] == 'password' and not f.get('generated') for f in schema) else 'setup',
                             'instructions': login, 'documentation': documentation, 'verified': '2026-10-04'}, **extra}
 
@@ -180,6 +180,24 @@ def prepare_options(app, options, previous=None):
     return result
 
 
+PACKAGES['titan-ollama'] = recipe('Ollama', 'KI',
+    'Sprachmodelle lokal auf dem NAS ausführen und im Browser mit ihnen chatten. Anfragen und Modelle bleiben auf dem Gerät.',
+    'open-webui', {
+        'open-webui': {
+            'image': 'ghcr.io/open-webui/open-webui:v0.12.0@sha256:1565038903151ced924b5a3226f73f40f16963df4b910441f6391f10144afdaa',
+            'environment': {'OLLAMA_BASE_URL': 'http://ollama:11434'},
+            'mounts': [mount('webui', '/app/backend/data')], 'ports': [port(8080)],
+            'depends_on': {'ollama': {'condition': 'service_healthy'}},
+            'healthcheck': {'test': ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health'], 'interval': '15s', 'timeout': '5s', 'start_period': '60s', 'retries': 20}},
+        'ollama': {
+            'image': 'ollama/ollama:0.40.2@sha256:b86366bb528bbf7f1424435d165028497a5b69bf6ddb4fa5a87102e2b79f44fb',
+            # Models are large; they live on the storage the user selects.
+            'mounts': [mount('data', '/root/.ollama')],
+            'healthcheck': {'test': ['CMD', 'ollama', 'list'], 'interval': '10s', 'timeout': '5s', 'start_period': '10s', 'retries': 12}},
+    }, 8080, 8085, '8g', [], 'https://docs.openwebui.com/',
+    'Beim ersten Öffnen ein eigenes Administratorkonto für die Chat-Oberfläche anlegen. Danach unter „Modelle“ ein Sprachmodell herunterladen, zum Beispiel ein kleines Modell mit 3 bis 4 GB.',
+    note='Modelle brauchen etwa so viel Arbeitsspeicher wie ihre Dateigröße. Ohne Grafikkarte rechnet der Prozessor; das genügt für kleine Modelle. Eine NVIDIA-Karte lässt sich der App zuweisen, sobald der NVIDIA-Treiber auf dem System vorhanden ist.')
+
 RESOURCE_PROFILES = {
     'balanced': {'label': 'Ausgewogen', 'help': 'Begrenzte Parallelität für ein privates NAS. Titan prüft vor dem Start eine RAM-Reserve.'},
     'performance': {'label': 'Mehr Parallelität', 'help': 'Größere Obergrenzen; benötigt mehr verfügbaren Arbeitsspeicher.'},
@@ -203,6 +221,8 @@ RESOURCE_LIMITS = {
     'titan-pihole': {'balanced': {'pihole': '512m'}, 'performance': {'pihole': '512m'}},
     'titan-cloudflared': {'balanced': {'cloudflared': '256m'}, 'performance': {'cloudflared': '256m'}},
     'titan-tailscale': {'balanced': {'tailscale': '256m'}, 'performance': {'tailscale': '512m'}},
+    # Model memory is the ceiling of the Ollama service; the chat interface stays small.
+    'titan-ollama': {'balanced': {'open-webui': '2g', 'ollama': '8g'}, 'performance': {'open-webui': '2g', 'ollama': '16g'}},
 }
 
 for package in PACKAGES.values():

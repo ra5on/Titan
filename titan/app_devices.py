@@ -59,6 +59,10 @@ def devices(root='/dev'):
     return result[:64]
 
 
+# Service that receives passed-through devices when it is not the primary one.
+HARDWARE_SERVICE = {'titan-ollama': 'titan-ollama-ollama'}
+
+
 def validate(value, inventory=None):
     if value is None: return []
     if not isinstance(value,list) or len(value)>16 or any(not isinstance(item,str) for item in value) or len(set(value))!=len(value): raise Error('Maximal 16 unterschiedliche App-Geräte auswählen.')
@@ -81,7 +85,7 @@ def apply(definition, app, value, inventory=None):
         inventory=devices() if inventory is None else inventory
         validate(value,inventory)
     found={item['id']:item for item in inventory}
-    service=definition['services'][app]
+    service=definition['services'].get(HARDWARE_SERVICE.get(app, app)) or definition['services'][app]
     physical=[found[item] for item in value if found[item].get('driver')!='nvidia'];gpus=[item.removeprefix('nvidia:') for item in value if found[item].get('driver')=='nvidia']
     if physical: service['devices']=[item['path']+':'+item['path']+':rw' for item in physical]
     if gpus: service['deploy']={'resources':{'reservations':{'devices':[{'driver':'nvidia','device_ids':gpus,'capabilities':['gpu']}]}}}
