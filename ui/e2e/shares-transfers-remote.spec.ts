@@ -5,7 +5,7 @@ test('human share names open the selected folder and accept large and empty file
   await page.goto('/#/settings/shares');
   await page.getByRole('button', { name: 'Neue Freigabe' }).click();
   const dialog = page.getByRole('dialog', { name: 'Neue Freigabe' });
-  await dialog.getByLabel('Name', { exact: true }).fill('Meine Dateien für Jörg');
+  await dialog.getByPlaceholder('Meine Dateien').fill('Meine Dateien für Jörg');
   await dialog.getByLabel('Zugriff für patrick').selectOption('write');
   await dialog.getByRole('button', { name: 'Anlegen' }).click();
   await expect(dialog).toHaveCount(0);
