@@ -24,7 +24,7 @@ bedient komplett im Browser.
 | **📦 Apps mit einem Klick** | Immich, Jellyfin, Nextcloud, Ollama, AdGuard Home, Pi-hole, Tailscale und Cloudflare Tunnel aus dem eigenen App Store. Titan prüft vorher, ob der Arbeitsspeicher reicht, und zeigt jeden Installationsschritt. |
 | **🗂️ Dateien und Freigaben** | Dateimanager im Browser, Netzwerkfreigaben mit Rechten pro Benutzer, Papierkorb, Upload mit Fortschritt. Ein angestecktes USB-Laufwerk erscheint von selbst. |
 | **🖥️ Virtuelle Maschinen** | VMs aus ISO oder vorhandener QCOW2-Festplatte, Konsole direkt im Browser, USB-Geräte und ganze Grafikkarten durchreichen. |
-| **💾 Speicher** | Die ganze Installationsplatte nutzen, weitere Laufwerke als Ext4, XFS oder Btrfs einrichten oder mehrere zu einem ausfallsicheren ZFS-Verbund zusammenfassen. |
+| **💾 Speicher** | Die ganze Installationsplatte nutzen, weitere Laufwerke als Ext4, XFS oder Btrfs einrichten oder mehrere zu einem ausfallsicheren Btrfs-Spiegel oder ZFS-Verbund zusammenfassen. Ein defektes Laufwerk ersetzt du im laufenden Betrieb. |
 | **🛟 Sicherung und Abgleich** | Sicherungen auf eine andere Platte nach Zeitplan, mit Prüfung und Wiederherstellung. Dazu ein laufender Abgleich einer Freigabe auf ein zweites Laufwerk. |
 | **🎛️ Hardware für Apps** | Grafikkarte, KI-Beschleuniger und USB-Geräte pro App auswählen, zum Beispiel für Transkodierung, lokale KI oder einen Zigbee-Stick. Den NVIDIA-Treiber installiert Titan auf Knopfdruck. |
 | **👥 Benutzer und Rechte** | Konten, Gruppen, Zwei-Faktor-Anmeldung und genau einstellbar, wer Dateien, Apps, VMs und Sicherungen verwenden darf. |
@@ -69,7 +69,7 @@ Ausführlich: [Installation](docs/INSTALL.md) · [Image, Partitionen und Proxmox
 
 Titan 0.8.0 ist eine **Beta**. Start, Updates und Rückfall werden bei jedem Release automatisch in einer virtuellen Maschine geprüft, die Oberfläche in einem echten Browser.
 
-Noch nicht auf echter Hardware erprobt sind USB-Laufwerke, der laufende Abgleich, Btrfs und das Durchreichen von Grafikkarten. Eine vollständige Liste der Grenzen steht in den [Hinweisen zur Version](docs/RELEASE-0.8.0.md#grenzen). Wichtige Daten gehören zusätzlich auf eine unabhängige Sicherung.
+Noch nicht auf echter Hardware erprobt sind USB-Laufwerke, der laufende Abgleich, der Btrfs-Spiegel, der NVIDIA-Treiber und das Durchreichen von Grafikkarten. Eine vollständige Liste der Grenzen steht in den [Hinweisen zur Version](docs/RELEASE-0.8.0.md#grenzen). Wichtige Daten gehören zusätzlich auf eine unabhängige Sicherung.
 
 Einige selten gebrauchte Bereiche (Zwei-Faktor-Einrichtung, Webzugriff, Plattentausch, Snapshots) liegen noch in der bisherigen Oberfläche unter `/classic`.
 

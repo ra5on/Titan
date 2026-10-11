@@ -46,8 +46,14 @@ Update.
 - **Neue Speicherbereiche:** leere Laufwerke als Ext4, XFS oder Btrfs einrichten
   oder mehrere zu einem ZFS-Verbund zusammenfassen. Formatiert wird erst nach
   Eingabe des genauen Laufwerkspfads beziehungsweise Namens.
-- **Btrfs** steht für einzelne Laufwerke bereit. Verbünde aus mehreren Platten
-  laufen weiterhin über ZFS.
+- **Btrfs-Spiegel:** Zwei bis vier Laufwerke lassen sich zu einem Btrfs-Verbund
+  zusammenfassen, der alles doppelt speichert; ein Laufwerk darf ausfallen.
+  Unter Einstellungen → Speicher ersetzt „Laufwerk ersetzen“ ein fehlendes oder
+  ein noch vorhandenes, fehlerhaftes Laufwerk, während die Daten erreichbar
+  bleiben. Fehlt ein Laufwerk, hängt Titan den Verbund nicht stillschweigend
+  mit nur einer Kopie ein, sondern erst mit dem bestätigten Austausch. Einmal
+  im Monat liest Btrfs alle Daten und repariert stille Fehler aus der zweiten
+  Kopie.
 - **USB-Laufwerke** werden beim Anstecken eingebunden (Ext4, XFS, Btrfs, FAT,
   exFAT, NTFS), erscheinen für Administratoren unter „Dateien“ und lassen sich
   als Sicherungsziel wählen. „Auswerfen“ hängt das Laufwerk sauber aus.
@@ -103,8 +109,12 @@ nicht übernommen; für Fotos ist Immich aus dem App Store vorgesehen.
 - Automatisch geprüft sind alle Bereiche der neuen Oberfläche im Browser gegen
   die Demo sowie die neuen Systemfunktionen mit Unit-Tests.
 - **Noch nicht auf echter Hardware geprüft:** USB-Laufwerke, laufender Abgleich,
-  Btrfs-Laufwerke, PCI- und GPU-Durchreichen an VMs sowie Grafikkarten für Apps.
+  PCI- und GPU-Durchreichen an VMs sowie Grafikkarten für Apps.
   Vor dem Einsatz mit wichtigen Daten auf dem eigenen System ausprobieren.
+- Btrfs-Laufwerke und der Btrfs-Spiegel samt Plattenausfall und Austausch
+  laufen bei jeder Änderung mit dem echten Kernel und den echten
+  Btrfs-Werkzeugen auf Testlaufwerken durch, aber noch nicht auf echten
+  Festplatten. Ein Spiegel ersetzt keine Sicherung.
 - Anmeldung, Ersteinrichtung und eine App-Installation über die neue Oberfläche
   sind bisher nur auf einem installierten Image von Hand zu prüfen.
 - Apps im Titan-Fenster: Läuft Titan verschlüsselt (HTTPS) und die App
@@ -117,9 +127,9 @@ nicht übernommen; für Fotos ist Immich aus dem App Store vorgesehen.
   des Kernelmoduls geprüft, aber noch nie mit einer echten Karte gelaufen.
   Eine Karte gehört entweder dem NAS und seinen Apps oder einer virtuellen
   Maschine, nicht beiden zugleich.
-- Kontingente gibt es nur auf ZFS. Btrfs gibt es nur für einzelne Laufwerke:
-  Ein Btrfs-Verbund bräuchte einen eigenen geführten Plattentausch, den es
-  bisher nur für ZFS gibt.
+- Kontingente gibt es nur auf ZFS. Der Btrfs-Verbund ist immer ein Spiegel mit
+  zwei Kopien; RAID 5 und 6 bietet Titan mit Btrfs nicht an. Den Plattentausch
+  für ZFS gibt es weiterhin in der bisherigen Oberfläche unter `/classic`.
 - Die eigene Freigabe des Systemdienstes gilt für Root-Terminal und
   Root-Dateizugriff. Alle übrigen Verwaltungsaktionen prüft weiterhin die
   Webanwendung.
