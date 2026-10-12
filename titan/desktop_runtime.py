@@ -127,11 +127,15 @@ class DesktopRuntimeMixin:
 
     @staticmethod
     def _desktop_wait(port, vnc=False):
-        for _ in range(100):
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
             try:
                 with socket.create_connection(('127.0.0.1', port), timeout=0.2) as stream:
                     if not vnc:
                         return
+                    # libvncserver probes for HTTP/WebSocket clients before
+                    # sending RFB. Allow for that and a busy/virtualized host.
+                    stream.settimeout(min(2, max(.1, deadline - time.monotonic())))
                     banner = b''
                     while len(banner) < 12:
                         part = stream.recv(12 - len(banner))

@@ -1,4 +1,7 @@
 import unittest
+import socket
+import threading
+import time
 from unittest.mock import Mock, patch
 
 from titan.core import Error
@@ -15,6 +18,19 @@ class DesktopRuntimeTests(unittest.TestCase):
         self.host.desktop_status = lambda: {'running':True}
         self.host.vm_id = Mock(return_value='titan-guest')
         self.args = dict(id='a'*64, kind='vm', target='managed-guest', width=1000, height=700)
+
+    def test_readiness_waits_for_delayed_vnc_banner(self):
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1',0)); listener.listen(1)
+            def serve():
+                stream, _ = listener.accept()
+                with stream:
+                    time.sleep(.35)
+                    stream.sendall(b'RFB 003.008\n')
+            worker = threading.Thread(target=serve, daemon=True); worker.start()
+            self.host._desktop_wait(listener.getsockname()[1], vnc=True)
+            worker.join(2)
+            self.assertFalse(worker.is_alive())
 
     def test_vm_endpoint_comes_from_managed_domain_only(self):
         with patch('titan.host.run', return_value='<domain><devices><graphics type="vnc" listen="127.0.0.1" port="5912" passwd="private"/></devices></domain>') as command:
