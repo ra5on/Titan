@@ -3,6 +3,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     && useradd --create-home --uid 1000 browser
 COPY start.sh /usr/local/bin/titan-browser
 COPY files.py /usr/local/bin/titan-session-files.py
+COPY policies.json /etc/chromium/policies/managed/titan.json
 RUN chmod 755 /usr/local/bin/titan-browser
 USER 1000:1000
 ENV HOME=/home/browser DISPLAY=:0

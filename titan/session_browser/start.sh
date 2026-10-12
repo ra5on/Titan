@@ -10,8 +10,8 @@ done
 # A window manager keeps popups and new browser windows inside the same session.
 openbox &
 # Chromium's own sandbox remains enabled. Never mount the Docker socket here.
-chromium --disable-setuid-sandbox --no-first-run --no-default-browser-check --disable-dev-shm-usage \
-    --user-data-dir="$HOME/profile" --start-maximized "$APP_URL" &
+chromium --no-first-run --no-default-browser-check --disable-dev-shm-usage \
+    --user-data-dir="$HOME/profile" --start-maximized --app="$APP_URL" &
 browser_pid=$!
 sleep 2
 kill -0 "$browser_pid"

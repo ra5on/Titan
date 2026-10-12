@@ -63,6 +63,7 @@
         if (state === 3) { status.textContent = 'Verbunden'; attempts = 0; show(''); fit(); screen.focus(); }
         if (state === 5) {
           status.textContent = 'Verbindung getrennt';
+          screen.replaceChildren();
           if (attempts++ < 4) timer = setTimeout(connect, Math.min(15000, 1500 * 2 ** attempts));
         }
       };
