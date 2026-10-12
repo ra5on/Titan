@@ -62,7 +62,7 @@ test('plugin installation explains the connection wait and shows the specific fa
   await dialog.getByLabel('Öffentliche Titan-Adresse').fill('https://nas.example.org');
   await dialog.getByRole('button', { name: 'Installieren' }).click();
   try {
-    await expect(dialog.getByRole('status')).toContainText('bis zu drei Minuten');
+    await expect(dialog.getByRole('status').filter({ hasText: 'Cloudflare wird eingerichtet.' })).toContainText('bis zu drei Minuten');
     await expect(dialog.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
   } finally { finish(); }
   await expect(dialog.getByRole('alert')).toContainText('CF_SERVICE_START');
