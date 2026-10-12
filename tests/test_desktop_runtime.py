@@ -53,6 +53,18 @@ class DesktopRuntimeTests(unittest.TestCase):
                 self.host.op_desktop_files('a'*64, transfer)
         self.host._desktop_container.assert_not_called()
 
+    def test_agent_limits_survive_web_registry_loss(self):
+        names = ['titan-browser-' + f'{index:064x}' for index in range(8)]
+        self.host._desktop_command = Mock(return_value='\n'.join(names + ['titan-guacd', 'unrelated']))
+        self.host._desktop_container = Mock(return_value={'State':{'Running':True}})
+        self.host.op_desktop_close = Mock()
+        with self.assertRaises(Error) as error:
+            self.host._desktop_browser_capacity()
+        self.assertEqual(error.exception.status, 429)
+        self.host._desktop_container.side_effect = lambda name: {'State':{'Running':name != names[0]}}
+        self.host._desktop_browser_capacity()
+        self.host.op_desktop_close.assert_called_once_with('0'*64)
+
 
 if __name__ == '__main__':
     unittest.main()

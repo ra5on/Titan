@@ -152,6 +152,21 @@ class DesktopRuntimeMixin:
             if name.startswith('titan-browser-') and IDENTITY.fullmatch(name[14:]):
                 self.op_desktop_close(name[14:])
 
+    def _desktop_browser_capacity(self):
+        # Enforce the limit in the agent as well: a crashed/restarted web
+        # process must not multiply the number of still running containers.
+        names = self._desktop_command(['docker', 'ps', '-a', '--filter', 'label=' + LABEL + '=1', '--format', '{{.Names}}']).splitlines()
+        active = 0
+        for name in names:
+            if name.startswith('titan-browser-') and IDENTITY.fullmatch(name[14:]):
+                item = self._desktop_container(name)
+                if item and item.get('State', {}).get('Running'):
+                    active += 1
+                else:
+                    self.op_desktop_close(name[14:])
+        if active >= 8:
+            raise Error('Acht Browsersitzungen sind aktiv. Eine Sitzung beenden; nach einem Dienstabsturz das Plugin stoppen und starten.', 429)
+
     def _desktop_app_url(self, app):
         from .catalog import APPS
         record = self.managed_app(app)
@@ -197,6 +212,7 @@ class DesktopRuntimeMixin:
             return {'protocol': 'vnc', 'hostname': '127.0.0.1',
                     'port': integer(graphics.get('port', '-1'), 5900, 65535), 'password': graphics.get('passwd', '')}
         url = self._desktop_app_url(target)
+        self._desktop_browser_capacity()
         record = self.managed_app(target)
         container = self._app_container(target, record)
         networks = container.get('NetworkSettings', {}).get('Networks', {})

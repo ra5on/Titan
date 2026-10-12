@@ -51,9 +51,18 @@ class Runtime(DesktopRuntimeMixin):
         try:
             return super()._desktop_wait(port, vnc=vnc)
         except Exception:
+            print('Readiness failed:', port, 'VNC:', vnc, flush=True)
+            try:
+                with socket.create_connection(('127.0.0.1',port), timeout=3) as stream:
+                    print('Host banner:', repr(stream.recv(12)), flush=True)
+            except OSError as error:
+                print('Host probe:', type(error).__name__, flush=True)
             names = subprocess.check_output(['docker','ps','-a','--filter','label=org.titan.desktop=1','--format','{{.Names}}'], text=True).splitlines()
             for name in names:
                 subprocess.run(['docker','logs',name], check=False)
+                subprocess.run(['docker','port',name], check=False)
+                if name.startswith('titan-browser-'):
+                    subprocess.run(['docker','exec',name,'python3','-c',"import socket; s=socket.create_connection(('127.0.0.1',5900),timeout=3); print('Container banner:',repr(s.recv(12)))"], check=False, timeout=10)
             raise
     def _desktop_command(self, args, **kwargs):
         try:

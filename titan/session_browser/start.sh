@@ -15,5 +15,5 @@ chromium --disable-setuid-sandbox --no-first-run --no-default-browser-check --di
 browser_pid=$!
 sleep 2
 kill -0 "$browser_pid"
-x11vnc -display :0 -forever -shared -rfbport 5900 -rfbauth /run/titan-vnc -noxdamage -quiet &
+x11vnc -display :0 -forever -shared -rfbport 5900 -rfbauth /run/titan-vnc -noxdamage &
 wait "$browser_pid"

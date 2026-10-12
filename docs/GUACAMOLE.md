@@ -42,6 +42,11 @@ ebenfalls zulassen. Ein echter Kunden-Tunnel wird durch CI nicht geprüft.
   1,5 GB RAM, zwei CPUs und 256 Prozesse begrenzt. Video und Spiele sind kein
   Leistungsziel dieser ersten Fassung.
 
+Nach einem erzwungenen Absturz des Titan-Webdienstes können verwaiste Browser
+bis zu ihrer Laufzeitgrenze verbleiben. Das Limit von acht Browsern gilt auch
+dann weiter. **Stoppen** und **Starten** im Plugin räumt diese Sitzungen sofort
+auf; die App-Daten und VMs selbst bleiben davon unberührt.
+
 ## Zugriffsschutz und Betrieb
 
 Titan bestimmt Ziele anhand installierter Apps bzw. verwalteter VM-IDs. Die API
