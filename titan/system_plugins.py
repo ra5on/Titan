@@ -47,6 +47,7 @@ FAILURES = {
     'CF_DOWNLOAD_LIMIT': 'Der Cloudflared-Download überschreitet die erlaubte Größe oder Dauer.',
     'CF_STORAGE_FULL': 'Im Systembereich ist kein freier Speicher für das Plugin verfügbar.',
     'CF_FILES': 'Die lokalen Plugin-Dateien konnten nicht eingerichtet werden. Speicher und Dateirechte prüfen.',
+    'CF_BINARY_INTEGRITY': 'Das installierte Cloudflared-Programm stimmt nicht mit seiner gespeicherten Prüfsumme überein. Plugin über eine geprüfte Version aktualisieren.',
     'CF_SERVICE_START': 'Der lokale Cloudflare-Dienst konnte nicht gestartet werden.',
     'CF_SERVICE_EXEC': 'Systemd konnte das Cloudflared-Programm nicht ausführen. Dateirechte und Ausführbarkeit des Plugin-Speichers prüfen.',
     'CF_SERVICE_CREDENTIAL': 'Systemd konnte dem Cloudflare-Dienst die geschützte Token-Datei nicht bereitstellen.',
@@ -362,6 +363,17 @@ class SystemPluginsMixin:
         candidate = state.get('cloudflare_offer') or offer()
         if action == 'update' and not previous.get('installed'):
             raise Error('Plugin zuerst installieren.', 409)
+        reconfigure = action == 'install' and previous.get('installed', False)
+        if previous.get('installed'):
+            installed_offer = offer(previous['version'], previous['sha256'])
+            if reconfigure:
+                # Token/address changes must not install an unreviewed update,
+                # downgrade to the image's older pin, or depend on a download.
+                candidate = installed_offer
+            elif tuple(map(int, candidate['version'].split('.'))) < tuple(map(int, previous['version'].split('.'))):
+                raise Error('Das angebotene Cloudflare-Update ist älter als die installierte Version. Zuerst erneut nach Updates suchen.', 409)
+            elif candidate['version'] == previous['version'] and candidate['sha256'] != previous['sha256']:
+                raise Error('Die Prüfsumme dieser Cloudflare-Version hat sich geändert. Installation abgebrochen.', 409)
         token_path = self.directory / 'cloudflare-plugin-token'
         old_token = read_owned(token_path, private=True)
         token = validate_token(options['token']) if options.get('token') else None
@@ -383,9 +395,14 @@ class SystemPluginsMixin:
         was_enabled = self._plugin_service_state('is-enabled') if old_unit else False
         legacy_running = False; legacy_stopped = False; remote_changed = False
         installed_binary = False; moved_binary = False; token_changed = False; unit_changed = False; service_changed = False
-        phase = 'CF_DOWNLOAD'
+        phase = 'CF_FILES' if reconfigure else 'CF_DOWNLOAD'
         try:
-            download(candidate, stage)
+            if reconfigure:
+                installed = read_owned(binary)
+                if not installed or hashlib.sha256(installed).hexdigest() != previous['sha256']:
+                    raise PluginFailure('CF_BINARY_INTEGRITY')
+            else:
+                download(candidate, stage)
             if legacy and options.get('replace_docker'):
                 phase = 'CF_DOCKER_MIGRATION'
                 record = self.managed_app('titan-cloudflared')
@@ -396,10 +413,11 @@ class SystemPluginsMixin:
                 service_changed = True
                 self.command(['systemctl', 'stop', UNIT])
             phase = 'CF_FILES'
-            if binary.exists():
-                read_owned(binary)
-                binary.replace(backup); moved_binary = True
-            stage.replace(binary); installed_binary = True
+            if not reconfigure:
+                if binary.exists():
+                    read_owned(binary)
+                    binary.replace(backup); moved_binary = True
+                stage.replace(binary); installed_binary = True
             if token:
                 write_private(token_path, token.encode()); token_changed = True
             write_private(UNIT_PATH, service_unit(token_path).encode(), 0o644)

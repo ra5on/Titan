@@ -92,6 +92,7 @@ export function PluginStore({ pluginId, admin }: { pluginId?: string; admin: boo
       <form className="space-y-4" onSubmit={event => { event.preventDefault(); void run(operation); }}>
         <fieldset disabled={busy} className="space-y-4">
           {['install', 'update'].includes(operation) ? item.id === 'cloudflare' ? <>
+            <Notice tone="info"><strong>Im Cloudflare-Konto eintragen</strong><span className="mt-1 block">Service-Typ: <strong>HTTP</strong> · URL: <strong>127.0.0.1:5102</strong></span><span className="mt-1 block">Das ist das lokale Ziel des Tunnels. Unten gehört deine öffentliche Adresse mit https:// hinein.</span></Notice>
             <Field label="Tunnel-Token" help={item.installed ? 'Leer lassen, um den gespeicherten Token zu behalten.' : 'Den Token (eyJ…) aus Cloudflare einfügen, keinen Installationsbefehl.'}><Input type="password" autoComplete="new-password" value={token} onChange={event => setToken(event.target.value)} required={!item.installed} /></Field>
             <Field label="Öffentliche Titan-Adresse"><Input type="url" placeholder="https://titan.example.com" value={origin} onChange={event => setOrigin(event.target.value)} required /></Field>
             {item.docker_installed && !item.installed && <label className="flex gap-2 text-sm"><input type="checkbox" required checked={replaceDocker} onChange={event => setReplaceDocker(event.target.checked)} /> Den bisherigen Titan-Docker-Tunnel nach erfolgreicher Verbindung stoppen. Bei einem Fehler wird der bisherige Zustand wiederhergestellt.</label>}

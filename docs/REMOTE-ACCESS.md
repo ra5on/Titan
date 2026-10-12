@@ -10,6 +10,8 @@ Unter **App Store → Plugins → Cloudflare Tunnel** installiert Titan einen op
 4. Im Cloudflare-Konto den öffentlichen Hostnamen auf **Typ HTTP → URL `127.0.0.1:5102`** richten. Den HTTP-Host-Header nicht durch eine interne IP ersetzen. Eine NAS-IP mit HTTPS spricht einen anderen Titan-Zugang an.
 5. Unter **Einstellungen → Fernzugriff** den öffentlichen Titan-Zugang prüfen und anschließend aus einem anderen Netz die Anmeldung und benötigten Funktionen testen.
 
+Der Installationsdialog zeigt Service-Typ und lokale Zieladresse direkt neben den Eingaben. Die öffentliche HTTPS-Adresse und das lokale HTTP-Ziel sind zwei getrennte Angaben.
+
 Der lokale Titan-Tunnelzugang auf Port 5102 und der Cloudflared-Prüfport 5104 sind auf Loopback begrenzt. Das lokale Ziel verwendet HTTP, die öffentliche Verbindung HTTPS. Portweiterleitungen am Router sind dafür nicht erforderlich. Ausgehende Cloudflare-Verbindungen über Port 7844 müssen möglich sein. [Cloudflare-Verbindungsdiagnose](https://developers.cloudflare.com/tunnel/troubleshooting/).
 
 Der Tunnel-Token berechtigt zum Betrieb eines Connectors. Er kann keine DNS-Einträge oder öffentlichen Tunnelrouten anlegen. Die Route wird im Cloudflare-Konto eingerichtet. Titan speichert keinen Cloudflare-Verwaltungs-API-Token. [Offizielle Token-Dokumentation](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/).
@@ -28,6 +30,20 @@ Titan speichert den Token in einer geschützten Datei mit Modus **0600**. System
 
 Im Plugin lassen sich **Token und Adresse ändern**, Updates prüfen und installieren sowie der Dienst starten, stoppen und deinstallieren. Bei Updates kann das Token-Feld leer bleiben, um den gespeicherten Token zu verwenden. Plugin und Token bleiben bei Titan-Systemupdates erhalten. Die Deinstallation entfernt Dienst, Programm und lokalen Token; den Tunnel im Cloudflare-Konto bei Bedarf separat löschen.
 
+Änderungen an Token und Adresse verwenden die vorhandene, erneut auf ihre SHA-256-Summe geprüfte Programmdatei. Dafür wird kein Programm heruntergeladen oder auf eine andere Version gewechselt. Ein ausdrückliches Update darf weder eine ältere Version installieren noch dieselbe Versionsnummer mit einer anderen Prüfsumme ersetzen.
+
+## Schutz der öffentlichen Verbindung
+
+Der native Dienst läuft unter einem dynamischen Benutzer ohne Root-Rechte und ohne Linux-Capabilities. Seine Systemdateien sind schreibgeschützt. Die Verbindung zu Cloudflare ist verschlüsselt; das HTTP-Ziel `127.0.0.1:5102` liegt innerhalb desselben Systems. Cloudflare beendet die öffentliche TLS-Verbindung und ist damit Teil der Vertrauensgrenze: Der Tunnel bietet keine Ende-zu-Ende-Verschlüsselung unter Ausschluss von Cloudflare.
+
+Titan verlangt auch über den Tunnel seine normale Anmeldung, Rollenprüfung und CSRF-Prüfung. Sitzungscookies bleiben `Secure`, `HttpOnly` und `SameSite=Strict`. Für Administratorkonten empfiehlt sich Titans Zwei-Faktor-Anmeldung. Eine zusätzliche Cloudflare-Access-Regel kann den Zugang vor der Titan-Anmeldung einschränken; sie ersetzt Titans Anmeldung nicht.
+
+Beim nativen Plugin und beim verwalteten Titan-Docker-Connector im Host-Netz übernimmt ausschließlich der nach Quelle und Hostname begrenzte Loopback-Zugang die einzelne Besucheradresse aus `CF-Connecting-IP`. Frei gesetzte `X-Forwarded-For`-Ketten werden überschrieben. Dadurch sperrt der Anmeldeschutz die betreffende Besucher-IP, statt alle Besucher hinter localhost zusammenzufassen. Der normale LAN-Zugang und gemeinsam genutzte Docker-Bridge-Netze vertrauen diesem Cloudflare-Header nicht. Fehlt eine gültige Besucheradresse, bleibt die gemeinsame lokale Adresse als konservativer Rückfall bestehen. Deshalb die Cloudflare-Transformation **Remove visitor IP headers** für diesen Zugang nicht aktivieren; eigene Workers dürfen die Besucheradresse nicht überschreiben. [Cloudflare-Header](https://developers.cloudflare.com/fundamentals/reference/http-headers/), [Caddy-Headerbehandlung](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#defaults).
+
+Meldet Cloudflare für einen öffentlichen Aufruf HTTP, leitet der verwaltete Tunnel-Zugang auf die konfigurierte öffentliche HTTPS-Adresse um. Zusätzlich sollte **Always Use HTTPS** im Cloudflare-Konto aktiviert sein, damit die Umleitung bereits am Netzwerkrand erfolgt. Lokale Gesundheitsprüfungen ohne öffentlichen Protokollheader bleiben möglich.
+
+Ein entwendeter Tunnel-Token kann einen weiteren Connector autorisieren. In diesem Fall den Token im Cloudflare-Konto rotieren, alte Connector-Verbindungen nach Cloudflares Anleitung trennen und anschließend den neuen Token in Titan speichern. Das Löschen der lokalen Plugin-Datei widerruft keine Kopien des Tokens. [Cloudflare-Tokenverwaltung](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/).
+
 ## Fehler eingrenzen
 
 Die überarbeitete Installation nennt einen konkreten Fehlercode. Bei älteren Versionen, einschließlich 0.8.5, ersetzt eine Sammelmeldung noch sämtliche Fehler; sie belegt weder einen falschen Token noch eine Port-Sperre.
@@ -37,6 +53,7 @@ Die überarbeitete Installation nennt einen konkreten Fehlercode. Bei älteren V
 | `CF_DOWNLOAD`, `CF_DOWNLOAD_TLS` | Downloadzugang zu GitHub bzw. TLS-Prüfung fehlgeschlagen; Internet, DNS, Systemzeit und Zertifikate prüfen |
 | `CF_DOWNLOAD_CHECKSUM`, `CF_DOWNLOAD_LIMIT` | Download wurde wegen abweichender Prüfsumme, Größe oder Dauer verworfen |
 | `CF_STORAGE_FULL`, `CF_FILES` | Systembereich voll oder lokale Dateien konnten nicht eingerichtet werden |
+| `CF_BINARY_INTEGRITY` | Die vorhandene Programmdatei besteht die Prüfsummenprüfung nicht; Einstellungen bleiben unverändert |
 | `CF_SERVICE_START`, `CF_SERVICE_EXEC`, `CF_SERVICE_CREDENTIAL` | Lokaler Dienststart, Programmausführung oder Bereitstellung der Token-Datei fehlgeschlagen |
 | `CF_METRICS_PORT` | Ein anderer Dienst belegt bereits den lokalen Prüfport 5104 |
 | `CF_TUNNEL_AUTH` | Cloudflare hat die Anmeldung abgelehnt; aktuellen Tunnel-Token im Konto prüfen |

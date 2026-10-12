@@ -97,9 +97,21 @@ def tunnel_caddy(config):
     host = urllib.parse.urlsplit(remote['public_origin']).netloc
     bind = '' if remote['sources'] else '    bind 127.0.0.1\n'
     sources = ' '.join(['127.0.0.1/32', *remote['sources']])
+    managed = remote['connector'] in ('plugin-cloudflare', 'titan-cloudflared')
+    # Only the source/host-restricted managed tunnel may supply Cloudflare's
+    # single visitor address. Never trust the incoming XFF chain: visitors can
+    # prepend values to it. LAN and externally managed listeners keep Caddy's
+    # default normalization. A shared Docker subnet does not authenticate a
+    # particular connector, so its headers must not become trusted either.
+    # The backend still validates one literal IP.
+    visitor = ('            header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}\n'
+               if managed and not remote['sources'] else '')
+    redirect = ('        @http_visitor header X-Forwarded-Proto http\n'
+                f'        redir @http_visitor {remote["public_origin"]}{{uri}} 308\n'
+                if managed else '')
     return (f'http://:{TUNNEL_PORT} {{\n{bind}'
             f'    @connector {{\n        remote_ip {sources}\n        host {host}\n    }}\n'
-            '    handle @connector {\n        reverse_proxy 127.0.0.1:5001 {\n'
+            '    handle @connector {\n' + redirect + '        reverse_proxy 127.0.0.1:5001 {\n' + visitor +
             '            header_up X-Forwarded-Proto https\n        }\n    }\n'
             '    handle {\n        respond 403\n    }\n}\n')
 

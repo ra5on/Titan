@@ -93,6 +93,23 @@ class RemoteValidationTests(unittest.TestCase):
                 self.assertNotIn('header_up Host ', text)
         self.assertEqual(tunnel_caddy(remote_config(enabled=False)), '')
 
+    def test_cloudflare_visitor_headers_are_scoped_to_managed_tunnel_only(self):
+        config = remote_config()
+        for connector in ('plugin-cloudflare', 'titan-cloudflared'):
+            config['remote']['connector'] = connector
+            text = caddy_config(config)
+            lan, tunnel = text.split('http://:5102', 1)
+            self.assertNotIn('CF-Connecting-IP', lan)
+            self.assertIn('header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}', tunnel)
+            self.assertIn('redir @http_visitor https://nas.example.com{uri} 308', tunnel)
+            self.assertNotIn('trusted_proxies', text)
+            shared_bridge = remote_config(bridge=True)
+            shared_bridge['remote']['connector'] = connector
+            self.assertNotIn('CF-Connecting-IP', tunnel_caddy(shared_bridge))
+        for connector in ('', 'external-cloudflared'):
+            config['remote']['connector'] = connector
+            self.assertNotIn('CF-Connecting-IP', tunnel_caddy(config))
+
     def test_only_enabled_titan_public_origin_is_dynamically_trusted(self):
         config = remote_config()
         self.assertEqual(allowed_origins(config), {'https://192.168.10.18', 'https://nas.example.com'})

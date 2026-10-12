@@ -26,10 +26,10 @@ _CADDY = os.environ.get('TITAN_TEST_CADDY') or shutil.which('caddy')
 
 class CapturingHandler(Handler):
     def do_GET(self):
-        self.server.received.append({'path': self.path, 'headers': dict(self.headers)})
+        self.server.received.append({'path': self.path, 'headers': dict(self.headers), 'address': self.authentication_address()})
         super().do_GET()
     def do_POST(self):
-        self.server.received.append({'path': self.path, 'headers': dict(self.headers)})
+        self.server.received.append({'path': self.path, 'headers': dict(self.headers), 'address': self.authentication_address()})
         super().do_POST()
 
 
@@ -43,10 +43,10 @@ class RemoteProxyTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.config = {**initial_config('192.168.10.18'), 'revision': 'real-proxy-test',
             'remote': {**validate_remote(None), 'enabled': True, 'public_origin': 'https://nas.example.com',
-                'service_url': 'http://127.0.0.1:5102'}}
+                'service_url': 'http://127.0.0.1:5102', 'connector': 'plugin-cloudflare'}}
         if self.bridge:
             self.config['remote'].update(sources=['172.30.10.0/24'], interface='br-123456789abc',
-                service_url='http://172.30.10.1:5102')
+                service_url='http://172.30.10.1:5102', connector='titan-cloudflared')
         self.config_path = self.root / 'web-access.json'
         atomic_json(self.config_path, self.config)
         self.enterContext(patch('titan.web_access.CONFIG', self.config_path))
@@ -127,7 +127,7 @@ class RemoteProxyTests(unittest.TestCase):
     def test_real_proxy_preserves_public_host_forces_https_and_never_redirects_to_private_nas(self):
         challenge = 'a' * 32
         status, body, headers = self.request('/api/tunnel-health?challenge=' + challenge,
-            headers={'X-Forwarded-Proto': 'http'})
+            headers={'X-Forwarded-Proto': 'https'})
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {'service': 'Titan', 'challenge': challenge, 'proof': proof(self.config)})
         self.assertIsNone(headers.get('Location'))
@@ -135,6 +135,41 @@ class RemoteProxyTests(unittest.TestCase):
         self.assertEqual(received['Host'], 'nas.example.com')
         self.assertEqual(received['X-Forwarded-Proto'], 'https')
         self.assertNotIn('192.168.10.18', body.decode())
+
+    def test_public_http_redirects_to_fixed_https_origin_before_reaching_backend(self):
+        before = len(self.backend.received)
+        status, _, headers = self.request('/nested/document?view=edit',
+            headers={'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'evil.example.com'})
+        self.assertEqual(status, 308)
+        self.assertEqual(headers.get('Location'), 'https://nas.example.com/nested/document?view=edit')
+        self.assertEqual(len(self.backend.received), before)
+        # Loopback health checks have no public scheme header and must not loop.
+        self.assertEqual(self.request('/api/session')[0], 200)
+
+    def test_visitor_address_trust_is_limited_to_managed_loopback_connector(self):
+        for address in ('198.51.100.7', '2001:db8::7'):
+            status, _, _ = self.request('/api/session', headers={
+                'CF-Connecting-IP': address, 'X-Forwarded-For': '192.0.2.99, 192.0.2.100'})
+            self.assertEqual(status, 200)
+            self.assertEqual(self.backend.received[-1]['address'], '127.0.0.1' if self.bridge else address)
+        for value in ('', 'not-an-ip', '198.51.100.7, 198.51.100.8'):
+            status, _, _ = self.request('/api/session', headers={
+                'CF-Connecting-IP': value, 'X-Forwarded-For': '192.0.2.99'})
+            self.assertEqual(status, 200)
+            self.assertEqual(self.backend.received[-1]['address'], '127.0.0.1')
+
+    def test_login_protection_distinguishes_trusted_visitors_and_rejects_spoofed_headers(self):
+        def login(address, password, forwarded):
+            return self.request('/api/login', {'name': 'admin', 'password': password}, headers={
+                'Origin': 'https://nas.example.com', 'CF-Connecting-IP': address,
+                'X-Forwarded-For': forwarded})[0]
+        for attempt in range(5):
+            self.assertEqual(login('198.51.100.7', 'wrong-password', f'192.0.2.{attempt + 1}'), 401)
+        self.assertEqual(login('198.51.100.7', self.password, '192.0.2.200'), 429)
+        # Loopback connectors preserve separate visitor buckets. A shared
+        # Docker network must not allow a container to evade a block by
+        # forging another Cloudflare header.
+        self.assertEqual(login('2001:db8::8', self.password, '192.0.2.200'), 429 if self.bridge else 200)
 
     def test_actual_login_and_session_through_proxy_keep_secure_cookie_and_origin_checks(self):
         status, body, headers = self.request('/api/login', {'name': 'admin', 'password': self.password},
