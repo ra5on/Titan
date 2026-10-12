@@ -21,7 +21,7 @@ for (const [scenario, version, digest] of [
     });
     await page.goto(entry === 'settings' ? '/#/settings/system' : '/');
     if (entry === 'menu') await page.getByRole('button', { name: 'Systemmenü' }).click();
-    await page.getByRole('button', { name: 'Neu starten', exact: true }).click();
+    await page.getByRole(entry === 'menu' ? 'menuitem' : 'button', { name: 'Neu starten', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'NAS neu starten?' });
     await expect(dialog).toContainText(`Titan startet mit Version ${version}`);
     expect(actions).toHaveLength(0);
