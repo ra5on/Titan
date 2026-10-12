@@ -50,6 +50,8 @@ jobs:
       app_stage: ${{ needs.identity.outputs.app_stage }}
       update_kind: titan
       include_image: true
-      initial_image: true
+      initial_image: false
+      baseline_version: '0.8.1'
+      baseline_sha256: '3a868e580fed7824cf33d225ee4f7c6ce74baf7dd4c11f07542912e0d4596cbb'
     secrets:
       TITAN_SIGNING_KEY: ${{ secrets.TITAN_SIGNING_KEY }}

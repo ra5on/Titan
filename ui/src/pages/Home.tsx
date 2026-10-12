@@ -5,7 +5,8 @@ import { action } from '../api';
 import type { InstalledApp, Session, Status, Storage, VmList } from '../api';
 import { bytes, cx, go, message, percent, useApi } from '../lib';
 import { usePrefs } from '../prefs';
-import { logout, rebootSystem, shutdownSystem } from '../system';
+import { logout, prepareReboot, rebootSystem, shutdownSystem } from '../system';
+import type { RebootTarget } from '../system';
 import { AppearanceDialog } from './Appearance';
 import { AppIcon, Confirm, Menu, Meter, StateDot, useToast } from '../ui';
 
@@ -151,11 +152,16 @@ function SystemMenu({ name, admin, session, onSessionChange }: { name: string; a
   const toast = useToast();
   const [appearance, setAppearance] = useState(false);
   const [confirm, setConfirm] = useState<'logout' | 'reboot' | 'shutdown' | null>(null);
+  const [rebootTarget, setRebootTarget] = useState<RebootTarget | null>(null);
+  const requestReboot = async () => {
+    try { setRebootTarget(await prepareReboot()); setConfirm('reboot'); }
+    catch (reason) { toast(message(reason), true); }
+  };
   const actions = {
     logout: { title: 'Abmelden?', text: 'Du wirst von Titan abgemeldet. Apps und virtuelle Maschinen laufen weiter.', label: 'Abmelden', danger: false,
       run: async () => { try { await logout(); } finally { await onSessionChange(); } } },
-    reboot: { title: 'NAS neu starten?', text: 'Apps, virtuelle Maschinen und Freigaben sind während des Neustarts für einige Minuten nicht erreichbar.', label: 'Neu starten', danger: false,
-      run: async () => { try { toast(await rebootSystem()); } catch (reason) { toast(message(reason), true); } } },
+    reboot: { title: 'NAS neu starten?', text: `Titan startet mit Version ${rebootTarget?.version}. Apps und Freigaben sind während des Neustarts für einige Minuten nicht erreichbar. Laufende virtuelle Maschinen vorher herunterfahren.`, label: 'Neu starten', danger: false,
+      run: async () => { if (!rebootTarget) return; try { toast(await rebootSystem(rebootTarget)); } catch (reason) { toast(message(reason), true); } } },
     shutdown: { title: 'NAS ausschalten?', text: 'Titan fährt herunter und ist erst wieder erreichbar, wenn das Gerät eingeschaltet wird. Virtuelle Maschinen müssen vorher heruntergefahren sein.', label: 'Ausschalten', danger: true,
       run: async () => { try { toast(await shutdownSystem()); } catch (reason) { toast(message(reason), true); } } },
   };
@@ -176,7 +182,7 @@ function SystemMenu({ name, admin, session, onSessionChange }: { name: string; a
         items={[
           { label: 'Darstellung', icon: Palette, onClick: () => setAppearance(true) },
           { label: 'Abmelden', icon: LogOut, onClick: () => setConfirm('logout') },
-          ...(admin ? [{ label: 'Neu starten', icon: RotateCw, onClick: () => setConfirm('reboot') }, { label: 'Ausschalten', icon: Power, danger: true, onClick: () => setConfirm('shutdown') }] : []),
+          ...(admin ? [{ label: 'Neu starten', icon: RotateCw, onClick: requestReboot }, { label: 'Ausschalten', icon: Power, danger: true, onClick: () => setConfirm('shutdown') }] : []),
         ]}
       />
       {appearance && <AppearanceDialog session={session} onClose={() => setAppearance(false)} />}

@@ -37,7 +37,7 @@ manifest=json.loads(Path(sys.argv[1]).read_text())
 identity=validate_identity(json.loads(Path(sys.argv[2]).read_text()))
 assert all(manifest.get(key)==value for key,value in identity.items()), 'Published root filesystem identity differs from signed manifest'
 PYIDENTITY
-# Keep the original published 0.4.6 disk untouched. Its boot/partition layout is
+# Keep the original verified installation disk untouched. Its boot/partition layout is
 # compatible; slot A is replaced only in this new regular raw test file.
 [[ ! -e "$task_dir/system-baseline.img" && ! -L "$task_dir/system-baseline.img" ]]
 cp --sparse=always "$task_dir/baseline.img" "$task_dir/system-baseline.img"

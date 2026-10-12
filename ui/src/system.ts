@@ -1,9 +1,17 @@
 import { action, get, post } from './api';
 
-/** Restart the NAS. The agent only reboots the system state the administrator has seen. */
-export async function rebootSystem() {
-  const system = await get<{ booted: { digest: string } }>('/api/updates/system');
-  const result = await action('system_reboot', { expected_digest: system.booted.digest, confirmation: 'NEUSTART' });
+export type RebootTarget = { digest: string; version: string };
+
+/** Read before opening confirmation; never silently change the reviewed target. */
+export async function prepareReboot(): Promise<RebootTarget> {
+  const system = await get<{ next_boot: RebootTarget; reboot_scheduled: boolean }>('/api/updates/system');
+  if (system.reboot_scheduled) throw new Error('Ein Neustart ist bereits geplant.');
+  if (!system.next_boot?.digest) throw new Error('Der nächste Systemstand ist nicht verfügbar. Status erneut laden.');
+  return system.next_boot;
+}
+
+export async function rebootSystem(target: RebootTarget) {
+  const result = await action('system_reboot', { expected_digest: target.digest, confirmation: 'NEUSTART' });
   return String(result.message || 'Das NAS startet neu.');
 }
 

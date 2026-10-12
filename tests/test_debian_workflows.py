@@ -32,7 +32,13 @@ class DebianWorkflowTests(unittest.TestCase):
         self.assertEqual(reusable['on']['workflow_call']['inputs']['include_image']['default'], 'false')
         self.assertEqual(reusable['on']['workflow_call']['inputs']['initial_image']['default'], 'false')
         self.assertEqual(feature['jobs']['build']['with']['include_image'], 'true')
-        self.assertEqual(feature['jobs']['build']['with']['initial_image'], 'true')
+        self.assertEqual(feature['jobs']['build']['with']['initial_image'], 'false')
+        self.assertEqual(feature['jobs']['build']['with']['baseline_version'], '0.8.1')
+        self.assertEqual(feature['jobs']['build']['with']['baseline_sha256'],
+                         '3a868e580fed7824cf33d225ee4f7c6ce74baf7dd4c11f07542912e0d4596cbb')
+        for field in ('baseline_version', 'baseline_sha256'):
+            self.assertEqual(reusable['on']['workflow_call']['inputs'][field]['default'],
+                             feature['jobs']['build']['with'][field])
         self.assertNotIn('include_image', maintenance['jobs']['build']['with'])
         self.assertIn('inputs.include_image', reusable['jobs']['system']['env']['TITAN_UPDATE_ONLY'])
         self.assertEqual(maintenance['jobs']['build']['strategy']['max-parallel'],'1')
