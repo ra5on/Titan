@@ -199,10 +199,11 @@ class DesktopRuntimeMixin:
         from .system_plugins import secure_directory
         secure_directory(folder, 0o700)
         password = secrets.token_urlsafe(8)[:8]
-        # VNC's standard DES password-file encoding. Password bytes use stdin,
+        # RFB reverses the bits of each fixed key byte before standard DES.
+        # VNC's standard password-file encoding. Password bytes use stdin,
         # never Docker environment, argv, API responses or application logs.
         encoded = subprocess.run(['openssl', 'enc', '-des-ecb', '-provider', 'legacy', '-provider', 'default',
-                                  '-K', '17526b06234e5807', '-nopad'], input=password.encode(), capture_output=True, check=True).stdout
+                                  '-K', 'e84ad660c4721ae0', '-nopad'], input=password.encode(), capture_output=True, check=True).stdout
         credential = folder / id
         fd = os.open(credential, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o400)
         with os.fdopen(fd, 'wb') as output:
