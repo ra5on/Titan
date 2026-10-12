@@ -101,9 +101,11 @@ def tunnel_caddy(config):
     # Only the source/host-restricted managed tunnel may supply Cloudflare's
     # single visitor address. Never trust the incoming XFF chain: visitors can
     # prepend values to it. LAN and externally managed listeners keep Caddy's
-    # default normalization. The backend still validates one literal IP.
+    # default normalization. A shared Docker subnet does not authenticate a
+    # particular connector, so its headers must not become trusted either.
+    # The backend still validates one literal IP.
     visitor = ('            header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}\n'
-               if managed else '')
+               if managed and not remote['sources'] else '')
     redirect = ('        @http_visitor header X-Forwarded-Proto http\n'
                 f'        redir @http_visitor {remote["public_origin"]}{{uri}} 308\n'
                 if managed else '')

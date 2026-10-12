@@ -103,6 +103,9 @@ class RemoteValidationTests(unittest.TestCase):
             self.assertIn('header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}', tunnel)
             self.assertIn('redir @http_visitor https://nas.example.com{uri} 308', tunnel)
             self.assertNotIn('trusted_proxies', text)
+            shared_bridge = remote_config(bridge=True)
+            shared_bridge['remote']['connector'] = connector
+            self.assertNotIn('CF-Connecting-IP', tunnel_caddy(shared_bridge))
         for connector in ('', 'external-cloudflared'):
             config['remote']['connector'] = connector
             self.assertNotIn('CF-Connecting-IP', tunnel_caddy(config))

@@ -146,19 +146,19 @@ class RemoteProxyTests(unittest.TestCase):
         # Loopback health checks have no public scheme header and must not loop.
         self.assertEqual(self.request('/api/session')[0], 200)
 
-    def test_visitor_address_uses_cloudflare_header_never_untrusted_xff(self):
+    def test_visitor_address_trust_is_limited_to_managed_loopback_connector(self):
         for address in ('198.51.100.7', '2001:db8::7'):
             status, _, _ = self.request('/api/session', headers={
                 'CF-Connecting-IP': address, 'X-Forwarded-For': '192.0.2.99, 192.0.2.100'})
             self.assertEqual(status, 200)
-            self.assertEqual(self.backend.received[-1]['address'], address)
+            self.assertEqual(self.backend.received[-1]['address'], '127.0.0.1' if self.bridge else address)
         for value in ('', 'not-an-ip', '198.51.100.7, 198.51.100.8'):
             status, _, _ = self.request('/api/session', headers={
                 'CF-Connecting-IP': value, 'X-Forwarded-For': '192.0.2.99'})
             self.assertEqual(status, 200)
             self.assertEqual(self.backend.received[-1]['address'], '127.0.0.1')
 
-    def test_failed_remote_logins_do_not_lock_other_visitors_and_xff_cannot_evade_block(self):
+    def test_login_protection_distinguishes_trusted_visitors_and_rejects_spoofed_headers(self):
         def login(address, password, forwarded):
             return self.request('/api/login', {'name': 'admin', 'password': password}, headers={
                 'Origin': 'https://nas.example.com', 'CF-Connecting-IP': address,
@@ -166,7 +166,10 @@ class RemoteProxyTests(unittest.TestCase):
         for attempt in range(5):
             self.assertEqual(login('198.51.100.7', 'wrong-password', f'192.0.2.{attempt + 1}'), 401)
         self.assertEqual(login('198.51.100.7', self.password, '192.0.2.200'), 429)
-        self.assertEqual(login('2001:db8::8', self.password, '192.0.2.200'), 200)
+        # Loopback connectors preserve separate visitor buckets. A shared
+        # Docker network must not allow a container to evade a block by
+        # forging another Cloudflare header.
+        self.assertEqual(login('2001:db8::8', self.password, '192.0.2.200'), 429 if self.bridge else 200)
 
     def test_actual_login_and_session_through_proxy_keep_secure_cookie_and_origin_checks(self):
         status, body, headers = self.request('/api/login', {'name': 'admin', 'password': self.password},
