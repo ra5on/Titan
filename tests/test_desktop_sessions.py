@@ -8,13 +8,35 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from titan.core import Error
+from titan.core import Error, Store
 from titan.desktop_sessions import DesktopApplicationMixin, validate_create
 from titan.server import Handler
 
 
 class App(DesktopApplicationMixin):
     pass
+
+
+class DesktopAuthorizationTests(unittest.TestCase):
+    def test_current_policy_and_database_session_are_required(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = App()
+            app.stop = threading.Event(); app.demo = False
+            app.store = Store(directory)
+            app.store.create_user('member', 'Disposable-session-test-123!', 'user', 'member')
+            token, csrf = app.store.login('member', 'Disposable-session-test-123!')
+            entry = {'user': app.store.session(token), 'kind': 'app'}
+            self.assertFalse(app.desktop_active(entry))
+            app.store.set_config('identity', {'schema':1, 'groups':[], 'users':{'member':{'applications':{'apps':True}}}})
+            self.assertTrue(app.desktop_active(entry))
+            entry['kind'] = 'vm'
+            self.assertFalse(app.desktop_active(entry))
+            entry['kind'] = 'app'
+            app.store.set_config('identity', {'schema':1, 'groups':[], 'users':{}})
+            self.assertFalse(app.desktop_active(entry))
+            app.store.set_config('identity', {'schema':1, 'groups':[], 'users':{'member':{'applications':{'apps':True}}}})
+            app.store.logout(token)
+            self.assertFalse(app.desktop_active(entry))
 
 
 class DesktopTests(unittest.TestCase):

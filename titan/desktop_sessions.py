@@ -1,6 +1,7 @@
 """Titan-owned Guacamole sessions: same-origin, CSRF protected, login scoped."""
 import codecs
 import hashlib
+import logging
 import secrets
 import select
 import socket
@@ -89,14 +90,14 @@ class DesktopApplicationMixin:
             endpoint = self.agent.call('desktop_open', id=id, **body)
             entry = {'owner': owner(user), 'user': dict(user), **body, 'endpoint': endpoint,
                      'created': time.monotonic(), 'touched': time.monotonic(), 'stream': None}
-            if not self.desktop_active(entry):
-                self.agent.call('desktop_close', id=id)
-                raise Error('Anmeldung wurde während des Starts beendet.', 403)
             with self.desktop_lock:
                 self.desktops[id] = entry
                 if self.desktop_reaper is None:
                     self.desktop_reaper = threading.Thread(target=self._desktop_reap_loop, daemon=True, name='titan-desktop-sessions')
                     self.desktop_reaper.start()
+            if not self.desktop_active(entry):
+                self.desktop_close(id)
+                raise Error('Anmeldung wurde während des Starts beendet.', 403)
             self.store.audit(user['name'], 'desktop_open', body['kind'] + ':' + body['target'])
             return {'id': id}
 
@@ -246,9 +247,11 @@ class DesktopHTTPMixin:
                                     upstream.sendall(instruction(*values))
                                 else:
                                     raise Error('Nicht erlaubte Sitzungsanweisung.', 403)
-        except (OSError, UnicodeError, Error):
+        except (OSError, UnicodeError, Error) as error:
             if not accepted:
                 raise
+            # Our protocol errors contain fixed messages, never remote payloads.
+            logging.info('Desktop stream closed (%s): %s', type(error).__name__, str(error) if isinstance(error, Error) else 'connection interrupted')
         finally:
             if upstream:
                 upstream.close()

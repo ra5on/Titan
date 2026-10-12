@@ -5,7 +5,9 @@ Run only on a disposable runner. No tunnels or real user accounts are involved.
 """
 import http.server
 import json
+import logging
 import os
+import socket
 from pathlib import Path
 import subprocess
 import sys
@@ -19,9 +21,12 @@ sys.path.insert(0, str(ROOT))
 from titan.core import Error
 from titan.desktop_runtime import DesktopRuntimeMixin
 from titan.server import Application, Handler, WebServer
+from titan.remote_access import tunnel_caddy, validate_remote
 
 if os.environ.get('TITAN_DISPOSABLE_CI') != '1':
     raise SystemExit('A disposable CI environment is required')
+
+logging.basicConfig(level=logging.INFO)
 
 proof = threading.Event()
 
@@ -71,6 +76,7 @@ with tempfile.TemporaryDirectory(prefix='titan-guac-') as temporary:
     runtime = None
     server = None
     app = None
+    proxy = None
     try:
         fixture = http.server.ThreadingHTTPServer(('0.0.0.0', 0), Fixture)
         threading.Thread(target=fixture.serve_forever, daemon=True).start()
@@ -86,7 +92,43 @@ with tempfile.TemporaryDirectory(prefix='titan-guac-') as temporary:
         if not proof.wait(5):
             raise RuntimeError('Keyboard input did not reach the real remote browser')
         print('PASS: real Chromium image, VNC, guacd, Titan websocket, input, reconnect and logout')
+        # Emulate only Cloudflare's TLS edge. Everything behind it uses Titan's
+        # actual generated, source/host restricted tunnel route, including WSS.
+        public = 'https://nas.example.test'
+        with Path('/etc/hosts').open('a') as hosts:
+            hosts.write('\n127.0.0.1 nas.example.test\n')
+        subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1',
+            '-subj','/CN=nas.example.test','-addext','subjectAltName=DNS:nas.example.test',
+            '-keyout',str(folder/'key.pem'),'-out',str(folder/'cert.pem')], check=True, capture_output=True)
+        remote = {**validate_remote(None), 'enabled':True, 'public_origin':public,
+                  'connector':'plugin-cloudflare', 'service_url':'http://127.0.0.1:5102'}
+        route = tunnel_caddy({'remote':remote}).replace('127.0.0.1:5001', '127.0.0.1:' + str(server.server_port))
+        source = folder/'Caddyfile'
+        source.write_text('{\n admin off\n auto_https off\n}\n' + route +
+            f'{public} {{\n bind 127.0.0.1\n tls {folder}/cert.pem {folder}/key.pem\n reverse_proxy 127.0.0.1:5102\n}}\n')
+        proxy = subprocess.Popen(['caddy','run','--config',str(source),'--adapter','caddyfile'],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        for _ in range(100):
+            if proxy.poll() is not None:
+                raise RuntimeError(proxy.stderr.read().decode())
+            try:
+                with socket.create_connection(('127.0.0.1',443),timeout=.1): break
+            except OSError: time.sleep(.05)
+        app.origin = public
+        proof.clear()
+        subprocess.run(['node','scripts/smoke-guacamole-browser.cjs'], cwd=ROOT,
+            env={**env,'TITAN_GUAC_URL':public, 'TITAN_GUAC_MODE':'tunnel'}, check=True, timeout=120)
+        if not proof.wait(5):
+            raise RuntimeError('Input did not reach the browser through the generated tunnel route')
+        print('PASS: HTTPS/WSS, secure login, file transfer and logout through the generated Cloudflare origin route')
+    except Exception:
+        names = subprocess.check_output(['docker','ps','-a','--filter','label=org.titan.desktop=1','--format','{{.Names}}'], text=True).splitlines()
+        for name in names:
+            subprocess.run(['docker','logs',name], check=False)
+        raise
     finally:
+        if proxy:
+            proxy.terminate(); proxy.wait(timeout=5)
         if app:
             app.stop.set(); app.close_all_desktops(); app.close_all_terminals()
         if server: server.shutdown(); server.server_close()

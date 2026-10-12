@@ -14,7 +14,7 @@ jobs:
       PLAYWRIGHT_BROWSERS_PATH: /tmp/titan-playwright
     steps:
       - uses: actions/checkout@v7.0.1
-      - run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml
+      - run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml caddy
       - name: Session authorization and protocol tests
         run: python3 -m unittest discover -s tests -p 'test_*desktop*.py' -v && python3 -m unittest discover -s tests -p 'test_guacamole_protocol.py' -v
       - working-directory: ui
@@ -33,4 +33,4 @@ jobs:
         if: always()
         with:
           name: guacamole-runtime
-          path: artifacts/guacamole-runtime.png
+          path: artifacts/guacamole-*.png
