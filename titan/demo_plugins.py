@@ -39,7 +39,8 @@ class DemoPluginsMixin:
                 item['public_origin'] = public_url(options.get('public_origin') or item['public_origin'])
             elif options.get('accept_license') is not True:
                 raise Error('NVIDIA-Lizenzbedingungen bestätigen.')
-            item.update(installed=True, running=True, version=item['latest'], update_available=False)
+            version = item['version'] if plugin == 'cloudflare' and action == 'install' and item['installed'] else item['latest']
+            item.update(installed=True, running=True, version=version, update_available=version != item['latest'])
         elif action == 'remove':
             if confirmation != plugin: raise Error('Deinstallation ausdrücklich bestätigen.')
             item.update(installed=False, running=False, connected=False, version=None, public_origin='')

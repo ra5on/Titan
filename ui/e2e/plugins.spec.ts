@@ -7,6 +7,7 @@ test('Cloudflare plugin has a complete lifecycle and keeps token out of persiste
   await expect(page.getByText('Cloudflare-Ziel: Typ HTTP · URL 127.0.0.1:5102')).toBeVisible();
   await page.getByRole('button', { name: 'Installieren', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Plugin installieren' });
+  await expect(dialog).toContainText('Service-Typ: HTTP · URL: 127.0.0.1:5102');
   await dialog.getByLabel('Tunnel-Token').fill(token);
   // Actual keystrokes catch focus-reset regressions caused by parent rerenders.
   await dialog.getByLabel('Öffentliche Titan-Adresse').pressSequentially('https://nas.example.org');

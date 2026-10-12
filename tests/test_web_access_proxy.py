@@ -49,6 +49,7 @@ class WebAccessProxyTests(unittest.TestCase):
     def test_https_serves_backend_and_http_redirect_keeps_path_query_and_custom_port(self):
         class Backend(BaseHTTPRequestHandler):
             def do_GET(self):
+                self.server.received_headers = self.headers
                 body = b'Titan disposable backend'
                 self.send_response(200)
                 self.send_header('Content-Length',str(len(body)))
@@ -84,10 +85,14 @@ class WebAccessProxyTests(unittest.TestCase):
         for _ in range(100):
             client = HTTPSConnection('127.0.0.1',https_port,context=context,timeout=.3)
             try:
-                client.request('GET','/api/session')
+                client.request('GET','/api/session', headers={
+                    'CF-Connecting-IP': '198.51.100.7', 'X-Forwarded-For': '198.51.100.8'})
                 response = client.getresponse()
                 self.assertEqual(response.status,200)
                 self.assertEqual(response.read(),b'Titan disposable backend')
+                # Cloudflare visitor headers on the ordinary LAN listener are
+                # never promoted to a trusted authentication address.
+                self.assertEqual(backend.received_headers.get('X-Forwarded-For'), '127.0.0.1')
                 break
             except (OSError,ssl.SSLError):
                 if process.poll() is not None:

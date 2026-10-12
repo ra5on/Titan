@@ -297,6 +297,79 @@ class PluginTests(unittest.TestCase):
         self.assertTrue(self.host.running)
         self.assertIn('HTTP und 127.0.0.1:5102', result['message'])
 
+    def installed_version(self, version='2026.11.0'):
+        self.install()
+        state = self.host._plugin_state()
+        state['cloudflare'].update(version=version, sha256=hashlib.sha256(b'new-binary').hexdigest())
+        self.host.save('system-plugins', state)
+        self.download.reset_mock()
+        self.host.commands.clear()
+        return state
+
+    def test_reconfiguration_keeps_installed_binary_despite_old_or_new_offers(self):
+        state = self.installed_version()
+        for candidate in (None, offer('2026.10.0'), offer('2026.12.0')):
+            with self.subTest(candidate=candidate):
+                if candidate: state['cloudflare_offer'] = candidate
+                else: state.pop('cloudflare_offer', None)
+                self.host.save('system-plugins', state)
+                self.act(public_origin='https://new.example.org')
+                self.download.assert_not_called()
+                self.assertEqual((self.binary_root / 'cloudflared').read_bytes(), b'new-binary')
+                current = self.host._plugin_state()['cloudflare']
+                self.assertEqual(current['version'], '2026.11.0')
+                self.assertEqual(current['sha256'], state['cloudflare']['sha256'])
+                self.assertEqual(current['public_origin'], 'https://new.example.org')
+                self.assertEqual((self.host.directory / 'cloudflare-plugin-token').read_text(), credential())
+
+    def test_update_rejects_downgrade_or_replaced_same_version_before_mutation(self):
+        state = self.installed_version()
+        for candidate in (None, offer('2026.10.0'), offer('2026.11.0', 'f' * 64)):
+            with self.subTest(candidate=candidate):
+                if candidate: state['cloudflare_offer'] = candidate
+                else: state.pop('cloudflare_offer', None)
+                self.host.save('system-plugins', state)
+                with self.assertRaises(Error) as error: self.act('update')
+                self.assertEqual(error.exception.status, 409)
+                self.assertEqual(self.host._plugin_state(), state)
+                self.download.assert_not_called()
+                self.assertEqual(self.host.commands, [])
+
+    def test_reconfiguration_rejects_tampered_binary_before_service_or_token_changes(self):
+        state = self.installed_version()
+        (self.binary_root / 'cloudflared').write_bytes(b'altered')
+        with self.assertRaisesRegex(Error, 'CF_BINARY_INTEGRITY'):
+            self.act(token=credential(), public_origin='https://new.example.org')
+        self.download.assert_not_called()
+        self.assertEqual(self.host._plugin_state(), state)
+        self.assertTrue(self.host.running)
+        self.assertTrue(all(command[1].startswith('is-') for command in self.host.commands))
+
+    def test_failed_token_rotation_restores_previous_token_without_replacing_binary(self):
+        state = self.installed_version()
+        replacement = json.loads(base64.b64decode(credential()))
+        replacement['s'] = base64.b64encode(b'another-disposable-test-secret-12345').decode()
+        replacement = base64.b64encode(json.dumps(replacement).encode()).decode()
+        self.ready.return_value = False
+        with patch('titan.system_plugins.time.monotonic', side_effect=[0, 181]):
+            with self.assertRaises(Error) as error: self.act(token=replacement)
+        self.assertNotIn(replacement, str(error.exception))
+        self.assertEqual((self.host.directory / 'cloudflare-plugin-token').read_text(), credential())
+        self.assertEqual((self.binary_root / 'cloudflared').read_bytes(), b'new-binary')
+        self.assertEqual(self.host._plugin_state(), state)
+        self.assertTrue(self.host.running)
+        self.download.assert_not_called()
+
+    def test_explicit_newer_update_still_downloads_and_installs_reviewed_offer(self):
+        state = self.installed_version()
+        candidate = offer('2026.12.0', 'e' * 64)
+        state['cloudflare_offer'] = candidate
+        self.host.save('system-plugins', state)
+        self.act('update')
+        self.download.assert_called_once()
+        self.assertEqual(self.download.call_args.args[0], candidate)
+        self.assertEqual(self.host._plugin_state()['cloudflare']['version'], candidate['version'])
+
     def test_remove_requires_confirmation_then_removes_only_owned_files(self):
         self.install()
         neighbor = self.binary_root / 'unrelated'; neighbor.write_text('keep')
