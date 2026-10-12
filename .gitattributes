@@ -3,3 +3,5 @@
 ui/** text=auto eol=lf
 titan/ui/** -text
 LICENSE -text
+titan/session_browser/** text=auto eol=lf
+titan/web/vendor/guacamole/** text=auto eol=lf

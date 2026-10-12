@@ -347,7 +347,8 @@ test('apps and VM consoles open inside Titan and the system menu confirms before
   await page.goto('/');
   await page.getByRole('button', { name: 'Syncthing öffnen' }).click();
   await expect(page).toHaveURL(/#\/open\/syncthing$/);
-  await expect(page.locator('iframe[title="Syncthing"]')).toHaveAttribute('src', /:8384$/);
+  await expect(page.getByText(/Für Sitzungen innerhalb von Titan das Plugin/)).toBeVisible();
+  await expect(page.locator('iframe')).toHaveCount(0);
   await page.getByRole('button', { name: 'Zurück zur Startseite' }).click();
 
   await page.goto('/#/vms');

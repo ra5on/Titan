@@ -27,6 +27,8 @@ ui/package-lock.json. The interface source in ui/src is original Titan code.
 
 Titan Debian system: Debian, Linux, Docker, Samba, ZFS, libvirt, QEMU, noVNC and Caddy retain their respective licenses. Package copyright notices remain in /usr/share/doc. Original Titan licensing does not restrict these upstream components.
 
+Apache Guacamole JavaScript client 1.6.0 is redistributed under the Apache License 2.0. Its LICENSE, NOTICE and verified source provenance are included in titan/web/vendor/guacamole. The optional guacd and browser container runtime has additional independent component licenses; see docs/GUACAMOLE.md. The Chromium seccomp profile is from Microsoft Playwright v1.55.1 under Apache 2.0; its license and source are included in titan/session_browser.
+
 Installed MIT notices:
 /usr/lib/titan/titan/web/vendor/terminal/xterm-LICENSE
 /usr/lib/titan/titan/web/vendor/terminal/addon-fit-LICENSE

@@ -73,6 +73,8 @@ Als **Beta-Funktionen** gelten USB-Automount, laufender Abgleich, Btrfs-Spiegel,
 
 Alltag und Verwaltung verwenden einen gemeinsamen Desktop. Alte `/classic`-Lesezeichen führen auf die entsprechenden Bereiche. Im Appstore lassen sich Cloudflare als Debian-Dienst und NVIDIA-Treiber als optionale Plugins installieren, aktualisieren und entfernen; ihre Programme werden erst bei Bedarf heruntergeladen.
 
+Das optionale Plugin **[Browser und VM-Sitzungen](docs/GUACAMOLE.md)** (Beta) integriert Apache Guacamole: Apps laufen in einem Browser auf dem NAS, VM-Konsolen direkt im Titan-Fenster. Die Titan-Anmeldung genügt für den Sitzungszugang, auch über den bestehenden Cloudflare-Tunnel. Eigene App- und Gast-Anmeldungen bleiben erhalten. Zwischenablage, Dateitransfer und die Grenzen flüchtiger Browserprofile sind in der Anleitung beschrieben.
+
 ## Lizenz
 
 Titan ist **quelloffen und für private Nutzung kostenlos**. Es gilt die [PolyForm Noncommercial License 1.0.0](LICENSE).

@@ -11,6 +11,7 @@ class DemoPluginsMixin:
     def plugins(self):
         if not hasattr(self, '_plugins'):
             self._plugins = [
+                {'id': 'guacamole', 'name': 'Browser und VM-Sitzungen', 'description': 'Apache Guacamole mit einem Browser auf dem NAS.', 'installed': False, 'running': False, 'version': None, 'latest': '1.6.0-titan1', 'update_available': False, 'beta': True},
                 {'id': 'cloudflare', 'name': 'Cloudflare Tunnel', 'description': 'Optionaler Debian-Dienst für den Fernzugriff.', 'installed': False, 'running': False, 'connected': False, 'version': None, 'latest': '2026.10.0', 'update_available': False, 'public_origin': '', 'service_url': 'http://127.0.0.1:5102', 'docker_installed': False, 'beta': True},
                 {'id': 'nvidia', 'name': 'NVIDIA-Treiber', 'description': 'GPU-Beschleunigung für Apps.', 'installed': False, 'running': False, 'version': None, 'latest': '595.71.05', 'update_available': False, 'card': True, 'passthrough': False, 'beta': True},
             ]
@@ -25,7 +26,7 @@ class DemoPluginsMixin:
         if expected_revision != data['revision']: raise Error('Plugin-Stand wurde geändert.', 409)
         options = {} if options is None else options
         if not isinstance(options, dict): raise Error('Plugin-Einstellungen müssen ein Objekt sein.')
-        allowed = {'token', 'public_origin', 'replace_docker'} if plugin == 'cloudflare' else {'accept_license'}
+        allowed = {'token', 'public_origin', 'replace_docker'} if plugin == 'cloudflare' else {'accept_license'} if plugin == 'nvidia' else set()
         if set(options) - allowed or (action not in ('install', 'update') and options):
             raise Error('Ungültige Plugin-Einstellungen.')
         if plugin == 'nvidia' and action in ('start', 'stop'):
@@ -37,7 +38,7 @@ class DemoPluginsMixin:
             if plugin == 'cloudflare':
                 if not item['installed'] or options.get('token'): validate_token(options.get('token'))
                 item['public_origin'] = public_url(options.get('public_origin') or item['public_origin'])
-            elif options.get('accept_license') is not True:
+            elif plugin == 'nvidia' and options.get('accept_license') is not True:
                 raise Error('NVIDIA-Lizenzbedingungen bestätigen.')
             version = item['version'] if plugin == 'cloudflare' and action == 'install' and item['installed'] else item['latest']
             item.update(installed=True, running=True, version=version, update_available=version != item['latest'])
@@ -46,3 +47,6 @@ class DemoPluginsMixin:
             item.update(installed=False, running=False, connected=False, version=None, public_origin='')
         else: item['running'] = action == 'start'
         return {'ok': True, 'message': 'Demo: Plugin-Aktion simuliert. Keine Pakete, Dienste oder Tunnel geändert.'}
+
+    def desktop_status(self):
+        return {**next(item for item in self.plugins()['items'] if item['id'] == 'guacamole'), 'demo': True}

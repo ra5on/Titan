@@ -33,6 +33,7 @@ from . import interface_layout
 from .diagnostics import report as diagnostics_report
 from .terminal_http import TerminalHTTPMixin, TerminalApplicationMixin, terminal_owner
 from .root_access import RootAccessApplicationMixin, RootAccessHTTPMixin
+from .desktop_sessions import DesktopApplicationMixin, DesktopHTTPMixin
 
 WEB = Path(__file__).parent / "web"
 # One desktop, built from ui/. WEB supplies shared feature assets and the VM
@@ -67,7 +68,7 @@ def validate_system_disk_growth(arguments):
         raise Error("Bitte ERWEITERN zur Bestätigung eingeben.")
 
 
-class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalApplicationMixin):
+class Application(DesktopApplicationMixin, RootAccessApplicationMixin, OfficeApplicationMixin, TerminalApplicationMixin):
     def __init__(self, directory, demo=False, origin=None):
         self.demo = demo
         self._origin = origin
@@ -92,6 +93,7 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
         self.initialize_terminals()
         self.initialize_root_access()
         self.initialize_office()
+        self.initialize_desktops()
 
     def trusted_origins(self):
         from .web_access import CONFIG, allowed_origins, read_config
@@ -287,7 +289,7 @@ class WebServer(ThreadingHTTPServer):
     request_queue_size = 128
 
 
-class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
+class Handler(DesktopHTTPMixin, RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalHTTPMixin, BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def setup(self):
@@ -486,6 +488,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             if self.root_access_get(path, user, query):
                 return
             if self.identity_get(path, user, query):
+                return
+            if self.desktop_get(path, user, query):
                 return
             if path in ("/api/shares", "/api/files", "/api/file"):
                 if path == "/api/shares" and permissions(self.app.store, user)["apps"]["allowed"]:
@@ -790,6 +794,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             self.app.store.audit(body["name"], "login")
             return self.reply({"ok": True, "csrf": csrf}, extra={"Set-Cookie": cookie})
         user = self.require_user(mutation=True)
+        if self.desktop_post(path, user, body):
+            return
         if path == "/api/web-updates":
             if user['role'] != 'admin':
                 raise Error('Administratorrechte erforderlich.', 403)
@@ -828,6 +834,8 @@ class Handler(RootAccessHTTPMixin, OfficeHTTPMixin, IdentityHTTPMixin, TerminalH
             if hasattr(self.app, 'disable_root_access'):
                 self.app.disable_root_access(user, 'Abgemeldet')
             self.app.close_terminal_owner(terminal_owner(user))
+            if hasattr(self.app, 'close_desktop_owner'):
+                self.app.close_desktop_owner(user)
             return self.reply({"ok": True}, extra={"Set-Cookie": self.session_cookie('', max_age=0)})
         if path == "/api/files":
             if body.get("action") not in FILE_ACTIONS:
@@ -1146,6 +1154,7 @@ def main():
         finally:
             app.stop.set()
             app.close_all_terminals()
+            app.close_all_desktops()
             if app.demo:
                 app.agent.terminals.close_all()
 

@@ -29,7 +29,7 @@ function Widget({ icon: Icon, label, value, detail, fraction }: { icon: LucideIc
   );
 }
 
-const appUrl = (app: InstalledApp) => (app.port ? `${app.scheme || 'http'}://${window.location.hostname}:${app.port}` : null);
+const appUrl = (app: InstalledApp) => app.port || app.id === 'titan-tailscale';
 
 function AppTile({ app, admin, onChanged }: { app: InstalledApp; admin: boolean; onChanged: () => void }) {
   const toast = useToast();
@@ -74,7 +74,7 @@ function AppTile({ app, admin, onChanged }: { app: InstalledApp; admin: boolean;
   };
 
   const items: { label: string; icon: LucideIcon; onClick: () => void; danger?: boolean }[] = [
-    ...(running && url ? [{ label: 'Öffnen', icon: ExternalLink, onClick: open }, { label: 'In neuem Tab öffnen', icon: ExternalLink, onClick: () => { setMenu(false); window.open(url, '_blank', 'noopener'); } }] : []),
+    ...(running && url ? [{ label: 'Öffnen', icon: ExternalLink, onClick: open }] : []),
     ...(running
       ? [
           { label: 'Neu starten', icon: RotateCw, onClick: () => run('restart', 'neu gestartet.') },

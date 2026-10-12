@@ -21,6 +21,7 @@ import urllib.request
 from .core import Error
 from .cloudflare_tunnel import validate_token
 from .remote_access import public_url, validate_remote
+from .desktop_runtime import DesktopRuntimeMixin
 
 CONNECTOR = 'plugin-cloudflare'
 UNIT = 'titan-cloudflare-plugin.service'
@@ -233,7 +234,7 @@ def connected():
         connection.close()
 
 
-class SystemPluginsMixin:
+class SystemPluginsMixin(DesktopRuntimeMixin):
     def _cloudflare_failure(self, phase, exception):
         if isinstance(exception, PluginFailure):
             return exception.code
@@ -314,10 +315,11 @@ class SystemPluginsMixin:
              **nvidia, 'installed': nvidia['requested'], 'running': nvidia['available'], 'beta': True,
              'version': nvidia_version, 'latest': state.get('nvidia_offer'),
              'update_available': state.get('nvidia_update', False), 'checked_at': state.get('nvidia_checked')},
+            self.desktop_status(),
         ]}
 
     def op_plugin_action(self, plugin, action, expected_revision, options=None, confirmation=None):
-        if plugin not in ('cloudflare', 'nvidia') or action not in ('check', 'install', 'update', 'remove', 'start', 'stop'):
+        if plugin not in ('cloudflare', 'nvidia', 'guacamole') or action not in ('check', 'install', 'update', 'remove', 'start', 'stop'):
             raise Error('Unbekanntes Plugin oder ungültige Aktion.')
         if expected_revision != self._plugin_revision():
             raise Error('Plugin-Stand wurde geändert. Ansicht aktualisieren.', 409)
@@ -326,6 +328,8 @@ class SystemPluginsMixin:
             raise Error('Plugin-Einstellungen müssen ein Objekt sein.')
         if action == 'remove' and confirmation != plugin:
             raise Error('Deinstallation ausdrücklich bestätigen.')
+        if plugin == 'guacamole':
+            return self._desktop_plugin(action, options)
         if plugin == 'nvidia':
             return self._nvidia_plugin(action, options)
         if action == 'check':
@@ -502,6 +506,8 @@ class SystemPluginsMixin:
 
     def op_plugins_restore(self):
         """Recreate the optional service after a system-slot switch; no download."""
+        if self._plugin_state().get('guacamole'):
+            self._desktop_remove_browsers()
         if self._cloudflare_installed():
             prepare_plugin_root()
             binary = read_owned(ROOT / 'cloudflared')

@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Titan Sitzung</title><link rel="stylesheet" href="/desktop.css"></head>
+<body>
+<nav aria-label="Sitzungssteuerung"><span id="status" role="status">Sitzung wird vorbereitet …</span><button id="retry">Neu verbinden</button><button id="clipboard-toggle">Zwischenablage</button><button id="files-toggle">Dateien</button><button id="fullscreen">Vollbild</button><button id="end">Sitzung beenden</button></nav>
+<div id="clipboard" hidden><label for="clipboard-text">Text zwischen deinem Gerät und der Sitzung übertragen</label><textarea id="clipboard-text" rows="3" maxlength="65536"></textarea><button id="clipboard-send">In Sitzung einfügen</button><button id="clipboard-copy">Auf diesem Gerät kopieren</button></div>
+<div id="files" hidden><p>Dateien bis 256 MB in den Downloads-Ordner der Sitzung übertragen. Dort lassen sie sich in der App auswählen. Vor dem Beenden benötigte Dateien herunterladen.</p><input id="upload" type="file" aria-label="Datei in Sitzung hochladen"><button id="files-refresh">Downloads anzeigen</button><span id="files-status" role="status"></span><div id="downloads"></div></div>
+<div id="screen" tabindex="0" aria-label="Entfernte Sitzung"></div><div id="notice" role="alert" hidden></div>
+<script src="/vendor/guacamole/guacamole.js"></script><script src="/desktop.js"></script>
+</body></html>

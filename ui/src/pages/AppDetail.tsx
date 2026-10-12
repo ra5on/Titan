@@ -85,7 +85,7 @@ export function AppDetail({ appId }: { appId: string }) {
                 {app.status && <span className="text-white/40">· {app.status}</span>}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {running && url && (
+                {running && (url || app.id === 'titan-tailscale') && (
                   <Button variant="primary" onClick={() => go('open', app.id)}>
                     <ExternalLink className="size-4" /> Öffnen
                   </Button>

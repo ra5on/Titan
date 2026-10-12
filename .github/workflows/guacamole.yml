@@ -1,0 +1,36 @@
+name: Guacamole runtime
+on:
+  push:
+    paths: ['titan/**', 'scripts/smoke-guacamole*', '.github/workflows/guacamole.yml']
+  pull_request:
+    paths: ['titan/**', 'scripts/smoke-guacamole*', '.github/workflows/guacamole.yml']
+permissions:
+  contents: read
+jobs:
+  browser-session:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /tmp/titan-playwright
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml caddy
+      - name: Session authorization and protocol tests
+        run: python3 -m unittest discover -s tests -p 'test_*desktop*.py' -v && python3 -m unittest discover -s tests -p 'test_guacamole_protocol.py' -v
+      - working-directory: ui
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Allow nested Chromium user namespaces on this disposable runner
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Real browser, Guacamole and Titan session lifecycle
+        env:
+          TITAN_DISPOSABLE_CI: '1'
+        run: |
+          mkdir -p artifacts
+          sudo --preserve-env=TITAN_DISPOSABLE_CI,PLAYWRIGHT_BROWSERS_PATH,PATH python3 scripts/smoke-guacamole.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: guacamole-runtime
+          path: artifacts/guacamole-*.png

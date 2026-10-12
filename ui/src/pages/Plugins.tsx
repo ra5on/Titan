@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Cloud, Cpu, Download, PackageCheck, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Cloud, Cpu, Download, MonitorPlay, PackageCheck, RefreshCw, Trash2 } from 'lucide-react';
 import { action } from '../api';
 import { dateTime, go, message, useApi } from '../lib';
 import { Button, Card, Field, Input, Loading, Modal, Notice, Sheet } from '../ui';
@@ -21,7 +21,7 @@ export function PluginTiles({ query = '' }: { query?: string }) {
     {data.error && <Notice>{data.error}</Notice>}
     {data.loading && <Loading />}
     <div className="grid gap-3 sm:grid-cols-2">{items.map(item => <button type="button" key={item.id} className="glass-soft flex items-center gap-4 rounded-2xl p-4 text-left hover:bg-white/10" onClick={() => go('store', 'plugin-' + item.id)}>
-      <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-sky-400/15">{item.id === 'cloudflare' ? <Cloud className="size-7 text-sky-300" /> : <Cpu className="size-7 text-emerald-300" />}</span>
+      <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-sky-400/15">{item.id === 'cloudflare' ? <Cloud className="size-7 text-sky-300" /> : item.id === 'guacamole' ? <MonitorPlay className="size-7 text-sky-300" /> : <Cpu className="size-7 text-emerald-300" />}</span>
       <span><span className="font-semibold">{item.name}</span><span className="ml-2 text-xs text-white/50">Plugin{item.beta ? ' · Beta' : ''}{item.installed ? ' · Installiert' : ''}</span><span className="mt-1 block text-sm text-white/55">{item.description}</span></span>
     </button>)}</div>
   </section>;
@@ -46,7 +46,7 @@ export function PluginStore({ pluginId, admin }: { pluginId?: string; admin: boo
       const installing = ['install', 'update'].includes(verb);
       const result = await action('plugin_action', { plugin: item.id, action: verb, expected_revision: operation ? reviewRevision : data.data.revision,
         ...(verb === 'remove' ? { confirmation: item.id } : {}),
-        ...(installing ? { options: item.id === 'cloudflare' ? { ...(token ? { token } : {}), public_origin: origin || item.public_origin || '', replace_docker: replaceDocker } : { accept_license: license } } : {}),
+        ...(installing ? { options: item.id === 'cloudflare' ? { ...(token ? { token } : {}), public_origin: origin || item.public_origin || '', replace_docker: replaceDocker } : item.id === 'nvidia' ? { accept_license: license } : {} } : {}),
       });
       setResult(String(result.message || 'Plugin-Aktion abgeschlossen.')); setOperation(null); setToken('');
       await data.reload();
@@ -69,6 +69,7 @@ export function PluginStore({ pluginId, admin }: { pluginId?: string; admin: boo
         <dl className="grid grid-cols-2 gap-2 text-sm"><dt className="text-white/50">Installierte Version</dt><dd>{item.version || '–'}</dd><dt className="text-white/50">Verfügbare Version</dt><dd>{item.latest || 'Nach Updateprüfung bekannt'}</dd><dt className="text-white/50">Status</dt><dd>{!item.installed ? 'Nicht installiert' : item.running ? 'Aktiv' : 'Gestoppt / nicht bereit'}</dd>{item.checked_at && <><dt className="text-white/50">Letzte Prüfung</dt><dd>{dateTime(item.checked_at)}</dd></>}</dl>
         {item.id === 'nvidia' && <p className="text-sm text-white/65">Der proprietäre NVIDIA-Treiber wird aus dem offiziellen Paketarchiv geladen und für den laufenden Kernel gebaut. Er gehört nicht zum Basisimage. Nach Systemupdates wird er für den neuen Kernel erneut eingerichtet. GPU-Apps vor Update oder Deinstallation stoppen.</p>}
         {item.id === 'nvidia' && item.passthrough && <Notice tone="warn">Eine NVIDIA-Karte ist an eine VM durchgereicht. Für diese Karte wird der Treiber im Gast benötigt.</Notice>}
+        {item.id === 'guacamole' && <Notice tone="info">Apps öffnen sich in einem Browser auf dem NAS, VMs direkt im Titan-Fenster. Es genügt deine Titan-Anmeldung; eigene Anmeldungen innerhalb einer App oder VM bleiben bestehen. Pro Browser werden bis zu 1,5 GB RAM benötigt. Browserdaten bleiben während der Sitzung erhalten und werden beim Abmelden oder Beenden gelöscht. Ton und Geräteweitergabe sind in dieser ersten Ausbaustufe nicht enthalten.</Notice>}
         {item.id === 'cloudflare' && <div className="space-y-3">
           <p className="text-sm text-white/65">Cloudflare läuft als eigener Debian-Dienst. Ein Docker-Container wird dafür nicht benötigt. Token und Installation bleiben bei Titan-Systemupdates erhalten.</p>
           <Notice tone="info"><strong>Cloudflare-Ziel: Typ HTTP · URL 127.0.0.1:5102</strong><span className="mt-1 block">Die öffentliche Titan-Adresse bleibt HTTPS. Eine NAS-IP mit HTTPS spricht einen anderen Zugang an und kann eine leere Seite liefern. Diese Route im Cloudflare-Konto eintragen.</span></Notice>
@@ -80,6 +81,7 @@ export function PluginStore({ pluginId, admin }: { pluginId?: string; admin: boo
           {item.installed && <>
             <Button variant="primary" disabled={busy} onClick={() => open('update')}>Aktualisieren</Button>
             {item.id === 'cloudflare' && <><Button disabled={busy} onClick={() => open('install')}>Token und Adresse ändern</Button><Button disabled={busy} onClick={() => item.running ? open('stop') : void run('start')}>{item.running ? 'Stoppen' : 'Starten'}</Button></>}
+            {item.id === 'guacamole' && <Button disabled={busy} onClick={() => item.running ? open('stop') : void run('start')}>{item.running ? 'Stoppen' : 'Starten'}</Button>}
             <Button variant="danger" disabled={busy} onClick={() => open('remove')}><Trash2 className="size-4" /> Deinstallieren</Button>
           </>}
         </div>
@@ -96,10 +98,10 @@ export function PluginStore({ pluginId, admin }: { pluginId?: string; admin: boo
             <Field label="Tunnel-Token" help={item.installed ? 'Leer lassen, um den gespeicherten Token zu behalten.' : 'Den Token (eyJ…) aus Cloudflare einfügen, keinen Installationsbefehl.'}><Input type="password" autoComplete="new-password" value={token} onChange={event => setToken(event.target.value)} required={!item.installed} /></Field>
             <Field label="Öffentliche Titan-Adresse"><Input type="url" placeholder="https://titan.example.com" value={origin} onChange={event => setOrigin(event.target.value)} required /></Field>
             {item.docker_installed && !item.installed && <label className="flex gap-2 text-sm"><input type="checkbox" required checked={replaceDocker} onChange={event => setReplaceDocker(event.target.checked)} /> Den bisherigen Titan-Docker-Tunnel nach erfolgreicher Verbindung stoppen. Bei einem Fehler wird der bisherige Zustand wiederhergestellt.</label>}
-          </> : <>
+          </> : item.id === 'guacamole' ? <Notice tone="info">Titan lädt Apache Guacamole und erstellt den Browsercontainer. Das benötigt Internet, mehrere Minuten und etwa 3 GB freien Speicher. Es wird kein weiterer öffentlicher Zugang eingerichtet. Guacamole steht unter Apache 2.0; die mitgelieferten Browser- und Systemkomponenten behalten ihre Lizenzen.</Notice> : <>
             <Notice tone="warn">Zum Abschluss startet Docker neu; laufende Apps sind kurz unterbrochen. Für den Treiberbau müssen Kernel-Header vorhanden sein und mindestens 4 GB im Systembereich frei sein.</Notice>
             <label className="flex gap-2 text-sm"><input type="checkbox" required checked={license} onChange={event => setLicense(event.target.checked)} /> Ich akzeptiere die <a className="text-brand underline" href="https://www.nvidia.com/en-us/drivers/nvidia-license/" target="_blank" rel="noreferrer">NVIDIA-Lizenzbedingungen</a>.</label>
-          </> : <Notice tone="warn">{item.id === 'cloudflare' ? 'Der Fernzugriff über diesen Dienst endet. Öffne Titan über die lokale Adresse, bevor du fortfährst.' : 'GPU-Beschleunigung für Apps ist danach nicht verfügbar. Laufende GPU-Apps zuerst stoppen; Docker wird neu gestartet.'}{operation === 'remove' && item.id === 'cloudflare' && ' Der lokale Token wird gelöscht. Der Tunnel im Cloudflare-Konto bleibt erhalten.'}</Notice>}
+          </> : <Notice tone="warn">{item.id === 'cloudflare' ? 'Der Fernzugriff über diesen Dienst endet. Öffne Titan über die lokale Adresse, bevor du fortfährst.' : item.id === 'guacamole' ? 'Laufende Browser- und Guacamole-Sitzungen werden beendet. Nicht heruntergeladene Dateien und Browserdaten dieser Sitzungen werden gelöscht. Apps und VMs selbst laufen weiter.' : 'GPU-Beschleunigung für Apps ist danach nicht verfügbar. Laufende GPU-Apps zuerst stoppen; Docker wird neu gestartet.'}{operation === 'remove' && item.id === 'cloudflare' && ' Der lokale Token wird gelöscht. Der Tunnel im Cloudflare-Konto bleibt erhalten.'}</Notice>}
           {error && <Notice>{error}</Notice>}
           {busy && item.id === 'cloudflare' && ['install', 'update'].includes(operation) && <p role="status" className="text-sm text-white/65">Cloudflare wird eingerichtet. Nach dem Download kann der Verbindungsaufbau bis zu drei Minuten dauern. Titan wartet dabei auch auf den automatischen Wechsel von UDP auf TCP.</p>}
           <div className="flex justify-end gap-2"><Button onClick={close}>Abbrechen</Button><Button type="submit" variant={operation === 'remove' ? 'danger' : 'primary'} busy={busy}>{operation === 'install' ? item.installed ? 'Speichern' : 'Installieren' : operation === 'update' ? 'Aktualisieren' : operation === 'remove' ? 'Deinstallieren' : 'Stoppen'}</Button></div>

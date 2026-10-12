@@ -225,7 +225,7 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/api/actions', args, csrf='wrong')[0], 403)
         status, body, _ = self.request('/api/plugins')
         self.assertEqual(status, 200)
-        self.assertEqual({item['id'] for item in json.loads(body)['items']}, {'cloudflare', 'nvidia'})
+        self.assertEqual({item['id'] for item in json.loads(body)['items']}, {'cloudflare', 'nvidia', 'guacamole'})
         status, body, _ = self.request('/api/actions', args)
         self.assertEqual(status, 202)
         job = json.loads(body)['job']
