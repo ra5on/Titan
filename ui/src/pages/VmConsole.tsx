@@ -4,6 +4,7 @@ import { action } from '../api';
 import type { VmList } from '../api';
 import { go, message, useApi } from '../lib';
 import { Button, IconButton, Loading, Notice, StateDot, useToast } from '../ui';
+import { RemoteSession } from './RemoteSession';
 
 /** A virtual machine's screen inside Titan instead of a separate browser tab. */
 export function VmConsole({ vmId }: { vmId: string }) {
@@ -11,6 +12,8 @@ export function VmConsole({ vmId }: { vmId: string }) {
   const vms = useApi<VmList>('/api/vms', 5000);
   const vm = vms.data?.vms.find(item => item.id === vmId);
   const [busy, setBusy] = useState(false);
+  const service = useApi<{running: boolean}>('/api/desktops/status', 15000);
+  const [bootConsole, setBootConsole] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const label = vm?.display_name || vm?.name || 'Virtuelle Maschine';
   const running = vm?.state === 'running';
@@ -50,6 +53,7 @@ export function VmConsole({ vmId }: { vmId: string }) {
           </h1>
           {running && (
             <>
+              {service.data?.running && <Button size="sm" variant="ghost" onClick={() => setBootConsole(value => !value)}>{bootConsole ? 'Guacamole-Sitzung' : 'Startkonsole'}</Button>}
               <Button size="sm" variant="ghost" busy={busy} onClick={() => run('shutdown', 'Herunterfahren angefordert.')}>
                 <Power className="size-4" /> Herunterfahren
               </Button>
@@ -72,7 +76,7 @@ export function VmConsole({ vmId }: { vmId: string }) {
               <Notice tone="info">{label} ist ausgeschaltet. Die Konsole erscheint, sobald die VM läuft.</Notice>
               <Button variant="primary" busy={busy} onClick={() => run('start', 'gestartet.')}>Starten</Button>
             </div>
-          ) : (
+          ) : service.data?.running && !bootConsole ? <RemoteSession kind="vm" target={vm.id} title={`Sitzung von ${label}`} /> : (
             <iframe
               src={`/console.html?${new URLSearchParams({ vm: vm.id, embedded: '1', name: label })}`}
               title={`Konsole von ${label}`}

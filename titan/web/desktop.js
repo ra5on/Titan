@@ -1,0 +1,88 @@
+/* Titan session UI. Guacamole is an independently licensed upstream component. */
+(() => {
+  const query = new URLSearchParams(location.search);
+  const kind = query.get('kind'), target = query.get('target');
+  const screen = document.querySelector('#screen'), status = document.querySelector('#status');
+  const notice = document.querySelector('#notice'), text = document.querySelector('#clipboard-text');
+  const retry = document.querySelector('#retry');
+  let client = null, keyboard = null, id = null, csrf = '', closed = false, busy = false, timer = null, attempts = 0;
+  const show = value => { notice.textContent = value; notice.hidden = !value; };
+  async function post(path, body) {
+    const response = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: JSON.stringify(body) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Sitzungsdienst nicht erreichbar.');
+    return result;
+  }
+  function fit() {
+    if (!client) return;
+    const display = client.getDisplay(), width = display.getWidth(), height = display.getHeight();
+    if (width && height && screen.clientWidth && screen.clientHeight)
+      display.scale(Math.min(screen.clientWidth / width, screen.clientHeight / height));
+  }
+  function disconnect() {
+    const previous = client; client = null;
+    if (keyboard) { keyboard.reset(); keyboard.onkeydown = keyboard.onkeyup = null; keyboard = null; }
+    previous?.disconnect(); screen.replaceChildren();
+  }
+  async function connect() {
+    if (busy || closed) return;
+    busy = true; retry.disabled = true; clearTimeout(timer); disconnect(); show('');
+    status.textContent = 'Verbindung wird hergestellt …';
+    try {
+      const login = await fetch('/api/session', {cache:'no-store'}).then(response => response.json());
+      if (!login.user) throw new Error('Bitte erneut in Titan anmelden.');
+      csrf = login.user.csrf;
+      const session = await post('/api/desktops', {kind, target,
+        width: Math.max(640, Math.min(2560, screen.clientWidth)), height: Math.max(480, Math.min(1600, screen.clientHeight))});
+      if (closed) return;
+      id = session.id;
+      const tunnel = new Guacamole.WebSocketTunnel(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/desktops/stream`);
+      const active = new Guacamole.Client(tunnel); client = active;
+      const display = active.getDisplay(); screen.append(display.getElement()); display.onresize = fit;
+      const mouse = new Guacamole.Mouse(display.getElement());
+      mouse.onEach(['mousedown','mousemove','mouseup'], event => { if (client === active) { screen.focus(); active.sendMouseState(event.state, true); } });
+      const touch = new Guacamole.Mouse.Touchscreen(display.getElement());
+      touch.onEach(['mousedown','mousemove','mouseup'], event => { if (client === active) active.sendMouseState(event.state, true); });
+      keyboard = new Guacamole.Keyboard(screen);
+      keyboard.onkeydown = keysym => { active.sendKeyEvent(1, keysym); return false; };
+      keyboard.onkeyup = keysym => active.sendKeyEvent(0, keysym);
+      active.onclipboard = (stream, mimetype) => {
+        if (mimetype !== 'text/plain') { stream.sendAck('Nur Text', 0x030F); return; }
+        const reader = new Guacamole.StringReader(stream); let value = '';
+        reader.ontext = chunk => { value = (value + chunk).slice(0, 65536); };
+        reader.onend = () => { text.value = value; };
+      };
+      active.onerror = () => { if (client === active) show('Die Verbindung wurde unterbrochen. Erneut verbinden oder die Sitzung beenden und neu öffnen.'); };
+      active.onstatechange = state => {
+        if (client !== active || closed) return;
+        if (state === 3) { status.textContent = 'Verbunden'; attempts = 0; show(''); fit(); screen.focus(); }
+        if (state === 5) {
+          status.textContent = 'Verbindung getrennt';
+          if (attempts++ < 4) timer = setTimeout(connect, Math.min(15000, 1500 * 2 ** attempts));
+        }
+      };
+      active.connect('id=' + encodeURIComponent(id));
+    } catch (error) { status.textContent = 'Sitzung nicht bereit'; show(error.message); }
+    finally { busy = false; retry.disabled = false; }
+  }
+  screen.addEventListener('blur', () => keyboard?.reset());
+  const observer = new ResizeObserver(fit); observer.observe(screen);
+  retry.addEventListener('click', () => { attempts = 0; connect(); });
+  document.querySelector('#fullscreen').addEventListener('click', () => document.documentElement.requestFullscreen?.());
+  document.querySelector('#clipboard-toggle').addEventListener('click', () => { const panel = document.querySelector('#clipboard'); panel.hidden = !panel.hidden; });
+  document.querySelector('#clipboard-send').addEventListener('click', () => {
+    if (!client) return;
+    const writer = new Guacamole.StringWriter(client.createClipboardStream('text/plain'));
+    writer.sendText(text.value); writer.sendEnd(); screen.focus();
+  });
+  document.querySelector('#clipboard-copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(text.value); } catch { text.focus(); text.select(); show('Text markieren und mit Strg+C kopieren.'); }
+  });
+  document.querySelector('#end').addEventListener('click', async () => {
+    clearTimeout(timer); disconnect();
+    try { if (id) await post('/api/desktops/close', {id}); id = null; status.textContent = 'Sitzung beendet'; show('Mit „Neu verbinden“ eine neue Sitzung starten.'); }
+    catch (error) { show(error.message); }
+  });
+  window.addEventListener('pagehide', () => { closed = true; clearTimeout(timer); observer.disconnect(); disconnect(); });
+  connect();
+})();

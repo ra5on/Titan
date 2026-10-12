@@ -196,6 +196,8 @@ class Demo(DemoPluginsMixin, DemoIdentityMixin, DemoStorageMixin, DemoPackagesVM
 
     def call(self, operation, **args):
         with self._account_lock:
+            if operation == 'desktop_status':
+                return self.desktop_status()
             if operation == 'plugins':
                 return self.plugins()
             if operation == 'plugin_action':
