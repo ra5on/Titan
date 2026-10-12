@@ -16,6 +16,7 @@ CONTAINMENT={'legacy_root_was_running','legacy_root_was_enabled','legacy_root_st
              'unit_file_preserved','api_start_actions_blocked','early_boot_gate_verified','management_requires_gate'}
 STORAGE_COMPONENTS={'ext4_tools','xfs_tools','zfs_module_loaded','zfs_module_matches_kernel','zpool_query','zfs_query'}
 AB={'baseline_boot_health','proxmox_style_data_growth','signed_update_staged_without_reboot',
+    'signed_release_discovery_and_duplicate_install_rejection',
     'update_boot_and_preserved_accounts_acls_data','manual_rollback_and_preserved_accounts_acls_data',
     'failed_candidate_fallback_after_reset','factory_defaults_follow_selected_slot'}
 
@@ -59,7 +60,8 @@ def validate(directory):
     if initial_image and system_only:
         raise ValueError('Initial-image evidence cannot publish Debian maintenance updates')
     baseline_source = 'generated-current-build' if initial_image else 'published-system-release' if system_only else 'published-release'
-    expected_version = '0.4.5-alpha.1' if initial_image else os.environ.get('TITAN_PREVIOUS_TAG', '').lstrip('v') if system_only else '0.4.6-alpha.1'
+    expected_version = ('0.4.5-alpha.1' if initial_image else os.environ.get('TITAN_PREVIOUS_TAG', '').lstrip('v')
+                        if system_only else os.environ.get('TITAN_BASELINE_VERSION', '0.4.6-alpha.1'))
     if (ab.get('baseline_source') != baseline_source or ab.get('baseline_version') != expected_version
             or ab.get('baseline_image_unchanged') is not True
             or (not initial_image and 'published_release_baseline' not in ab['checks'])

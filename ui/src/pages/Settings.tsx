@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Archive, BellRing, Boxes, Globe, SquareTerminal, Activity, ShieldCheck, Network, Wrench, ScrollText, Gauge, Download, FolderOpen, UsersRound, HardDrive, Info, KeyRound, LogOut, Power, RotateCw, Users as UsersIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { action, get, post } from '../api';
+import { action, post } from '../api';
+import { prepareReboot as readRebootTarget, rebootSystem } from '../system';
 import type { Monitoring, Session, Status } from '../api';
 import { bytes, cx, duration, go, message, percent, useApi } from '../lib';
 import { SharesSection } from './Shares';
@@ -60,10 +61,7 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
   const prepareReboot = async () => {
     setReadingReboot(true);
     try {
-      const system = await get<{ next_boot: { digest: string; version: string }; reboot_scheduled: boolean }>('/api/updates/system');
-      if (system.reboot_scheduled) throw new Error('Ein Neustart ist bereits geplant.');
-      if (!system.next_boot?.digest) throw new Error('Der nächste Systemstand ist nicht verfügbar. Status erneut laden.');
-      setReboot(system.next_boot);
+      setReboot(await readRebootTarget());
     } catch (reason) {
       toast(message(reason), true);
     } finally {
@@ -167,8 +165,7 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
             try {
               // Confirm the next boot shown in this dialog, including a prepared
               // update/rollback. The agent rejects any subsequent target change.
-              const result = await action('system_reboot', { expected_digest: reboot.digest, confirmation: 'NEUSTART' });
-              toast(String(result.message || 'Das NAS startet neu.'));
+              toast(await rebootSystem(reboot));
             } catch (reason) {
               toast(message(reason), true);
             }

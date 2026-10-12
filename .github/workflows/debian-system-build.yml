@@ -37,6 +37,12 @@ on:
       initial_image:
         type: boolean
         default: false
+      baseline_version:
+        type: string
+        default: '0.4.6-alpha.1'
+      baseline_sha256:
+        type: string
+        default: '78bc547f20735a55fa40680f82a966e93c248a78b64052c4272667a13bbf2e01'
     secrets:
       TITAN_SIGNING_KEY:
         required: true
@@ -62,6 +68,8 @@ jobs:
       TITAN_BUILD_SOURCE_COMMIT: ${{ inputs.build_ref || github.sha }}
       TITAN_SYSTEM_REVISION: ${{ inputs.system_revision }}
       TITAN_PREVIOUS_TAG: ${{ inputs.previous_tag }}
+      TITAN_BASELINE_VERSION: ${{ inputs.baseline_version }}
+      TITAN_BASELINE_SHA256: ${{ inputs.baseline_sha256 }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -90,7 +98,7 @@ jobs:
           if test -c /dev/kvm; then sudo chown "$(id -u):$(id -g)" /dev/kvm; fi
       - name: Current builder and API regression tests
         run: |
-          env -u TITAN_INITIAL_IMAGE -u TITAN_UPDATE_KIND -u TITAN_PREVIOUS_TAG -u TITAN_APP_VERSION -u TITAN_APP_STAGE -u TITAN_APP_SOURCE_COMMIT -u TITAN_BUILD_SOURCE_COMMIT -u TITAN_SYSTEM_REVISION -u TITAN_APP_SOURCE_ROOT python3 -m unittest discover -s tests
+          env -u TITAN_INITIAL_IMAGE -u TITAN_UPDATE_KIND -u TITAN_PREVIOUS_TAG -u TITAN_BASELINE_VERSION -u TITAN_BASELINE_SHA256 -u TITAN_APP_VERSION -u TITAN_APP_STAGE -u TITAN_APP_SOURCE_COMMIT -u TITAN_BUILD_SOURCE_COMMIT -u TITAN_SYSTEM_REVISION -u TITAN_APP_SOURCE_ROOT python3 -m unittest discover -s tests
           for task_script in image/debian/ab/*.sh scripts/*.sh; do bash -n "$task_script"; done
       - name: JavaScript and UI regression tests
         run: |
@@ -124,11 +132,13 @@ jobs:
       - name: Fetch verified published installation baseline
         if: inputs.initial_image != true
         run: |
+          [[ "$TITAN_BASELINE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9]+)?$ ]]
+          [[ "$TITAN_BASELINE_SHA256" =~ ^[a-f0-9]{64}$ ]]
           mkdir -p dist/debian-baseline
           curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
-            https://github.com/ra5on/Titan/releases/download/v0.4.6-alpha.1/titan-0.4.6-alpha.1-amd64.img.xz \
+            "https://github.com/ra5on/Titan/releases/download/v$TITAN_BASELINE_VERSION/titan-$TITAN_BASELINE_VERSION-amd64.img.xz" \
             -o dist/debian-baseline/baseline.img.xz
-          echo '78bc547f20735a55fa40680f82a966e93c248a78b64052c4272667a13bbf2e01  dist/debian-baseline/baseline.img.xz' | sha256sum --check
+          printf '%s  dist/debian-baseline/baseline.img.xz\n' "$TITAN_BASELINE_SHA256" | sha256sum --check
           xz -dc dist/debian-baseline/baseline.img.xz | dd of=dist/debian-baseline/baseline.img conv=sparse status=none
           rm dist/debian-baseline/baseline.img.xz
       - name: Reconstruct verified published maintenance baseline
@@ -138,7 +148,7 @@ jobs:
         run: |
           task_args=()
           if [[ "$TITAN_INITIAL_IMAGE" != true ]]; then
-            task_args=(--baseline-image dist/debian-baseline/baseline.img --baseline-version 0.4.6-alpha.1)
+            task_args=(--baseline-image dist/debian-baseline/baseline.img --baseline-version "$TITAN_BASELINE_VERSION")
           fi
           if [[ "$TITAN_UPDATE_KIND" == system ]]; then
             task_sha=$(python3 -c 'import json; from pathlib import Path; print(json.loads(Path("dist/debian-input/previous-manifest.json").read_text())["bundle"]["sha256"])')

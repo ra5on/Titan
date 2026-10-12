@@ -205,22 +205,49 @@ else:raise RuntimeError('VirtIO disk size did not refresh')
             manifest={**identity,'bundle':{'name':bundle.name,'size':bundle.stat().st_size,'sha256':sha(bundle)},
                       'rootfs_sha256':sha(directory/'bundle/rootfs.ext4'),
                       **{key:'passed' for key in ('boot_test','runtime_test','update_test','rollback_test')}}
-            # Local unpublished test offer. This injects transport only; all
-            # production install checks and RAUC signature/verity checks run.
-            install_code="""import sys,json,shutil
+            # Sign a private candidate offer and replace only network transport
+            # in the disposable guest. Discovery, manifest verification and
+            # readiness must run in the actual installed baseline updater.
+            candidate_manifest=work/'candidate-manifest.json'
+            candidate_manifest.write_text(json.dumps(manifest))
+            candidate_signature=work/'candidate-manifest.json.sig'
+            command(['openssl','pkeyutl','-sign','-rawin','-inkey',
+                     str(Path(os.environ['RUNNER_TEMP'])/'titan-signing/root.key'),
+                     '-in',str(candidate_manifest),'-out',str(candidate_signature)])
+            install_code="""import sys,json,shutil,base64
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,'/usr/lib/titan')
 from titan import debian_updates as u
-manifest=json.loads(MANIFEST)
+from titan.core import Error
+manifest_bytes=base64.b64decode(MANIFEST_BYTES)
+signature=base64.b64decode(SIGNATURE_BYTES)
+manifest=json.loads(manifest_bytes)
 assets={manifest['bundle']['name']:'https://api.github.com/test-bundle','manifest.json':'https://api.github.com/test-manifest','manifest.json.sig':'https://api.github.com/test-signature'}
-offer={'available':True,'latest':manifest['version'],'latest_stage':manifest['release_stage'],'assets':assets,'url':'https://github.com/ra5on/Titan/releases/test'}
-with patch.object(u,'check',return_value=offer),patch('titan.updates.verified_release',return_value=(manifest,assets)),patch.object(u,'download',side_effect=lambda url,path,bundle,token:shutil.copyfile('/var/lib/titan-system/candidate.raucb',path)):
-    result=u.install('ra5on/Titan','alpha',manifest['version'],Path('/var/lib/titan/titan.sqlite3'))
+release={'tag_name':'v'+manifest['version'],'name':'Titan '+manifest['version']+' '+manifest['release_stage'],
+         'draft':False,'prerelease':manifest['release_stage']!='stable',
+         'html_url':'https://github.com/ra5on/Titan/releases/test',
+         'assets':[{'name':name,'url':url} for name,url in assets.items()]}
+def fetch(url,*args,**kwargs):
+    if url=='https://api.github.com/repos/ra5on/Titan/releases?per_page=100':return json.dumps([release]).encode()
+    if url==assets['manifest.json']:return manifest_bytes
+    if url==assets['manifest.json.sig']:return signature
+    raise AssertionError('Unexpected release transport request')
+with patch('titan.updates.fetch',side_effect=fetch),patch.object(u,'download',side_effect=lambda url,path,bundle,token:shutil.copyfile('/var/lib/titan-system/candidate.raucb',path)):
+    offer=u.check('ra5on/Titan',manifest['release_stage'])
+    assert offer['available'] and offer['latest']==release['tag_name'], offer
+    result=u.install('ra5on/Titan',manifest['release_stage'],offer['latest'],Path('/var/lib/titan/titan.sqlite3'))
+    prepared=u.system_status()
+    assert not u.check('ra5on/Titan',manifest['release_stage'])['available']
+    try:u.install('ra5on/Titan',manifest['release_stage'],offer['latest'],Path('/var/lib/titan/titan.sqlite3'))
+    except Error as error:assert error.status==409
+    else:raise AssertionError('Already prepared update was installed again')
+    assert u.system_status()==prepared
 assert result['reboot_required'] is True and result['automatic_reboot'] is False
 print('prepared')
-""".replace('MANIFEST',repr(json.dumps(manifest)))
+""".replace('MANIFEST_BYTES',repr(base64.b64encode(candidate_manifest.read_bytes()).decode())).replace('SIGNATURE_BYTES',repr(base64.b64encode(candidate_signature.read_bytes()).decode()))
             agent.python(install_code,timeout=2100)
+            passed('signed_release_discovery_and_duplicate_install_rejection')
             staged=client.request('/api/updates/system');assert staged['next_boot']['slot']=='B' and staged['booted']['slot']=='A'
             assert agent.execute(['/bin/cat','/proc/sys/kernel/random/boot_id']).strip()==boot
             passed('signed_update_staged_without_reboot')
@@ -272,6 +299,7 @@ finally:subprocess.run(['umount','/mnt'],check=True)
                 try:
                     print('TITAN_AB_RAUC_DIAGNOSTICS',flush=True)
                     print(agent.execute(['/usr/bin/journalctl','-u','rauc.service','-n','100','--no-pager','-o','cat'],timeout=20)[-20000:],flush=True)
+                    print(agent.execute(['/usr/bin/journalctl','-u','titan-system-health.service','-n','80','--no-pager','-o','cat'],timeout=20)[-12000:],flush=True)
                     print(agent.execute(['/usr/bin/df','-h'],timeout=20),flush=True)
                 except (OSError,ValueError,RuntimeError) as diagnostic_error:
                     print('Guest diagnostics unavailable: '+str(diagnostic_error),flush=True)

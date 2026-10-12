@@ -26,6 +26,12 @@ class EvidenceTests(unittest.TestCase):
         (self.root/'ab-test.json').write_text(json.dumps(self.ab))
     def test_complete_checks_allow_signing(self):
         self.save();self.assertEqual(set(evidence.validate(self.root).values()),{'passed'})
+    def test_requested_published_baseline_must_match_the_actual_report(self):
+        with patch.dict('os.environ', {'TITAN_BASELINE_VERSION': '0.8.1'}):
+            self.save()
+            with self.assertRaises(ValueError):evidence.validate(self.root)
+            self.ab['baseline_version']='0.8.1';self.save()
+            self.assertEqual(set(evidence.validate(self.root).values()),{'passed'})
     def test_missing_check_cannot_be_hidden_by_overall_success(self):
         self.runtime['checks'].pop();self.save()
         with self.assertRaises(ValueError):evidence.validate(self.root)

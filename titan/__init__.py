@@ -1,6 +1,6 @@
 """Titan — NAS management on Debian with signed system updates."""
 
-__version__ = "0.8.4"
+__version__ = "0.8.5"
 __release_stage__ = "stable"
 
 # This release adds host-agent APIs. Older agents must receive the full system

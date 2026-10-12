@@ -206,7 +206,17 @@ class Application(RootAccessApplicationMixin, OfficeApplicationMixin, TerminalAp
             arguments = {"repository": settings["repository"], "channel": settings["channel"], "expected_version": expected_version}
             if kind != "all":
                 arguments["update_kind"] = kind
-            return self.agent.call("update_install", **arguments)
+            try:
+                return self.agent.call("update_install", **arguments)
+            finally:
+                # A prepared slot or failed attempt invalidates every cached
+                # selection. Never keep presenting the old install button.
+                for selection in ("all", "titan", "system"):
+                    self.store.set_config(update_cache_key(selection), {
+                        "current": __version__, "current_stage": __release_stage__,
+                        "selection_kind": selection, "repository": settings["repository"],
+                        "channel": settings["channel"], "available": False,
+                        "message": "Updateauftrag beendet. Aktuellen Systemstand beachten; Angebote erneut prüfen."})
 
     def housekeeping(self):
         while not self.stop.wait(60):

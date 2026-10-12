@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 for (const [scenario, version, digest] of [
   ['normal reboot', '0.8.1', 'a'], ['prepared update', '0.8.4', 'b'], ['prepared rollback', '0.8.0', 'c'],
 ]) {
-  test(`system reboot confirms the displayed next boot: ${scenario}`, async ({ page }) => {
+ for (const entry of ['settings', 'menu']) {
+  test(`${entry} reboot confirms the displayed next boot: ${scenario}`, async ({ page }) => {
     const selected = { version, digest: 'sha256:' + digest.repeat(64) };
     let next = selected;
     let statusReads = 0;
@@ -18,7 +19,8 @@ for (const [scenario, version, digest] of [
       // Intercept every mutation; this test never schedules even a demo reboot.
       await route.fulfill({ status: 409, json: { error: 'Geplanter Systemstand hat sich geändert.' } });
     });
-    await page.goto('/#/settings/system');
+    await page.goto(entry === 'settings' ? '/#/settings/system' : '/');
+    if (entry === 'menu') await page.getByRole('button', { name: 'Systemmenü' }).click();
     await page.getByRole('button', { name: 'Neu starten', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'NAS neu starten?' });
     await expect(dialog).toContainText(`Titan startet mit Version ${version}`);
@@ -34,6 +36,7 @@ for (const [scenario, version, digest] of [
     expect(statusReads).toBe(1);
     await expect(page.getByText('Geplanter Systemstand hat sich geändert.', { exact: true })).toBeVisible();
   });
+ }
 }
 
 test('live boot health overrides a cached installable offer and stays visible during polling', async ({ page }) => {

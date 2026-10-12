@@ -45,6 +45,23 @@ class CurrentUpdatePolicyTests(unittest.TestCase):
             self.app.install_update("demo", "v1.0.0")
         self.app.agent.call.assert_called_once()
 
+    def test_install_attempt_invalidates_all_cached_selections_even_on_failure(self):
+        for failed in (False, True):
+            for key in ('update', 'update:titan', 'update:system'):
+                self.app.store.set_config(key, {'available': True, 'latest': 'v0.8.5', 'checked': 123})
+            self.app.agent.call.side_effect = Error('Bereits vorbereitet.', 409) if failed else None
+            if failed:
+                with self.assertRaisesRegex(Error, 'Bereits vorbereitet'):
+                    self.app.install_update('demo', 'v0.8.5')
+            else:
+                self.app.install_update('demo', 'v0.8.5')
+            for key in ('update', 'update:titan', 'update:system'):
+                cached = self.app.store.config(key)
+                self.assertFalse(cached['available'])
+                self.assertNotIn('latest', cached)
+                self.assertNotIn('checked', cached)
+                self.assertEqual(cached['channel'], 'stable')
+
     def test_admin_revoked_while_settings_waits_cannot_change_channel(self):
         self.app.store.create_user("second", "second-long-password", "admin", "second")
         attempted = threading.Event()
