@@ -70,11 +70,19 @@ class DesktopApplicationMixin:
             raise Error('Die Demo startet keine Fernsitzungen. Dafür ist eine Titan-Installation erforderlich.', 409)
         with self.desktop_creating:
             with self.desktop_lock:
-                for id, entry in self.desktops.items():
-                    if (entry['owner'] == owner(user) and entry['kind'] == body['kind'] and
-                            entry['target'] == body['target'] and entry['created'] != 0 and self.desktop_active(entry)):
+                candidates = [(id, entry) for id, entry in self.desktops.items() if
+                              entry['owner'] == owner(user) and entry['kind'] == body['kind'] and
+                              entry['target'] == body['target'] and entry['created'] != 0]
+            for id, entry in candidates:
+                running = entry['kind'] == 'vm' or self.agent.call('desktop_probe', id=id).get('running')
+                if not running or not self.desktop_active(entry):
+                    self.desktop_close(id)
+                    continue
+                with self.desktop_lock:
+                    if self.desktops.get(id) is entry and entry['created'] != 0:
                         entry['touched'] = time.monotonic()
                         return {'id': id}
+            with self.desktop_lock:
                 if len(self.desktops) >= 8 or sum(e['owner'] == owner(user) for e in self.desktops.values()) >= 4:
                     raise Error('Maximal vier Sitzungen pro Anmeldung und acht insgesamt. Eine Sitzung beenden.', 429)
             id = secrets.token_hex(32)

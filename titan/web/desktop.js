@@ -5,7 +5,8 @@
   const screen = document.querySelector('#screen'), status = document.querySelector('#status');
   const notice = document.querySelector('#notice'), text = document.querySelector('#clipboard-text');
   const retry = document.querySelector('#retry');
-  let client = null, keyboard = null, id = null, csrf = '', closed = false, busy = false, timer = null, attempts = 0;
+  let client = null, id = null, csrf = '', closed = false, busy = false, timer = null, attempts = 0;
+  const keyboard = new Guacamole.Keyboard(screen);
   const show = value => { notice.textContent = value; notice.hidden = !value; };
   async function post(path, body) {
     const response = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: JSON.stringify(body) });
@@ -21,7 +22,7 @@
   }
   function disconnect() {
     const previous = client; client = null;
-    if (keyboard) { keyboard.reset(); keyboard.onkeydown = keyboard.onkeyup = null; keyboard = null; }
+    keyboard.reset(); keyboard.onkeydown = keyboard.onkeyup = null;
     previous?.disconnect(); screen.replaceChildren();
   }
   async function connect() {
@@ -43,7 +44,6 @@
       mouse.onEach(['mousedown','mousemove','mouseup'], event => { if (client === active) { screen.focus(); active.sendMouseState(event.state, true); } });
       const touch = new Guacamole.Mouse.Touchscreen(display.getElement());
       touch.onEach(['mousedown','mousemove','mouseup'], event => { if (client === active) active.sendMouseState(event.state, true); });
-      keyboard = new Guacamole.Keyboard(screen);
       keyboard.onkeydown = keysym => { active.sendKeyEvent(1, keysym); return false; };
       keyboard.onkeyup = keysym => active.sendKeyEvent(0, keysym);
       active.onclipboard = (stream, mimetype) => {

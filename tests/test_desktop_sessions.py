@@ -26,7 +26,7 @@ class DesktopTests(unittest.TestCase):
         self.app.origin = None
         self.app.store = SimpleNamespace(audit=Mock(), session=lambda token: self.user if token == 'valid' else None)
         self.app.agent = Mock()
-        self.app.agent.call.return_value = {'protocol':'vnc', 'hostname':'127.0.0.1', 'port':5900, 'password':'secret'}
+        self.app.agent.call.return_value = {'protocol':'vnc', 'hostname':'127.0.0.1', 'port':5900, 'password':'secret', 'running': True}
         self.app.initialize_desktops()
         self.app.desktop_reaper = True
         self.app.desktop_active = lambda entry: True
@@ -37,7 +37,7 @@ class DesktopTests(unittest.TestCase):
         first = self.app.desktop_create(self.user, self.body)
         self.assertEqual(set(first), {'id'})
         self.assertEqual(self.app.desktop_create(self.user, self.body), first)
-        self.assertEqual(self.app.agent.call.call_count, 1)
+        self.assertEqual(sum(call.args[0] == 'desktop_open' for call in self.app.agent.call.call_args_list), 1)
         other = self.app.desktop_create({**self.user, 'csrf':'second-login'}, self.body)
         self.assertNotEqual(first, other)
         with self.assertRaises(Error) as error:
@@ -61,6 +61,13 @@ class DesktopTests(unittest.TestCase):
         self.app.reap_desktops()
         connection.shutdown.assert_called_once()
         self.assertNotIn(second, self.app.desktops)
+
+    def test_dead_browser_after_agent_restart_gets_a_new_session(self):
+        first = self.app.desktop_create(self.user, self.body)['id']
+        self.app.agent.call.return_value['running'] = False
+        second = self.app.desktop_create(self.user, self.body)['id']
+        self.assertNotEqual(first, second)
+        self.assertNotIn(first, self.app.desktops)
 
     def test_cleanup_failure_is_retried(self):
         id = self.app.desktop_create(self.user, self.body)['id']

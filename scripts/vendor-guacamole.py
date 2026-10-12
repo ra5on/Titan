@@ -9,7 +9,7 @@ VERSION = '1.6.0'
 URL = f'https://archive.apache.org/dist/guacamole/{VERSION}/source/guacamole-client-{VERSION}.tar.gz'
 root = Path(__file__).resolve().parents[1]
 archive = urllib.request.urlopen(URL, timeout=120).read()
-checksum = urllib.request.urlopen(URL + '.sha256', timeout=30).read().decode().split()[0]
+checksum = '81f9fd5a7b4377fb0ee295d0d4fec92e9667f2aafaa3d0ed8937f535deabdee4'
 if hashlib.sha256(archive).hexdigest() != checksum:
     raise SystemExit('Apache source checksum mismatch')
 target = root / 'titan/web/vendor/guacamole'

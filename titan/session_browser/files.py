@@ -11,13 +11,25 @@ LIMIT = 256 * 1024 * 1024
 
 
 def transfer(value):
+    directory = os.open(ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        return transfer_at(directory, value)
+    finally:
+        os.close(directory)
+
+
+def transfer_at(directory, value):
     action = value.get('action')
     if action == 'list':
         files = []
-        for path in sorted(ROOT.iterdir())[:200]:
-            info = path.lstat()
-            if stat.S_ISREG(info.st_mode) and not path.name.startswith('.'):
-                files.append({'name':path.name, 'size':info.st_size})
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if entry.is_file(follow_symlinks=False) and not entry.name.startswith('.'):
+                    info = entry.stat(follow_symlinks=False)
+                    files.append({'name':entry.name, 'size':info.st_size})
+                if len(files) >= 200:
+                    break
+        files.sort(key=lambda item: item['name'])
         return {'files':files}
     name = value['name']
     if (not isinstance(name, str) or not name or len(name) > 200 or name.startswith('.') or
@@ -28,7 +40,7 @@ def transfer(value):
         raise ValueError('Invalid offset')
     flags = os.O_NOFOLLOW | os.O_NONBLOCK
     if action == 'read':
-        fd = os.open(ROOT / name, os.O_RDONLY | flags)
+        fd = os.open(name, os.O_RDONLY | flags, dir_fd=directory)
         with os.fdopen(fd, 'rb') as stream:
             info = os.fstat(stream.fileno())
             if not stat.S_ISREG(info.st_mode) or info.st_size > LIMIT:
@@ -39,7 +51,7 @@ def transfer(value):
         data = base64.b64decode(value['data'], validate=True)
         if len(data) > 256 * 1024 or offset + len(data) > LIMIT:
             raise ValueError('File too large')
-        fd = os.open(ROOT / name, os.O_WRONLY | flags | (os.O_CREAT | os.O_EXCL if offset == 0 else 0), 0o600)
+        fd = os.open(name, os.O_WRONLY | flags | (os.O_CREAT | os.O_EXCL if offset == 0 else 0), 0o600, dir_fd=directory)
         with os.fdopen(fd, 'wb') as stream:
             info = os.fstat(stream.fileno())
             if not stat.S_ISREG(info.st_mode) or info.st_size != offset:

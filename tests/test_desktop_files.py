@@ -39,6 +39,14 @@ class DesktopFilesTests(unittest.TestCase):
         with self.assertRaises(OSError):
             files.transfer({'action':'read','name':'link','offset':0})
 
+    def test_downloads_directory_cannot_be_replaced_with_symlink(self):
+        actual = files.ROOT
+        link = actual / 'Downloads'
+        link.symlink_to(actual, target_is_directory=True)
+        files.ROOT = link
+        with self.assertRaises(OSError):
+            files.transfer({'action':'list'})
+
 
 if __name__ == '__main__':
     unittest.main()

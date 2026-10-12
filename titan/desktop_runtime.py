@@ -1,5 +1,6 @@
 """Optional Guacamole runtime; fixed images, private VNC endpoints, no host shell API."""
 import hashlib
+from functools import wraps
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,14 @@ CONTEXT = Path(__file__).parent / 'session_browser'
 IDENTITY = re.compile(r'[a-f0-9]{64}\Z')
 
 
+def serialized(method):
+    @wraps(method)
+    def call(self, *args, **kwargs):
+        with self._desktop_lifecycle_lock:
+            return method(self, *args, **kwargs)
+    return call
+
+
 def recipe_revision():
     value = GUACD.encode()
     for path in sorted(CONTEXT.iterdir()):
@@ -31,6 +40,8 @@ def recipe_revision():
 
 
 class DesktopRuntimeMixin:
+    _desktop_lifecycle_lock = threading.RLock()
+
     def _desktop_command(self, args, **kwargs):
         from .host import run
         return run(args, **kwargs)
@@ -74,23 +85,32 @@ class DesktopRuntimeMixin:
                 browser = json.loads(self._desktop_command(['docker', 'image', 'inspect', image]))[0]['Id']
                 if not re.fullmatch(r'sha256:[a-f0-9]{64}', browser):
                     raise Error('Browser-Image konnte nicht geprüft werden.')
-                if not self._desktop_container(SERVICE):
-                    self._desktop_command(['docker', 'run', '-d', '--name', SERVICE, '--label', LABEL + '=1',
-                        '--network', 'host', '--restart', 'unless-stopped', '--read-only', '--cap-drop', 'ALL',
-                        '--security-opt', 'no-new-privileges:true', '--pids-limit', '256', '--memory', '512m',
-                        '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m', '--entrypoint', '/opt/guacamole/sbin/guacd',
-                        GUACD, '-f', '-b', '127.0.0.1', '-l', str(PORT), '-L', 'warning'])
-                else:
-                    self._desktop_command(['docker', 'start', SERVICE])
-                self._desktop_wait(PORT)
-                state['guacamole'] = {'version': VERSION, 'recipe': revision, 'browser': browser}
-                self.save('system-plugins', state)
+                self._desktop_activate(state, revision, browser)
             except Exception:
                 if not previous and self._desktop_container(SERVICE):
                     self._desktop_command(['docker', 'rm', '-f', SERVICE])
                 raise Error('Guacamole konnte nicht eingerichtet werden. Docker, Internetzugang und freien Speicher prüfen.', 503) from None
             return {'ok': True, 'message': 'Browser und VM-Sitzungen sind bereit. Öffne eine App oder VM in Titan.'}
-        if not previous:
+        return self._desktop_control(action)
+
+    @serialized
+    def _desktop_activate(self, state, revision, browser):
+        if not self._desktop_container(SERVICE):
+            self._desktop_command(['docker', 'run', '-d', '--name', SERVICE, '--label', LABEL + '=1',
+                '--network', 'host', '--restart', 'unless-stopped', '--read-only', '--cap-drop', 'ALL',
+                '--security-opt', 'no-new-privileges:true', '--pids-limit', '256', '--memory', '512m',
+                '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m', '--entrypoint', '/opt/guacamole/sbin/guacd',
+                GUACD, '-f', '-b', '127.0.0.1', '-l', str(PORT), '-L', 'warning'])
+        else:
+            self._desktop_command(['docker', 'start', SERVICE])
+        self._desktop_wait(PORT)
+        state['guacamole'] = {'version': VERSION, 'recipe': revision, 'browser': browser}
+        self.save('system-plugins', state)
+
+    @serialized
+    def _desktop_control(self, action):
+        state = self._plugin_state()
+        if not state.get('guacamole'):
             raise Error('Plugin ist nicht installiert.', 409)
         if action in ('stop', 'remove'):
             self._desktop_remove_browsers()
@@ -115,6 +135,7 @@ class DesktopRuntimeMixin:
                 time.sleep(0.1)
         raise Error('Sitzungsdienst ist nicht erreichbar.', 503)
 
+    @serialized
     def _desktop_remove_browsers(self):
         names = self._desktop_command(['docker', 'ps', '-a', '--filter', 'label=' + LABEL + '=1', '--format', '{{.Names}}']).splitlines()
         for name in names:
@@ -149,6 +170,7 @@ class DesktopRuntimeMixin:
             return f"{record.get('scheme', 'http')}://{address}:{integer(target, 1, 65535)}" + recipe.get('web_path', '')
         return f"{record.get('scheme', 'http')}://host.docker.internal:{integer(record['port'], 1, 65535)}" + recipe.get('web_path', '')
 
+    @serialized
     def op_desktop_open(self, id, kind, target, width, height):
         if not isinstance(id, str) or not IDENTITY.fullmatch(id) or kind not in ('app', 'vm'):
             raise Error('Ungültige Sitzung.')
@@ -208,6 +230,14 @@ class DesktopRuntimeMixin:
             self.op_desktop_close(id)
             raise Error('Browser konnte nicht starten. Docker, freien Arbeitsspeicher und Chromium-Sandbox prüfen.', 503) from None
 
+    @serialized
+    def op_desktop_probe(self, id):
+        if not isinstance(id, str) or not IDENTITY.fullmatch(id):
+            raise Error('Ungültige Sitzung.')
+        item = self._desktop_container('titan-browser-' + id)
+        return {'running': bool(item and item.get('State', {}).get('Running'))}
+
+    @serialized
     def op_desktop_close(self, id):
         if not isinstance(id, str) or not IDENTITY.fullmatch(id):
             raise Error('Ungültige Sitzung.')
