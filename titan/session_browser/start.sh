@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 umask 077
-mkdir -p "$HOME/profile"
+mkdir -p "$HOME/profile" "$HOME/Downloads"
 Xvfb :0 -screen 0 "${WIDTH:-1440}x${HEIGHT:-900}x24" -nolisten tcp &
 for attempt in $(seq 1 100); do
     if xrandr >/dev/null 2>&1; then break; fi

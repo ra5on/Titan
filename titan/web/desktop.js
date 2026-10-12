@@ -78,6 +78,65 @@
   document.querySelector('#clipboard-copy').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(text.value); } catch { text.focus(); text.select(); show('Text markieren und mit Strg+C kopieren.'); }
   });
+  const filesPanel = document.querySelector('#files'), fileStatus = document.querySelector('#files-status');
+  const upload = document.querySelector('#upload');
+  let transferring = false;
+  document.querySelector('#files-toggle').hidden = kind !== 'app';
+  document.querySelector('#files-toggle').addEventListener('click', () => { filesPanel.hidden = !filesPanel.hidden; });
+  async function transfer(value) {
+    if (!id) throw new Error('Zuerst eine Sitzung öffnen.');
+    return post('/api/desktops/files', {id, transfer:value});
+  }
+  upload.addEventListener('change', async () => {
+    const file = upload.files?.[0];
+    if (!file || transferring) return;
+    if (file.size > 256 * 1024 * 1024) { fileStatus.textContent = 'Maximal 256 MB pro Datei.'; return; }
+    transferring = true; upload.disabled = true;
+    try {
+      // Unique names avoid overwriting a download or an earlier upload.
+      const name = Date.now() + '-' + file.name.replace(/[\\/\x00-\x1f]/g, '_').slice(0, 170);
+      let offset = 0;
+      do {
+        const bytes = new Uint8Array(await file.slice(offset, offset + 256 * 1024).arrayBuffer());
+        let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
+        const result = await transfer({action:'write', name, offset, data:btoa(binary)});
+        offset = result.offset; fileStatus.textContent = `${Math.round(offset / Math.max(1, file.size) * 100)} % übertragen`;
+      } while (offset < file.size);
+      fileStatus.textContent = `Im Downloads-Ordner der Sitzung: ${name}`;
+    } catch (error) { fileStatus.textContent = error.message; }
+    finally { transferring = false; upload.disabled = false; upload.value = ''; }
+  });
+  document.querySelector('#files-refresh').addEventListener('click', async () => {
+    if (transferring) return;
+    try {
+      const result = await transfer({action:'list'}), list = document.querySelector('#downloads');
+      list.replaceChildren();
+      for (const file of result.files) {
+        const button = document.createElement('button'); button.textContent = file.name;
+        button.addEventListener('click', async () => {
+          if (transferring) return;
+          transferring = true; button.disabled = true;
+          try {
+            const chunks = []; let offset = 0, total;
+            do {
+              const part = await transfer({action:'read', name:file.name, offset});
+              if (total !== undefined && total !== part.total) throw new Error('Datei hat sich verändert. Erneut herunterladen.');
+              total = part.total;
+              const bytes = Uint8Array.from(atob(part.data), char => char.charCodeAt(0));
+              if (!bytes.length && offset < total) throw new Error('Datei konnte nicht vollständig gelesen werden.');
+              chunks.push(bytes); offset += bytes.length;
+            } while (offset < total);
+            const url = URL.createObjectURL(new Blob(chunks, {type:'application/octet-stream'}));
+            const link = document.createElement('a'); link.href = url; link.download = file.name; link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+          } catch (error) { fileStatus.textContent = error.message; }
+          finally { transferring = false; button.disabled = false; }
+        });
+        list.append(button);
+      }
+      if (!result.files.length) fileStatus.textContent = 'Noch keine Dateien im Downloads-Ordner.';
+    } catch (error) { fileStatus.textContent = error.message; }
+  });
   document.querySelector('#end').addEventListener('click', async () => {
     clearTimeout(timer); disconnect();
     try { if (id) await post('/api/desktops/close', {id}); id = null; status.textContent = 'Sitzung beendet'; show('Mit „Neu verbinden“ eine neue Sitzung starten.'); }

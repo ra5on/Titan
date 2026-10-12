@@ -150,6 +150,14 @@ class DesktopHTTPMixin:
         return False
 
     def desktop_post(self, path, user, body):
+        if path == '/api/desktops/files':
+            if set(body) != {'id', 'transfer'}:
+                raise Error('Sitzung und Dateiaktion angeben.')
+            entry = self.app.desktop_entry(user, body['id'])
+            if entry['kind'] != 'app':
+                raise Error('Dateiübertragung ist für Browser-Sitzungen verfügbar.', 409)
+            self.reply(self.app.agent.call('desktop_files', **body))
+            return True
         if path == '/api/desktops':
             self.reply(self.app.desktop_create(user, body))
             return True

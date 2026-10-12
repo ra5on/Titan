@@ -211,3 +211,22 @@ class DesktopRuntimeMixin:
             self._desktop_command(['docker', 'rm', '-f', name])
         (self.directory / 'desktop-credentials' / id).unlink(missing_ok=True)
         return {'ok': True}
+
+    def op_desktop_files(self, id, transfer):
+        if not isinstance(id, str) or not IDENTITY.fullmatch(id) or not isinstance(transfer, dict):
+            raise Error('Ungültige Sitzung oder Dateiaktion.')
+        allowed = {'list': {'action'}, 'read': {'action', 'name', 'offset'}, 'write': {'action', 'name', 'offset', 'data'}}
+        verb = transfer.get('action')
+        if not isinstance(verb, str) or verb not in allowed or set(transfer) != allowed[verb]:
+            raise Error('Ungültige Dateiaktion.')
+        payload = json.dumps(transfer)
+        if len(payload) > 380000:
+            raise Error('Dateiblock zu groß.', 413)
+        name = 'titan-browser-' + id
+        container = self._desktop_container(name)
+        if not container or not container.get('State', {}).get('Running'):
+            raise Error('Browsersitzung ist beendet.', 410)
+        result = json.loads(self._desktop_command(['docker', 'exec', '-i', name, 'python3', '/usr/local/bin/titan-session-files.py'], input=payload, timeout=30))
+        if result.get('error'):
+            raise Error(result['error'], 409)
+        return result

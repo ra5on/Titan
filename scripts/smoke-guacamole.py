@@ -42,6 +42,13 @@ class Runtime(DesktopRuntimeMixin):
     def __init__(self, path, port):
         self.directory, self.state, self.port = path, {}, port
     def _plugin_state(self): return self.state
+    def _desktop_command(self, args, **kwargs):
+        try:
+            return super()._desktop_command(args, **kwargs)
+        except Exception as error:
+            print('Disposable runtime command failed:', args[:4], str(error), flush=True)
+            subprocess.run(['docker', 'logs', 'titan-guacd'], check=False)
+            raise
     def save(self, name, state): self.state = state
     def _desktop_app_url(self, app): return f'http://host.docker.internal:{self.port}/'
     def managed_app(self, app): return {'id':app}
