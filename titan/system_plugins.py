@@ -4,6 +4,7 @@ Executables are downloaded only after an administrator requests installation.
 Cloudflare's token stays in an agent-owned file and reaches systemd through a
 credential file, never through argv, a job result, or the browser status API.
 """
+import errno
 import hashlib
 import http.client
 import json
@@ -12,6 +13,7 @@ from pathlib import Path
 import platform
 import re
 import secrets
+import ssl
 import stat
 import time
 import urllib.request
@@ -27,11 +29,43 @@ UNIT = 'titan-cloudflare-plugin.service'
 ROOT = Path('/var/lib/titan-system/plugins/cloudflare')
 UNIT_PATH = Path('/etc/systemd/system') / UNIT
 METRICS_PORT = 5104
+# cloudflared's automatic QUIC -> HTTP/2 fallback includes connection timeouts
+# and exponential retries. The former 25s deadline could stop it before TCP.
+CONNECT_TIMEOUT = 180
 VERSION = '2026.10.0'
 DIGESTS = {
     'amd64': 'd33ff2d14475178d2012c2c56beba87389ac5ded27649519f198a7d3134a99db',
     'arm64': 'e6422b9d4f72d3194bc5a38676f13667c06666523217b842a877d72a80b5ac08',
 }
+
+# Only these fixed texts reach jobs, audit records and the browser. Never copy
+# vendor stderr/journal messages: they may contain credentials or request data.
+FAILURES = {
+    'CF_DOWNLOAD': 'Cloudflared konnte nicht von GitHub heruntergeladen werden. Internetzugang und DNS des NAS prüfen.',
+    'CF_DOWNLOAD_TLS': 'Das TLS-Zertifikat des Cloudflared-Downloads konnte nicht geprüft werden. Systemzeit und Zertifikate des NAS prüfen.',
+    'CF_DOWNLOAD_CHECKSUM': 'Der Cloudflared-Download stimmt nicht mit der geprüften SHA-256-Summe überein.',
+    'CF_DOWNLOAD_LIMIT': 'Der Cloudflared-Download überschreitet die erlaubte Größe oder Dauer.',
+    'CF_STORAGE_FULL': 'Im Systembereich ist kein freier Speicher für das Plugin verfügbar.',
+    'CF_FILES': 'Die lokalen Plugin-Dateien konnten nicht eingerichtet werden. Speicher und Dateirechte prüfen.',
+    'CF_SERVICE_START': 'Der lokale Cloudflare-Dienst konnte nicht gestartet werden.',
+    'CF_SERVICE_EXEC': 'Systemd konnte das Cloudflared-Programm nicht ausführen. Dateirechte und Ausführbarkeit des Plugin-Speichers prüfen.',
+    'CF_SERVICE_CREDENTIAL': 'Systemd konnte dem Cloudflare-Dienst die geschützte Token-Datei nicht bereitstellen.',
+    'CF_METRICS_PORT': 'Der lokale Cloudflare-Prüfport 5104 ist bereits belegt. Den anderen Dienst prüfen.',
+    'CF_TUNNEL_AUTH': 'Cloudflare hat die Tunnel-Anmeldung abgelehnt. Den aktuellen Tunnel-Token aus dem Cloudflare-Konto verwenden.',
+    'CF_EDGE_DNS': 'Der Cloudflare-Dienst konnte die Tunnel-Server nicht per DNS auflösen. Den DNS-Resolver des NAS prüfen.',
+    'CF_EDGE_TCP': 'Der Cloudflare-Dienst meldet einen TCP-Verbindungsfehler. Ausgehende Verbindungen zu Cloudflare auf TCP-Port 7844 prüfen.',
+    'CF_EDGE_QUIC': 'Der Cloudflare-Dienst meldet QUIC-Verbindungsfehler; eine Verbindung wurde nicht bestätigt. Ausgehende Verbindungen zu Cloudflare auf UDP- und TCP-Port 7844 prüfen.',
+    'CF_CONNECT_TIMEOUT': 'Die Verbindung zu Cloudflare wurde innerhalb von drei Minuten nicht bestätigt. Dienst und Internetzugang des NAS prüfen.',
+    'CF_LOCAL_ROUTE': 'Der Tunnel ist verbunden, aber Titan konnte seinen lokalen Tunnel-Zugang nicht aktivieren. Webadresswechsel, Proxy und Port 5102 prüfen.',
+    'CF_DOCKER_MIGRATION': 'Der bisherige Docker-Tunnel konnte beim Umstieg nicht geprüft oder gestoppt werden.',
+    'CF_SAVE_STATE': 'Der Plugin-Stand konnte nicht dauerhaft gespeichert werden.',
+}
+
+
+class PluginFailure(Error):
+    def __init__(self, code):
+        self.code = code
+        super().__init__(FAILURES[code], 503)
 
 
 def architecture():
@@ -139,11 +173,11 @@ def download(candidate, path):
             while chunk := response.read(1024 * 1024):
                 total += len(chunk)
                 if total > 128 * 1024 * 1024 or time.monotonic() > deadline:
-                    raise Error('Plugin-Download überschreitet die erlaubte Größe.')
+                    raise PluginFailure('CF_DOWNLOAD_LIMIT')
                 digest.update(chunk); target.write(chunk)
             target.flush(); os.fsync(target.fileno())
         if total < 1024 * 1024 or digest.hexdigest() != expected['sha256']:
-            raise Error('Cloudflare-Download stimmt nicht mit der geprüften SHA-256-Summe überein.')
+            raise PluginFailure('CF_DOWNLOAD_CHECKSUM')
         path.chmod(0o755)
     except Exception:
         path.unlink(missing_ok=True)
@@ -199,6 +233,46 @@ def connected():
 
 
 class SystemPluginsMixin:
+    def _cloudflare_failure(self, phase, exception):
+        if isinstance(exception, PluginFailure):
+            return exception.code
+        if isinstance(exception, OSError) and exception.errno in (errno.ENOSPC, errno.EDQUOT):
+            return 'CF_STORAGE_FULL'
+        if phase == 'CF_DOWNLOAD':
+            reason = getattr(exception, 'reason', exception)
+            if isinstance(reason, ssl.SSLError):
+                return 'CF_DOWNLOAD_TLS'
+        if phase not in ('CF_SERVICE_START', 'CF_CONNECT_TIMEOUT'):
+            return phase
+        # Inspect the failing invocation before rollback stops/removes the unit.
+        # Properties and journal text remain local; only a fixed code escapes.
+        try:
+            output = self.command(['systemctl', 'show', UNIT,
+                '--property=InvocationID,ExecMainStatus,Result'], timeout=5)
+            properties = dict(line.split('=', 1) for line in output.splitlines() if '=' in line)
+            if properties.get('ExecMainStatus') == '203':
+                return 'CF_SERVICE_EXEC'
+            if properties.get('ExecMainStatus') == '243':
+                return 'CF_SERVICE_CREDENTIAL'
+            invocation = properties.get('InvocationID', '')
+            if re.fullmatch(r'[a-f0-9]{32}', invocation):
+                journal = self.command(['journalctl', '_SYSTEMD_INVOCATION_ID=' + invocation,
+                    '--no-pager', '--output=cat', '--lines=60'], timeout=5)[-65536:].lower()
+                if 'unauthorized: invalid tunnel secret' in journal or 'unauthorized: failed to get tunnel' in journal:
+                    return 'CF_TUNNEL_AUTH'
+                if 'error looking up cloudflare edge ips' in journal:
+                    return 'CF_EDGE_DNS'
+                if re.search(r'dial tcp [^\n]*:7844[^\n]*(?:i/o timeout|network is unreachable|connection refused)', journal):
+                    return 'CF_EDGE_TCP'
+                if 'failed to dial to edge with quic' in journal:
+                    return 'CF_EDGE_QUIC'
+            if properties.get('Result') in ('exit-code', 'signal', 'core-dump', 'resources', 'start-limit-hit'):
+                return 'CF_SERVICE_START'
+        except Exception:
+            # Diagnostic failure must never prevent restoration of the old state.
+            pass
+        return phase
+
     def _plugin_service_state(self, query):
         try:
             return self.command(['systemctl', query, UNIT], timeout=10).strip() in ('active', 'enabled')
@@ -309,15 +383,19 @@ class SystemPluginsMixin:
         was_enabled = self._plugin_service_state('is-enabled') if old_unit else False
         legacy_running = False; legacy_stopped = False; remote_changed = False
         installed_binary = False; moved_binary = False; token_changed = False; unit_changed = False; service_changed = False
+        phase = 'CF_DOWNLOAD'
         try:
             download(candidate, stage)
             if legacy and options.get('replace_docker'):
+                phase = 'CF_DOCKER_MIGRATION'
                 record = self.managed_app('titan-cloudflared')
                 container = self._app_container('titan-cloudflared', record)
                 legacy_running = bool(container and container.get('State', {}).get('Running'))
             if old_unit:
+                phase = 'CF_SERVICE_START'
                 service_changed = True
                 self.command(['systemctl', 'stop', UNIT])
+            phase = 'CF_FILES'
             if binary.exists():
                 read_owned(binary)
                 binary.replace(backup); moved_binary = True
@@ -326,24 +404,33 @@ class SystemPluginsMixin:
                 write_private(token_path, token.encode()); token_changed = True
             write_private(UNIT_PATH, service_unit(token_path).encode(), 0o644)
             unit_changed = True
+            phase = 'CF_SERVICE_START'
             self.command(['systemctl', 'daemon-reload'])
+            if self.command(['ss', '-H', '-ltn', 'sport = :' + str(METRICS_PORT)], timeout=5).strip():
+                raise PluginFailure('CF_METRICS_PORT')
             service_changed = True
             self.command(['systemctl', 'enable', '--now', UNIT])
-            deadline = time.monotonic() + 25
+            phase = 'CF_CONNECT_TIMEOUT'
+            deadline = time.monotonic() + CONNECT_TIMEOUT
             while not connected():
                 if time.monotonic() >= deadline:
-                    raise Error('Cloudflare-Verbindung nicht bestätigt. Token, Internetzugang und Port 7844 prüfen.', 503)
+                    raise Error('Cloudflare-Verbindung nicht bestätigt.', 503)
                 time.sleep(1)
+            phase = 'CF_LOCAL_ROUTE'
             desired = {**remote, 'enabled': True, 'public_origin': address, 'connector': CONNECTOR,
                        'sources': [], 'interface': '', 'service_url': 'http://127.0.0.1:5102'}
             self.web_access.save_remote(desired, config['revision'], wait=True); remote_changed = True
             if legacy_running:
+                phase = 'CF_DOCKER_MIGRATION'
                 legacy_stopped = True
                 self.op_app_action('titan-cloudflared', 'stop')
+            phase = 'CF_SAVE_STATE'
             state['cloudflare'] = {'installed': True, 'version': candidate['version'], 'sha256': candidate['sha256'], 'public_origin': address}
             self.save('system-plugins', state)
-        except Exception:
+        except Exception as exception:
             # No token or vendor output appears in the failure result.
+            failure = self._cloudflare_failure(phase, exception)
+            message = 'Cloudflare-Plugin: ' + FAILURES[failure] + ' Fehlercode: ' + failure + '.'
             errors = []
             def undo(callback):
                 try: callback()
@@ -365,8 +452,8 @@ class SystemPluginsMixin:
             if legacy_stopped: undo(lambda: self.op_app_action('titan-cloudflared', 'start'))
             undo(lambda: self.save('system-plugins', original_state))
             if errors:
-                raise Error('Plugin-Installation fehlgeschlagen; die Rücksetzung war unvollständig. Dienste und Fernzugriff lokal prüfen.', 503) from None
-            raise Error('Cloudflare-Plugin konnte nicht eingerichtet werden. Token, Download, Port 7844 und lokalen Dienst prüfen. Bisheriger Stand wurde wiederhergestellt.', 503) from None
+                raise Error(message + ' Rücksetzung unvollständig. Dienste und Fernzugriff lokal prüfen.', 503) from None
+            raise Error(message + ' Bisheriger Stand wurde wiederhergestellt.', 503) from None
         finally:
             stage.unlink(missing_ok=True)
         backup.unlink(missing_ok=True)

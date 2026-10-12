@@ -44,3 +44,27 @@ test('a rejected plugin installation retains the reviewed form', async ({ page }
   await page.getByRole('button', { name: 'Installieren', exact: true }).click();
   await expect(dialog.getByLabel('Tunnel-Token')).toHaveValue('');
 });
+
+test('plugin installation explains the connection wait and shows the specific failure', async ({ page }) => {
+  let finish!: () => void;
+  const held = new Promise<void>(resolve => { finish = resolve; });
+  await page.route('**/api/actions', async route => {
+    await held;
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({
+      error: 'Cloudflare-Plugin: Der lokale Cloudflare-Dienst konnte nicht gestartet werden. Fehlercode: CF_SERVICE_START. Bisheriger Stand wurde wiederhergestellt.',
+    }) });
+  });
+  await page.goto('/#/store/plugin-cloudflare');
+  await page.getByRole('button', { name: 'Installieren', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Plugin installieren' });
+  await dialog.getByLabel('Tunnel-Token').fill('held-by-test');
+  await dialog.getByLabel('Öffentliche Titan-Adresse').fill('https://nas.example.org');
+  await dialog.getByRole('button', { name: 'Installieren' }).click();
+  try {
+    await expect(dialog.getByRole('status')).toContainText('bis zu drei Minuten');
+    await expect(dialog.getByRole('button', { name: 'Abbrechen' })).toBeDisabled();
+  } finally { finish(); }
+  await expect(dialog.getByRole('alert')).toContainText('CF_SERVICE_START');
+  await expect(dialog.getByLabel('Öffentliche Titan-Adresse')).toHaveValue('https://nas.example.org');
+  await expect(dialog.getByRole('button', { name: 'Installieren' })).toBeEnabled();
+});

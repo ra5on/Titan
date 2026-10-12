@@ -3,10 +3,12 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
+from unittest.mock import patch
 
 if (os.environ.get('GITHUB_ACTIONS') != 'true' or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted'
         or os.environ.get('TITAN_DISPOSABLE_CI') != '1' or os.geteuid() != 0):
@@ -41,6 +43,8 @@ with tempfile.TemporaryDirectory(prefix='titan-native-plugin-') as directory:
         plugins.download(plugins.offer(), binary)
         version = subprocess.check_output([str(binary), '--version'], text=True, timeout=10).strip()
         assert plugins.VERSION in version
+        cached_binary = root / 'checked-cloudflared'
+        shutil.copy2(binary, cached_binary)
         secret = credential()
         token_path = agent / 'cloudflare-plugin-token'
         plugins.write_private(token_path, secret.encode())
@@ -63,8 +67,30 @@ with tempfile.TemporaryDirectory(prefix='titan-native-plugin-') as directory:
             'sha256': plugins.DIGESTS[plugins.architecture()], 'public_origin': 'https://invalid.example.org'}})
         result = host.op_plugin_action('cloudflare', 'remove', host._plugin_revision(), confirmation='cloudflare')
         assert result['ok'] and not token_path.exists() and not binary.exists() and not plugins.UNIT_PATH.exists()
+
+        # Exercise the production installation transaction, not just the unit
+        # generator. Reuse the binary already authenticated by download(). The
+        # intentionally invalid credential cannot create a public tunnel; only
+        # this disposable negative test uses a shorter readiness deadline.
+        def cached_download(candidate, target):
+            assert candidate == plugins.offer()
+            shutil.copy2(cached_binary, target)
+        with patch.object(plugins, 'download', side_effect=cached_download), patch.object(plugins, 'CONNECT_TIMEOUT', 5):
+            try:
+                host.op_plugin_action('cloudflare', 'install', host._plugin_revision(),
+                    {'token': secret, 'public_origin': 'https://invalid.example.org'})
+            except Error as error:
+                failure = str(error)
+                assert any(code in failure for code in ('CF_CONNECT_TIMEOUT', 'CF_TUNNEL_AUTH', 'CF_EDGE_DNS', 'CF_EDGE_TCP', 'CF_EDGE_QUIC')), failure
+                assert 'Bisheriger Stand wurde wiederhergestellt' in failure
+                assert secret not in failure
+            else:
+                raise AssertionError('Invalid credential unexpectedly installed a connected tunnel.')
+        assert not host._cloudflare_installed()
+        assert not host._plugin_service_state('is-active')
+        assert not token_path.exists() and not binary.exists() and not plugins.UNIT_PATH.exists()
         print(json.dumps({'ok': True, 'version': version, 'native_systemd': True, 'credential_private': True,
-                          'invalid_token_connected': False, 'uninstall': True}))
+                          'invalid_token_connected': False, 'uninstall': True, 'install_failure_rollback': True}))
     finally:
         os.umask(old_mask)
         if plugins.UNIT_PATH.exists():
