@@ -54,7 +54,22 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
   const status = useApi<Status>('/api/status', 5000);
   const monitoring = useApi<Monitoring>(admin ? '/api/monitoring' : null, 60000);
   const [shutdown, setShutdown] = useState(false);
-  const [reboot, setReboot] = useState(false);
+  const [reboot, setReboot] = useState<{ digest: string; version: string } | null>(null);
+  const [readingReboot, setReadingReboot] = useState(false);
+
+  const prepareReboot = async () => {
+    setReadingReboot(true);
+    try {
+      const system = await get<{ next_boot: { digest: string; version: string }; reboot_scheduled: boolean }>('/api/updates/system');
+      if (system.reboot_scheduled) throw new Error('Ein Neustart ist bereits geplant.');
+      if (!system.next_boot?.digest) throw new Error('Der nächste Systemstand ist nicht verfügbar. Status erneut laden.');
+      setReboot(system.next_boot);
+    } catch (reason) {
+      toast(message(reason), true);
+    } finally {
+      setReadingReboot(false);
+    }
+  };
 
   const acknowledge = async (id: string) => {
     try {
@@ -133,7 +148,7 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
             <p className="mt-0.5 text-sm text-white/50">Zum Ausschalten müssen virtuelle Maschinen heruntergefahren sein.</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => setReboot(true)}>
+            <Button busy={readingReboot} onClick={prepareReboot}>
               <RotateCw className="size-4" /> Neu starten
             </Button>
             <Button variant="danger" onClick={() => setShutdown(true)}>
@@ -145,14 +160,14 @@ function SystemSection({ session, admin }: { session: Session; admin: boolean })
       {reboot && (
         <Confirm
           title="NAS neu starten?"
-          text="Apps, virtuelle Maschinen und Freigaben sind während des Neustarts für einige Minuten nicht erreichbar. Ein bereits installiertes Update wird dabei aktiv."
+          text={`Titan startet mit Version ${reboot.version}. Apps und Freigaben sind während des Neustarts für einige Minuten nicht erreichbar. Laufende virtuelle Maschinen vorher herunterfahren.`}
           confirmLabel="Neu starten"
-          onClose={() => setReboot(false)}
+          onClose={() => setReboot(null)}
           onConfirm={async () => {
             try {
-              // The agent only reboots the system state the administrator has seen.
-              const system = await get<{ booted: { digest: string } }>('/api/updates/system');
-              const result = await action('system_reboot', { expected_digest: system.booted.digest, confirmation: 'NEUSTART' });
+              // Confirm the next boot shown in this dialog, including a prepared
+              // update/rollback. The agent rejects any subsequent target change.
+              const result = await action('system_reboot', { expected_digest: reboot.digest, confirmation: 'NEUSTART' });
               toast(String(result.message || 'Das NAS startet neu.'));
             } catch (reason) {
               toast(message(reason), true);

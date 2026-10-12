@@ -172,6 +172,18 @@ def deployment(slot, record):
             **release_metadata(identity)}
 
 
+def installation_blocker(status):
+    """Explain readiness separately from discovery of a newer signed release."""
+    if status.get('reboot_scheduled'):
+        return 'Ein Neustart ist bereits geplant. Weitere Updates sind bis danach gesperrt.'
+    if status.get('reboot_required'):
+        return 'Ein Systemwechsel ist bereits vorbereitet. Unter Einstellungen → System den nächsten Start prüfen und bestätigen.'
+    if status.get('health_confirmed') is False:
+        return ('Die Startprüfung des laufenden Systems ist noch nicht erfolgreich abgeschlossen. '
+                'Updates bleiben gesperrt. Den Dienst titan-system-health prüfen.')
+    return None
+
+
 def system_status():
     from .updates import scheduled_reboot, release_metadata
     info = image_info()
@@ -198,7 +210,7 @@ def system_status():
     rollback_pending = bool(staged and pending['kind'] == 'rollback')
     healthy = booted['confirmed'] and BOOT_OK.is_file() and BOOT_OK.read_text().strip() == info['release_id']
     ready = healthy and not pending and not staged and schedule is None
-    return {'platform': 'debian-rauc', 'update_kind': 'image', 'current': info['version'],
+    result = {'platform': 'debian-rauc', 'update_kind': 'image', 'current': info['version'],
             **release_metadata(info),
             'current_stage': info['release_stage'], 'architecture': info['architecture'],
             'image_repository': 'ra5on/Titan', 'booted': booted,
@@ -212,6 +224,8 @@ def system_status():
                 'Noch kein vorheriger bestätigter Stand verfügbar, ein Wechsel ist vorbereitet oder die Startprüfung läuft.'),
             'last_failure': state.get('last_failure'),
             'output': 'Signierte Debian-Systemupdates auf zwei getrennten Systempartitionen.'}
+    result['update_blocked_reason'] = installation_blocker(result)
+    return result
 
 
 def validate_manifest(value):
@@ -266,6 +280,7 @@ def check(repo, channel='stable', token=None, update_kind='all'):
         info = image_info()
         result.update(system_status())
         result.update(common.release_metadata(info))
+        result['update_blocked_reason'] = installation_blocker(result)
         releases = common.strict_json(common.fetch(f'https://api.github.com/repos/{repo}/releases?per_page=100', token))
         if not isinstance(releases, list):
             raise Error('Ungültige GitHub-Release-Liste.', 503)
@@ -297,7 +312,8 @@ def check(repo, channel='stable', token=None, update_kind='all'):
             break
         if selected is None:
             labels = {'all': 'Titan-Debian-Systemupdate', 'titan': 'Titan-Update', 'system': 'kompatibles System- und Sicherheitsupdate'}
-            return {**result, 'message': 'Noch kein passendes ' + labels[update_kind] + ' veröffentlicht.'}
+            return {**result, 'message': result['update_blocked_reason'] or
+                    'Kein neueres ' + labels[update_kind] + ' für den gestarteten Stand ' + info['version'] + ' verfügbar.'}
         release, stage, manifest, assets = selected
         metadata = common.release_metadata(manifest)
         ready = result['health_confirmed'] and not result['reboot_required'] and not result['reboot_scheduled']
@@ -366,8 +382,14 @@ def install(repo, channel, expected_version, database, update_kind='all'):
     token = common.read_token()
     common.selection_kind(update_kind)
     offer = check(repo, channel, token, update_kind)
-    if offer.get('error') or not offer.get('available') or offer.get('latest') != expected_version:
-        raise Error(offer.get('error') or 'Update-Angebot hat sich geändert. Bitte erneut prüfen.', 409)
+    if offer.get('error'):
+        raise Error(offer['error'], 409)
+    if not offer.get('available'):
+        raise Error(installation_blocker(offer) or offer.get('message') or
+                    'Derzeit ist kein installierbares Update verfügbar. Bitte erneut prüfen.', 409)
+    if offer.get('latest') != expected_version:
+        raise Error(f'Das bestätigte Update {expected_version} ist nicht mehr das aktuelle Angebot. '
+                    f'Jetzt angeboten: {offer["latest"]}. Bitte erneut prüfen und bestätigen.', 409)
     manifest, assets = common.verified_release({'assets': [{'name': name, 'url': url} for name, url in offer['assets'].items()], 'html_url': offer['url']}, token)
     validate_manifest(manifest)
     installed = image_info()
@@ -383,7 +405,7 @@ def install(repo, channel, expected_version, database, update_kind='all'):
         raise Error('Update-Version oder Kanal hat sich geändert.', 409)
     current = system_status()
     if current['reboot_required'] or current['reboot_scheduled'] or not current['health_confirmed']:
-        raise Error('Systemwechsel ist derzeit gesperrt.', 409)
+        raise Error(installation_blocker(current) or 'Systemwechsel ist derzeit gesperrt.', 409)
     target = 'B' if current['booted']['slot'] == 'A' else 'A'
     report('backup')
     backup = common.backup_configuration(database)

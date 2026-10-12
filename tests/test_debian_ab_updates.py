@@ -41,9 +41,11 @@ class DebianABTests(unittest.TestCase):
     def test_each_boot_requires_new_health_confirmation(self):
         updates.save_state(self.state())
         self.assertFalse(updates.system_status()['rollback_available'])
+        self.assertIn('Startprüfung', updates.system_status()['update_blocked_reason'])
         updates.BOOT_OK.write_text(self.info['release_id'])
         value=updates.system_status()
         self.assertTrue(value['health_confirmed'])
+        self.assertIsNone(value['update_blocked_reason'])
         self.assertEqual([x['slot'] for x in value['rollback_options']],['B'])
         self.assertTrue(value['rollback_available'])
 

@@ -6,6 +6,17 @@ const context={window:{addEventListener(){}},document:{hidden:false,querySelecto
 vm.createContext(context);vm.runInContext(fs.readFileSync("titan/web/web_updates.js","utf8"),context);vm.runInContext(fs.readFileSync('titan/web/settings_center.js','utf8'),context);vm.runInContext(fs.readFileSync('titan/web/update_controls.js','utf8'),context);vm.runInContext(fs.readFileSync('titan/web/app.js','utf8').replace(/boot\(\)\.catch\(error=>toast\(error.message,true\)\);\s*$/,''),context);const evaluate=code=>vm.runInContext(code,context);
 const previous={version:'0.4.1',digest:'sha256:'+'a'.repeat(64),image:'ghcr.io/ra5on/titan@sha256:'+'a'.repeat(64)},current={version:'0.4.2',digest:'sha256:'+'b'.repeat(64),image:'ghcr.io/ra5on/titan@sha256:'+'b'.repeat(64)};
 const ui=context.window.TitanUpdates;
+assert.match(ui.installationBlocker({health_confirmed:false}),/Startprüfung/);
+assert.equal(ui.installationBlocker({health_confirmed:true}),'');
+assert.match(ui.installationBlocker({health_confirmed:false,reboot_required:true}),/bereits vorbereitet/);
+const staleOffer={channel:'stable',selection_kind:'all',signed:true,available:true,latest:'v0.8.4',checked:123};
+const blockedOffer=ui.offer('all',staleOffer,{channel:'stable'},{demo:false},{health_confirmed:false});
+assert(blockedOffer.includes('Installation gesperrt'));
+assert(/data-update-available="false" disabled/.test(blockedOffer));
+const blockedPanel=ui.panel({health_confirmed:false},'',{eligible:true,available:true,latest:'v0.8.4'});
+assert(blockedPanel.includes('data-update-blocked-reason'));
+assert(/data-update-available="true" disabled/.test(blockedPanel));
+assert(ui.panel({update_blocked_reason:'<script>'}).includes('&lt;script&gt;'));
  for(const [choice,version,twoFactor,protections] of [[{version:'v0.4.9-alpha.1'},'0.4.9',true,true],[{version:'0.5.2'},'0.5.2',false,true],[{version:'0.5.3-alpha.1'},'0.5.3',false,false],[{version:'0.5.10-system.1'},'0.5.10',false,false],[{version:'1.0.0'},'1.0.0',false,false],[{version:'0.9.0-system.1',titan_version:'0.5.2'},'0.5.2',false,true],[{version:'0.9.0-system.1',release_metadata:{titan_version:'0.4.9'}},'0.4.9',true,true],[{version:'Unbekannt'},null,false,false]]){const protection=ui.rollbackSecurity(choice);assert.equal(protection.appVersion,version);assert.equal(protection.legacyTwoFactor,twoFactor);assert.equal(protection.legacyProtections,protections);}
 assert.equal(ui.progress({status:'idle'}),'');
 assert(ui.progress({status:'running',phase:'download',received:512,total:1024}).includes('value="50"'));
