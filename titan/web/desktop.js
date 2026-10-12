@@ -53,7 +53,11 @@
         reader.onend = () => { text.value = value; };
         stream.sendAck('OK', 0);
       };
-      active.onerror = () => { if (client === active) show('Die Verbindung wurde unterbrochen. Erneut verbinden oder die Sitzung beenden und neu öffnen.'); };
+      active.onerror = () => { if (client === active) { show('Die Verbindung wurde unterbrochen. Erneut verbinden oder die Sitzung beenden und neu öffnen.'); active.disconnect(); } };
+      // Guacamole.Client handles protocol instructions; the application must
+      // also propagate closure/errors of the underlying transport.
+      tunnel.onerror = active.onerror;
+      tunnel.onstatechange = state => { if (state === Guacamole.Tunnel.State.CLOSED && client === active) active.disconnect(); };
       active.onstatechange = state => {
         if (client !== active || closed) return;
         if (state === 3) { status.textContent = 'Verbunden'; attempts = 0; show(''); fit(); screen.focus(); }
