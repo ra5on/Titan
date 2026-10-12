@@ -61,7 +61,7 @@ def validate(directory):
         raise ValueError('Initial-image evidence cannot publish Debian maintenance updates')
     baseline_source = 'generated-current-build' if initial_image else 'published-system-release' if system_only else 'published-release'
     expected_version = ('0.4.5-alpha.1' if initial_image else os.environ.get('TITAN_PREVIOUS_TAG', '').lstrip('v')
-                        if system_only else os.environ.get('TITAN_BASELINE_VERSION', '0.4.6-alpha.1'))
+                        if system_only else os.environ.get('TITAN_BASELINE_VERSION', '0.8.1'))
     if (ab.get('baseline_source') != baseline_source or ab.get('baseline_version') != expected_version
             or ab.get('baseline_image_unchanged') is not True
             or (not initial_image and 'published_release_baseline' not in ab['checks'])

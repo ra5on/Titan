@@ -113,7 +113,7 @@ def qmp(path, method, arguments=None):
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('image',type=Path);parser.add_argument('bundle',type=Path)
     parser.add_argument('--baseline-image',type=Path)
-    parser.add_argument('--baseline-version',default='0.4.6-alpha.1')
+    parser.add_argument('--baseline-version',default='0.8.1')
     parser.add_argument('--baseline-kind', choices=('published-image', 'published-system'), default='published-image')
     parser.add_argument('--baseline-bundle-sha256')
     parser.add_argument('--confirm-disposable-guest',action='store_true');args=parser.parse_args()

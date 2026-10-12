@@ -39,10 +39,10 @@ on:
         default: false
       baseline_version:
         type: string
-        default: '0.4.6-alpha.1'
+        default: '0.8.1'
       baseline_sha256:
         type: string
-        default: '78bc547f20735a55fa40680f82a966e93c248a78b64052c4272667a13bbf2e01'
+        default: '3a868e580fed7824cf33d225ee4f7c6ce74baf7dd4c11f07542912e0d4596cbb'
     secrets:
       TITAN_SIGNING_KEY:
         required: true

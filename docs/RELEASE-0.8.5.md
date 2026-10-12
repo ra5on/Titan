@@ -6,6 +6,7 @@ Diese Version stabilisiert die Vorbereitung und Aktivierung von Systemupdates.
 - Bereits vorbereitete Updates, geplante Neustarts und eine unbestätigte Startprüfung erhalten unterschiedliche, verständliche Meldungen. Ein altes Updateangebot darf die aktuelle Sperre nicht übergehen.
 - Nach einem Installationsversuch werden gespeicherte Angebote verworfen. Der aktuelle Systemstatus entscheidet, ob ein Neustart oder eine neue Prüfung nötig ist.
 - Die Release-Abnahme startet mit dem unveränderten, geprüften 0.8.1-Installationsimage. Sie prüft signierte Release-Erkennung, Installation, Ablehnung einer erneuten Installation, Aktivierung, Datenerhalt, Rollback und Rückkehr nach einem absichtlich beschädigten Testslot. Die Prüfung der neuen Erstinstallation läuft separat.
+- Auch Sicherheitsbuilds verwenden für ihre Testplatten das verfügbare 0.8.1-Image; der bisherige Verweis auf das nicht mehr veröffentlichte 0.4.6-Image entfällt.
 
 ## Installation
 

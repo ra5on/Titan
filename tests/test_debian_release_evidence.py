@@ -20,17 +20,17 @@ class EvidenceTests(unittest.TestCase):
         next(x for x in self.runtime['checks'] if x['name']=='storage_components')['values']={**{name:True for name in evidence.STORAGE_COMPONENTS},
             'kernel':'6.12.63+deb13-amd64','zfs_arc_max_bytes':1073741824,'zfs_arc_min_bytes':134217728,'zfs_arc_size_bytes':0}
         self.ab={'ok':True,'raw_image_unchanged':True,'checks':sorted(evidence.AB)+['published_release_baseline'],
-                 'baseline_source':'published-release','baseline_version':'0.4.6-alpha.1','baseline_image_unchanged':True}
+                 'baseline_source':'published-release','baseline_version':'0.8.1','baseline_image_unchanged':True}
     def save(self):
         (self.root/'runtime-test.json').write_text(json.dumps(self.runtime))
         (self.root/'ab-test.json').write_text(json.dumps(self.ab))
     def test_complete_checks_allow_signing(self):
         self.save();self.assertEqual(set(evidence.validate(self.root).values()),{'passed'})
     def test_requested_published_baseline_must_match_the_actual_report(self):
-        with patch.dict('os.environ', {'TITAN_BASELINE_VERSION': '0.8.1'}):
+        with patch.dict('os.environ', {'TITAN_BASELINE_VERSION': '0.8.4'}):
             self.save()
             with self.assertRaises(ValueError):evidence.validate(self.root)
-            self.ab['baseline_version']='0.8.1';self.save()
+            self.ab['baseline_version']='0.8.4';self.save()
             self.assertEqual(set(evidence.validate(self.root).values()),{'passed'})
     def test_missing_check_cannot_be_hidden_by_overall_success(self):
         self.runtime['checks'].pop();self.save()
@@ -43,6 +43,9 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):evidence.validate(self.root)
     def test_missing_fallback_blocks_publication(self):
         self.ab['checks'].remove('failed_candidate_fallback_after_reset');self.save()
+        with self.assertRaises(ValueError):evidence.validate(self.root)
+    def test_missing_signed_discovery_blocks_publication(self):
+        self.ab['checks'].remove('signed_release_discovery_and_duplicate_install_rejection');self.save()
         with self.assertRaises(ValueError):evidence.validate(self.root)
     def test_synthetic_baseline_cannot_publish_update(self):
         self.ab['baseline_source']='synthetic';self.save()
