@@ -44,6 +44,18 @@ class StreamSelectionTests(unittest.TestCase):
             stack.enter_context(patch.object(updates, 'architecture', return_value='x86_64'))
             return updates.check('ra5on/Titan', channel, update_kind=kind), verified
 
+    def test_already_booted_target_is_reported_as_no_newer_release(self):
+        installed = stream('0.8.4', app='0.8.4', stage='stable')
+        result, verified = self.check(installed, [installed], channel='stable')
+        self.assertFalse(result['available'])
+        self.assertIsNone(result['update_blocked_reason'])
+        self.assertIn('gestarteten Stand 0.8.4', result['message'])
+        self.assertEqual(verified, [])
+        with patch.object(debian_updates, 'check', return_value=result), \
+                patch.object(updates, 'read_token', return_value=None), \
+                self.assertRaisesRegex(Error, 'gestarteten Stand 0.8.4'):
+            debian_updates.install.__wrapped__.__wrapped__('ra5on/Titan', 'stable', 'v0.8.4', '/unused')
+
     def test_independent_streams_choose_their_signed_kind(self):
         installed = stream('0.5.3-alpha.1')
         os_update = stream('0.5.3-alpha.2', 'system', revision=2)
@@ -182,6 +194,7 @@ class StreamSelectionTests(unittest.TestCase):
         for mutation in ({'health_confirmed': False}, {'reboot_required': True}, {'reboot_scheduled': True}):
             result, _ = self.check(stream('0.5.3-alpha.1'), [target], 'system', status_changes=mutation)
             self.assertFalse(result['available'])
+            self.assertTrue(result['update_blocked_reason'])
         with patch.object(updates, 'verified_release', side_effect=Error('signature failed')):
             # Authentication is explicitly mocked by the helper, so exercise
             # check directly at this trust boundary.
@@ -239,6 +252,53 @@ class SignedMetadataSchemaTests(unittest.TestCase):
 
 
 class InstallCompatibilityTests(unittest.TestCase):
+    def test_live_readiness_change_explains_rejection_before_backup_or_write(self):
+        installed = stream('0.8.1', app='0.8.1', stage='stable')
+        target = stream('0.8.4', app='0.8.4', stage='stable', source='c'*40)
+        item = release(target)
+        assets = {asset['name']: asset['url'] for asset in item['assets']}
+        live = state(installed['version'])
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(debian_updates, 'image_info', return_value=installed))
+            stack.enter_context(patch.object(debian_updates, 'system_status', side_effect=lambda: live.copy()))
+            stack.enter_context(patch.object(updates, 'fetch', return_value=json.dumps([item]).encode()))
+            stack.enter_context(patch.object(updates, 'verified_release', return_value=(target, assets)))
+            stack.enter_context(patch.object(updates, 'read_token', return_value=None))
+            backup = stack.enter_context(patch.object(updates, 'backup_configuration'))
+            download = stack.enter_context(patch.object(debian_updates, 'download'))
+            run = stack.enter_context(patch.object(debian_updates, 'run'))
+            offered = debian_updates.check('ra5on/Titan', 'stable')
+            self.assertTrue(offered['available'])
+            self.assertEqual(offered['latest'], 'v0.8.4')
+            for change, reason in (({'health_confirmed': False}, 'Startprüfung'),
+                                   ({'reboot_required': True}, 'bereits vorbereitet'),
+                                   ({'reboot_scheduled': True}, 'Neustart ist bereits geplant')):
+                live.clear()
+                live.update({**state(installed['version']), **change})
+                with self.subTest(change=change), self.assertRaisesRegex(Error, reason) as error:
+                    debian_updates.install.__wrapped__.__wrapped__('ra5on/Titan', 'stable', offered['latest'], '/unused')
+                self.assertEqual(error.exception.status, 409)
+            backup.assert_not_called()
+            download.assert_not_called()
+            run.assert_not_called()
+
+    def test_changed_offer_names_both_versions_and_requires_new_confirmation(self):
+        with patch.object(debian_updates, 'check', return_value={'available': True, 'latest': 'v0.8.5'}), \
+                patch.object(updates, 'read_token', return_value=None), \
+                patch.object(updates, 'verified_release') as verify, \
+                self.assertRaisesRegex(Error, 'v0.8.4.*v0.8.5.*bestätigen'):
+            debian_updates.install.__wrapped__.__wrapped__('ra5on/Titan', 'stable', 'v0.8.4', '/unused')
+        verify.assert_not_called()
+
+    def test_discovery_error_is_preserved_instead_of_hidden_by_readiness(self):
+        with patch.object(debian_updates, 'check', return_value={'available': False, 'health_confirmed': False,
+                                                              'error': 'Signatur ungültig'}), \
+                patch.object(updates, 'read_token', return_value=None), \
+                patch.object(updates, 'verified_release') as verify, \
+                self.assertRaisesRegex(Error, '^Signatur ungültig$'):
+            debian_updates.install.__wrapped__.__wrapped__('ra5on/Titan', 'stable', 'v0.8.4', '/unused')
+        verify.assert_not_called()
+
     def test_changed_kind_or_frozen_app_rejected_before_backup_and_rauc(self):
         installed = stream('0.5.3-alpha.1')
         offer = {'available': True, 'latest': 'v0.5.3-alpha.2', 'latest_stage': 'alpha',
