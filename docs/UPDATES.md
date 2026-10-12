@@ -1,9 +1,8 @@
 # Titan-Systemupdates und Rollback
 
-Unter **Systemsteuerung → Updates & Rollback** den Kanal **Alpha** wählen und nach
-Updates suchen. Beta und Stable bieten erst dann Versionen an, wenn entsprechende
-Veröffentlichungen vorhanden sind. Der Alpha-Kanal berücksichtigt später auch
-Beta- und Stable-Versionen.
+Unter **Systemsteuerung → Updates & Rollback** den Kanal **Stable** wählen und nach
+Updates suchen. Neue Titan-Versionen und Debian-Wartungsstände erscheinen als
+Stable. Einzelne experimentelle Funktionen behalten ihre eigene Beta-Kennzeichnung.
 
 Es gibt **einen Update-Ablauf** für das gesamte NAS: eine Kanalwahl, eine
 automatische Update-Regel sowie **Jetzt prüfen → Update vorbereiten → Neu
@@ -53,7 +52,7 @@ auf einem installierten NAS. Die automatische NAS-Updatesuche ist davon
 unabhängig und folgt der oben gewählten gemeinsamen Regel.
 
 Grundlage sind bereits veröffentlichte **signierte** Systemmanifest- und
-Paketinventar-Dateien. Je Alpha, Beta und Stable werden die zwei jüngsten
+Paketinventar-Dateien. Im Stable-Kanal werden die zwei jüngsten
 veröffentlichten Titan-Quellstände gepflegt; mehrere Debian-Revisionen desselben
 Quellstands gelten dabei als ein Stand. Ein Sicherheitsbuild verwendet den
 exakten bisherigen Titan-Commit. Anwendungspaket und App-Installationsprüfungen
@@ -82,7 +81,7 @@ nächsten Neustart auf den vorherigen gesunden Stand zurückgehen. Ein hängende
 Gast benötigt dafür einen Reset in Proxmox. Die beiden Systembereiche liefern
 keinen Schutz gegen einen Ausfall des gemeinsamen Datenträgers.
 
-Der gemeinsame EFI-/GRUB-Startbereich wird durch diese Alpha-Systemupdates noch
+Der gemeinsame EFI-/GRUB-Startbereich wird durch diese Systemupdates noch
 nicht erneuert. Änderungen daran oder am Partitionslayout erfordern derzeit ein
 neues Installationsimage. Normale kompatible Titan-/Debian-Versionen werden über
 den Update-Kanal eingespielt.
