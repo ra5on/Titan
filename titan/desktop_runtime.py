@@ -69,7 +69,7 @@ class DesktopRuntimeMixin:
             image = 'titan-session-browser:' + revision[:16]
             try:
                 self._desktop_command(['docker', 'pull', GUACD], timeout=600)
-                self._desktop_command(['docker', 'build', '--pull', '--tag', image, str(CONTEXT)], timeout=1800)
+                self._desktop_command(['docker', 'build', '--pull', '--no-cache', '--tag', image, str(CONTEXT)], timeout=1800)
                 # Resolve the locally built tag once; sessions use only this immutable ID.
                 browser = json.loads(self._desktop_command(['docker', 'image', 'inspect', image]))[0]['Id']
                 if not re.fullmatch(r'sha256:[a-f0-9]{64}', browser):

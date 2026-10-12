@@ -10,6 +10,8 @@ jobs:
   browser-session:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/titan-playwright
     steps:
       - uses: actions/checkout@v7.0.1
       - run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml
@@ -26,7 +28,7 @@ jobs:
           TITAN_DISPOSABLE_CI: '1'
         run: |
           mkdir -p artifacts
-          sudo --preserve-env=TITAN_DISPOSABLE_CI,PATH python3 scripts/smoke-guacamole.py
+          sudo --preserve-env=TITAN_DISPOSABLE_CI,PLAYWRIGHT_BROWSERS_PATH,PATH python3 scripts/smoke-guacamole.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

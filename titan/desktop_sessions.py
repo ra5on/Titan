@@ -120,7 +120,7 @@ class DesktopApplicationMixin:
     def reap_desktops(self):
         with self.desktop_lock:
             now = time.monotonic()
-            ids = [id for id, entry in self.desktops.items() if not self.desktop_active(entry) or
+            ids = [id for id, entry in self.desktops.items() if entry['created'] == 0 or not self.desktop_active(entry) or
                    now - entry['created'] > 8 * 3600 or entry['stream'] is None and now - entry['touched'] > 15 * 60]
         for id in ids:
             self.desktop_close(id)
