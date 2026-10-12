@@ -49,8 +49,9 @@
       active.onclipboard = (stream, mimetype) => {
         if (mimetype !== 'text/plain') { stream.sendAck('Nur Text', 0x030F); return; }
         const reader = new Guacamole.StringReader(stream); let value = '';
-        reader.ontext = chunk => { value = (value + chunk).slice(0, 65536); };
+        reader.ontext = chunk => { value = (value + chunk).slice(0, 65536); stream.sendAck('OK', 0); };
         reader.onend = () => { text.value = value; };
+        stream.sendAck('OK', 0);
       };
       active.onerror = () => { if (client === active) show('Die Verbindung wurde unterbrochen. Erneut verbinden oder die Sitzung beenden und neu öffnen.'); };
       active.onstatechange = state => {

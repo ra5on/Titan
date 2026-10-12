@@ -126,13 +126,23 @@ class DesktopRuntimeMixin:
         return {'ok': True, 'message': 'Guacamole gestartet.'}
 
     @staticmethod
-    def _desktop_wait(port):
+    def _desktop_wait(port, vnc=False):
         for _ in range(100):
             try:
-                with socket.create_connection(('127.0.0.1', port), timeout=0.2):
-                    return
+                with socket.create_connection(('127.0.0.1', port), timeout=0.2) as stream:
+                    if not vnc:
+                        return
+                    banner = b''
+                    while len(banner) < 12:
+                        part = stream.recv(12 - len(banner))
+                        if not part:
+                            break
+                        banner += part
+                    if re.fullmatch(rb'RFB [0-9]{3}\.[0-9]{3}\n', banner):
+                        return
             except OSError:
-                time.sleep(0.1)
+                pass
+            time.sleep(0.1)
         raise Error('Sitzungsdienst ist nicht erreichbar.', 503)
 
     @serialized
@@ -219,13 +229,13 @@ class DesktopRuntimeMixin:
                 '--tmpfs', '/home/browser:rw,nosuid,nodev,uid=1000,gid=1000,size=512m',
                 '--mount', f'type=bind,src={credential},dst=/run/titan-vnc,readonly',
                 '-e', 'APP_URL=' + url, '-e', 'WIDTH=' + str(width), '-e', 'HEIGHT=' + str(height),
-                '--entrypoint', '/usr/bin/timeout', image, '8h', '/usr/bin/tini', '--', '/usr/local/bin/titan-browser'])
+                '--entrypoint', '/usr/bin/tini', image, '--', '/usr/bin/timeout', '8h', '/usr/local/bin/titan-browser'])
             item = self._desktop_container(name)
             binding = item['NetworkSettings']['Ports']['5900/tcp'][0]
             if binding['HostIp'] != '127.0.0.1':
                 raise Error('Sitzungsport ist nicht lokal gebunden.', 503)
             port = integer(binding['HostPort'], 1024, 65535)
-            self._desktop_wait(port)
+            self._desktop_wait(port, vnc=True)
             return {'protocol': 'vnc', 'hostname': '127.0.0.1', 'port': port, 'password': password}
         except Exception:
             self.op_desktop_close(id)

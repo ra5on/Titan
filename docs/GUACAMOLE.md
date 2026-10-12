@@ -80,5 +80,7 @@ beim Nutzer bezogen bzw. gebaut und nicht im Titan-Systemimage gebündelt.
 
 Die CI prüft Authentifizierung, CSRF, Sitzungsbesitz, Rechteentzug, Protokoll-
 Framing und Datei-Pfadgrenzen. Ein eigener Linux-Lauf startet echtes guacd und
-Chromium und prüft Bildübertragung, Tastatureingabe, Wiederverbinden und Logout.
+Chromium und prüft Bildübertragung, Tastatureingabe, Dateitransfer,
+Wiederverbinden und Logout. Dieselbe Prüfung läuft über HTTPS/WSS und Titans
+erzeugte Tunnelroute mit einem lokalen Ersatz für Cloudflares TLS-Endpunkt.
 Dieser Nachweis ersetzt keine Abnahme auf NAS-Hardware und am eigenen Tunnel.

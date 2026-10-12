@@ -1,3 +1,3 @@
 Source: https://raw.githubusercontent.com/microsoft/playwright/v1.55.1/utils/docker/seccomp_profile.json
 License: Apache 2.0 (seccomp-LICENSE)
-Unmodified Docker seccomp profile with the user namespace operations needed by Chromium's sandbox.
+Titan changes: allow chroot in Chromium's own user namespace despite dropping host capabilities; allow faccessat2 and close_range; return ENOSYS for clone3 so glibc uses clone. All other upstream restrictions remain.

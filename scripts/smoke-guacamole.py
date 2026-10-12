@@ -47,9 +47,9 @@ class Runtime(DesktopRuntimeMixin):
     def __init__(self, path, port):
         self.directory, self.state, self.port = path, {}, port
     def _plugin_state(self): return self.state
-    def _desktop_wait(self, port):
+    def _desktop_wait(self, port, vnc=False):
         try:
-            return super()._desktop_wait(port)
+            return super()._desktop_wait(port, vnc=vnc)
         except Exception:
             names = subprocess.check_output(['docker','ps','-a','--filter','label=org.titan.desktop=1','--format','{{.Names}}'], text=True).splitlines()
             for name in names:
