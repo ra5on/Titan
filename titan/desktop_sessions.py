@@ -57,6 +57,8 @@ class DesktopApplicationMixin:
             entry = self.desktops.get(id)
         if not entry or entry['owner'] != owner(user):
             raise Error('Sitzung nicht gefunden.', 404)
+        if entry['created'] == 0:
+            raise Error('Sitzung wird beendet.', 410)
         if not self.desktop_active(entry):
             raise Error('Anmeldung oder Berechtigung ist nicht mehr gültig.', 403)
         return entry
@@ -70,7 +72,7 @@ class DesktopApplicationMixin:
             with self.desktop_lock:
                 for id, entry in self.desktops.items():
                     if (entry['owner'] == owner(user) and entry['kind'] == body['kind'] and
-                            entry['target'] == body['target'] and self.desktop_active(entry)):
+                            entry['target'] == body['target'] and entry['created'] != 0 and self.desktop_active(entry)):
                         entry['touched'] = time.monotonic()
                         return {'id': id}
                 if len(self.desktops) >= 8 or sum(e['owner'] == owner(user) for e in self.desktops.values()) >= 4:
@@ -184,6 +186,8 @@ class DesktopHTTPMixin:
         upstream = None
         try:
             upstream = socket.create_connection(('127.0.0.1', PORT), timeout=10)
+            if entry['kind'] == 'vm':
+                entry['endpoint'] = self.app.agent.call('desktop_open', id=id, kind='vm', target=entry['target'], width=entry['width'], height=entry['height'])
             handshake(upstream, entry['endpoint'], entry['width'], entry['height'])
             self.app.desktop_entry(user, id)
             self.send_response(101)

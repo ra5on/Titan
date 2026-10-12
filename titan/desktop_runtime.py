@@ -79,7 +79,7 @@ class DesktopRuntimeMixin:
                         '--network', 'host', '--restart', 'unless-stopped', '--read-only', '--cap-drop', 'ALL',
                         '--security-opt', 'no-new-privileges:true', '--pids-limit', '256', '--memory', '512m',
                         '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m', '--entrypoint', '/opt/guacamole/sbin/guacd',
-                        GUACD, '-f', '-b', '127.0.0.1', '-p', str(PORT), '-L', 'warning'])
+                        GUACD, '-f', '-b', '127.0.0.1', '-l', str(PORT), '-L', 'warning'])
                 else:
                     self._desktop_command(['docker', 'start', SERVICE])
                 self._desktop_wait(PORT)
@@ -133,6 +133,10 @@ class DesktopRuntimeMixin:
         target = record['port'] if recipe.get('dynamic_web_port') else recipe.get('port')
         if not target or recipe.get('web_available') is False:
             raise Error('Diese App besitzt keine Weboberfläche.', 409)
+        from .app_networks import app_web_host
+        trusted_host = app_web_host(self, record)
+        if trusted_host:
+            return f"{record.get('scheme', 'http')}://{trusted_host}:{integer(record['port'], 1, 65535)}" + recipe.get('web_path', '')
         # Use an actual, running, managed container endpoint. Never accept a URL
         # or a port supplied by the HTTP caller.
         networks = container.get('NetworkSettings', {}).get('Networks', {})
@@ -170,7 +174,8 @@ class DesktopRuntimeMixin:
         image = self._plugin_state()['guacamole']['browser']
         name = 'titan-browser-' + id
         folder = self.directory / 'desktop-credentials'
-        folder.mkdir(mode=0o700, exist_ok=True)
+        from .system_plugins import secure_directory
+        secure_directory(folder, 0o700)
         password = secrets.token_urlsafe(8)[:8]
         # VNC's standard DES password-file encoding. Password bytes use stdin,
         # never Docker environment, argv, API responses or application logs.

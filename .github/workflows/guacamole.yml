@@ -13,6 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - run: bash scripts/ci-ubuntu-dependencies.sh python3-yaml
+      - name: Session authorization and protocol tests
+        run: python3 -m unittest discover -s tests -p 'test_*desktop*.py' -v && python3 -m unittest discover -s tests -p 'test_guacamole_protocol.py' -v
       - working-directory: ui
         run: |
           npm ci --no-audit --no-fund
