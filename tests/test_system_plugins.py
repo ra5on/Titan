@@ -1,10 +1,12 @@
 """Optional host plugins: credentials, transaction recovery and fixed sources."""
 import base64
 import copy
+import errno
 import hashlib
 import io
 import json
 import os
+import ssl
 from pathlib import Path
 import tempfile
 import unittest
@@ -130,7 +132,7 @@ class PluginTests(unittest.TestCase):
         self.host.running = False; self.host.enabled = False
         before = self.host.web_access.config()
         self.ready.return_value = False
-        with patch('titan.system_plugins.time.monotonic', side_effect=[0, 30]):
+        with patch('titan.system_plugins.time.monotonic', side_effect=[0, 181]):
             with self.assertRaises(Error): self.act('update')
         self.assertEqual((self.binary_root / 'cloudflared').read_bytes(), b'old-binary')
         self.assertEqual(self.host.web_access.config(), before)
@@ -142,7 +144,7 @@ class PluginTests(unittest.TestCase):
         self.binary_root.mkdir(parents=True)
         (self.binary_root / 'cloudflared.previous').write_bytes(b'stale')
         self.ready.return_value = False
-        with patch('titan.system_plugins.time.monotonic', side_effect=[0, 30]):
+        with patch('titan.system_plugins.time.monotonic', side_effect=[0, 181]):
             with self.assertRaises(Error): self.install()
         self.assertFalse((self.binary_root / 'cloudflared').exists())
         self.assertFalse((self.host.directory / 'cloudflare-plugin-token').exists())
@@ -159,6 +161,120 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(self.host.actions, [('titan-cloudflared', 'stop')])
         self.assertFalse(self.host.legacy_running)
         self.assertEqual(self.host._remote_setup_status()['connector'], 'plugin-cloudflare')
+
+    def test_slow_connection_can_complete_after_quic_fallback_without_rollback(self):
+        self.ready.side_effect = [False, False, False, True]
+        # A healthy HTTP/2 fallback may arrive well after the old 25s deadline.
+        with patch('titan.system_plugins.time.monotonic', side_effect=[0, 30, 75, 150]), \
+                patch('titan.system_plugins.time.sleep'):
+            self.assertTrue(self.install()['ok'])
+        self.assertTrue(self.host._cloudflare_installed())
+        self.assertTrue(self.host.running)
+        self.assertTrue(self.host.enabled)
+        self.assertNotIn(['systemctl', 'stop', UNIT], self.host.commands)
+
+    def test_occupied_metrics_port_cannot_confirm_an_unrelated_connector(self):
+        command = self.host.command
+        self.host.command = lambda args, **kwargs: 'LISTEN' if args[0] == 'ss' else command(args, **kwargs)
+        with self.assertRaisesRegex(Error, 'CF_METRICS_PORT'):
+            self.install()
+        self.ready.assert_not_called()
+        self.assertFalse(self.host._cloudflare_installed())
+        self.assertFalse(self.unit.exists())
+        self.assertFalse((self.host.directory / 'cloudflare-plugin-token').exists())
+
+    def test_download_diagnostics_distinguish_tls_and_disk_space_without_echoing_secrets(self):
+        for failure, code in ((ssl.SSLCertVerificationError(1, credential()), 'CF_DOWNLOAD_TLS'),
+                              (OSError(errno.ENOSPC, credential()), 'CF_STORAGE_FULL')):
+            with self.subTest(code=code):
+                self.download.side_effect = failure
+                with self.assertRaises(Error) as raised:
+                    self.install()
+                self.assertIn(code, str(raised.exception))
+                self.assertNotIn(credential(), str(raised.exception))
+                self.assertNotIn('CF_TUNNEL_AUTH', str(raised.exception))
+                self.assertFalse(self.host.running)
+
+    def test_connection_diagnostics_use_only_current_invocation_and_restore_previous_install(self):
+        self.install()
+        before = self.host._plugin_state()
+        binary = self.binary_root / 'cloudflared'; binary.write_bytes(b'old-binary')
+        token_path = self.host.directory / 'cloudflare-plugin-token'
+        old_token = token_path.read_bytes()
+        old_unit = self.unit.read_bytes()
+        invocation = 'a' * 32
+        samples = (
+            ('203', '', 'CF_SERVICE_EXEC'),
+            ('243', '', 'CF_SERVICE_CREDENTIAL'),
+            ('0', 'Register tunnel error from server side error="Unauthorized: Invalid tunnel secret"', 'CF_TUNNEL_AUTH'),
+            ('0', 'edge discovery: error looking up Cloudflare edge IPs: the DNS query failed', 'CF_EDGE_DNS'),
+            ('0', 'DialContext error: dial tcp 198.41.200.43:7844: i/o timeout', 'CF_EDGE_TCP'),
+            ('0', 'failed to dial to edge with quic: timeout: handshake did not complete in time', 'CF_EDGE_QUIC'),
+            ('0', 'unrecognized vendor failure', 'CF_CONNECT_TIMEOUT'),
+        )
+        command = self.host.command
+        for status, journal, code in samples:
+            with self.subTest(code=code):
+                self.host.commands.clear()
+                def diagnostics(args, **kwargs):
+                    if args[:2] == ['systemctl', 'show']:
+                        self.host.commands.append(args)
+                        return f'InvocationID={invocation}\nExecMainStatus={status}\nResult=success'
+                    if args[0] == 'journalctl':
+                        self.assertIn('_SYSTEMD_INVOCATION_ID=' + invocation, args)
+                        self.assertTrue(self.host.running)  # evidence is collected before rollback
+                        return journal + '\nprivate diagnostic: ' + credential()
+                    return command(args, **kwargs)
+                self.host.command = diagnostics
+                self.ready.return_value = False
+                with patch('titan.system_plugins.time.monotonic', side_effect=[0, 181]):
+                    with self.assertRaises(Error) as raised:
+                        self.act('update', token=credential())
+                self.assertIn(code, str(raised.exception))
+                self.assertIn('Bisheriger Stand wurde wiederhergestellt', str(raised.exception))
+                self.assertNotIn(credential(), str(raised.exception))
+                self.assertEqual(binary.read_bytes(), b'old-binary')
+                self.assertEqual(token_path.read_bytes(), old_token)
+                self.assertEqual(self.unit.read_bytes(), old_unit)
+                self.assertEqual(self.host._plugin_state(), before)
+                self.assertTrue(self.host.running)
+                self.assertTrue(self.host.enabled)
+
+    def test_failed_diagnostic_collection_does_not_prevent_rollback(self):
+        command = self.host.command
+        def unavailable(args, **kwargs):
+            if args[:2] == ['systemctl', 'show']: raise Error(credential())
+            return command(args, **kwargs)
+        self.host.command = unavailable
+        self.ready.return_value = False
+        with patch('titan.system_plugins.time.monotonic', side_effect=[0, 181]):
+            with self.assertRaisesRegex(Error, 'CF_CONNECT_TIMEOUT') as raised:
+                self.install()
+        self.assertNotIn(credential(), str(raised.exception))
+        self.assertFalse(self.host.running)
+        self.assertFalse(self.unit.exists())
+
+    def test_local_route_failure_is_not_reported_as_a_token_failure(self):
+        self.host.web_access.save_remote = Mock(side_effect=Error(credential()))
+        with self.assertRaisesRegex(Error, 'CF_LOCAL_ROUTE') as raised:
+            self.install()
+        self.assertNotIn(credential(), str(raised.exception))
+        self.assertFalse(self.host.running)
+        self.assertFalse(self.host._cloudflare_installed())
+
+    def test_incomplete_rollback_retains_the_initial_failure_code(self):
+        command = self.host.command
+        def failed_stop(args, **kwargs):
+            if args[:2] == ['systemctl', 'stop']: raise Error(credential())
+            return command(args, **kwargs)
+        self.host.command = failed_stop
+        self.host.web_access.save_remote = Mock(side_effect=Error(credential()))
+        with self.assertRaises(Error) as raised:
+            self.install()
+        self.assertIn('CF_LOCAL_ROUTE', str(raised.exception))
+        self.assertIn('Rücksetzung unvollständig', str(raised.exception))
+        self.assertNotIn('Bisheriger Stand wurde wiederhergestellt', str(raised.exception))
+        self.assertNotIn(credential(), str(raised.exception))
 
     def test_final_save_failure_restores_remote_and_legacy_runner(self):
         self.host.values['apps'] = [{'id': 'titan-cloudflared'}]

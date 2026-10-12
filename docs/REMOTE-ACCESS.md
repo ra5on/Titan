@@ -1,51 +1,59 @@
 # Fernzugriff mit Cloudflare Tunnel
 
-Unter **Apps → Cloudflare Tunnel** wird Titan über einen eigenen Docker-Compose-Connector mit Cloudflare verbunden. Die lokale NAS-Adresse bleibt erreichbar. Die frühere Tunnel-Einrichtung in der Systemsteuerung und neue Cloudflared-Web-Installationen wurden durch diese App ersetzt.
+Unter **App Store → Plugins → Cloudflare Tunnel** installiert Titan einen optionalen Debian-Dienst. Das Plugin ist als **Beta** gekennzeichnet. Cloudflared wird erst bei der Installation aus dem offiziellen GitHub-Release geladen und anhand der geprüften SHA-256-Summe verifiziert. Die lokale NAS-Adresse bleibt erreichbar.
 
 ## Tunnel und öffentliche Route einrichten
 
 1. Im Cloudflare-Konto einen Tunnel anlegen oder öffnen. Aus der Connector-Einrichtung den **Tunnel-Token** kopieren; nur den Token, keinen Installationsbefehl oder Verwaltungs-API-Token.
-2. In Titan **Apps → Cloudflare Tunnel** öffnen und den Token einfügen. Eine bereits eingerichtete öffentliche Titan-Adresse kann optional angegeben werden.
-3. **Installieren & verbinden** wählen. Titan prüft Docker, erstellt die privaten Dateien und Compose-Konfiguration, lädt das Image und erstellt und startet den Connector. Jeder Schritt wird erst nach seinem tatsächlichen Ergebnis aktualisiert. Ein zusätzliches Verwaltungspasswort ist nicht erforderlich.
-4. Den öffentlichen Hostnamen in Cloudflare auf **HTTP → `http://127.0.0.1:5102`** richten. Der öffentliche Hostname muss unverändert an Titan weitergegeben werden.
-5. Die HTTPS-Adresse unter **Öffentliche Route** eintragen, beispielsweise `https://nas.example.de`, und **Adresse speichern & prüfen** wählen. Danach den Zugang aus einem anderen Netz öffnen und die Titan-Anmeldung praktisch prüfen.
+2. In Titan das Cloudflare-Plugin öffnen, **Installieren** wählen und den Token sowie die öffentliche HTTPS-Adresse eintragen, beispielsweise `https://nas.example.de`.
+3. Titan lädt Cloudflared, richtet die private Token-Datei und den Dienst ein und wartet auf eine bestätigte Verbindung. Nach dem Download darf der Verbindungsaufbau bis zu drei Minuten dauern, damit Cloudflared bei nicht erreichbarem UDP auf TCP wechseln kann.
+4. Im Cloudflare-Konto den öffentlichen Hostnamen auf **Typ HTTP → URL `127.0.0.1:5102`** richten. Den HTTP-Host-Header nicht durch eine interne IP ersetzen. Eine NAS-IP mit HTTPS spricht einen anderen Titan-Zugang an.
+5. Unter **Einstellungen → Fernzugriff** den öffentlichen Titan-Zugang prüfen und anschließend aus einem anderen Netz die Anmeldung und benötigten Funktionen testen.
 
-Der verwaltete Connector läuft im Host-Netz. Das verhindert, dass eine wechselnde oder gesperrte Docker-Container-IP als lokales Titan-Ziel verwendet wird. Der Titan-Tunnelzugang auf Port 5102 und der Cloudflared-Prüfport 5103 bleiben auf Loopback begrenzt. Das lokale Ziel verwendet HTTP, die öffentliche Verbindung HTTPS. Portweiterleitungen am Router sind für diesen Connector nicht erforderlich; ausgehende Cloudflare-Verbindungen müssen möglich sein.
+Der lokale Titan-Tunnelzugang auf Port 5102 und der Cloudflared-Prüfport 5104 sind auf Loopback begrenzt. Das lokale Ziel verwendet HTTP, die öffentliche Verbindung HTTPS. Portweiterleitungen am Router sind dafür nicht erforderlich. Ausgehende Cloudflare-Verbindungen über Port 7844 müssen möglich sein. [Cloudflare-Verbindungsdiagnose](https://developers.cloudflare.com/tunnel/troubleshooting/).
 
-Der Tunnel-Token berechtigt zum Betrieb eines Connectors. Er kann keine DNS-Einträge oder öffentlichen Tunnelrouten anlegen. Diese Route wird im Cloudflare-Konto eingerichtet. Titan speichert keinen Cloudflare-Verwaltungs-API-Token. [Offizielle Token-Dokumentation](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/).
+Der Tunnel-Token berechtigt zum Betrieb eines Connectors. Er kann keine DNS-Einträge oder öffentlichen Tunnelrouten anlegen. Die Route wird im Cloudflare-Konto eingerichtet. Titan speichert keinen Cloudflare-Verwaltungs-API-Token. [Offizielle Token-Dokumentation](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/).
 
-## Fortschritt und Wiederaufnahme
+## Installation und Verbindung unterscheiden
 
-Die Einrichtung läuft als Hintergrundauftrag weiter, wenn das Fenster geschlossen wird. Beim erneuten Öffnen lädt Titan den gespeicherten Verlauf und prüft den aktuellen Zustand.
+Die Einrichtung läuft als Hintergrundauftrag. Das Installationsfenster zeigt währenddessen einen Wartehinweis; das Ergebnis bleibt unter **Einstellungen → Aktivität** sichtbar.
 
-**Mit Cloudflare verbunden** bestätigt die tatsächliche Connector-Verbindung über Cloudflareds lokalen `/ready`-Endpunkt. **Öffentlicher Zugang geprüft** bestätigt zusätzlich eine sichere HTTPS-Antwort dieses Titan zur aktuellen Konfiguration. Eine fremde erreichbare Website, ein gestarteter Container oder ein alter erfolgreicher Auftrag genügen nicht.
+**Verbindung zu Cloudflare: Bestätigt** beruht auf Cloudflareds lokalem `/ready`-Endpunkt. **Öffentlicher Titan-Zugang bestätigt** bedeutet zusätzlich, dass die HTTPS-Adresse den Prüfendpunkt dieses Titan zur aktuellen Konfiguration erreicht. Ein gestarteter Dienst allein genügt nicht.
 
-Ohne öffentliche Adresse kann der Connector bereits verbunden sein, während die beiden letzten Schritte ausstehen. Bei einer noch nicht bestätigten Route zeigt Titan den verbleibenden Bedarf an. Nach einer fehlgeschlagenen oder unterbrochenen Installation ist **Einrichtung fortsetzen** verfügbar, solange sichere private Eingaben vorhanden sind. Titan prüft die echten Voraussetzungen erneut und übernimmt keine veränderten fremden Dateien oder Container als erfolgreich.
+Ist der Tunnel verbunden, die öffentliche Route aber noch falsch eingerichtet, bleibt das Plugin installiert und zeigt die erforderliche Zieladresse. Ein Fehler beim Download, Dienststart, Verbindungsaufbau oder lokalen Titan-Zugang führt dagegen zur Rücksetzung der Installation. Auch eine unvollständige Rücksetzung wird ausdrücklich gemeldet.
 
-## Token ersetzen und App verwalten
+## Token, Updates und Deinstallation
 
-Der Token wird als privates App-Geheimnis und in einer atomar ersetzten Datei mit Modus **0600** gespeichert. Der Container bindet das geschützte Verzeichnis nur lesbar ein. Der Token steht weder in Compose-Befehlen noch Container-Umgebungsvariablen, öffentlichen Jobmeldungen oder HTTP-Statusantworten. Das Formular zeigt ihn nie wieder an.
+Titan speichert den Token in einer geschützten Datei mit Modus **0600**. Systemd stellt sie dem Dienst als Credential bereit. Der Token steht weder in Prozessargumenten noch in Browserstatus, Jobmeldungen oder Diagnosecodes. Rohes Cloudflared-Journal wird nicht an den Browser weitergegeben.
 
-Unter **Token ändern oder erneut verbinden** lässt sich ein neuer Token ausdrücklich einfügen. Schlägt die Erneuerung fehl, stellt Titan den vorherigen Token und Laufzeitstatus wieder her, soweit die beteiligten Dienste erreichbar sind. Fehler bei dieser Rücksetzung werden gemeldet. Ein neuer fehlgeschlagener Connector bleibt verwaltet und wird sicher gestoppt. Änderungen am lokalen Tunnel-Proxy werden synchron abgeschlossen oder zurückgesetzt, bevor der Auftrag endet.
-
-Vorübergehende private Wiederaufnahme-Eingaben werden nach erfolgreichem Abschluss und bei ausdrücklicher Deinstallation entfernt. Die gewöhnliche Deinstallation behält App-Konfiguration und Nutzdaten. **Starten** und **Stoppen** stehen in der App zur Verfügung; weitere Containerdetails und Protokolle liegen unter **Docker**.
+Im Plugin lassen sich **Token und Adresse ändern**, Updates prüfen und installieren sowie der Dienst starten, stoppen und deinstallieren. Bei Updates kann das Token-Feld leer bleiben, um den gespeicherten Token zu verwenden. Plugin und Token bleiben bei Titan-Systemupdates erhalten. Die Deinstallation entfernt Dienst, Programm und lokalen Token; den Tunnel im Cloudflare-Konto bei Bedarf separat löschen.
 
 ## Fehler eingrenzen
 
-| Anzeige | Nächster Schritt |
-| --- | --- |
-| Image laden oder Container erstellen fehlgeschlagen | Docker, Internetzugang, freien Speicher und Portkonflikte prüfen; Verlauf erneut öffnen |
-| Gestartet, Cloudflare-Verbindung ausstehend | Vollständigen Tunnel-Token und ausgehenden TCP/UDP-Port 7844 prüfen |
-| Connector verbunden, öffentliche Adresse fehlt | Hostnamen und Route in Cloudflare einrichten, HTTPS-Adresse in Titan ergänzen |
-| Lokaler Zugang eingerichtet, öffentliche Route unbestätigt | Öffentlichen Hostnamen, Service URL und weitergereichten Host-Header prüfen |
-| Öffentlicher Zugang geprüft | Anmeldung und benötigte Datei-, Terminal- oder Konsolenfunktionen aus einem externen Netz praktisch prüfen |
+Die überarbeitete Installation nennt einen konkreten Fehlercode. Bei älteren Versionen, einschließlich 0.8.5, ersetzt eine Sammelmeldung noch sämtliche Fehler; sie belegt weder einen falschen Token noch eine Port-Sperre.
 
-Eine vorgeschaltete Cloudflare-Anmeldung kann die automatische öffentliche Prüfung verhindern. Die praktische Abnahme erfolgt dann im Browser mit der vorgesehenen Anmeldung. Die Demo verändert keine Fernzugriffseinstellungen und installiert keine Container.
+| Fehlercode | Bedeutung / nächster Schritt |
+| --- | --- |
+| `CF_DOWNLOAD`, `CF_DOWNLOAD_TLS` | Downloadzugang zu GitHub bzw. TLS-Prüfung fehlgeschlagen; Internet, DNS, Systemzeit und Zertifikate prüfen |
+| `CF_DOWNLOAD_CHECKSUM`, `CF_DOWNLOAD_LIMIT` | Download wurde wegen abweichender Prüfsumme, Größe oder Dauer verworfen |
+| `CF_STORAGE_FULL`, `CF_FILES` | Systembereich voll oder lokale Dateien konnten nicht eingerichtet werden |
+| `CF_SERVICE_START`, `CF_SERVICE_EXEC`, `CF_SERVICE_CREDENTIAL` | Lokaler Dienststart, Programmausführung oder Bereitstellung der Token-Datei fehlgeschlagen |
+| `CF_METRICS_PORT` | Ein anderer Dienst belegt bereits den lokalen Prüfport 5104 |
+| `CF_TUNNEL_AUTH` | Cloudflare hat die Anmeldung abgelehnt; aktuellen Tunnel-Token im Konto prüfen |
+| `CF_EDGE_DNS` | Cloudflared meldet einen Fehler bei der Auflösung der Tunnel-Server |
+| `CF_EDGE_TCP`, `CF_EDGE_QUIC` | Cloudflared meldet Verbindungsfehler; ausgehenden Port 7844 und Netzwerk prüfen |
+| `CF_CONNECT_TIMEOUT` | Nach drei Minuten keine bestätigte Verbindung; keine genauere Ursache aus dem aktuellen Dienstlauf erkennbar |
+| `CF_LOCAL_ROUTE` | Tunnel verbunden, Aktivierung des lokalen Titan-Zugangs auf Port 5102 fehlgeschlagen |
+| `CF_DOCKER_MIGRATION`, `CF_SAVE_STATE` | Umstieg vom bisherigen Docker-Tunnel oder dauerhaftes Speichern fehlgeschlagen |
+
+Die Dienstdiagnose verwendet nur den aktuellen Systemd-Aufruf. Sie gibt feste Kategorien aus, keine Token, Tunnelkennungen oder ungefilterten Protokollzeilen. Für eine Fehlermeldung angeben: Titan-Version und Fehlercode; keinen Tunnel-Token mitsenden.
+
+Eine vorgeschaltete Cloudflare-Anmeldung kann die automatische öffentliche Prüfung verhindern. Die praktische Abnahme erfolgt dann im Browser mit der vorgesehenen Anmeldung.
 
 ## Bereits vorhandene Connectoren
 
-Bestehende Docker-Anwendungen, private Token und gespeicherte Fernzugriffseinstellungen werden durch die neue Apps-Oberfläche nicht automatisch entfernt oder migriert. Frühere Cloudflared-Web- oder selbst verwaltete Connectoren bleiben unter Docker verwaltbar.
+Der bisherige Titan-Docker-Tunnel bleibt bis zum ausdrücklich bestätigten Umstieg bestehen. Das Plugin stoppt ihn erst nach erfolgreicher eigener Verbindung und Einrichtung des lokalen Zugangs. Bei einem Fehler versucht Titan, den vorherigen Zustand wiederherzustellen. Selbst verwaltete Connectoren werden nicht automatisch entfernt.
 
-Wenn zwei Connectoren denselben Cloudflare-Tunnel bedienen, kann Cloudflare Anfragen auf beide verteilen. Nach einem Wechsel auf die neue App den vorherigen Connector gezielt stoppen oder dessen Ziel passend beibehalten. Ein Bridge-Connector erreicht das Loopback-Ziel `127.0.0.1` auf dem NAS nicht als eigenen Host. Frühere Bridge-Freigaben bleiben auf das beobachtete private Netz und den eingetragenen öffentlichen Hostnamen beschränkt; eine Container-IP wird nicht als Titan-Ziel erraten.
+Wenn zwei Connectoren denselben Tunnel bedienen, kann Cloudflare Anfragen auf beide verteilen. Ein Bridge-Container erreicht mit `127.0.0.1` nur sich selbst; das hier angegebene Ziel gilt für den nativen Dienst auf dem NAS. Bereits gespeicherte öffentliche App-Adressen bleiben erhalten. Deren Routen und Proxy-Einstellungen müssen separat passen.
 
-Bereits ausdrücklich gespeicherte öffentliche App-Adressen bleiben erhalten. Ihre Tunnelroute sowie vertrauenswürdige Domains oder Proxy-Einstellungen innerhalb der jeweiligen App müssen weiterhin separat passen.
+Die CI prüft unter anderem den echten Cloudflared-Prozess mit privater Systemd-Credential-Datei sowie den Installationsabbruch und die Rücksetzung mit einem absichtlich ungültigen Testtoken. Eine erfolgreiche Verbindung zum Cloudflare-Konto des Benutzers lässt sich damit nicht nachweisen.
