@@ -53,7 +53,7 @@
         reader.onend = () => { text.value = value; };
         stream.sendAck('OK', 0);
       };
-      active.onerror = () => { if (client === active) { show('Die Verbindung wurde unterbrochen. Erneut verbinden oder die Sitzung beenden und neu öffnen.'); active.disconnect(); } };
+      active.onerror = () => { if (client === active) show('Die Verbindung wurde unterbrochen. Erneut verbinden oder die Sitzung beenden und neu öffnen.'); };
       // Guacamole.Client handles protocol instructions; the application must
       // also propagate closure/errors of the underlying transport.
       tunnel.onerror = active.onerror;
@@ -68,7 +68,13 @@
         }
       };
       active.connect('id=' + encodeURIComponent(id));
-    } catch (error) { status.textContent = 'Sitzung nicht bereit'; show(error.message); }
+    } catch (error) {
+      status.textContent = 'Sitzung nicht bereit'; show(error.message);
+      // A network change may lose the response after the server has created
+      // the browser. Creation reuses this login's existing target session.
+      if (!closed && error instanceof TypeError && attempts++ < 4)
+        timer = setTimeout(connect, Math.min(15000, 1500 * 2 ** attempts));
+    }
     finally { busy = false; retry.disabled = false; }
   }
   screen.addEventListener('blur', () => keyboard?.reset());
