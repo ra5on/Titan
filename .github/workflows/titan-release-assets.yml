@@ -1,0 +1,86 @@
+name: Titan release assets
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful Titan image workflow run ID
+        required: true
+      tag:
+        description: Titan version of the signed draft release
+        required: true
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: titan-release-assets-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  upload:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN: ${{ inputs.build_run }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Match a tested image build to the draft release
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ && "$TAG" =~ ^(0|[1-9][0-9]*)\.[0-9]$ && "$TAG" != 0.0 ]]
+          build=$(gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN")
+          workflow_id=$(gh api "repos/$GH_REPO/actions/workflows/ci.yml" --jq .id)
+          jq -e --arg repo "$GH_REPO" --argjson workflow "$workflow_id" '
+            .conclusion == "success" and .workflow_id == $workflow and .head_repository.full_name == $repo
+          ' <<<"$build" >/dev/null
+          sha=$(jq -er .head_sha <<<"$build")
+          gh release view "$TAG" --json isDraft,isPrerelease,targetCommitish |
+            jq -e --arg sha "$sha" '.isDraft and (.isPrerelease|not) and .targetCommitish == $sha'
+          echo "BUILD_SHA=$sha" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Install the release verifier
+        run: npm --prefix packages/umbreld ci --ignore-scripts --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with:
+          name: titan-amd64
+          path: artifacts
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+      - name: Verify the staged manifest and upload its files
+        run: |
+          set -euo pipefail
+          mkdir signed
+          gh release download "$TAG" --dir signed --pattern 'manifest.txt*' --pattern 'release-notes.md*'
+          test -s signed/manifest.txt.sig && test -s signed/release-notes.md.sig
+          ./scripts/release-signing verify "$PWD/signed" | tee "$RUNNER_TEMP/titan-signatures"
+          grep -Fx 'Its release notes are signed' "$RUNNER_TEMP/titan-signatures"
+          directory="artifacts/titan-$TAG"
+          cmp signed/manifest.txt "$directory/manifest.txt"
+          cmp signed/release-notes.md "$directory/release-notes.md"
+          grep -Fx "Commit: $BUILD_SHA" signed/manifest.txt
+          grep -Fx "Version: $TAG" signed/manifest.txt
+          cd "$directory"
+          files=()
+          while read -r _ name digest _; do
+            [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ && "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            echo "${digest#sha256:}  $name" | sha256sum --check --strict
+            files+=("$name")
+          done < <(grep '^File: ' manifest.txt)
+          (( ${#files[@]} > 0 ))
+          # Only add missing files. A retry never overwrites an existing asset.
+          existing=$(gh release view "$TAG" --json assets,isDraft)
+          jq -e .isDraft <<<"$existing" >/dev/null
+          for name in "${files[@]}"; do
+            digest=$(sha256sum "$name" | cut -d' ' -f1)
+            remote=$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .digest' <<<"$existing")
+            if [[ -n "$remote" ]]; then
+              [[ "$remote" == "sha256:$digest" ]]
+            else
+              gh release upload "$TAG" "$name"
+            fi
+          done
