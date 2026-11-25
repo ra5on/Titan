@@ -16,9 +16,11 @@ Docker-Apps sollen sich auch unterwegs in einem Fenster des Titan-Desktops bedie
 
 ## Virtuelle Maschinen
 
-Für Home Assistant OS und andere Gastbetriebssysteme sind der Import vorhandener QCOW2-Abbilder und die gezielte Freigabe von NAS-Ordnern über virtiofs geplant. Die umbrelOS-Basis unterstützt bereits die Zuweisung von USB-Geräten, etwa eines Zigbee-Adapters für Home Assistant. [USB-Unterstützung im Ausgangsstand](https://github.com/getumbrel/umbrel/blob/27292d7044a912a8a845917b7698ad3dfdd2676d/packages/umbreld/source/modules/machines/usb-devices.ts)
+Für Home Assistant OS und andere Gastbetriebssysteme sind der Import vorhandener QCOW2-Abbilder und die gezielte Freigabe von NAS-Ordnern über virtiofs geplant.
 
-Für die direkte Zuweisung an eine VM sind drei Geräteklassen vorgesehen.
+**USB-Geräte.** Die umbrelOS-Basis unterstützt die Zuweisung einzelner USB-Geräte an eine VM, darunter Zigbee-Adapter und externe KI-Beschleuniger wie den **Coral USB Accelerator (Edge TPU)**. Die Coral-Laufzeit im Gast lädt die Firmware auf den Stick. Dabei meldet er sich mit einer anderen USB-Kennung neu an. Der geplante Titan-Hardwaretest prüft, ob der Stick beim Kennungswechsel und nach einem VM-Neustart zugeordnet bleibt und ein Modell im Gast auf der Edge TPU ausführt. [USB-Zuordnung im Ausgangsstand](https://github.com/getumbrel/umbrel/blob/27292d7044a912a8a845917b7698ad3dfdd2676d/packages/umbreld/source/modules/machines/usb-devices.ts#L7-L27) · [Coral-Dokumentation](https://coral.ai/docs/accelerator/get-started/)
+
+**PCI-Geräte.** Für die direkte Zuweisung an eine VM sind drei Geräteklassen vorgesehen.
 
 - **Integrierte Grafik (iGPU)** für Gäste, die die Grafikeinheit des Prozessors nutzen sollen.
 - **Separate Grafikkarten von NVIDIA und AMD** für Grafik- oder Rechenaufgaben im Gast.
