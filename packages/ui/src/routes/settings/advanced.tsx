@@ -1,6 +1,5 @@
 import React from 'react'
 import {useTranslation} from 'react-i18next'
-import {PiFlaskFill} from 'react-icons/pi'
 import {TbChevronRight} from 'react-icons/tb'
 import {useParams, useSearchParams} from 'react-router-dom'
 
@@ -9,13 +8,10 @@ import {CopyableField} from '@/components/ui/copyable-field'
 import {Cover} from '@/components/ui/cover'
 import {Dialog, DialogHeader, DialogScrollableContent, DialogTitle} from '@/components/ui/dialog'
 import {Drawer, DrawerContent, DrawerHeader, DrawerScroller, DrawerTitle} from '@/components/ui/drawer'
-import {Icon, IconTypes} from '@/components/ui/icon'
 import {IconButtonLink} from '@/components/ui/icon-button-link'
 import {Switch} from '@/components/ui/switch'
-import {toast} from '@/components/ui/toast'
 import {useIsHomeOrPro} from '@/hooks/use-is-home-or-pro'
 import {useIsPhone} from '@/hooks/use-is-mobile'
-import {useSoftwareUpdate} from '@/hooks/use-software-update'
 import {useTorEnabled} from '@/hooks/use-tor-enabled'
 import {cn} from '@/lib/utils'
 import {useSettingsDialogProps} from '@/routes/settings/_components/shared'
@@ -38,11 +34,9 @@ export default function AdvancedSettingsDrawerOrDialog() {
 	const title = t('advanced-settings')
 	const dialogProps = useSettingsDialogProps()
 	const {advancedSelection} = useParams<{
-		advancedSelection?: 'beta-program' | 'network' | 'thunderbolt' | 'tor'
+		advancedSelection?: 'network' | 'thunderbolt' | 'tor'
 	}>()
 	const [searchParams] = useSearchParams()
-
-	const isBetaChannel = useIsBetaChannel()
 
 	const isPhone = useIsPhone()
 
@@ -138,15 +132,6 @@ export default function AdvancedSettingsDrawerOrDialog() {
 					{t('open')}
 				</IconButtonLink>
 			</label>
-			<label className={cn(cardClass, advancedSelection === 'beta-program' && 'umbrel-pulse-a-few-times')}>
-				<CardText title={t('beta-program')} description={t('beta-program-description')} trailingIcon={PiFlaskFill} />
-				<Switch
-					className={cn('pointer-events-auto', isBetaChannel.isLoading && 'umbrel-pulse')}
-					checked={isBetaChannel.isChecked}
-					onCheckedChange={isBetaChannel.change}
-					disabled={isBetaChannel.isLoading}
-				/>
-			</label>
 			{networkSettingRow}
 			{thunderboltSettingRow}
 			{remoteTorAccessSettingRow}
@@ -204,41 +189,10 @@ export default function AdvancedSettingsDrawerOrDialog() {
 	)
 }
 
-function useIsBetaChannel() {
-	const {t} = useTranslation()
-	const releaseChannelQ = trpcReact.update.getReleaseChannel.useQuery()
-	const isChecked = releaseChannelQ.data === 'beta'
-	const {checkLatest} = useSoftwareUpdate()
-
-	const releaseChannelMut = trpcReact.update.setReleaseChannel.useMutation({
-		onSuccess: () => {
-			releaseChannelQ.refetch()
-			checkLatest()
-		},
-		// Otherwise the switch just flips back, with nothing to say it didn't take
-		onError: (error) => toast.error(t('beta-program-error', {message: error.message}), {area: 'settings'}),
-	})
-
-	const change = (checked: boolean) => {
-		if (checked) {
-			releaseChannelMut.mutate({channel: 'beta'})
-		} else {
-			releaseChannelMut.mutate({channel: 'stable'})
-		}
-	}
-
-	const isLoading = releaseChannelMut.isPending || releaseChannelQ.isLoading
-
-	return {isChecked, change, isLoading}
-}
-
-function CardText({title, description, trailingIcon}: {title: string; description: string; trailingIcon?: IconTypes}) {
+function CardText({title, description}: {title: string; description: string}) {
 	return (
 		<div className='flex-1 space-y-1'>
-			<h3 className='text-14 leading-tight font-medium'>
-				{title}
-				{trailingIcon && <Icon component={trailingIcon} className='ml-2 inline-block opacity-50' />}
-			</h3>
+			<h3 className='text-14 leading-tight font-medium'>{title}</h3>
 			<p className='text-13 leading-tight text-white/45'>{description}</p>
 		</div>
 	)

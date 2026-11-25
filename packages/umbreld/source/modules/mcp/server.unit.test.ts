@@ -425,7 +425,6 @@ test('system management tools are registered with the system grant', async () =>
 				'get_os_update_status',
 				'restart_device',
 				'set_hostname',
-				'set_release_channel',
 				'get_network_settings',
 				'get_system_logs',
 			]),

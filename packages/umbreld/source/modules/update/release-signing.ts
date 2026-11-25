@@ -587,6 +587,16 @@ export async function verifyRelease({
 // File: umbrelos-amd64.img.xz sha256:<hex>
 // File: umbrelos-amd64.update sha256:<hex> bundle:sha512-256:<hex> boot-flow:grub arch:amd64
 // File: update.sh sha256:<hex> type:update-script
+export function isTitanVersion(version: string) {
+	return /^(0|[1-9][0-9]*)\.[0-9]$/.test(version) && version !== '0.0' && semver.valid(`${version}.0`) !== null
+}
+
+// Archived upstream manifests use SemVer. Only compare versions within the same release series.
+export function isNewerRelease(candidate: string, installed: string) {
+	if (isTitanVersion(installed)) return isTitanVersion(candidate) && semver.gt(`${candidate}.0`, `${installed}.0`)
+	return !isTitanVersion(candidate) && semver.gt(candidate, installed)
+}
+
 export function parseReleaseManifest(text: string): ReleaseManifest {
 	const fail = (message: string) => new ReleaseVerificationError(`The release manifest ${message}`)
 
@@ -595,7 +605,7 @@ export function parseReleaseManifest(text: string): ReleaseManifest {
 	const fields = parseFields(fieldLines, fail)
 
 	const version = fields.one('Version')
-	if (semver.valid(version) !== version) throw fail('has an invalid version')
+	if (!isTitanVersion(version) && semver.valid(version) !== version) throw fail('has an invalid version')
 
 	const name = fields.one('Name')
 	if (!/^\S/.test(name)) throw fail('has an invalid name')
@@ -662,7 +672,7 @@ export function selectReleaseNotes(releaseNotes: string, installedVersion: strin
 			.join('\n')
 			.replace(/^\n+|\n+$/g, '')
 	const section = sections.findIndex(
-		({range}) => semver.validRange(range) && semver.satisfies(installedVersion, range, {includePrerelease: true}),
+		({range}) => semver.validRange(range) && semver.satisfies(isTitanVersion(installedVersion) ? `${installedVersion}.0` : installedVersion, range, {includePrerelease: true}),
 	)
 	if (section === -1) return text(0, sections[0]?.index)
 	return text(sections[section].index + 1, sections[section + 1]?.index)

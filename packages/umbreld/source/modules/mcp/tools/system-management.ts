@@ -108,27 +108,6 @@ export default function registerSystemManagementTools(server: McpServer, context
 	)
 
 	server.registerTool(
-		'set_release_channel',
-		{
-			title: 'Toggle umbrelOS Beta Program enrollment by setting the release channel',
-			description: 'Choose the stable or beta umbrelOS update channel.',
-			inputSchema: z.object({channel: z.enum(['stable', 'beta'])}),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: false,
-			},
-		},
-		(input) =>
-			runTool(context, 'set_release_channel', input, async () => {
-				await context.mcp.assertSystemAccess()
-				await context.rpc.update.setReleaseChannel({channel: input.channel})
-				return {channel: input.channel}
-			}),
-	)
-
-	server.registerTool(
 		'get_network_settings',
 		{
 			title: 'Get network settings',

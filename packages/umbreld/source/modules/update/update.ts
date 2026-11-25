@@ -1,7 +1,5 @@
 import crypto from 'node:crypto'
 
-import semver from 'semver'
-
 import type Umbreld from '../../index.ts'
 import type {ProgressStatus} from '../apps/schema.ts'
 import {detectDevice, isUmbrelOS} from '../system/system.ts'
@@ -10,6 +8,7 @@ import {getDevice, installRelease} from './install-release.ts'
 import {
 	ReleaseVerificationError,
 	UpdateError,
+	isNewerRelease,
 	findUpdateBundle,
 	findUpdateScript,
 	downloadManifestSignature,
@@ -21,8 +20,6 @@ import {
 	selectReleaseNotes,
 	verifyRelease,
 } from './release-signing.ts'
-
-export type ReleaseChannel = 'stable' | 'beta'
 
 const manifestHash = (manifest: string) => crypto.createHash('sha256').update(manifest).digest('hex')
 
@@ -72,14 +69,6 @@ export default class Update {
 		this.#umbreld.eventBus.emit('system:update-status', this.#status)
 	}
 
-	async getReleaseChannel(): Promise<ReleaseChannel> {
-		return (await this.#umbreld.store.get('settings.releaseChannel')) || 'stable'
-	}
-
-	async setReleaseChannel(channel: ReleaseChannel) {
-		return this.#umbreld.store.set('settings.releaseChannel', channel)
-	}
-
 	// Ask the update server where the latest release for this device is
 	async #getLatestReleaseUrl() {
 		let deviceId = 'unknown'
@@ -96,13 +85,6 @@ export default class Update {
 			this.logger.error(`Failed to detect platform`, error)
 		}
 
-		let channel: ReleaseChannel = 'stable'
-		try {
-			channel = await this.getReleaseChannel()
-		} catch (error) {
-			this.logger.error(`Failed to get release channel`, error)
-		}
-
 		let device: {bootFlow?: string; arch: string} | undefined
 		try {
 			device = await getDevice()
@@ -117,17 +99,17 @@ export default class Update {
 		// notifying users for critical security updates that are be relevant only to their specific
 		// platform, and avoids notififying users of updates that aren't yet available for their
 		// platform.
-		updateUrl.searchParams.set('version', this.#umbreld.version)
+		updateUrl.searchParams.set('version', this.#umbreld.releaseVersion)
 		updateUrl.searchParams.set('device', deviceId)
 		updateUrl.searchParams.set('platform', platform)
-		updateUrl.searchParams.set('channel', channel)
+		updateUrl.searchParams.set('channel', 'stable')
 		// So the update server can hold a release back from, or offer one to, devices that install a
 		// particular update bundle
 		updateUrl.searchParams.set('bootFlow', device?.bootFlow ?? 'unknown')
 		updateUrl.searchParams.set('arch', device?.arch ?? 'unknown')
 
 		const response = await fetch(updateUrl, {
-			headers: {'User-Agent': `umbrelOS ${this.#umbreld.version}`},
+			headers: {'User-Agent': `umbrelOS ${this.#umbreld.releaseVersion}`},
 			signal: AbortSignal.timeout(30_000),
 		})
 		if (!response.ok) throw new Error(`Update server responded with HTTP ${response.status}`)
@@ -142,7 +124,7 @@ export default class Update {
 		if (!releaseUrl) return undefined
 		const url = releaseDirectoryUrl(releaseUrl)
 
-		const userAgent = `umbrelOS ${this.#umbreld.version}`
+		const userAgent = `umbrelOS ${this.#umbreld.releaseVersion}`
 		const [manifest, manifestSignatureFile, notes] = await Promise.all([
 			downloadReleaseManifest(url, userAgent),
 			downloadManifestSignature(url, userAgent),
@@ -211,14 +193,14 @@ export default class Update {
 			this.logger.error('Failed to check for updates', error)
 			throw new UpdateError('Failed to check for updates')
 		})
-		if (!found) return {available: false, version: this.#umbreld.version, name: '', releaseNotes: ''}
+		if (!found) return {available: false, version: this.#umbreld.releaseVersion, name: '', releaseNotes: ''}
 
 		const {release} = found
 		return {
-			available: semver.gt(release.version, this.#umbreld.version) && (await this.#hasUpdateForDevice(release)),
+			available: isNewerRelease(release.version, this.#umbreld.releaseVersion) && (await this.#hasUpdateForDevice(release)),
 			version: release.version,
 			name: release.name,
-			releaseNotes: selectReleaseNotes(release.releaseNotes, this.#umbreld.version),
+			releaseNotes: selectReleaseNotes(release.releaseNotes, this.#umbreld.releaseVersion),
 			// Given back to install, so it only installs this release
 			manifestHash: manifestHash(found.manifest),
 		}
@@ -245,9 +227,9 @@ export default class Update {
 			// The update server's latest release has to be newer so it can't roll a device back. A release
 			// asked for by URL, like a test build, can be any version.
 			const {release} = found
-			if (!releaseUrl && !semver.gt(release.version, this.#umbreld.version)) {
+			if (!releaseUrl && !isNewerRelease(release.version, this.#umbreld.releaseVersion)) {
 				throw new ReleaseVerificationError(
-					`umbrelOS ${release.version} isn't newer than the installed ${this.#umbreld.version}`,
+					`umbrelOS ${release.version} isn't newer than the installed ${this.#umbreld.releaseVersion}`,
 				)
 			}
 
@@ -258,7 +240,7 @@ export default class Update {
 				releaseUrl: found.releaseUrl,
 				manifest: found.manifest,
 				release,
-				installedVersion: this.#umbreld.version,
+				installedVersion: this.#umbreld.releaseVersion,
 				onStatus: (status) => {
 					// Only log whole percents
 					if (status.progress !== undefined && Math.floor(status.progress) > Math.floor(this.#status.progress)) {

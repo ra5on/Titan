@@ -53,7 +53,6 @@ export type SettingsItemId =
 	| 'remote-tor-access'
 	| 'terminal'
 	| 'factory-reset'
-	| 'beta-program'
 	| 'network'
 	| 'https-access'
 	| 'external-dns'
@@ -424,8 +423,6 @@ export function createSettingsCatalog(
 				'dhcp',
 				t('terminal'),
 				t('terminal-description'),
-				t('beta-program'),
-				t('beta-program-description'),
 				t('network'),
 				t('network-description'),
 				t('network.hostname'),
@@ -688,13 +685,6 @@ export function createSettingsCatalog(
 			target: {type: 'navigate', to: '/factory-reset'},
 			title: t('factory-reset'),
 			description: t('factory-reset-description'),
-		},
-		{
-			kind: 'command',
-			id: 'beta-program',
-			target: {type: 'navigate', to: '/settings/advanced/beta-program'},
-			title: t('beta-program'),
-			description: t('beta-program-description'),
 		},
 		{
 			kind: 'command',

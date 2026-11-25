@@ -130,6 +130,8 @@ export default router({
 		return {
 			version: ctx.umbreld.version,
 			name: ctx.umbreld.versionName,
+			releaseName: `Titan ${ctx.umbreld.releaseVersion}`,
+			releaseVersion: ctx.umbreld.releaseVersion,
 			previousVersion: await ctx.umbreld.store.get('previousVersion'),
 		}
 	}),

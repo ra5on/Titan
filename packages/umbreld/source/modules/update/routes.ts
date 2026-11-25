@@ -52,10 +52,10 @@ const procedures = {
 		}
 		return success
 	}),
-	getReleaseChannel: privateProcedure.query(({ctx}) => ctx.umbreld.update.getReleaseChannel()),
+	getReleaseChannel: privateProcedure.query(() => 'stable' as const),
 	setReleaseChannel: privateProcedure
-		.input(z.object({channel: z.enum(['stable', 'beta'])}))
-		.mutation(({ctx, input}) => ctx.umbreld.update.setReleaseChannel(input.channel)),
+		.input(z.object({channel: z.literal('stable')}))
+		.mutation(() => undefined),
 }
 
 export default router(procedures)

@@ -39,7 +39,7 @@ export function SettingsSummary({className}: {className?: string}) {
 		>
 			<SummaryRow
 				label={t('running')}
-				value={osVersionQ.isLoading ? LOADING_DASH : (osVersionQ.data?.name ?? UNKNOWN())}
+				value={osVersionQ.isLoading ? LOADING_DASH : (osVersionQ.data?.releaseName ?? UNKNOWN())}
 			/>
 			<SummaryRow label={t('device')} value={deviceNameQ.data || LOADING_DASH} />
 			<SummaryRow label={t('local-ip')} value={localIpValue} />

@@ -32,7 +32,7 @@ export function SoftwareUpdateDrawerOrDialog() {
 					<FadeInImg src='/assets/umbrel-ios.png' className='h-[96px] w-[96px]' />
 					<div className='mb-4' />
 					<p className='text-12 -tracking-2 text-white/50'>{t('software-update.current-running')}</p>
-					<p className='text-15 -tracking-4'>{currentVersion?.name || `umbrelOS ${LOADING_DASH}`}</p>
+					<p className='text-15 -tracking-4'>{currentVersion || `Titan ${LOADING_DASH}`}</p>
 					<p className='text-12 -tracking-2 text-white/50'>
 						<Trans
 							t={t}

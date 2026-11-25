@@ -22,7 +22,7 @@ export function SoftwareUpdateListRow({isActive, icon}: {isActive: boolean; icon
 			<ListRow
 				icon={icon}
 				isActive={isActive}
-				title={currentVersion?.name || `umbrelOS ${LOADING_DASH}`}
+				title={currentVersion || `Titan ${LOADING_DASH}`}
 				description={
 					<span className='block'>
 						<Icon component={RiArrowUpCircleFill} className='mr-1 inline align-[-2px] text-brand' />
@@ -41,7 +41,7 @@ export function SoftwareUpdateListRow({isActive, icon}: {isActive: boolean; icon
 		<ListRow
 			icon={icon}
 			isActive={isActive}
-			title={currentVersion?.name || `umbrelOS ${LOADING_DASH}`}
+			title={currentVersion || `Titan ${LOADING_DASH}`}
 			description={
 				// Text with inline icons rather than a flex row, so the sentence and its
 				// link wrap together like a paragraph

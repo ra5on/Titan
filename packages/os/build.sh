@@ -145,11 +145,13 @@ function main() {
     # handlers would replace Rosetta on Apple Silicon (OrbStack/Docker Desktop),
     # which is faster than QEMU and, unlike it, exposes the x86 CPU flags that
     # Homebrew requires (we probe with the same SSSE3 check Homebrew performs).
-    if ! host_emulation_is_good; then
+    if [[ -z "${SKIP_ARM64:-}" || -z "${SKIP_PI:-}" ]] && ! host_emulation_is_good; then
         docker run --privileged --rm "${BINFMT_IMAGE}" --install all
     fi
 
-    ensure_buildx_builder
+    if [[ -z "${SKIP_ROOTS:-}" || -n "${DOCKER_IMAGE_OUTPUT:-}" || -z "${SKIP_MENDER_ARTIFACTS:-}" ]]; then
+        ensure_buildx_builder
+    fi
 
     if [ -n "${DOCKER_IMAGE_OUTPUT:-}" ]; then
         build_docker_image "${DOCKER_IMAGE_OUTPUT}"

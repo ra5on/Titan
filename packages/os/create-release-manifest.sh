@@ -5,8 +5,8 @@ set -euo pipefail
 #
 #   ./create-release-manifest.sh release
 #
-# manifest.txt is the release's record of what it contains, which never changes. It has umbreld's version
-# and versionName, which is what the release calls itself once it's installed, is dated by the commit it
+# manifest.txt is the release's record of what it contains, which never changes. It has Titan's version
+# and display name, is dated by the commit it
 # was built from, like the reproducible build, names that commit, or unknown outside a Git checkout, so
 # anyone can rebuild the release from it, and pins every file by its SHA-256, and each Rugix update bundle also by the bundle
 # hash build.sh recorded, which devices pass to `rugix-ctrl update install --bundle-hash`, and by the
@@ -43,7 +43,7 @@ release_notes_directory="${RELEASE_NOTES_DIRECTORY:-release-notes}"
 bundle_devices() {
     case "$1" in
         # Natively flashed amd64 devices
-        umbrelos-amd64.update) echo "boot-flow:grub arch:amd64" ;;
+        titan-amd64.update|umbrelos-amd64.update) echo "boot-flow:grub arch:amd64" ;;
         # amd64 devices first flashed with Mender and since migrated to Rugix, which keep Mender's
         # partition layout and boot flow
         umbrelos-amd64-legacy.update) echo "boot-flow:mender-grub arch:amd64" ;;
@@ -51,14 +51,17 @@ bundle_devices() {
     esac
 }
 
-version="$(jq --exit-status --raw-output .version ../umbreld/package.json)"
-name="$(jq --exit-status --raw-output .versionName ../umbreld/package.json)"
-# Devices compare the manifest's version, which is umbreld's, with their own, so a release tagged with a
-# version has to be that version
-if [[ "${RELEASE_TAG:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ && "${RELEASE_TAG}" != "${version}" ]]; then
-    echo "The ${RELEASE_TAG} tag doesn't match umbreld's version ${version}" >&2
+version="$(jq --exit-status --raw-output .titanVersion ../umbreld/package.json)"
+name="Titan ${version}"
+if [[ ! "${version}" =~ ^(0|[1-9][0-9]*)\.[0-9]$ || "${version}" == '0.0' ]]; then
+    echo "Invalid Titan version: ${version}" >&2
     exit 1
 fi
+if [[ -n "${RELEASE_TAG:-}" && "${RELEASE_TAG}" != "${version}" ]]; then
+    echo "The ${RELEASE_TAG} tag doesn't match Titan version ${version}" >&2
+    exit 1
+fi
+
 # The commit's time, which SOURCE_DATE_EPOCH gives for a checkout without its history, like build.sh
 source_date_epoch="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct 2>/dev/null || date +%s)}"
 commit="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
@@ -74,10 +77,6 @@ if [[ ! "${name}" =~ ^[^[:space:]] ]]; then
 fi
 # The image index's digest, like ghcr.io/getumbrel/umbrelos@sha256:<hex>, covers every platform's image
 docker_image="${DOCKER_IMAGE:-}"
-if [[ -n "${RELEASE_TAG:-}" && -z "${docker_image}" ]]; then
-    echo "DOCKER_IMAGE is missing, which a release built by CI pins" >&2
-    exit 1
-fi
 if [[ -n "${docker_image}" && ! "${docker_image}" =~ ^[a-z0-9.-]+(/[a-z0-9._-]+)+@sha256:[0-9a-f]{64}$ ]]; then
     echo "DOCKER_IMAGE has to be an image by its digest, like ghcr.io/getumbrel/umbrelos@sha256:<hex>: ${docker_image}" >&2
     exit 1

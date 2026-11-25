@@ -67,7 +67,6 @@ export function Prefetcher() {
 			utils.apps.getTorEnabled,
 
 			// Advanced settings switches
-			utils.update.getReleaseChannel,
 			utils.system.isExternalDns,
 
 			// Files

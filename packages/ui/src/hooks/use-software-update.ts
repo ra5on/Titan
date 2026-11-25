@@ -16,7 +16,7 @@ export function useSoftwareUpdate() {
 	})
 	const osVersionQ = trpcReact.system.version.useQuery()
 
-	const currentVersion = osVersionQ.data
+	const currentVersion = osVersionQ.data?.releaseName
 	const latestVersion = latestVersionQ.data
 
 	const checkLatest = useCallback(async () => {

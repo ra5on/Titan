@@ -45,7 +45,7 @@ export function useDeviceInfo(): DeviceInfoT {
 	const device = deviceInfoQ.data?.device
 	const modelNumber = deviceInfoQ.data?.model
 	const serialNumber = deviceInfoQ.data?.serial
-	const osVersionName = osQ.data?.name
+	const osVersionName = osQ.data?.releaseName
 
 	return {
 		isLoading,

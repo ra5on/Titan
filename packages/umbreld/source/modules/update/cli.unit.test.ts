@@ -93,7 +93,7 @@ describe('umbreld update', () => {
 				releaseUrl: 'https://download.umbrel.com/public-test/',
 				manifest,
 				release: expect.objectContaining({version: '2.0.0'}),
-				installedVersion: expect.stringMatching(/^\d+\.\d+\.\d+/),
+				installedVersion: expect.stringMatching(/^(0|[1-9]\d*)\.\d$/),
 				onStatus: expect.any(Function),
 			})
 			expect(installUpdateBundle).not.toHaveBeenCalled()

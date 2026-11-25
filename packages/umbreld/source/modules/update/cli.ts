@@ -66,7 +66,7 @@ async function installUnverifiedRelease(url: string) {
 	const manifest = await downloadReleaseManifest(releaseUrl, 'umbreld update')
 	const release = parseReleaseManifest(manifest)
 	await installUnverified(`${release.name} (${release.version}) from ${releaseUrl}`, (onStatus) =>
-		installRelease({releaseUrl, manifest, release, installedVersion: packageJson.version, onStatus}),
+		installRelease({releaseUrl, manifest, release, installedVersion: packageJson.titanVersion, onStatus}),
 	)
 }
 

@@ -78,7 +78,6 @@ type StoreSchema = {
 	// that read the library (see modules/search)
 	searchToldOfNoRoomForModels?: boolean
 	settings: {
-		releaseChannel: 'stable' | 'beta'
 		wifi?: {
 			ssid: string
 			password?: string
@@ -174,6 +173,7 @@ export type UmbreldOptions = {
 export default class Umbreld {
 	version: string = packageJson.version
 	versionName: string = packageJson.versionName
+	releaseVersion: string = packageJson.titanVersion
 	developmentMode: boolean
 	dataDirectory: string
 	port: number
@@ -267,10 +267,6 @@ export default class Umbreld {
 			this.logger.log('Rebooting to complete migrations...')
 			await reboot()
 			return
-		}
-
-		if (!(await this.store.get('settings.releaseChannel'))) {
-			await this.store.set('settings.releaseChannel', this.version.includes('-beta') ? 'beta' : 'stable')
 		}
 
 		// Detect first boot after a backup restore (we run after migrations move 'import' into dataDirectory)
