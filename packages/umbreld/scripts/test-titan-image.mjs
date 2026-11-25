@@ -65,9 +65,15 @@ try {
 		)
 		throw error
 	}
-	await page.locator('[aria-label="Dateien"], [aria-label="Files"]').first().waitFor({timeout: 60000})
+	const files = page.locator('[aria-label="Dateien"], [aria-label="Files"]').first()
+	await files.waitFor({timeout: 60000})
+	// Reload through the public address to verify that the owner's session persists.
+	await page.goto(base)
+	await page.locator('h1').filter({hasText: 'Titan'}).first().waitFor({timeout: 60000})
+	await page.keyboard.press('Escape')
+	await files.click({trial: true, timeout: 30000})
 	await page.evaluate(() => document.fonts.ready)
-	await page.screenshot({path: path.join(dir, 'desktop.png')})
+	await page.screenshot({path: path.join(dir, 'desktop.png'), animations: 'disabled'})
 	if (upstream.size) throw new Error('Browser contacted ' + [...upstream].join(', '))
 } finally {
 	await browser.close()
