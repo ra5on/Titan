@@ -22,7 +22,7 @@ permissions:
 jobs:
   sync:
     name: Sync releases to the download server
-    if: github.ref == 'refs/heads/staging'
+    if: github.repository == 'getumbrel/umbrel' && github.ref == 'refs/heads/staging'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5

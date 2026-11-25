@@ -1,12 +1,10 @@
 name: Reproducibility
 
-# Check every night that building staging from scratch gives the same OS image
+# Manually check that building the upstream system from scratch gives the same OS image
 # and update bundle as building it with CI's cache. If they differ, something in
 # the build stopped being reproducible. See "Reproducible Builds" in
 # packages/os/README.md.
 on:
-  schedule:
-    - cron: '0 3 * * *'
   workflow_dispatch:
 
 jobs:

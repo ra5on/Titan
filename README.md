@@ -46,6 +46,19 @@ Suche, Texterkennung und Transkription verwenden lokale Modelle. Bei Bedarf bezi
 | Cloud-Konten | Verbindungen gehen zum ausgewählten Dienst. Anbindungen über OAuth erfordern einen eigenen Callback-Dienst und eigene Client-Zugangsdaten. |
 | Native Clients, Community-Stores, installierte Apps und Tunnel | Die jeweiligen Anbieter und die eigene Konfiguration bestimmen deren Netzwerkziele. Ein öffentlicher Tunnel stellt eine Verbindung zum gewählten Tunnelanbieter her. |
 
+## Image selbst bauen
+
+Der AMD64-Build läuft unter Linux mit Node.js 26, Docker Engine und Buildx. Führe die folgenden Befehle im Stammverzeichnis des Repositorys aus. [Build-Konfiguration auf GitHub](.github/workflows/ci.yml)
+
+```sh
+npm --prefix packages/umbreld ci --ignore-scripts
+npm --prefix packages/ui ci
+npm --prefix packages/ui run build
+packages/os/build-titan.sh
+```
+
+Die fertigen Dateien liegen unter `packages/os/build/titan-<Version>/`. Die Projektverantwortlichen prüfen Änderungen am festgelegten umbrelOS-Ausgangsstand, testen das gebaute Image und signieren Manifest und Versionshinweise mit einem Titan-Freigabeschlüssel. Feed, öffentliche Schlüssel und Release-Dateien müssen für installierte Systeme erreichbar bleiben. [Signierwerkzeug](scripts/titan-sign-release)
+
 ## Herkunft, Lizenzen und Weitergabe
 
 Für den von Umbrel übernommenen Betriebssystemcode gilt die **PolyForm Noncommercial License 1.0.0**. Titan gibt seine Bearbeitungen dieses Codes zu denselben Bedingungen weiter. Die Lizenz erlaubt die Nutzung, Änderung und Weitergabe für die darin beschriebenen nichtkommerziellen Zwecke. Bei jeder Weitergabe von erfasstem Code oder eines fertigen Images müssen die Empfänger den Lizenztext oder dessen URL sowie alle vom Lizenzgeber mitgelieferten Zeilen erhalten, die mit `Required Notice:` beginnen. Der Originaltext ist in diesem Repository enthalten. [Lizenztext](LICENSE.md) · [Umbrels Lizenz-FAQ](https://github.com/getumbrel/umbrel/wiki/License-FAQ)
