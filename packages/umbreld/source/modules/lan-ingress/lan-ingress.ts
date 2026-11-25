@@ -235,6 +235,18 @@ export default class LanIngress {
 		return this.getCertificateStatus()
 	}
 
+	// Only resolved, running app routes may become a viewer target.
+	viewerTarget(id: string) {
+		const route = this.#appMuxServers.get(id)?.route
+		if (!route) throw new Error('App is not running')
+		if (route.gateway) {
+			const host = route.gateway.targetAddress
+			if (!host) throw new Error('App address is unavailable')
+			return {host, port: route.gateway.targetPort, protocol: route.gateway.targetProtocol}
+		}
+		return {host: '127.0.0.1', port: route.publicPort, protocol: route.nativeTls ? 'https' : 'http'}
+	}
+
 	async getCertificateStatus() {
 		const caCertificate = await this.getCaCertificate().catch(() => '')
 		let caFingerprint = ''

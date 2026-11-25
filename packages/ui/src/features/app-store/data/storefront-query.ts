@@ -40,7 +40,7 @@ export function remoteJsonFetcher(url: string) {
 	}
 }
 
-const fetchStorefrontJson = remoteJsonFetcher(`${APP_STORE_REMOTE_API_BASE}/storefront`)
+const fetchStorefrontJson = remoteJsonFetcher(`${APP_STORE_REMOTE_API_BASE}/storefront.json`)
 
 export function storefrontQueryOptions() {
 	return queryOptions<Storefront>({

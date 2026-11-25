@@ -273,7 +273,7 @@ export default router({
 	}),
 
 	createWebSocketTicket: privateProcedureWithMembers
-		.input(z.object({target: z.enum(['trpc', 'terminal', 'machines'])}))
+		.input(z.object({target: z.enum(['trpc', 'terminal', 'machines', 'viewer'])}))
 		.mutation(async ({ctx, input}) => {
 			if (input.target !== 'trpc' && ctx.principal!.accountId !== OWNER_ACCOUNT_ID) {
 				throw new TRPCError({code: 'FORBIDDEN', message: 'This action can only be performed by the owner'})

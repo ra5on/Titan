@@ -21,7 +21,7 @@ import {
 export const OAUTH_SESSION_LIFETIME = 10 * 60 * 1000
 // The production bouncer is a stateless copy-code page. Account binding, PKCE
 // verification, and expiry remain local; development may override only its base URL.
-export const DEFAULT_OAUTH_PROXY_URL = 'https://cloudoauth.umbrel.com'
+
 
 export const CLOUD_OAUTH_SCOPES = {
 	'google-drive': ['openid', 'email', 'https://www.googleapis.com/auth/drive.readonly'],
@@ -41,17 +41,6 @@ type Environment = Record<string, string | undefined>
 type OAuthClient = {
 	clientId: string
 	clientSecret?: string
-}
-
-// OAuth client identifiers and installed-app secrets are public values in a
-// shipped PKCE client. Environment variables only replace them for development.
-const DEFAULT_OAUTH_CLIENTS: Record<OAuthProvider, OAuthClient> = {
-	'google-drive': {
-		clientId: '568816885459-ussmuppkfkbh6afhbrivkoc2vv2j1qgp.apps.googleusercontent.com',
-		clientSecret: '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',
-	},
-	dropbox: {clientId: 'xzqtv5jfn61fkhd', clientSecret: '17jzl4nnwqjpznd'},
-	onedrive: {clientId: 'de8e3af2-9274-4e9d-bbc5-b9c2191a2493'},
 }
 
 const OAUTH_ENV_PREFIXES: Record<OAuthProvider, string> = {
@@ -222,18 +211,14 @@ const isOAuthProvider = (provider: Provider): provider is OAuthProvider =>
 
 const valueFromEnvironment = (environment: Environment, name: string) => environment[name]?.trim() || undefined
 
-const oauthClientsFromEnvironment = (environment: Environment): Record<OAuthProvider, OAuthClient> => {
-	const clients = {} as Record<OAuthProvider, OAuthClient>
+const oauthClientsFromEnvironment = (environment: Environment) => {
+	const clients: Partial<Record<OAuthProvider, OAuthClient>> = {}
+	if (!environment.UMBREL_OAUTH_PROXY_URL) return clients
 	for (const provider of OAUTH_PROVIDERS) {
-		const defaults = DEFAULT_OAUTH_CLIENTS[provider]
 		const prefix = OAUTH_ENV_PREFIXES[provider]
-		const clientSecret = defaults.clientSecret
-			? (valueFromEnvironment(environment, `${prefix}_CLIENT_SECRET`) ?? defaults.clientSecret)
-			: undefined
-		clients[provider] = {
-			clientId: valueFromEnvironment(environment, `${prefix}_CLIENT_ID`) ?? defaults.clientId,
-			...(clientSecret ? {clientSecret} : {}),
-		}
+		const clientId = valueFromEnvironment(environment, `${prefix}_CLIENT_ID`)
+		const clientSecret = provider === 'onedrive' ? undefined : valueFromEnvironment(environment, `${prefix}_CLIENT_SECRET`)
+		if (clientId) clients[provider] = {clientId, clientSecret}
 	}
 	return clients
 }
@@ -366,7 +351,7 @@ export default class CloudAuth {
 	readonly http: KyInstance
 	readonly now: () => number
 	readonly redirectUrl: string
-	readonly oauthClients: Record<OAuthProvider, OAuthClient>
+	readonly oauthClients: Partial<Record<OAuthProvider, OAuthClient>>
 
 	constructor({
 		rclone,
@@ -382,7 +367,7 @@ export default class CloudAuth {
 		this.rclone = rclone
 		this.http = ky.create({fetch, retry: 0, timeout: false})
 		this.now = now
-		this.redirectUrl = new URL('/callback', environment.UMBREL_OAUTH_PROXY_URL ?? DEFAULT_OAUTH_PROXY_URL).toString()
+		this.redirectUrl = environment.UMBREL_OAUTH_PROXY_URL ? new URL('/callback', environment.UMBREL_OAUTH_PROXY_URL).href : ''
 		this.oauthClients = oauthClientsFromEnvironment(environment)
 	}
 

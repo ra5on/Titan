@@ -388,7 +388,7 @@ const AppFolderBottomIcon = ({appId}: {appId: string}) => {
 		<img
 			onError={() => setError(true)}
 			onLoad={() => setLoaded(true)}
-			src={`https://getumbrel.github.io/umbrel-apps-gallery/${appId}/icon.svg`}
+			src='/assets/app-icon-placeholder.svg'
 			alt={appId}
 			className={`absolute right-0 bottom-0 flex h-1/2 max-h-8 min-h-5 w-1/2 max-w-8 min-w-5 translate-x-[16%] translate-y-[10%] items-center justify-center overflow-hidden rounded-[25%] border border-white/15 object-contain shadow-md md:min-h-[0.9rem] md:min-w-[0.9rem] ${
 				!loaded || error ? 'opacity-0' : 'opacity-100'

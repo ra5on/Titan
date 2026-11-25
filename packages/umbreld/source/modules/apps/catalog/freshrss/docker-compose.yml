@@ -1,0 +1,10 @@
+services:
+  app_proxy:
+    environment:
+      APP_HOST: freshrss_server_1
+      APP_PORT: 80
+  server:
+    image: docker.io/freshrss/freshrss:1.28.1@sha256:9100f649f5c946f589f54cdb9be7a65996528f48f691ef90eb262a0e06e5a522
+    restart: unless-stopped
+    volumes:
+      - ${APP_DATA_DIR}/data:/var/www/FreshRSS/data

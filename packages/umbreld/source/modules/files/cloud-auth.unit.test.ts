@@ -82,7 +82,7 @@ const tokenResponse = () =>
 	})
 
 describe('CloudAuth', () => {
-	test('uses the production OAuth registrations by default and environment values as development overrides', () => {
+	test('offers OAuth providers only when the operator configured a callback and client', () => {
 		const rclone = {
 			async browse() {
 				return {entries: [], truncated: false}
@@ -92,15 +92,9 @@ describe('CloudAuth', () => {
 			},
 		}
 		const defaults = new CloudAuth({rclone, environment: {}})
-		expect(defaults.oauthClients).toEqual({
-			'google-drive': {
-				clientId: '568816885459-ussmuppkfkbh6afhbrivkoc2vv2j1qgp.apps.googleusercontent.com',
-				clientSecret: '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',
-			},
-			dropbox: {clientId: 'xzqtv5jfn61fkhd', clientSecret: '17jzl4nnwqjpznd'},
-			onedrive: {clientId: 'de8e3af2-9274-4e9d-bbc5-b9c2191a2493'},
-		})
-		expect(defaults.redirectUrl).toBe('https://cloudoauth.umbrel.com/callback')
+		expect(defaults.oauthClients).toEqual({})
+		expect(defaults.redirectUrl).toBe('')
+		expect(defaults.getAvailableProviders()).toEqual(['webdav','icloud'])
 
 		const overrides = new CloudAuth({rclone, environment: ENVIRONMENT})
 		expect(overrides.oauthClients).toEqual({

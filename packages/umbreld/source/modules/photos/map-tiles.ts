@@ -5,28 +5,9 @@ import {gzip as gzipCallback} from 'node:zlib'
 
 import {FetchSource, type Header, PMTiles, SharedPromiseCache, type Source} from 'pmtiles'
 
-// The Map view's basemap: Protomaps vector tiles, served by the device, so a
-// browser only ever talks to it (the letters of its labels the browser draws
-// itself, in the UI's own font). None of it ships, and the device keeps none
-// of it: it fetches each tile as someone looks at a place, from the build of
-// the planet Umbrel keeps on Cloudflare R2, and the browser keeps what it is
-// sent, for good, as a build never changes. Where that is comes from
-// api.umbrel.com, good for a week, so the device asks there about once a week:
-// either the PMTiles archive itself, at an address signed for R2, which the
-// device reads by byte range, or a server of its tiles at a z/x/y address,
-// such as Protomaps' Cloudflare Worker in front of it, which answers each tile
-// in one request and from Cloudflare's cache. Which, api.umbrel.com alone
-// decides. Cloudflare sees the device's address and which parts of the planet
-// it reads.
-//
-// With nothing to fetch from, the UI draws the atlas it bundles instead.
-
-// Where the planet is, and until when that address is good:
-// {url: "https://….r2.cloudflarestorage.com/v1/planet-20261011.pmtiles?X-Amz-…", expires: "2026-10-21T17:19:42.195Z"}
-// or its tiles, the deepest zoom of which their TileJSON beside them says
-// (https://maps.umbrel.com/planet-20261011.json here):
-// {url: "https://maps.umbrel.com/planet-20261011/{z}/{x}/{y}.mvt", expires: …}
-export const UMBREL_MAP_URL = 'https://api.umbrel.com/map-url'
+// Without an operator-configured TileJSON/PMTiles address service, the UI
+// uses its bundled offline atlas and the server makes no basemap requests.
+export const TITAN_MAP_URL = process.env.TITAN_MAP_URL
 
 const BUILD_PATTERN = /^[\w-]{1,64}$/
 // How long a tile may take to arrive, and each read of a planet archive
@@ -183,10 +164,14 @@ export default class MapTiles {
 // read of it may take, and `addressTimeout` how long api.umbrel.com, and a
 // tile server's TileJSON, may take to answer.
 export function umbrelPlanet({
-	api = UMBREL_MAP_URL,
+	api = TITAN_MAP_URL,
 	readTimeout = READ_TIMEOUT_MS,
 	addressTimeout = ADDRESS_TIMEOUT_MS,
 } = {}): MapSource {
+	if (!api) return {
+		open: async () => { throw new Error('Offline atlas selected') },
+		tile: async () => undefined,
+	}
 	const address = new PlanetAddress(api, addressTimeout)
 	type Archive = {key: string; opened: Promise<{tiles: PMTiles; build: string; maxZoom: number}>}
 	let archive: Archive | undefined

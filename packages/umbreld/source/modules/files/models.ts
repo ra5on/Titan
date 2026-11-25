@@ -25,8 +25,7 @@ import models from './models.json' with {type: 'json'}
 //                        images
 //   faces-*              InsightFace's buffalo_l face detector and
 //                        recogniser, out of the archive InsightFace releases
-//                        them in. We use them under a commercial licence
-//                        from InsightFace.
+//                        them in. Operators can supply separately licensed copies.
 //   text-*               PP-OCRv6's tiny detector and small recogniser of
 //                        text in pictures, as RapidOCR publishes them
 //                        converted for ONNX Runtime
@@ -45,9 +44,10 @@ import models from './models.json' with {type: 'json'}
 // which is the layout scripts/download-models makes. A file is asked for by its hash, so a
 // model that is replaced never changes what a device on an older version is
 // given, and what arrives is only kept when it has that hash.
-export const MODELS: Array<{file: string; sha256: string; size: number}> = models
+// Fetch standalone models from the publishers recorded in the pinned manifest.
+// The two face models have separate terms and can be supplied locally.
+export const MODELS = models.filter((model) => !model.member)
 
-const DOWNLOAD_URL = 'https://download.umbrel.com/models'
 // A VM under test is told to fetch from the machine running the test instead,
 // as a system credential (see `vm.sh boot --credential`). Whatever it is told,
 // only files with the hashes listed here are kept.
@@ -186,15 +186,15 @@ export default class ModelDownloads {
 			throw new Error(`No room for the models: ${megabytes(missing)} MB to fetch and ${megabytes(free)} MB free`)
 		}
 		await rm(nodePath.join(this.#directory, INSTALLED_FILE), {force: true})
-		let url = DOWNLOAD_URL
+		let url: string | undefined
 		try {
-			url = readFileSync(DOWNLOAD_URL_CREDENTIAL, 'utf8').trim() || url
+			url = readFileSync(DOWNLOAD_URL_CREDENTIAL, 'utf8').trim() || undefined
 		} catch {}
-		this.#logger.log(`Installing models from ${url}`)
+		this.#logger.log(url ? `Installing models from ${url}` : "Installing models from their publishers")
 		for (const model of MODELS) await this.#fetch(url, model)
 		// What an earlier version used and this one doesn't
 		for (const name of await readdir(this.#directory)) {
-			if (!MODELS.some(({file}) => file.split('/')[0] === name)) {
+			if (!models.some(({file}) => file.split('/')[0] === name)) {
 				await rm(nodePath.join(this.#directory, name), {recursive: true})
 			}
 		}
@@ -213,7 +213,7 @@ export default class ModelDownloads {
 
 	// One model: left alone when it is already what it should be, and carried
 	// on with from where it stopped when part of it is here
-	async #fetch(url: string, {file, sha256: expected, size}: (typeof MODELS)[number]) {
+	async #fetch(url: string | undefined, {file, sha256: expected, size, source}: (typeof MODELS)[number]) {
 		const path = nodePath.join(this.#directory, file)
 		const {signal} = this.#abort
 		if ((await stat(path).catch(() => undefined))?.size === size && (await sha256(path, signal)) === expected) return
@@ -222,7 +222,7 @@ export default class ModelDownloads {
 		let have = (await stat(partial).catch(() => undefined))?.size ?? 0
 		if (have > size) have = 0
 		if (have < size) {
-			const response = await fetch(`${url}/${expected}/${nodePath.basename(file)}`, {
+			const response = await fetch(url ? `${url}/${expected}/${nodePath.basename(file)}` : source, {
 				headers: have > 0 ? {range: `bytes=${have}-`} : {},
 				signal,
 			})

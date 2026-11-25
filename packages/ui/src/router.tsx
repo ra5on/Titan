@@ -102,6 +102,7 @@ export const router = createBrowserRouter([
 				ErrorBoundary: ErrorBoundaryCardFallback,
 			},
 			...machinesRoutes,
+			{path: 'apps-viewer/:appId', lazy: async () => ({Component: (await import('@/routes/apps-viewer')).default})},
 			{
 				Component: SheetLayout,
 				children: [

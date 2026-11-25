@@ -53,7 +53,13 @@ export function useLaunchApp() {
 		const open = (path?: string, protocol = location.protocol) => {
 			if (!isMember) trackOpenMut.mutate({appId})
 			const url = path ? urlJoin(appToUrl(app, protocol), path) : appToUrlWithAppPath(app, protocol)
-			window.open(url, '_blank')?.focus()
+			if (isMember || app.torOnly) {
+				window.open(url, '_blank')?.focus()
+				return
+			}
+			const target = new URL(url, location.href)
+			const params = new URLSearchParams({path: target.pathname + target.search + target.hash})
+			navigate(`/apps-viewer/${encodeURIComponent(appId)}?${params}`)
 		}
 
 		if (app.torOnly && !isOnionPage()) {

@@ -13,7 +13,7 @@ import type {Principal} from '../auth/auth.ts'
 import {Blake3Hasher} from '../files/blake3.ts'
 import {OWNER_USER_ID} from '../user/constants.ts'
 
-import MapTiles, {UMBREL_MAP_URL, umbrelPlanet} from './map-tiles.ts'
+import MapTiles, {TITAN_MAP_URL, umbrelPlanet} from './map-tiles.ts'
 import type {PeopleChange} from './people.ts'
 import type {PhotoBackupCloudIdentity, PhotoBackupLocation, PhotoFilter, PhotoScopeMode} from './types.ts'
 import {hashFileRevision, type PublishedFileRevision} from '../files/file-index-enrichment.ts'
@@ -208,7 +208,7 @@ export default class Photos {
 				this.logger.error('Failed to restore Photos backup source', error)
 			}
 		}
-		this.#warmMap()
+		if (TITAN_MAP_URL) this.#warmMap(TITAN_MAP_URL)
 	}
 
 	async stop() {
@@ -220,10 +220,10 @@ export default class Photos {
 	// rather than waiting on the planet's host. Not before the network can
 	// find that host: a device just started may not have one yet, and a look
 	// at the planet that fails holds up the next for a minute.
-	#warmMap() {
+	#warmMap(mapUrl: string) {
 		const warming = (this.#mapWarming = new AbortController())
 		const options = {signal: warming.signal, ref: false}
-		const host = new URL(UMBREL_MAP_URL).hostname
+		const host = new URL(mapUrl).hostname
 		const online = async () => Boolean(await lookup(host).catch(() => undefined))
 		;(async () => {
 			await sleep(MAP_WARM_DELAY_MS, undefined, options)

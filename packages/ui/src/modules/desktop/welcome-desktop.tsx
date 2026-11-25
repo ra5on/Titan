@@ -828,7 +828,7 @@ function useDeckCards(appsKeyed: Record<string, RegistryApp> | undefined): DeckC
 		// The registry icon is used when synced; the gallery URL is the same asset
 		return fallbackDeckApps.map((id) => ({
 			id,
-			icon: appsKeyed?.[id]?.icon ?? `https://getumbrel.github.io/umbrel-apps-gallery/${id}/icon.svg`,
+			icon: appsKeyed?.[id]?.icon ?? '/assets/app-icon-placeholder.svg',
 		}))
 	}, [storefront.sections, appsKeyed])
 }

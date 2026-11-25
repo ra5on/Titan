@@ -1,0 +1,13 @@
+manifestVersion: 1
+id: freshrss
+name: FreshRSS
+tagline: RSS- und Atom-Feeds auf dem eigenen Server lesen
+category: productivity
+version: "1.28.1"
+port: 8078
+description: FreshRSS sammelt abonnierte Nachrichtenquellen auf diesem Server. Bei der ersten Einrichtung kann SQLite als Datenbank gewählt werden.
+website: https://freshrss.org
+developer: FreshRSS
+repo: https://github.com/FreshRSS/FreshRSS
+support: https://github.com/FreshRSS/FreshRSS/issues
+gallery: []

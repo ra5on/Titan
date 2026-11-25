@@ -1,3 +1,4 @@
+import {createAppViewerHandler} from './app-viewer.ts'
 import http from 'node:http'
 import process from 'node:process'
 import {format, promisify} from 'node:util'
@@ -132,7 +133,7 @@ class Server {
 					// Allow blob: URLs for videos Files plays from memory (a video inside a ZIP archive)
 					mediaSrc: ["'self'", 'blob:'],
 					// Allow fetching data from our apps API (e.g., for Discover page in App Store)
-					connectSrc: ["'self'", 'https://apps.umbrel.com'],
+					connectSrc: ["'self'"],
 					// Allow plain text access over the local network
 					upgradeInsecureRequests: null,
 				},
@@ -186,6 +187,7 @@ class Server {
 				const ticket = searchParams.get('ticket')
 				if (!ticket) throw new Error('Missing WebSocket ticket')
 				let target: WebSocketTarget = 'trpc'
+				if (pathname === '/apps/viewer') target = 'viewer'
 				if (pathname === '/terminal') target = 'terminal'
 				if (pathname === '/machines/console' || pathname === '/machines/audio') target = 'machines'
 				const principal = await this.umbreld.auth.consumeWebSocketTicket(ticket, target)
@@ -230,6 +232,9 @@ class Server {
 
 		// Proxy authenticated noVNC traffic to the per-machine QEMU VNC Unix
 		// socket. QEMU never opens a TCP listener on the host.
+		this.mountWebSocketServer('/apps/viewer', (wss) => {
+			wss.on('connection', createAppViewerHandler(this.umbreld))
+		})
 		const machineConsoleSessions = new MachineConsoleSessions()
 		this.mountWebSocketServer('/machines/console', (wss) => {
 			const logger = this.logger.createChildLogger('machine-console')

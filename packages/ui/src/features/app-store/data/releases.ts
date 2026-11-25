@@ -47,7 +47,7 @@ export function appReleasesQueryOptions(appId: string) {
 	return queryOptions<AppReleases>({
 		queryKey: ['app-store', 'app-releases', appId],
 		queryFn: async ({signal}) => {
-			const json = (await remoteJsonFetcher(`${APP_STORE_REMOTE_API_BASE}/apps/${encodeURIComponent(appId)}`)({
+			const json = (await remoteJsonFetcher(`${APP_STORE_REMOTE_API_BASE}/apps/${encodeURIComponent(appId)}.json`)({
 				signal,
 			})) as {data?: unknown}
 			return parseAppReleases(json?.data)

@@ -87,7 +87,7 @@ export async function readAppGatewayConfig(
 		appName: appMetadata.name?.trim() || appId,
 		appIcon:
 			appMetadata.icon?.trim() ||
-			`https://getumbrel.github.io/umbrel-apps-gallery/${encodeURIComponent(appId)}/icon.svg`,
+			'/assets/app-icon-placeholder.svg',
 		targetProtocol: config.APP_PROTOCOL === 'https' ? 'https' : 'http',
 		targetHost,
 		targetPort,

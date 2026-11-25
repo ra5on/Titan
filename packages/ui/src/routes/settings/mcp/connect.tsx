@@ -284,7 +284,7 @@ function TailscaleTip({endpointUrl}: {endpointUrl: string}) {
 	return (
 		<div className='flex items-center gap-3 rounded-12 border border-white/6 bg-linear-to-r from-white/6 to-transparent p-3'>
 			<img
-				src='https://getumbrel.github.io/umbrel-apps-gallery/tailscale/icon.svg'
+				src='/assets/app-icon-placeholder.svg'
 				alt=''
 				aria-hidden='true'
 				className='size-8 shrink-0 rounded-8'

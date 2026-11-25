@@ -113,7 +113,7 @@ export const apps = router({
 						id: app.id,
 						name,
 						version,
-						icon: icon ?? `https://getumbrel.github.io/umbrel-apps-gallery/${app.id}/icon.svg`,
+						icon: icon ?? '/assets/app-icon-placeholder.svg',
 						port,
 						path,
 						state: app.state,

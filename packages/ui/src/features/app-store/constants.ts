@@ -71,7 +71,7 @@ export const APP_STORE_EMPTY_STATE_SRC = '/assets/app-store/no-results.webp'
 // The storefront feed and release history are optional editorial decoration:
 // every id is resolved against the local registry and any failure renders the
 // complete local experience instead. See data/storefront.ts.
-export const APP_STORE_REMOTE_API_BASE = 'https://apps.umbrel.com/api/v3/umbrelos/app-store'
+export const APP_STORE_REMOTE_API_BASE = new URL('/catalog', globalThis.location?.origin ?? 'http://localhost').href
 
 // ---------------------------------------------------------------------------
 // Routes

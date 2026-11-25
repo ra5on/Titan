@@ -11,6 +11,7 @@ import {$} from 'execa'
 import type Umbreld from '../../index.ts'
 import randomToken from '../utilities/random-token.ts'
 import {type AppRepositoryMeta, type AppManifest, validateManifest} from './schema.ts'
+import {fileURLToPath} from 'node:url'
 import {UMBREL_APP_STORE_REPO} from '../../constants.ts'
 
 async function readYaml(path: string) {
@@ -39,7 +40,9 @@ export default class AppRepository {
 		if (!isValidUrl(url)) throw new Error('Invalid URL')
 		this.#umbreld = umbreld
 		this.url = url
-		this.path = `${umbreld.dataDirectory}/app-stores/${this.cleanUrl()}`
+		this.path = url === UMBREL_APP_STORE_REPO
+			? fileURLToPath(new URL('./catalog', import.meta.url))
+			: `${umbreld.dataDirectory}/app-stores/${this.cleanUrl()}`
 		const {name} = this.constructor
 		this.logger = umbreld.logger.createChildLogger(name.toLowerCase())
 	}
@@ -126,6 +129,7 @@ export default class AppRepository {
 
 	// Update (or install) the repo
 	async update() {
+		if (this.url === UMBREL_APP_STORE_REPO) return true
 		this.logger.log(`Checking for update for ${this.url}`)
 		const isUpdated = await this.isUpdated()
 		if (isUpdated) {
@@ -151,7 +155,7 @@ export default class AppRepository {
 		if (this.url === UMBREL_APP_STORE_REPO) {
 			meta = {
 				id: 'umbrel-app-store',
-				name: 'Umbrel App Store',
+				name: 'Titan App-Katalog',
 			}
 		} else {
 			meta = (await readYaml(`${this.path}/umbrel-app-store.yml`)) as AppRepositoryMeta
@@ -186,12 +190,7 @@ export default class AppRepository {
 			.map((app) => ({
 				...app,
 				appStoreId: meta.id,
-				gallery:
-					meta.id === 'umbrel-app-store'
-						? app.gallery.map((file) => `https://getumbrel.github.io/umbrel-apps-gallery/${app.id}/${file}`)
-						: app.gallery,
-				// TODO: make this work for custom repos
-				icon: app.icon ?? `https://getumbrel.github.io/umbrel-apps-gallery/${app.id}/icon.svg`,
+				icon: app.icon ?? '/assets/app-icon-placeholder.svg',
 			}))
 			// Sort apps alphabetically
 			.sort((a: any, b: any) => a.id.localeCompare(b.id))

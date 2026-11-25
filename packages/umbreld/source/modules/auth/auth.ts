@@ -33,7 +33,7 @@ export type CredentialAudience =
 	| 'native-device'
 	| 'photo-backup'
 export type HttpApiScope = 'file-download' | 'file-view' | 'file-thumbnail' | 'logs-download' | 'ca-download'
-export type WebSocketTarget = 'trpc' | 'terminal' | 'machines'
+export type WebSocketTarget = 'trpc' | 'terminal' | 'machines' | 'viewer'
 
 export type Principal = {
 	sessionId: string
