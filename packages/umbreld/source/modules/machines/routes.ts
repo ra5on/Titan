@@ -1,3 +1,4 @@
+import {folderShareSchema, pciAssignmentSchema, listPciGroups} from './host-devices.ts'
 import z from 'zod'
 
 import {router, privateProcedure} from '../server/trpc/trpc.ts'
@@ -101,6 +102,8 @@ export default router({
 					)
 					.optional(),
 				// The complete set of host USB devices passed through to the machine
+				pciGroups: z.array(pciAssignmentSchema).max(8).optional(),
+				folderShares: z.array(folderShareSchema).max(8).optional(),
 				usbDevices: z.array(usbDeviceIdentitySchema).max(MAX_MACHINE_USB_DEVICES).optional(),
 				// Takes effect the next time the machine starts
 				networkMode: z.enum(['nat', 'bridged']).optional(),
@@ -113,6 +116,7 @@ export default router({
 
 	// USB devices plugged into Umbrel that can be passed through to machines,
 	// along with assigned devices that are currently unplugged
+	pciGroups: privateProcedure.query(() => listPciGroups()),
 	usbDevices: privateProcedure.query(async ({ctx}) => ctx.umbreld.machines.usbDevices()),
 
 	setPinned: privateProcedure

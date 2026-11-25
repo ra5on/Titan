@@ -1,3 +1,5 @@
+import {constants as fileFlags} from 'node:fs'
+import type {FolderShare} from './host-devices.ts'
 import fsp from 'node:fs/promises'
 import nodePath from 'node:path'
 import {setTimeout} from 'node:timers/promises'
@@ -681,7 +683,49 @@ export default class Libvirt {
 		await fse.remove(nodePath.join(LIBVIRT_SWTPM_STATE_ROOT, uuid))
 	}
 
+	async #unmountShares(id: string) {
+		const root = nodePath.join('/run/titan-vm-shares', id)
+		const entries = await fsp.readdir(root).catch((error: NodeJS.ErrnoException) => {
+			if (error.code !== 'ENOENT') throw error
+			return [] as string[]
+		})
+		for (const name of entries) {
+			const mount = nodePath.join(root, name)
+			await this.#unmount(mount)
+			await fsp.rmdir(mount)
+		}
+		if (entries.length || await fse.pathExists(root)) await fsp.rmdir(root)
+	}
+
+	async #mountShares(id: string, home: string | undefined, shares: FolderShare[]) {
+		const mounts = []
+		for (const share of shares) {
+			if (!home) throw new Error('No Home directory for virtiofs')
+			const flags = fileFlags.O_DIRECTORY | fileFlags.O_RDONLY | fileFlags.O_NOFOLLOW
+			let directory = await fsp.open(home, flags)
+			try {
+				// Resolve each component relative to a held directory. A rename or
+				// symlink swap cannot redirect the mount outside the owner's Home.
+				for (const part of share.path.slice('/Home/'.length).split('/')) {
+					if (!part || part === '.' || part === '..') throw new Error('Invalid share path')
+					const next = await fsp.open(`/proc/self/fd/${directory.fd}/${part}`, flags)
+					await directory.close()
+					directory = next
+				}
+				const mount = nodePath.join('/run/titan-vm-shares', id, share.tag)
+				await fsp.mkdir(mount, {recursive: true, mode: 0o755})
+				await execa('mount', ['--no-canonicalize', '--bind', `/proc/${process.pid}/fd/${directory.fd}`, mount])
+				if (share.readOnly) await execa('mount', ['-o', 'remount,bind,ro', mount])
+				mounts.push({...share, mount})
+			} finally {
+				await directory.close()
+			}
+		}
+		return mounts
+	}
+
 	async cleanupRuntime(id: string) {
+		await this.#unmountShares(id)
 		await this.#releaseAudio(id)
 		await this.#unmountTpm(id)
 		await this.#unmountExternalDisk(id)
@@ -740,7 +784,7 @@ export default class Libvirt {
 		machineDirectory: string,
 		diskPath: string,
 		usbDevices: UsbAddress[] = [],
-		{joinLan}: {joinLan?: boolean} = {},
+		{joinLan, pciAddresses = [], home}: {joinLan?: boolean; pciAddresses?: string[]; home?: string} = {},
 	) {
 		if (!this.available) throw new Error('[virtualization-unavailable]')
 		if ((await this.state(definition.id)) !== 'stopped') throw new Error('[machine-not-stopped]')
@@ -767,6 +811,7 @@ export default class Libvirt {
 		}
 
 		try {
+			const folderShares = await this.#mountShares(definition.id, home, definition.folderShares ?? [])
 			if (definition.tpm) await this.#mountTpm(definition, machineDirectory)
 			// Legacy profiles have no sound card to route, so they leave the scarce
 			// loopback slots to machines that do, and their consoles stay silent
@@ -793,6 +838,8 @@ export default class Libvirt {
 					graphicsRenderNode: renderNode,
 					audioPlaybackDevice: audio?.playback,
 					usbDevices,
+					pciAddresses,
+					folderShares,
 					joinLan,
 				})
 				await fsp.writeFile(xmlPath, xml, {encoding: 'utf8', mode: 0o600})
@@ -816,6 +863,7 @@ export default class Libvirt {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
 			await fsp.writeFile(nodePath.join(runtimeDirectory, 'start-error.log'), message)
+			await this.#unmountShares(definition.id)
 			await this.#unmountTpm(definition.id)
 			await this.#unmountExternalDisk(definition.id)
 			await this.#unmountStorage(definition.id)

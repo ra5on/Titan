@@ -1,3 +1,4 @@
+import {HostDevices} from './host-devices'
 import {ChevronDown, MoveRight, Pencil, PlusCircle, Power, Trash2} from 'lucide-react'
 import {motion} from 'motion/react'
 import {useState} from 'react'
@@ -71,6 +72,8 @@ export default function MachineSettings() {
 	const [firmwareChoice, setFirmwareChoice] = useState<'uefi' | 'bios' | null>(null)
 	const [diskBusChoice, setDiskBusChoice] = useState<'virtio' | 'sata' | null>(null)
 	const [forwardsChoice, setForwardsChoice] = useState<Machine['portForwards'] | null>(null)
+	const [pciChoice, setPciChoice] = useState<string[] | null>(null)
+	const [folderChoice, setFolderChoice] = useState<NonNullable<Machine['folderShares']> | null>(null)
 	const [usbChoice, setUsbChoice] = useState<UsbDeviceIdentity[] | null>(null)
 	const [networkModeChoice, setNetworkModeChoice] = useState<MachineNetworkMode | null>(null)
 	const [isSaving, setIsSaving] = useState(false)
@@ -149,7 +152,10 @@ export default function MachineSettings() {
 
 	// Save only lights up once something actually differs from the machine's
 	// live values (untouched fields resolve to those, so this is a value diff)
-	const dirty =
+	const pciChanged = pciChoice !== null && JSON.stringify(pciChoice) !== JSON.stringify(machine.pciGroups ?? [])
+	const folderChanged = folderChoice !== null && JSON.stringify(folderChoice) !== JSON.stringify(machine.folderShares ?? [])
+	const sharesValid = !folderChoice || folderChoice.every((s) => /^\/Home\/.+/.test(s.path) && /^[a-zA-Z0-9_-]{1,32}$/.test(s.tag))
+	const dirty = pciChanged || folderChanged ||
 		trimmedName !== machine.name ||
 		cores !== machine.cores ||
 		memoryGb !== machine.memoryGb ||
@@ -159,7 +165,7 @@ export default function MachineSettings() {
 		networkMode !== machine.networkMode ||
 		usbChanged
 
-	const canSave = dirty && !disabled && !nameEmpty && !nameTaken && diskValid && forwardsValid
+	const canSave = sharesValid && dirty && !disabled && !nameEmpty && !nameTaken && diskValid && forwardsValid
 
 	const handleDiskChange = (raw: string) => {
 		const digits = raw.replace(/[^0-9]/g, '')
@@ -187,6 +193,8 @@ export default function MachineSettings() {
 				portForwards,
 				...(networkMode !== machine.networkMode && {networkMode}),
 				...(usbChanged && {usbDevices}),
+				...(pciChanged && {pciGroups: pciChoice}),
+				...(folderChanged && {folderShares: folderChoice}),
 			})
 			toast.success(t('machines.settings-saved'), {area: 'machines'})
 			setIsSaving(false)
@@ -572,6 +580,8 @@ export default function MachineSettings() {
 								</div>
 							</>
 						)}
+						<HostDevices groups={pciChoice ?? machine.pciGroups ?? []} shares={folderChoice ?? machine.folderShares ?? []}
+							disabled={disabled || machine.state !== 'stopped'} onGroups={setPciChoice} onShares={setFolderChoice}/>
 						{supportsUsbPassthrough(machine) && (
 							<MachineUsbDevices
 								machine={machine}

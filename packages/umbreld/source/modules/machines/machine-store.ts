@@ -1,3 +1,4 @@
+import {folderShareSchema, pciAssignmentSchema} from './host-devices.ts'
 import fsp from 'node:fs/promises'
 import nodePath from 'node:path'
 
@@ -97,6 +98,8 @@ const machineDefinitionSchema = z
 		seedMedia: z.literal('media/seed.iso').optional(),
 		bootMedia: z.literal('media/boot.img').optional(),
 		portForwards: z.array(portForwardSchema),
+		pciGroups: z.array(pciAssignmentSchema).max(8).optional(),
+		folderShares: z.array(folderShareSchema).max(8).optional(),
 		usbDevices: z.array(usbDeviceAssignmentSchema).max(MAX_MACHINE_USB_DEVICES).optional(),
 	})
 	.refine((definition) => definition.memoryMb !== undefined || definition.memoryGb !== undefined, {

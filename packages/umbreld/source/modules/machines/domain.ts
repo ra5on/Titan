@@ -1,3 +1,4 @@
+import {pciHostdevXml, type FolderShare} from './host-devices.ts'
 import nodePath from 'node:path'
 
 import {buildUsbHostdevXml, type UsbAddress, type UsbDeviceAssignment} from './usb-devices.ts'
@@ -76,6 +77,8 @@ export type MachineDefinition = {
 	bootMedia?: string
 	portForwards: PortForward[]
 	// Host USB devices passed through to the guest
+	pciGroups?: string[]
+	folderShares?: FolderShare[]
 	usbDevices?: UsbDeviceAssignment[]
 }
 
@@ -191,6 +194,8 @@ export function buildDomainXml({
 	graphicsRenderNode,
 	audioPlaybackDevice,
 	usbDevices = [],
+	pciAddresses = [],
+	folderShares = [],
 	joinLan = machineJoinsLan(definition),
 }: {
 	definition: MachineDefinition
@@ -202,6 +207,8 @@ export function buildDomainXml({
 	graphicsRenderNode?: string
 	audioPlaybackDevice?: string
 	// Where the machine's assigned USB devices are connected right now
+	pciAddresses?: string[]
+	folderShares?: (FolderShare & {mount: string})[]
 	usbDevices?: UsbAddress[]
 	// Whether its network card goes on the LAN bridge rather than the NAT network
 	joinLan?: boolean
@@ -319,6 +326,7 @@ export function buildDomainXml({
 <domain type='${acceleration === 'kvm' ? 'kvm' : 'qemu'}' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
   <name>umbrel-machine-${escapeXml(definition.id)}</name>
   <uuid>${escapeXml(definition.uuid)}</uuid>
+  ${folderShares.length ? "<memoryBacking><source type='memfd'/><access mode='shared'/></memoryBacking>" : ''}
   <memory unit='MiB'>${definition.memoryMb}</memory>
   <currentMemory unit='MiB'>${definition.memoryMb}</currentMemory>
   <vcpu placement='static'>${definition.cores}</vcpu>
@@ -341,6 +349,8 @@ export function buildDomainXml({
       <target dev='${diskTarget}' bus='${diskBus}'/>
       <boot order='${definition.bootMedia ? '2' : '1'}'/>
     </disk>
+    ${pciAddresses.map(pciHostdevXml).join('')}
+    ${folderShares.map((share) => `<filesystem type='mount' accessmode='passthrough'><driver type='virtiofs'/><source dir='${escapeXml(share.mount)}'/><target dir='${escapeXml(share.tag)}'/>${share.readOnly ? '<readonly/>' : ''}</filesystem>`).join('')}
     ${cdrom}
     ${definition.seedMedia ? `<disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='${escapeXml(nodePath.join(machineDirectory, definition.seedMedia))}' startupPolicy='optional'/><target dev='sdb' bus='sata'/><readonly/></disk>` : ''}
     ${bootFloppy}

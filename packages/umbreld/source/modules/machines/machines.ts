@@ -14,6 +14,8 @@ import yaml from 'js-yaml'
 import {z} from 'zod'
 
 import type Umbreld from '../../index.ts'
+import {resolvePciAssignments, type FolderShare} from './host-devices.ts'
+import {snapshotQcow2} from './qcow2-import.ts'
 
 import {getAppPids} from '../system/system.ts'
 import {OWNER_USER_ID} from '../user/constants.ts'
@@ -157,6 +159,8 @@ export type Machine = {
 	acceleration: 'kvm' | 'tcg'
 	performanceWarning?: string
 	portForwards: PortForward[]
+	pciGroups?: string[]
+	folderShares?: FolderShare[]
 	usbDevices: UsbDeviceAssignment[]
 	autostart: boolean
 	pinned: boolean
@@ -942,11 +946,7 @@ const storedImageSchema = z.object({
 	fixedMemoryMb: z.number().int().min(128).max(1_048_576).optional(),
 })
 
-// Custom disks are intentionally limited to raw images. Supporting structured
-// formats is straightforward with qemu-img, but user-controlled images must be
-// converted in a sandbox that cannot follow backing files, data files, extents,
-// parent locators, or other references into the host filesystem.
-const CUSTOM_IMAGE_EXTENSIONS = /\.(iso|img)$/i
+const CUSTOM_IMAGE_EXTENSIONS = /\.(iso|img|qcow2)$/i
 const CATALOG_IMAGE_EXTENSIONS = /\.(iso|qcow2|img|vmdk|vdi|vhdx|vhd)$/i
 // Reserved from ephemeral port assignment in packages/os/overlay/etc/sysctl.d/99-umbrel-machines-ports.conf
 const MACHINES_PORT_MIN = 40_000
@@ -1067,6 +1067,7 @@ export default class Machines {
 	#osImages: InternalOsImage[]
 	#imageDownloads = new Map<string, ImageDownloadJob>()
 	#imageDownloadQueue = new PQueue({concurrency: 1})
+	#pciAssignmentQueue = new PQueue({concurrency: 1})
 	#createQueue = new PQueue({concurrency: 1})
 	#machineLockTails = new Map<string, Promise<void>>()
 	#externalStorageBlocks = new Map<symbol, string[]>()
@@ -2098,6 +2099,13 @@ export default class Machines {
 			}
 			if (signal.aborted) throw signal.reason
 
+			const importedQcow2 = (!sourceImage || sourceImage.custom) && /\.qcow2$/i.test(source)
+			if (importedQcow2) {
+				const snapshot = nodePath.join(stagingDirectory, 'import.qcow2')
+				await snapshotQcow2(source, snapshot)
+				source = snapshot
+			}
+
 			const isIso = /\.iso$/i.test(source)
 			const unattended = !!sourceImage && !sourceImage.custom && sourceImage.requiresCredentials
 			const completionUrl = credentials.firstBootToken
@@ -2159,6 +2167,7 @@ export default class Machines {
 						)
 					},
 				)
+				if (importedQcow2) await fsp.unlink(source)
 			}
 			if (signal.aborted) throw signal.reason
 
@@ -2561,7 +2570,11 @@ export default class Machines {
 					this.#store.directory(id),
 					await this.#diskSystemPath(definition),
 					(await this.#usbDevicesToAttach(definition)).map(({device}) => ({bus: device.bus, device: device.device})),
-					{joinLan},
+					{
+						joinLan,
+						pciAddresses: await resolvePciAssignments(definition.pciGroups ?? []),
+						home: definition.folderShares?.length ? await this.#umbreld.files.virtualToSystemPath('/Home', OWNER_USER_ID) : undefined,
+					},
 				)
 				definition.autostart = true
 				await this.#store.write(definition)
@@ -2727,17 +2740,38 @@ export default class Machines {
 			diskSizeGb?: number
 			autostart?: boolean
 			portForwards?: PortForward[]
+			pciGroups?: string[]
+			folderShares?: FolderShare[]
 			usbDevices?: UsbDeviceIdentity[]
 			networkMode?: MachineNetworkMode
 		},
 	) {
-		return this.#withMachineLock(id, async () => {
+		const update = () => this.#withMachineLock(id, async () => {
 			this.#assertBackupIdle(id)
 			const definition = await this.#definition(id)
 
 			// Complete every fallible validation before changing firmware state or
 			// resizing the disk. A rejected combined settings request must not leave
 			// an irreversible partial change behind.
+			if (settings.pciGroups || settings.folderShares) {
+				if (await this.#libvirt.state(id) !== 'stopped') throw new Error('[machine-not-stopped]')
+				if (settings.pciGroups) {
+					const keys = [...new Set(settings.pciGroups)]
+					if (keys.length && (definition.arch !== 'amd64' || !this.#libvirt.kvmAvailable)) throw new Error('PCI passthrough requires an amd64 KVM guest')
+					await resolvePciAssignments(keys)
+					const conflict = (await this.#store.list()).some((other) => other.id !== id && other.pciGroups?.some((key) => keys.includes(key)))
+					if (conflict) throw new Error('PCI device assigned to another machine')
+					definition.pciGroups = keys
+				}
+				if (settings.folderShares) {
+					if (new Set(settings.folderShares.map((share) => share.tag)).size !== settings.folderShares.length) throw new Error('Duplicate virtiofs mount tag')
+					for (const share of settings.folderShares) {
+						const dir = await this.#umbreld.files.virtualToSystemPath(share.path, OWNER_USER_ID)
+						if (!(await fsp.lstat(dir)).isDirectory()) throw new Error('[not-a-directory]')
+					}
+					definition.folderShares = settings.folderShares
+				}
+			}
 			if (settings.name !== undefined) await this.#assertUniqueName(settings.name, id)
 			if (settings.firmware !== undefined || settings.diskBus !== undefined) {
 				if (definition.osId !== 'custom') throw new Error('[machine-custom-setting-catalog-image]')
@@ -2817,6 +2851,7 @@ export default class Machines {
 			await this.#emitMachines()
 			return this.#view(definition)
 		})
+		return settings.pciGroups ? this.#pciAssignmentQueue.add(update) : update()
 	}
 
 	#usbAssignments(definitions: MachineDefinition[]) {
