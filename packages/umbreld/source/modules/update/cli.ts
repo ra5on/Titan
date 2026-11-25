@@ -16,9 +16,9 @@ const usage = `
         $ umbreld update --skip-signature-check <release url>
         $ umbreld update --skip-signature-check <update bundle url or file>
 
-    Installs the latest signed umbrelOS release through the running umbreld, like
-    the update button in Settings. Given a release URL, like a test build's
-    https://download.umbrel.com/public-<name>/, it installs that signed release
+    Installs the latest signed Titan release through the running umbreld, like
+    the update button in Settings. Given a release URL, such as
+    https://github.com/ra5on/Titan/releases/download/0.1/, it installs that signed release
     instead, whatever its version.
 
     With --skip-signature-check, installs a release without checking that an
@@ -30,8 +30,8 @@ const usage = `
 
     Examples
         $ sudo umbreld update
-        $ sudo umbreld update https://download.umbrel.com/public-machines-usb/
-        $ sudo umbreld update --skip-signature-check ./umbrelos-amd64.update
+        $ sudo umbreld update https://github.com/ra5on/Titan/releases/download/0.1/
+        $ sudo umbreld update --skip-signature-check ./titan-amd64.update
 `
 
 // Installs that skip signature verification run here as root rather than through umbreld's API, so

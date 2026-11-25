@@ -23,8 +23,6 @@ import {Drive} from './model'
 import {SingleDriveManager, StorageUnreadable} from './single-drive'
 import {getPoolDeviceType, recommendedSsdSizeLabel} from './utils'
 
-const DOWNLOAD_URL = 'https://umbrel.com/downloads'
-
 export default function StorageManagerDialog() {
 	const {restart, shutdown} = useGlobalSystemState()
 	return <ConnectedStorageManager onShutdown={() => shutdown()} onRestart={() => restart()} />
@@ -172,7 +170,7 @@ function SingleDrive({
 			onClose={onClose}
 			temperatureUnit={temperatureUnit}
 			supportUrl={links.support}
-			downloadUrl={DOWNLOAD_URL}
+			downloadUrl={links.downloads}
 		/>
 	)
 }

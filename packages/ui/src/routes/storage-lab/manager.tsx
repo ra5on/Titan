@@ -8,6 +8,7 @@ import {useLocation, useNavigate, useParams} from 'react-router-dom'
 
 import {OnboardingBackground} from '@/components/onboarding-background'
 import {Loading} from '@/components/ui/loading'
+import {links} from '@/constants/links'
 import {StorageManager} from '@/features/storage/manager/manager'
 import {Drive, formatSize, troubleOf} from '@/features/storage/model'
 import {Member, PoolView, StorageAction, viewPool} from '@/features/storage/state'
@@ -118,7 +119,7 @@ function Manager() {
 				onOpenBackups={() => setNotice('Backups would open here.')}
 				usb={scenario?.usb ? {drives: usbDrives, onOpenFiles: () => setNotice('Files would open here.')} : undefined}
 				recommendedSsdSize='512GB'
-				supportUrl='https://umbrel.com/support'
+				supportUrl={links.support}
 			/>
 
 			{restarting && <RestartCover />}

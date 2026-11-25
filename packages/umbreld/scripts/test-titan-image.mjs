@@ -45,8 +45,12 @@ try {
 	})
 	await page.goto(base)
 	await page.locator('a[href^="/onboarding/create-account"]').waitFor()
+	await page.locator('a[href="https://github.com/ra5on/Titan/issues"]').waitFor()
+	const license = await context.request.get(base + '/titan-license.txt')
+	if (!license.ok() || !(await license.text()).includes('# PolyForm Noncommercial License 1.0.0'))
+		throw new Error('The local license text is missing')
 	await page.evaluate(() => document.fonts.ready)
-	await page.screenshot({path: path.join(dir, 'einrichtung.png')})
+	await page.screenshot({path: path.join(dir, 'einrichtung.png'), animations: 'disabled'})
 	const password = randomBytes(24).toString('hex')
 	// Exercise the same account setup, login and cookies as a real browser.
 	await page.locator('a[href^="/onboarding/create-account"]').click()
@@ -56,6 +60,7 @@ try {
 	await passwords.nth(1).fill(password)
 	await page.locator('form button[type="submit"]').click()
 	try {
+		await page.locator('a[href="/titan-license.txt"]').waitFor({timeout: 90000})
 		await page.getByTestId('to-desktop').click({timeout: 90000})
 	} catch (error) {
 		console.error(

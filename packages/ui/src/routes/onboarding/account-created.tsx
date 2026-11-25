@@ -1,5 +1,5 @@
 import {useEffect, useRef} from 'react'
-import {Trans, useTranslation} from 'react-i18next'
+import {useTranslation} from 'react-i18next'
 import {Link} from 'react-router-dom'
 
 import {links} from '@/constants/links'
@@ -30,14 +30,9 @@ export default function AccountCreated() {
 		<Layout
 			title={t('onboarding.account-created.youre-all-set-name', {name})}
 			subTitle={
-				<Trans
-					t={t}
-					i18nKey='onboarding.account-created.by-clicking-button-you-agree'
-					values={{button: t('onboarding.launch-umbrelos')}}
-					components={{
-						linked: <Link to={links.legal.tos} className={linkClass} target='_blank' />,
-					}}
-				/>
+				<a href={links.license} className={linkClass} target='_blank' rel='noreferrer'>
+					PolyForm Noncommercial License 1.0.0
+				</a>
 			}
 			subTitleMaxWidth={630}
 			subTitleClassName='text-white/50'

@@ -25,6 +25,29 @@ export const folderShareSchema = z.object({
 
 export type FolderShare = z.infer<typeof folderShareSchema>
 
+// The Linux ivpu and amdxdna PCI tables identify integrated NPUs which can
+// report a coprocessor or signal-processing class instead of class 12.
+const npuIds = new Set([
+	'8086:7d1d',
+	'8086:ad1d',
+	'8086:643e',
+	'8086:b03e',
+	'8086:fd3e',
+	'8086:d71d',
+	'1022:1502',
+	'1022:17f0',
+	'1022:17f2',
+	'1022:17f3',
+	'1022:1b0b',
+	'1022:1b0c',
+])
+
+function acceleratorKind(classId: string, vendor: string, device: string) {
+	if (npuIds.has(`${vendor}:${device}`)) return 'NPU'
+	if (classId.startsWith('03')) return 'GPU'
+	if (classId.startsWith('12')) return 'PCI accelerator'
+}
+
 // Select whole IOMMU groups. A group is eligible only if every function is
 // already reserved for VFIO, including a graphics card's HDMI audio function.
 export async function listPciGroups(root = '/sys/kernel/iommu_groups') {
@@ -44,19 +67,23 @@ export async function listPciGroups(root = '/sys/kernel/iommu_groups') {
 							readFile(path.join(sys, 'class'), 'utf8'),
 							readlink(path.join(sys, 'driver')).catch(() => ''),
 						])
+						const deviceId = device.trim().slice(2)
+						const vendorId = vendor.trim().slice(2)
+						const pciClass = classId.trim().slice(2)
 						return {
 							address,
-							vendor: vendor.trim().slice(2),
-							device: device.trim().slice(2),
-							classId: classId.trim().slice(2),
+							vendor: vendorId,
+							device: deviceId,
+							classId: pciClass,
+							kind: acceleratorKind(pciClass, vendorId, deviceId),
 							driver: path.basename(driver),
 						}
 					}),
 				)
-				const supported = functions.filter(({classId}) => /^(03|12)/.test(classId))
+				const supported = functions.filter(({kind}) => kind)
 				if (
 					!supported.length ||
-					functions.some(({classId, driver}) => driver !== 'vfio-pci' || !/^(03|12|0403)/.test(classId))
+					functions.some(({classId, driver, kind}) => driver !== 'vfio-pci' || (!kind && !classId.startsWith('0403')))
 				)
 					return
 				const key = functions.map((f) => `${f.address}@${f.vendor}:${f.device}`).join(',')
@@ -64,9 +91,7 @@ export async function listPciGroups(root = '/sys/kernel/iommu_groups') {
 					key,
 					group,
 					addresses,
-					label: supported
-						.map((f) => `${f.classId.startsWith('03') ? 'GPU' : 'NPU'} ${f.vendor}:${f.device} (${f.address})`)
-						.join(', '),
+					label: supported.map((f) => `${f.kind} ${f.vendor}:${f.device} (${f.address})`).join(', '),
 				}
 			})
 			.map((promise) => promise.catch(() => undefined)),

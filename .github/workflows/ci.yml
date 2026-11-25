@@ -34,6 +34,14 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Build disk image and update bundle
         run: packages/os/build-titan.sh
+      - name: Archive release metadata for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: titan-release-metadata
+          path: |
+            packages/os/build/titan-*/manifest.txt
+            packages/os/build/titan-*/release-notes.md
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: titan-amd64

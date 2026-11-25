@@ -190,7 +190,8 @@ function WelcomeBento({
 	const {t} = useTranslation()
 	const {appsKeyed} = useAvailableApps()
 	const deckCards = useDeckCards(appsKeyed)
-	const tailscaleIcon = appsKeyed?.['tailscale']?.icon
+	const tailscale = appsKeyed?.tailscale
+	const showTailscale = !isMember && Boolean(tailscale)
 	// iPadOS can identify as a Mac. Only offer the desktop app where it can run
 	// and where this account has access to file sharing.
 	const showMacApp =
@@ -200,8 +201,8 @@ function WelcomeBento({
 	const desktopApp = showMacApp ? DESKTOP_APPS.mac : showWindowsApp ? DESKTOP_APPS.windows : undefined
 
 	const tipIds = useMemo<TipId[]>(
-		() => (isMember ? ['files', 'photos', 'app-store'] : ['files', 'photos', 'app-store', 'tailscale']),
-		[isMember],
+		() => (showTailscale ? ['files', 'photos', 'app-store', 'tailscale'] : ['files', 'photos', 'app-store']),
+		[showTailscale],
 	)
 	const [closed, setClosed] = useState<ReadonlySet<TipId>>(() => new Set())
 	const breakpoint = useBreakpoint()
@@ -272,7 +273,7 @@ function WelcomeBento({
 						'flex w-full max-w-[1000px] flex-col gap-4 md:grid md:min-h-min md:flex-1 md:grid-flow-dense md:grid-cols-2 lg:max-h-[616px] lg:grid-cols-[1.15fr_1fr_1fr]',
 						// Two columns: three rows for the owner; a member's two are Files
 						// and the row Photos stands in
-						isMember ? 'md:max-h-[760px]' : 'md:max-h-[932px]',
+						showTailscale ? 'md:max-h-[932px]' : 'md:max-h-[760px]',
 					)}
 				>
 					<BentoCard
@@ -359,7 +360,7 @@ function WelcomeBento({
 						stage={<PhoneShot />}
 						// Two columns: beside App Store and Tailscale (a member's App
 						// Store card alone). Three: down the right of everything.
-						className={cn('md:col-start-2 lg:col-start-auto lg:row-span-2', !isMember && 'md:row-span-2')}
+						className={cn('md:col-start-2 lg:col-start-auto lg:row-span-2', showTailscale && 'md:row-span-2')}
 					/>
 					<BentoCard
 						id='app-store'
@@ -379,7 +380,7 @@ function WelcomeBento({
 						ornament={<AppDeck cards={deckCards} paused={paused || closed.has('app-store')} />}
 						className={isMember ? 'lg:col-span-2' : undefined}
 					/>
-					{!isMember && (
+					{showTailscale && (
 						<BentoCard
 							id='tailscale'
 							index={3}
@@ -388,7 +389,7 @@ function WelcomeBento({
 									{t('desktop.welcome.tailscale.button')}
 								</ButtonLink>
 							}
-							icon={tailscaleIcon}
+							icon={tailscale?.icon}
 							iconBordered
 							title={t('desktop.welcome.tailscale.title')}
 							description={t('desktop.welcome.tailscale.description')}

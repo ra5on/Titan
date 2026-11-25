@@ -81,7 +81,7 @@ export default function ExternalDriveChoice() {
 								<div className='min-w-[200px] flex-1 text-white/70'>{text}</div>
 								{i === 1 && (
 									<a
-										href={links.umbrelOS}
+										href={links.downloads}
 										target='_blank'
 										rel='noreferrer'
 										// Hidden on mobile: the step happens on a computer, so the download belongs there

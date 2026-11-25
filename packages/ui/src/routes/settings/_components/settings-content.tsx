@@ -273,16 +273,6 @@ export function SettingsContent({isMember = false}: {isMember?: boolean}) {
 												<div className='text-12 text-white/40'>{t('backups-setup-external-description')}</div>
 											</div>
 										</DropdownMenuItem>
-										<DropdownMenuItem
-											onSelect={() => navigate('/settings/backups/setup?backups-setup-tab=umbrel-private-cloud')}
-										>
-											<div className='flex flex-col'>
-												<div className='text-14 font-medium'>{t('backups-setup-umbrel-private-cloud')}</div>
-												<div className='text-12 text-white/40'>
-													{t('backups-setup-umbrel-private-cloud-description')}
-												</div>
-											</div>
-										</DropdownMenuItem>
 									</DropdownMenuContent>
 								</DropdownMenu>
 							) : (

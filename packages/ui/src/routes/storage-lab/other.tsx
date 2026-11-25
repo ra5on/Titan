@@ -7,6 +7,7 @@ import {useNavigate, useParams} from 'react-router-dom'
 
 import {OnboardingBackground} from '@/components/onboarding-background'
 import {Loading} from '@/components/ui/loading'
+import {links} from '@/constants/links'
 import {Drive, GB, TB} from '@/features/storage/model'
 import {SingleDriveManager, SingleHost, StorageUnreadable} from '@/features/storage/single-drive'
 import {StartFailure, StartFailureDrive} from '@/features/storage/start-failure'
@@ -253,8 +254,8 @@ function SingleDrive() {
 				onOpenBackups={() => setNotice('Backups would open here.')}
 				onViewUsage={() => setNotice('Live Usage would open here.')}
 				onClose={close}
-				supportUrl='https://umbrel.com/support'
-				downloadUrl='https://umbrel.com/downloads'
+				supportUrl={links.support}
+				downloadUrl={links.downloads}
 			/>
 			{notice}
 			<LabBar title={`${label} · Storage Manager`}>

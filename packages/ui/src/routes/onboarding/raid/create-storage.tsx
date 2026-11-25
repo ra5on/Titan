@@ -2,7 +2,7 @@
 // launch. Every storage setup page ends here, so they all wait, fail and finish alike.
 
 import {useEffect, useState} from 'react'
-import {Trans, useTranslation} from 'react-i18next'
+import {useTranslation} from 'react-i18next'
 import {Link} from 'react-router-dom'
 
 import {links} from '@/constants/links'
@@ -187,14 +187,9 @@ export function CreatingStorage({
 				onLaunch={creation.launch}
 				terms={
 					<p className='max-w-[420px] text-center text-13 leading-snug text-white/50'>
-						<Trans
-							t={t}
-							i18nKey='onboarding.account-created.by-clicking-button-you-agree'
-							values={{button: t('onboarding.launch-umbrelos')}}
-							components={{
-								linked: <Link to={links.legal.tos} className={linkClass} target='_blank' />,
-							}}
-						/>
+						<a href={links.license} className={linkClass} target='_blank' rel='noreferrer'>
+							PolyForm Noncommercial License 1.0.0
+						</a>
 					</p>
 				}
 				footer={

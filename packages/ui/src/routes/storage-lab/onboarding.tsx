@@ -209,11 +209,6 @@ function Flow({hardware, hasEarlierSetup, outcome}: {hardware: Hardware; hasEarl
 	}
 
 	if (stage === 'done') {
-		const launch = t('onboarding.launch-umbrelos')
-		// The terms line as onboarding shows it, with its link drawn and not followed
-		const [before, linked, after] = t('onboarding.account-created.by-clicking-button-you-agree', {
-			button: launch,
-		}).split(/<\/?linked>/)
 		return (
 			<DoneStage
 				isPro={isPro}
@@ -232,9 +227,7 @@ function Flow({hardware, hasEarlierSetup, outcome}: {hardware: Hardware; hasEarl
 				onLaunch={() => navigate('/storage-lab')}
 				terms={
 					<p className='max-w-[420px] text-center text-12 leading-snug text-white/45'>
-						{before}
-						<span className='underline underline-offset-2'>{linked}</span>
-						{after}
+						<span className='underline underline-offset-2'>PolyForm Noncommercial License 1.0.0</span>
 					</p>
 				}
 				extra={
