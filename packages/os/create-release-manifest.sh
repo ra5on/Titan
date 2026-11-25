@@ -43,7 +43,7 @@ release_notes_directory="${RELEASE_NOTES_DIRECTORY:-release-notes}"
 bundle_devices() {
     case "$1" in
         # Natively flashed amd64 devices
-        titan-amd64.update|umbrelos-amd64.update) echo "boot-flow:grub arch:amd64" ;;
+        titan-amd64.update|titan-amd64.update.00|umbrelos-amd64.update) echo "boot-flow:grub arch:amd64" ;;
         # amd64 devices first flashed with Mender and since migrated to Rugix, which keep Mender's
         # partition layout and boot flow
         umbrelos-amd64-legacy.update) echo "boot-flow:mender-grub arch:amd64" ;;

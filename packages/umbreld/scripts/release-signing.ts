@@ -112,11 +112,11 @@ const SECURE_ENCLAVE_HELPER_CACHE = path.join(os.homedir(), 'Library/Caches/umbr
 // a public record of what was signed, like releases/2.1.0-manifest.txt. They're named by version since
 // the manifest says which release it is, and signatures and timestamps cover contents rather than names.
 // releases/README.md describes adding a release.
-export const ARCHIVE_DIRECTORY = fileURLToPath(new URL('../../../releases/', import.meta.url))
+export const ARCHIVE_DIRECTORY = fileURLToPath(new URL('../../../releases/titan/', import.meta.url))
 
 // The latest approved signing keys list, at a path that never moves since devices fetch it from the
 // public repo on GitHub
-export const PUBLISHED_SIGNING_KEYS_PATH = path.join(ARCHIVE_DIRECTORY, 'umbrelos-signing-keys.txt')
+export const PUBLISHED_SIGNING_KEYS_PATH = path.join(ARCHIVE_DIRECTORY, '..', 'titan-signing-keys.txt')
 
 // Every approved signing keys list the root key signed, named by its date like
 // 20261022T201438Z-umbrelos-signing-keys.txt so they sort in order

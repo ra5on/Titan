@@ -64,3 +64,5 @@ data/
 .umbrel-dev
 jwt
 ./bin
+
+/packages/os/viewer/image.json

@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+import {createHash, createPrivateKey, sign} from 'node:crypto'
+import {createReadStream} from 'node:fs'
+import {readFile, writeFile} from 'node:fs/promises'
+import {homedir} from 'node:os'
+import path from 'node:path'
+import {
+	BUNDLED_SIGNING_KEYS_PATH, formatManifestMessage, formatReleaseNotesMessage, formatSignatureFile,
+	isTitanVersion, parseReleaseManifest, verifySignerSignature, verifySigningKeysList,
+} from '../packages/umbreld/source/modules/update/release-signing.ts'
+
+const [directory, keyPath = path.join(homedir(), '.local/share/titan-release-keys/release.pem')] = process.argv.slice(2)
+if (!directory) throw new Error('Usage: scripts/titan-sign-release <release directory> [signing key PEM]')
+const read = (name) => readFile(path.join(directory, name), 'utf8')
+const manifest = await read('manifest.txt')
+const release = parseReleaseManifest(manifest)
+if (!isTitanVersion(release.version) || release.name !== `Titan ${release.version}`) throw new Error('Invalid Titan release')
+const keys = await readFile(BUNDLED_SIGNING_KEYS_PATH, 'utf8')
+const authorized = verifySigningKeysList(keys)
+if (Object.keys(release.files).length === 0) throw new Error('The manifest contains no release files')
+for (const [name, file] of Object.entries(release.files)) {
+	const hash = createHash('sha256')
+	for await (const chunk of createReadStream(path.join(directory, name))) hash.update(chunk)
+	if (hash.digest('hex') !== file.sha256) throw new Error(`Checksum mismatch: ${name}`)
+}
+const key = createPrivateKey(await readFile(keyPath))
+const notes = await read('release-notes.md')
+for (const [file, message] of [['manifest.txt', formatManifestMessage(manifest)], ['release-notes.md', formatReleaseNotesMessage(release.version, notes)]]) {
+	const signature = sign('sha256', Buffer.from(`umbrelOS release signature\n${message}`), {key, dsaEncoding:'ieee-p1363'}).toString('base64')
+	const signer = authorized.keys.find(({publicKey}) => verifySignerSignature(message, signature, publicKey))
+	if (!signer || authorized.requiredSignatures !== 1) throw new Error('Signing key is not authorized to sign this release alone')
+	await writeFile(path.join(directory, file + '.sig'), formatSignatureFile({signingKeysList:keys, signatures:[{name:signer.name,signature}]}))
+}

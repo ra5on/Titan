@@ -1,4 +1,8 @@
+import type {ReadableStream} from 'node:stream/web'
 import crypto from 'node:crypto'
+import {createWriteStream} from 'node:fs'
+import {Readable, Transform} from 'node:stream'
+import {pipeline} from 'node:stream/promises'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
@@ -72,6 +76,46 @@ export async function installRelease({
 	}
 
 	if (!bundle) throw noUpdate()
+	if (bundle.name.endsWith('.update.00')) {
+		const prefix = bundle.name.slice(0, -2)
+		const parts = Object.keys(release.files)
+			.filter((name) => name.startsWith(prefix))
+			.sort()
+		if (!parts.every((name, i) => name === prefix + String(i).padStart(2, '0')))
+			throw new UpdateError('Invalid update part sequence')
+		const directory = await fse.mkdtemp('/data/titan-update-')
+		try {
+			const file = path.join(directory, 'bundle.update')
+			for (const [i, name] of parts.entries()) {
+				const response = await fetch(releaseFileUrl(releaseUrl, name), {signal: AbortSignal.timeout(3600000)})
+				if (!response.ok || !response.body) throw new UpdateError(`Download failed for ${name}`)
+				const hash = crypto.createHash('sha256')
+				let bytes = 0
+				const verify = new Transform({
+					transform(chunk: Buffer, _, callback) {
+						bytes += chunk.length
+						if (bytes > 1024 ** 3) return callback(new Error('Oversized update part'))
+						hash.update(chunk)
+						callback(null, chunk)
+					},
+				})
+				await pipeline(
+					Readable.fromWeb(response.body as ReadableStream),
+					verify,
+					createWriteStream(file, {flags: i ? 'a' : 'wx', mode: 0o600}),
+				)
+				if (hash.digest('hex') !== release.files[name].sha256)
+					throw new ReleaseVerificationError('Update part checksum mismatch')
+				onStatus({progress: ((i + 1) * 40) / parts.length})
+			}
+			await installUpdateBundle(file, {bundleHash: bundle.bundleHash}, (progress) =>
+				onStatus({progress: 40 + progress * 0.6}),
+			)
+		} finally {
+			await fse.remove(directory)
+		}
+		return
+	}
 	await installUpdateBundle(releaseFileUrl(releaseUrl, bundle.name), {bundleHash: bundle.bundleHash}, (progress) =>
 		onStatus({progress}),
 	)

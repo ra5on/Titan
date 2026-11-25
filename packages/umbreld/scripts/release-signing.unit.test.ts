@@ -468,8 +468,8 @@ describe('releases/', () => {
 
 	// Devices fetch it from the public repo on GitHub
 	test('holds the bundled list once the root key signed it, at a path that never moves', async () => {
-		expect(path.relative(path.join(ARCHIVE_DIRECTORY, '..'), PUBLISHED_SIGNING_KEYS_PATH)).toBe(
-			'releases/umbrelos-signing-keys.txt',
+		expect(path.relative(path.join(ARCHIVE_DIRECTORY, '../..'), PUBLISHED_SIGNING_KEYS_PATH)).toBe(
+			'releases/titan-signing-keys.txt',
 		)
 		const bundled = await fs.readFile(BUNDLED_SIGNING_KEYS_PATH, 'utf8')
 		expect(await fs.readFile(PUBLISHED_SIGNING_KEYS_PATH, 'utf8'), 'Run ./scripts/release-signing sign-keys-list').toBe(

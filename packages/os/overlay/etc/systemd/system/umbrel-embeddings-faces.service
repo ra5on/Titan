@@ -8,6 +8,8 @@ ConditionPathExists=/usr/lib/python3/dist-packages/onnxruntime
 # there is something for them to read, and leaves this once they are all
 # there (see models.ts in umbreld).
 ConditionPathExists=/home/umbrel/umbrel/models/installed
+ConditionPathExists=/home/umbrel/umbrel/models/faces-detector.onnx
+ConditionPathExists=/home/umbrel/umbrel/models/faces-recogniser.onnx
 
 [Service]
 # Like the model that reads photos, it only runs while there are photos to
