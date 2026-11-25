@@ -3,11 +3,11 @@ on:
   workflow_dispatch:
     inputs:
       build_run:
-        description: Successful Titan image workflow run ID
+        description: Titan workflow run containing the completed image build
         required: true
       tag:
-        description: Titan version of the signed draft release
-        required: true
+        description: Signed draft tag (leave blank to boot-test the image only)
+        required: false
 permissions:
   actions: read
   contents: write
@@ -27,15 +27,20 @@ jobs:
       - name: Match a tested image build to the draft release
         run: |
           set -euo pipefail
-          [[ "$BUILD_RUN" =~ ^[0-9]+$ && "$TAG" =~ ^(0|[1-9][0-9]*)\.[0-9]$ && "$TAG" != 0.0 ]]
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          if [[ -n "$TAG" ]]; then [[ "$TAG" =~ ^(0|[1-9][0-9]*)\.[0-9]$ && "$TAG" != 0.0 ]]; fi
           build=$(gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN")
           workflow_id=$(gh api "repos/$GH_REPO/actions/workflows/ci.yml" --jq .id)
           jq -e --arg repo "$GH_REPO" --argjson workflow "$workflow_id" '
-            .conclusion == "success" and .workflow_id == $workflow and .head_repository.full_name == $repo
+            .status == "completed" and .workflow_id == $workflow and .head_repository.full_name == $repo
           ' <<<"$build" >/dev/null
           sha=$(jq -er .head_sha <<<"$build")
-          gh release view "$TAG" --json isDraft,isPrerelease,targetCommitish |
-            jq -e --arg sha "$sha" '.isDraft and (.isPrerelease|not) and .targetCommitish == $sha'
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN/jobs" |
+            jq -e '[.jobs[].steps[] | select(.name == "Build disk image and update bundle" and .conclusion == "success")] | length == 1'
+          if [[ -n "$TAG" ]]; then
+            gh release view "$TAG" --json isDraft,isPrerelease,targetCommitish |
+              jq -e --arg sha "$sha" '.isDraft and (.isPrerelease|not) and .targetCommitish == $sha'
+          fi
           echo "BUILD_SHA=$sha" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
@@ -51,7 +56,38 @@ jobs:
           path: artifacts
           run-id: ${{ inputs.build_run }}
           github-token: ${{ github.token }}
+      - name: Boot the archived SSD image and test the browser
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          manifests=(artifacts/titan-*/manifest.txt)
+          (( ${#manifests[@]} == 1 ))
+          manifest=${manifests[0]}
+          version=$(awk '$1=="Version:" {print $2}' "$manifest")
+          [[ "$version" =~ ^(0|[1-9][0-9]*)\.[0-9]$ && "$version" != 0.0 && (-z "$TAG" || "$TAG" == "$version") ]]
+          grep -Fx "Commit: $BUILD_SHA" "$manifest"
+          directory="artifacts/titan-$version"
+          [[ "$manifest" == "$directory/manifest.txt" ]]
+          digest=$(awk '$1=="File:" && $2=="titan-amd64.img.xz" {print $3}' "$manifest")
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "${digest#sha256:}  $directory/titan-amd64.img.xz" | sha256sum --check --strict
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-system-x86 qemu-utils ovmf tshark
+          if [[ -c /dev/kvm ]]; then sudo setfacl -m u:"$USER":rw /dev/kvm; fi
+          mkdir -p packages/os/build
+          xz -T0 -dc "$directory/titan-amd64.img.xz" | dd of=packages/os/build/umbrelos-amd64.img bs=64K conv=sparse status=none
+          TITAN_EXPECTED_VERSION="$version" packages/os/test-titan-image.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: titan-boot-test
+          path: |
+            packages/os/build/boot-test/*.png
+            packages/os/build/boot-test/serial.log
+            packages/os/build/boot-test/network-hosts.txt
+          if-no-files-found: ignore
       - name: Verify the staged manifest and upload its files
+        if: success() && inputs.tag != ''
         run: |
           set -euo pipefail
           mkdir signed
