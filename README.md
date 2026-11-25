@@ -19,6 +19,10 @@ Der integrierte App-Katalog enthält FreshRSS. Weitere kompatible Kataloge lasse
 
 Als Eigentümer kannst du die Weboberfläche einer laufenden Docker-App im Titan-Desktop öffnen. Dafür startet auf dem Server ein temporärer Browser mit Zugang zu dieser App. Beim ersten Öffnen lädt Titan das Browser-Image aus seiner GitHub-Veröffentlichung und prüft die Prüfsumme. Die Sitzung läuft über dieselbe Webadresse wie der Desktop. Ein Reverse-Proxy oder Cloudflare-Tunnel muss HTTP und WebSocket-Verbindungen an Titan weiterleiten. Für diese Ansicht genügt ein einziges öffentliches Ziel. Mitgliedskonten und reine Tor-Apps verwenden den herkömmlichen App-Aufruf. Der eingeschränkte Browser eignet sich für webbasierte Bedienoberflächen. Eine Sitzung mit einem öffentlichen Cloudflare-Tunnel wurde bisher nicht separat getestet.
 
+![Einrichtungsseite von FreshRSS 1.28.1 in der über Titan übertragenen App-Ansicht](docs/bilder/freshrss.png)
+
+*FreshRSS beim ersten Start, aufgenommen über den lokalen WebSocket-Zugang des Titan-App-Browsers.*
+
 ## Virtuelle Maschinen
 
 | Funktion | Verwendung und Voraussetzungen |
@@ -28,7 +32,7 @@ Als Eigentümer kannst du die Weboberfläche einer laufenden Docker-App im Titan
 | USB-Geräte | Weise einen USB-Port der VM zu. Das ist unter anderem für Zigbee-Adapter und den Coral USB Accelerator vorgesehen. Der Coral-Stick wechselt beim Laden seiner Firmware die USB-Kennung. Die Zuordnung orientiert sich am physischen Anschluss. |
 | iGPU, NVIDIA-/AMD-GPU, NPU | Der Host braucht KVM und eine aktive IOMMU. Das Gerät muss als unterstützte PCI-Funktion sichtbar und seine vollständige, geeignete IOMMU-Gruppe für `vfio-pci` vorbereitet sein. Ein direkt zugewiesenes Gerät steht dem Gast exklusiv zur Verfügung. Änderungen an der PCI-Zuordnung werden beim nächsten VM-Start wirksam. |
 
-Home Assistant OS 18.4 wurde aus dem offiziellen QCOW2-Abbild importiert, sektorweise verglichen und mit QEMU und UEFI bis zum Login gestartet. Durchreichung und Treiberbetrieb eines konkreten Coral-Sticks, einer Grafikkarte oder einer integrierten NPU wurden bislang nicht an physischer Hardware bestätigt. [Home Assistant OS](https://github.com/home-assistant/operating-system/releases/tag/18.4) · [VFIO und IOMMU-Gruppen](https://docs.kernel.org/driver-api/vfio.html) · [Coral USB Accelerator](https://coral.ai/docs/accelerator/get-started/)
+Home Assistant OS 18.4 wurde aus dem offiziellen QCOW2-Abbild importiert, sektorweise verglichen und mit QEMU und UEFI bis zum Login gestartet. Ein separater Linux-Gast las und schrieb Dateien auf einer virtiofs-Testfreigabe. Bei einer hostseitig schreibgeschützten Freigabe konnte derselbe Gast lesen und erhielt beim Schreibversuch einen Dateisystemfehler. Durchreichung und Treiberbetrieb eines konkreten Coral-Sticks, einer Grafikkarte oder einer integrierten NPU wurden bislang nicht an physischer Hardware bestätigt. [Home Assistant OS](https://github.com/home-assistant/operating-system/releases/tag/18.4) · [VFIO und IOMMU-Gruppen](https://docs.kernel.org/driver-api/vfio.html) · [Coral USB Accelerator](https://coral.ai/docs/accelerator/get-started/)
 
 ## KI und Netzwerkverbindungen
 
