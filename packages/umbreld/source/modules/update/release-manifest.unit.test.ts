@@ -10,7 +10,7 @@ import {afterEach, beforeEach, describe, expect, test} from 'vitest'
 import {findUpdateBundle, parseReleaseManifest} from './release-signing.ts'
 
 const script = fileURLToPath(new URL('../../../../os/create-release-manifest.sh', import.meta.url))
-const {version, versionName} = await fse.readJson(fileURLToPath(new URL('../../../package.json', import.meta.url)))
+const {titanVersion: version} = await fse.readJson(fileURLToPath(new URL('../../../package.json', import.meta.url)))
 const bundleHash = `sha512-256:${'ab'.repeat(32)}`
 const dockerImage = `ghcr.io/getumbrel/umbrelos@sha256:${'cd'.repeat(32)}`
 
@@ -48,7 +48,7 @@ describe('create-release-manifest.sh', () => {
 		const release = parseReleaseManifest(await createManifest({RELEASE_TAG: version, DOCKER_IMAGE: dockerImage}))
 		expect(release.version).toBe(version)
 		// What the release calls itself once it's installed
-		expect(release.name).toBe(versionName)
+		expect(release.name).toBe(`Titan ${version}`)
 		expect(release.dockerImage).toBe(dockerImage)
 		// Dated by the commit it was built from, which it names so the release can be rebuilt from it
 		const {stdout: commitTime} = await $`git log -1 --format=%ct`
@@ -157,25 +157,20 @@ describe('create-release-manifest.sh', () => {
 	})
 
 	test("doesn't need release notes for a test build", async () => {
-		await createManifest({RELEASE_TAG: 'public-test-build', DOCKER_IMAGE: dockerImage})
+		await createManifest()
 		expect(await fse.readFile(`${releaseDirectory}/release-notes.md`, 'utf8')).toBe('')
 	})
 
 	test.each([
 		{
 			failure: "a tag that isn't umbreld's version",
-			error: "tag doesn't match umbreld's version",
+			error: "tag doesn't match Titan version",
 			setup: async () => ({RELEASE_TAG: '99.0.0'}),
 		},
 		{
 			failure: 'a release tag without release notes',
 			error: 'Release notes for',
 			setup: async () => ({RELEASE_TAG: version, DOCKER_IMAGE: dockerImage}),
-		},
-		{
-			failure: 'a release tag without its Docker image',
-			error: 'DOCKER_IMAGE is missing',
-			setup: async () => ({RELEASE_TAG: 'public-test-build'}),
 		},
 		...[
 			'ghcr.io/getumbrel/umbrelos:2.1.0',

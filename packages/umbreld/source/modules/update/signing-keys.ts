@@ -85,7 +85,7 @@ export default class SigningKeys {
 			this.#signingKeysUrls.map(async (url) => {
 				try {
 					const response = await fetch(url, {
-						headers: {'User-Agent': `umbrelOS ${this.#umbreld.version}`},
+						headers: {'User-Agent': 'Titan updater'},
 						signal: AbortSignal.timeout(30_000),
 					})
 					if (!response.ok) throw new Error(`HTTP ${response.status}`)

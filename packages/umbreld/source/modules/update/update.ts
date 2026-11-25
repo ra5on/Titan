@@ -2,7 +2,6 @@ import crypto from 'node:crypto'
 
 import type Umbreld from '../../index.ts'
 import type {ProgressStatus} from '../apps/schema.ts'
-import {detectDevice, isUmbrelOS} from '../system/system.ts'
 import SigningKeys from './signing-keys.ts'
 import {getDevice, installRelease} from './install-release.ts'
 import {
@@ -39,7 +38,7 @@ export default class Update {
 	constructor(
 		umbreld: Umbreld,
 		{
-			updateServerUrl = 'https://api.umbrel.com/latest-release',
+			updateServerUrl = 'https://raw.githubusercontent.com/ra5on/Titan/main/releases/latest.json',
 			signingKeys = {},
 		}: {updateServerUrl?: string; signingKeys?: ConstructorParameters<typeof SigningKeys>[1]} = {},
 	) {
@@ -71,45 +70,8 @@ export default class Update {
 
 	// Ask the update server where the latest release for this device is
 	async #getLatestReleaseUrl() {
-		let deviceId = 'unknown'
-		try {
-			deviceId = (await detectDevice()).deviceId
-		} catch (error) {
-			this.logger.error(`Failed to detect device type`, error)
-		}
-
-		let platform = 'unknown'
-		try {
-			if (await isUmbrelOS()) platform = 'umbrelOS'
-		} catch (error) {
-			this.logger.error(`Failed to detect platform`, error)
-		}
-
-		let device: {bootFlow?: string; arch: string} | undefined
-		try {
-			device = await getDevice()
-		} catch (error) {
-			this.logger.error(`Failed to detect boot flow`, error)
-		}
-
-		const updateUrl = new URL(this.#updateServerUrl)
-		// Provide context to the update server about the underlying device and platform
-		// so we can avoid the 1.0 update situation where we need to shim multiple update
-		// mechanisms and error-out updates for unsupported platforms. This also helps
-		// notifying users for critical security updates that are be relevant only to their specific
-		// platform, and avoids notififying users of updates that aren't yet available for their
-		// platform.
-		updateUrl.searchParams.set('version', this.#umbreld.releaseVersion)
-		updateUrl.searchParams.set('device', deviceId)
-		updateUrl.searchParams.set('platform', platform)
-		updateUrl.searchParams.set('channel', 'stable')
-		// So the update server can hold a release back from, or offer one to, devices that install a
-		// particular update bundle
-		updateUrl.searchParams.set('bootFlow', device?.bootFlow ?? 'unknown')
-		updateUrl.searchParams.set('arch', device?.arch ?? 'unknown')
-
-		const response = await fetch(updateUrl, {
-			headers: {'User-Agent': `umbrelOS ${this.#umbreld.releaseVersion}`},
+		const response = await fetch(this.#updateServerUrl, {
+			headers: {'User-Agent': 'Titan updater'},
 			signal: AbortSignal.timeout(30_000),
 		})
 		if (!response.ok) throw new Error(`Update server responded with HTTP ${response.status}`)
@@ -124,7 +86,7 @@ export default class Update {
 		if (!releaseUrl) return undefined
 		const url = releaseDirectoryUrl(releaseUrl)
 
-		const userAgent = `umbrelOS ${this.#umbreld.releaseVersion}`
+		const userAgent = 'Titan updater'
 		const [manifest, manifestSignatureFile, notes] = await Promise.all([
 			downloadReleaseManifest(url, userAgent),
 			downloadManifestSignature(url, userAgent),

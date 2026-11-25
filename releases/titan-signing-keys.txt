@@ -1,0 +1,6 @@
+--- umbrelOS Signing Keys ---
+Schema: 1
+Date: 2026-11-25T21:07:52Z
+Required-Signatures: 1
+Key: titan-release 039fdf94048271a3cc7b9fc8cba5cfe3008e0bfb5c31e9f9a2f0e2f19aed333034
+Root-Signature: HwmsnWzxwemY48ZkhWn+QuWHEoJe9TsXYgtSUT8n6chDj81eUphfS6SU5ENqPCL/v5pSkUYM7CIkBI1C2GMFsBA=

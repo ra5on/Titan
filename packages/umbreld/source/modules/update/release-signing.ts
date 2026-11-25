@@ -39,15 +39,8 @@ import semver from 'semver'
 // its format wrote it, for later parsers, and devices don't refuse a block for it. A change older devices
 // mustn't ignore goes in a block with a new header, which they don't read.
 
-// The root key this release trusts. It only signs keys lists and, in an emergency, releases, so a stolen
-// key can never lock it out: whatever lists a thief publishes, this key still counts, and a release it
-// signs can recover devices. The root key moves to a new hardware wallet with a release, signed by the
-// release signers, that changes this key and bundles a list the new key signed. There's no way to hand
-// it over with a keys list, which a thief could use to take over every device for good.
-//
-// It's the key at m/84'/0'/0'/0/0 on the root key's hardware wallet, whose address is
-// bc1qz6c2t7ncjlm6fdy5a0y46cxy8m5nm0hkcxcamh.
-export const ROOT_PUBLIC_KEY = '03672a5a18af7d5b1300323eb2eb9cae496a5cceb8a566e7554d635b00b8167ff1'
+// Titan's root certifies signing keys and revocations.
+export const ROOT_PUBLIC_KEY = '02c384e530d22f89db87421a83893e489767bb8e717a772eeaf71ff8221a8f7323'
 
 // What a signer's key signs before each message, so nothing else it ever signs can count as a release
 // signature. The tools' Secure Enclave helper adds it itself, so the key never signs anything without it.
@@ -68,15 +61,11 @@ const SIGNATURES_HEADER = '--- umbrelOS Signatures ---'
 // Every source is untrusted since lists are verified against the root key, so the device takes the
 // newest valid list from all of them rather than trusting whichever answers first
 export const SIGNING_KEYS_URLS = [
-	'https://api.umbrel.com/umbrelos-signing-keys',
-	// releases/umbrelos-signing-keys.txt in the public repo, a path that never moves. Revocations only
-	// matter against an attacker who can serve releases, who could also have taken over api.umbrel.com,
-	// so devices need a source that doesn't depend on it.
-	'https://raw.githubusercontent.com/getumbrel/umbrel/master/releases/umbrelos-signing-keys.txt',
+	'https://raw.githubusercontent.com/ra5on/Titan/main/releases/titan-signing-keys.txt',
 ]
 
 // The newest list when this release was built, so a device never trusts less than its own release did
-export const BUNDLED_SIGNING_KEYS_PATH = fileURLToPath(new URL('./umbrelos-signing-keys.txt', import.meta.url))
+export const BUNDLED_SIGNING_KEYS_PATH = fileURLToPath(new URL('./titan-signing-keys.txt', import.meta.url))
 
 // Files a release directory holds alongside the release's own files
 export const MANIFEST_FILE = 'manifest.txt'

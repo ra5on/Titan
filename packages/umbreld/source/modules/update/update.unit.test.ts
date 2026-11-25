@@ -58,7 +58,7 @@ describe('Update', () => {
 		const logger = {log: (message: string) => logs.push(message), error() {}, createChildLogger: () => logger}
 		const store = {get: async () => undefined}
 		const eventBus = {emit: (event: string, data: unknown) => events.push({event, data: structuredClone(data)})}
-		const umbreld = {dataDirectory: directory, version: '2.0.0', logger, store, eventBus} as unknown as Umbreld
+		const umbreld = {dataDirectory: directory, version: '2.0.0', releaseVersion: '2.0.0', logger, store, eventBus} as unknown as Umbreld
 		return new Update(umbreld, {
 			updateServerUrl: `${baseUrl}/latest-release`,
 			signingKeys: {
@@ -162,9 +162,7 @@ describe('Update', () => {
 				releaseNotes: 'Signed notes',
 				manifestHash: sha256(files['/release/2.1.0/manifest.txt']),
 			})
-			expect(requests[0]).toBe(
-				'/latest-release?version=2.0.0&device=umbrel-home&platform=umbrelOS&channel=stable&bootFlow=grub&arch=amd64',
-			)
+			expect(requests[0]).toBe('/latest-release')
 		})
 
 		test("doesn't offer a release that isn't newer", async () => {

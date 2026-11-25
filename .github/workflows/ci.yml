@@ -23,6 +23,9 @@ jobs:
           node-version: 26
       - name: Reserve space on the disposable runner
         run: sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc /usr/share/dotnet
+      - name: Install shared server build dependencies
+        working-directory: packages/umbreld
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build web interface
         working-directory: packages/ui
         run: |
