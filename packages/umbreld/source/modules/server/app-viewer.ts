@@ -4,6 +4,7 @@ import {createWriteStream} from 'node:fs'
 import fs from 'node:fs/promises'
 import net from 'node:net'
 import path from 'node:path'
+import {tmpdir} from 'node:os'
 import {Readable, Transform} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import {setTimeout as sleep} from 'node:timers/promises'
@@ -87,8 +88,10 @@ export function createAppViewerHandler(umbreld: Umbreld) {
 				loading = undefined
 			}))
 			controller.signal.throwIfAborted()
-			dir = await fs.mkdtemp('/run/titan-viewer-')
-			await fs.chown(dir, 65534, 65534)
+			const uid = process.getuid!() || 65534
+			const gid = process.getgid!() || 65534
+			dir = await fs.mkdtemp(path.join(tmpdir(), 'titan-viewer-'))
+			if (process.getuid!() === 0) await fs.chown(dir, uid, gid)
 			const socketPath = path.join(dir, 'app.sock')
 			relay = net.createServer((peer) => {
 				const dest = net.connect(target.port, target.host)
@@ -109,7 +112,7 @@ export function createAppViewerHandler(umbreld: Umbreld) {
 				relay!.once('error', reject)
 				relay!.listen(socketPath, resolve)
 			})
-			await fs.chown(socketPath, 65534, 65534)
+			if (process.getuid!() === 0) await fs.chown(socketPath, uid, gid)
 			await fs.chmod(socketPath, 0o600)
 			await execa(
 				'docker',
@@ -124,7 +127,7 @@ export function createAppViewerHandler(umbreld: Umbreld) {
 					'none',
 					'--read-only',
 					'--user',
-					'65534:65534',
+					`${uid}:${gid}`,
 					'--cap-drop',
 					'ALL',
 					'--security-opt',

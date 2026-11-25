@@ -54,11 +54,11 @@ describe('Update', () => {
 	let server: http.Server
 	let baseUrl: string
 
-	const createUpdate = () => {
+	const createUpdate = (releaseVersion = '2.0.0') => {
 		const logger = {log: (message: string) => logs.push(message), error() {}, createChildLogger: () => logger}
 		const store = {get: async () => undefined}
 		const eventBus = {emit: (event: string, data: unknown) => events.push({event, data: structuredClone(data)})}
-		const umbreld = {dataDirectory: directory, version: '2.0.0', releaseVersion: '2.0.0', logger, store, eventBus} as unknown as Umbreld
+		const umbreld = {dataDirectory: directory, version: '2.0.0', releaseVersion, logger, store, eventBus} as unknown as Umbreld
 		return new Update(umbreld, {
 			updateServerUrl: `${baseUrl}/latest-release`,
 			signingKeys: {
@@ -153,6 +153,15 @@ describe('Update', () => {
 	})
 
 	describe('checkUpdate()', () => {
+		test('offers the next signed Titan version across 0.9 to 1.0', async () => {
+			await publishRelease('1.0', alice, {name: 'Titan 1.0'})
+			const update = createUpdate('0.9')
+			await expect(update.checkUpdate()).resolves.toMatchObject({available: true, version: '1.0', name: 'Titan 1.0'})
+			await expect(createUpdate('1.0').checkUpdate()).resolves.toMatchObject({available: false})
+			await publishRelease('2.1.0-beta.2', alice)
+			await expect(update.checkUpdate()).resolves.toMatchObject({available: false})
+		})
+
 		test('shows the signed name and release notes, not the update server', async () => {
 			await publishRelease('2.1.0', alice, {name: 'umbrelOS 2.1', releaseNotes: 'Signed notes'})
 			await expect(createUpdate().checkUpdate()).resolves.toEqual({

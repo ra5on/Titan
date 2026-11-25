@@ -37,7 +37,7 @@ jobs:
       - name: Boot from NVMe and capture the web interface
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf tshark
           if [ -c /dev/kvm ]; then sudo setfacl -m u:"$USER":rw /dev/kvm; fi
           packages/os/test-titan-image.sh
       - uses: actions/upload-artifact@v4
@@ -47,6 +47,7 @@ jobs:
           path: |
             packages/os/build/boot-test/*.png
             packages/os/build/boot-test/serial.log
+            packages/os/build/boot-test/network-hosts.txt
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
