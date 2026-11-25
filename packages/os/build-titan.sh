@@ -12,7 +12,8 @@ docker buildx build --platform linux/amd64 -f titan.Dockerfile \
 tar -xOf build/umbrelos-root-amd64.tar var/lib/dpkg/status > build/titan-system-status
 docker run --rm --network none --entrypoint cat titan-viewer:build /var/lib/dpkg/status > build/titan-viewer-status
 python3 titan-package-sources.py build/titan-system-status build/titan-viewer-status > build/titan-paketquellen.tsv
-SKIP_ROOTS=true SKIP_AMD64_MENDER=true SKIP_ARM64=true SKIP_PI=true ./build.sh "$version"
+# This SSD uses GRUB/Rugix. No existing Mender install will be migrated.
+SKIP_ROOTS=true SKIP_AMD64_MENDER=true SKIP_MENDER_ARTIFACTS=true SKIP_ARM64=true SKIP_PI=true ./build.sh "$version"
 # Never mix parts and full bundles left by a previous run.
 release_dir=$(mktemp -d "build/.titan-${version}.XXXXXX")
 trap 'rm -rf "$release_dir"' EXIT
