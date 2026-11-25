@@ -8,6 +8,10 @@ mkdir -p build
 ./build-titan-viewer.sh
 docker buildx build --platform linux/amd64 -f titan.Dockerfile \
     --output "type=tar,dest=build/umbrelos-root-amd64.tar" ../..
+# Read the package databases from the two artifacts that will actually ship.
+tar -xOf build/umbrelos-root-amd64.tar var/lib/dpkg/status > build/titan-system-status
+docker run --rm --network none --entrypoint cat titan-viewer:build /var/lib/dpkg/status > build/titan-viewer-status
+python3 titan-package-sources.py build/titan-system-status build/titan-viewer-status > build/titan-paketquellen.tsv
 SKIP_ROOTS=true SKIP_AMD64_MENDER=true SKIP_ARM64=true SKIP_PI=true ./build.sh "$version"
 # Never mix parts and full bundles left by a previous run.
 release_dir=$(mktemp -d "build/.titan-${version}.XXXXXX")
@@ -21,7 +25,7 @@ else
     cp build/umbrelos-amd64.update "$release_dir/titan-amd64.update"
     cp build/umbrelos-amd64.update.hash build/titan-amd64.update.hash
 fi
-cp build/titan-viewer.tar.gz "$release_dir/"
+cp build/titan-viewer.tar.gz build/titan-paketquellen.tsv "$release_dir/"
 RELEASE_TAG="$version" ./create-release-manifest.sh "$release_dir"
 
 # Replace only a completed build's output directory.

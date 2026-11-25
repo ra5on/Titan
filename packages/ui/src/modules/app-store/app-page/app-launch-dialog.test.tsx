@@ -98,6 +98,11 @@ describe('app launch dialog', () => {
 		await act(async () => container.querySelector<HTMLButtonElement>('#launch')!.click())
 	}
 
+	function expectViewer(path: string, appId = 'demo') {
+		expect(window.open).not.toHaveBeenCalled()
+		expect(container.querySelector('output')?.textContent).toBe(`/apps-viewer/${appId}?${new URLSearchParams({path})}`)
+	}
+
 	async function clickButton(text: string) {
 		const button = [...document.querySelectorAll('button')].find((button) => button.textContent === text)
 		expect(button).toBeDefined()
@@ -114,7 +119,7 @@ describe('app launch dialog', () => {
 		return [...document.querySelectorAll<HTMLButtonElement>('[role="checkbox"]')]
 	}
 
-	test('shows both requirements in one persistent modal and opens the deep link over HTTPS once', async () => {
+	test('shows both requirements in one persistent modal and opens the deep link inside the desktop', async () => {
 		await launch({path: '/deep/link?next=a&view=b#item'})
 		expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1)
 		expect(dialog()?.textContent).toContain('default-credentials.username')
@@ -125,10 +130,9 @@ describe('app launch dialog', () => {
 		expect(window.open).not.toHaveBeenCalled()
 		await clickButton('app-requires-https-dialog-action')
 		await settleClose()
-		expect(window.open).toHaveBeenCalledExactlyOnceWith('https://localhost:1234/deep/link?next=a&view=b#item', '_blank')
+		expectViewer('/deep/link?next=a&view=b#item')
 		expect(fixtures.trackOpen).toHaveBeenCalledExactlyOnceWith({appId: 'demo'})
 		expect(dialog()).toBeNull()
-		expect(container.querySelector('output')?.textContent).toBe('/?keep=1')
 	})
 
 	test('shows credentials alone for an HTTP app and preserves its manifest path', async () => {
@@ -137,7 +141,7 @@ describe('app launch dialog', () => {
 		expect(checkboxes()).toHaveLength(1)
 		expect(dialog()?.textContent).not.toContain('app-requires-https-dialog-description')
 		await clickButton('default-credentials.open')
-		expect(window.open).toHaveBeenCalledExactlyOnceWith('http://localhost:1234/app/', '_blank')
+		expectViewer('/app/')
 	})
 
 	test.each([
@@ -145,7 +149,7 @@ describe('app launch dialog', () => {
 		{requiresHttps: true, showBeforeOpen: false, action: 'app-requires-https-dialog-action', protocol: 'https:'},
 	])(
 		'replacing an open launch modal does not inherit its requirements or deep link ($protocol)',
-		async ({requiresHttps, showBeforeOpen, action, protocol}) => {
+		async ({requiresHttps, showBeforeOpen, action}) => {
 			await launch({path: '/first-app-only'})
 			expect(checkboxes()).toHaveLength(2)
 
@@ -166,9 +170,8 @@ describe('app launch dialog', () => {
 			expect(dialog()?.textContent?.includes('app-requires-https-dialog-description')).toBe(requiresHttps)
 			await clickButton(action)
 			await settleClose()
-			expect(window.open).toHaveBeenCalledExactlyOnceWith(`${protocol}//localhost:5678/second-app/`, '_blank')
+			expectViewer('/second-app/', 'second')
 			expect(fixtures.trackOpen).toHaveBeenCalledExactlyOnceWith({appId: 'second'})
-			expect(container.querySelector('output')?.textContent).toBe('/?keep=1')
 		},
 	)
 
@@ -178,17 +181,17 @@ describe('app launch dialog', () => {
 		expect(checkboxes()).toHaveLength(1)
 		expect(dialog()?.textContent).not.toContain('default-credentials.username')
 		await clickButton('app-requires-https-dialog-action')
-		expect(window.open).toHaveBeenCalledExactlyOnceWith('https://localhost:1234/deep-link', '_blank')
+		expectViewer('/deep-link')
 	})
 
-	test('saved HTTPS preference leaves credentials visible and still opens HTTPS', async () => {
+	test('saved HTTPS preference leaves credentials visible and opens the app inside the desktop', async () => {
 		setAlwaysOpenHttpsRequiredApps(true)
 		await launch()
 		expect(checkboxes()).toHaveLength(1)
 		expect(dialog()?.textContent).toContain('default-credentials.username')
 		expect(dialog()?.textContent).not.toContain('app-requires-https-dialog-description')
 		await clickButton('app-requires-https-dialog-action')
-		expect(window.open).toHaveBeenCalledExactlyOnceWith('https://localhost:1234/app/', '_blank')
+		expectViewer('/app/')
 		expect(getAlwaysOpenHttpsRequiredApps()).toBe(true)
 	})
 
@@ -197,7 +200,7 @@ describe('app launch dialog', () => {
 		setAlwaysOpenHttpsRequiredApps(true)
 		await launch()
 		expect(dialog()).toBeNull()
-		expect(window.open).toHaveBeenCalledExactlyOnceWith('https://localhost:1234/app/', '_blank')
+		expectViewer('/app/')
 	})
 
 	test('widget launches skip credentials but retain HTTPS guidance and their deep link', async () => {
@@ -205,7 +208,7 @@ describe('app launch dialog', () => {
 		expect(dialog()?.textContent).not.toContain('default-credentials.username')
 		expect(dialog()?.textContent).toContain('app-requires-https-dialog-description')
 		await clickButton('app-requires-https-dialog-action')
-		expect(window.open).toHaveBeenCalledExactlyOnceWith('https://localhost:1234/widget', '_blank')
+		expectViewer('/widget')
 	})
 
 	test('credentials preference is independent and does not remove the current credentials', async () => {
@@ -268,6 +271,7 @@ describe('app launch dialog', () => {
 		['https://umbrel.local', 'https://umbrel.local:1234/app/'],
 		['http://umbrel.onion', 'http://demo.onion/app/'],
 	])('does not show HTTPS guidance when already using %s', async (origin, expectedUrl) => {
+		fixtures.role = 'member'
 		const location = new URL(origin)
 		vi.stubGlobal('location', location)
 		await launch()

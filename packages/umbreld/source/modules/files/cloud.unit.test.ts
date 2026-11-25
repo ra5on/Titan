@@ -17,7 +17,7 @@ import CloudManager, {
 	classifyCloudFailure,
 	cloudDestinationDetails,
 } from './cloud.ts'
-import {CloudProviderHttpError, OAUTH_SESSION_LIFETIME} from './cloud-auth.ts'
+import CloudAuth, {CloudProviderHttpError, OAUTH_SESSION_LIFETIME} from './cloud-auth.ts'
 import {RcloneAbortedError, RcloneProcessError} from './cloud-rclone.ts'
 import {
 	CLOUD_ACCOUNT_NOT_FOUND_ERROR,
@@ -185,6 +185,16 @@ describe.sequential('CloudManager', () => {
 		manager = new CloudManager({
 			umbreld,
 			rclone: rclone as never,
+			auth: new CloudAuth({
+				rclone: rclone as never,
+				now,
+				environment: {
+					UMBREL_OAUTH_PROXY_URL: 'https://auth.example.test',
+					UMBREL_CLOUD_GOOGLE_CLIENT_ID: 'test-google-client',
+					UMBREL_CLOUD_DROPBOX_CLIENT_ID: 'test-dropbox-client',
+					UMBREL_CLOUD_ONEDRIVE_CLIENT_ID: 'test-onedrive-client',
+				},
+			}),
 			resolveDestination,
 			now,
 			random,

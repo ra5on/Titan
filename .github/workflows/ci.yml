@@ -34,6 +34,13 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Build disk image and update bundle
         run: packages/os/build-titan.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: titan-amd64
+          path: packages/os/build/titan-*/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
       - name: Boot from NVMe and capture the web interface
         run: |
           sudo apt-get update -qq
@@ -49,10 +56,3 @@ jobs:
             packages/os/build/boot-test/serial.log
             packages/os/build/boot-test/network-hosts.txt
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        with:
-          name: titan-amd64
-          path: packages/os/build/titan-*/*
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 3

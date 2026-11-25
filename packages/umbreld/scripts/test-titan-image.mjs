@@ -23,7 +23,11 @@ if (version?.releaseVersion !== expected)
 console.log(`Booted ${version.releaseName} from the NVMe image`)
 const browser = await chromium.launch({channel: 'chrome', headless: true})
 try {
-	const context = await browser.newContext({viewport: {width: 1440, height: 900}, locale: 'de-DE'})
+	const context = await browser.newContext({
+		viewport: {width: 1440, height: 900},
+		locale: 'de-DE',
+		reducedMotion: 'reduce',
+	})
 	const page = await context.newPage()
 	const client = createTRPCProxyClient({
 		links: [
@@ -50,11 +54,12 @@ try {
 			upstream.add(url.origin)
 	})
 	await page.goto(base)
-	await page.locator('body').filter({hasText: /\S/}).waitFor()
+	await page.locator('a[href^="/onboarding/create-account"]').waitFor()
+	await page.evaluate(() => document.fonts.ready)
 	await page.screenshot({path: path.join(dir, 'einrichtung.png')})
 	const name = 'Titan'
 	const password = randomBytes(24).toString('hex')
-	await client.user.register.mutate({name, password})
+	await client.user.register.mutate({name, password, language: 'de'})
 	let token
 	for (let attempt = 0; attempt < 120; attempt++) {
 		try {
@@ -67,7 +72,8 @@ try {
 	await context.addInitScript((value) => localStorage.setItem('umbrel-auth-token', value), token)
 	await page.goto(base)
 	await page.waitForURL((url) => !/(onboarding|login)/.test(url.pathname))
-	await page.locator('body').filter({hasText: /\S/}).waitFor()
+	await page.locator('[aria-label="Dateien"], [aria-label="Files"]').first().waitFor({timeout: 60000})
+	await page.evaluate(() => document.fonts.ready)
 	await page.screenshot({path: path.join(dir, 'desktop.png')})
 	if (upstream.size) throw new Error('Browser contacted ' + [...upstream].join(', '))
 } finally {

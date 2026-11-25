@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import http from 'node:http'
 import type {AddressInfo} from 'node:net'
 import os from 'node:os'
+import {mkdtemp} from 'node:fs/promises'
 import path from 'node:path'
 
 import fse from 'fs-extra'
@@ -33,6 +34,7 @@ beforeAll(async () => {
 			'#!/usr/bin/env bash',
 			'if [[ "$1" == system ]]; then printf \'{"boot":{"bootFlow":"%s"}}\\n\' "$BOOT_FLOW"; exit; fi',
 			`printf '%s\\n' "$@" > "${directory}/installed"`,
+			`if [[ -f "\${!#}" ]]; then sha256sum "\${!#}" > "${directory}/installed-checksum"; fi`,
 			'echo \'{"event":"UpdateProgress","progress":50}\'',
 		].join('\n'),
 		{mode: 0o755},
@@ -98,6 +100,45 @@ const updateScript = (script: string, details: Partial<ReleaseFile> = {}): Relea
 })
 
 const script = (...lines: string[]) => ['#!/usr/bin/env bash', 'set -euo pipefail', ...lines, ''].join('\n')
+
+describe('Titan multipart updates', () => {
+	const name = 'titan-amd64.update.'
+	const checksum = (data: string) => crypto.createHash('sha256').update(data).digest('hex')
+
+	test.each([false, true])('verifies and assembles each part before Rugix (damaged: %s)', async (damaged) => {
+		const staging = await mkdtemp(path.join(directory, 'staging-'))
+		const temp = vi.spyOn(fse as {mkdtemp(prefix: string): Promise<string>}, 'mkdtemp').mockResolvedValueOnce(staging)
+		const files = {
+			[name + '00']: bundle('01', {sha256: checksum('first')}),
+			[name + '01']: {sha256: checksum('second')},
+		}
+		served['/release/' + name + '00'] = 'first'
+		served['/release/' + name + '01'] = damaged ? 'invalid' : 'second'
+		try {
+			if (damaged) {
+				await expect(install(files)).rejects.toThrow('checksum mismatch')
+				expect(await installed()).toBeUndefined()
+			} else {
+				await install(files)
+				const argumentsUsed = await installed()
+				expect(argumentsUsed).toContain(bundleHash('01'))
+				expect((await fse.readFile(path.join(directory, 'installed-checksum'), 'utf8')).split(' ')[0]).toBe(
+					checksum('firstsecond'),
+				)
+			}
+			expect(await fse.pathExists(staging)).toBe(false)
+		} finally {
+			temp.mockRestore()
+		}
+	})
+
+	test('does not install a sequence with a missing part', async () => {
+		await expect(install({[name + '00']: bundle('01'), [name + '02']: {sha256: checksum('last')}})).rejects.toThrow(
+			'Invalid update part sequence',
+		)
+		expect(await installed()).toBeUndefined()
+	})
+})
 
 describe('getArch()', () => {
 	test.each([
