@@ -1,24 +1,36 @@
 # Titan
 
-Titan ist ein unabhängiger, nichtkommerzieller Fork von umbrelOS für den eigenen Homeserver. Die Grundlage ist umbrelOS 2.1 mit seiner KI-Suche, automatischen Transkription und Anbindung für KI-Agenten. Titan wird von ra5on gepflegt. Umbrel entwickelt das ursprüngliche Betriebssystem. TitanOS ist ein eigenständiges Projekt, aus dem einzelne Funktionen in Titan einfließen sollen. [Umbrel-Quellstand](https://github.com/getumbrel/umbrel/tree/27292d7044a912a8a845917b7698ad3dfdd2676d) · [TitanOS](https://github.com/ra5on/TitanOS)
+Titan ist ein unabhängiges, nichtkommerzielles Homeserver-Betriebssystem auf Basis von umbrelOS. Es soll Dateien, Docker-Apps und virtuelle Maschinen unter einer Oberfläche vereinen und die KI-Suche, Transkription und Anbindung von KI-Agenten aus umbrelOS beibehalten. [Quellstand des ursprünglichen Projekts](https://github.com/getumbrel/umbrel/tree/27292d7044a912a8a845917b7698ad3dfdd2676d)
 
-## Stand und Versionen
+**Titan befindet sich in der Planung.** Ein installierbares Systemimage steht noch aus.
 
-**Titan 0.1 ist in Planung.** Ein installierbares Titan-Image und ein getesteter Update-Kanal stehen noch aus. Die erste Version ist für Intel- und AMD-Rechner mit interner SSD oder NVMe vorgesehen. Die Titan-Versionen zählen von `0.1` bis `0.9`, danach folgen `1.0`, `1.1` und so weiter. Diese Nummer ist zugleich der Git-Tag.
+## Installation und Updates
 
-Für die Erstinstallation ist ein direkt auf die SSD schreibbares Image geplant. Bestehende Installationen sollen signierte Titan-Updates beziehen. Neue Umbrel-Veröffentlichungen werden zunächst im Projekt geprüft. Welche Änderungen auf den Homeserver kommen, entscheidet die Freigabe durch Titan.
+Für Intel- und AMD-Rechner ist ein Image vorgesehen, das direkt auf eine interne SSD oder NVMe geschrieben wird. Bestehende Installationen sollen ihre Updates über einen eigenen Titan-Kanal erhalten. Das Projekt prüft neue Änderungen aus umbrelOS und signiert die für Titan freigegebenen Updates.
 
-## Geplanter Funktionsumfang
+## Apps und Fernzugriff
 
-- **Offizielle Umbrel-Apps.** Die Android- und Mac-App sollen sich mit Titan koppeln können und ihre Updates weiterhin auf dem üblichen Weg erhalten. Die Kompatibilität wird vor der ersten Freigabe auf beiden Plattformen getestet.
-- **Docker-Apps über eine Adresse öffnen.** Nach dem Vorbild der TitanOS-Fernansicht soll eine App innerhalb des Titan-Desktops bedienbar sein, auch über einen einzelnen Cloudflare-Tunnel.
-- **Virtuelle Maschinen.** Vorgesehen sind der Import eines Home-Assistant-OS-Abbilds im QCOW2-Format und die Freigabe ausgewählter NAS-Ordner an einzelne Gäste über virtiofs. Die USB-Durchreichung für Geräte wie Zigbee-Adapter bringt die Umbrel-Basis bereits mit. [Umbrels Versionshinweise](https://github.com/getumbrel/umbrel/releases/tag/2.1.0-beta.1)
+Die offiziellen Umbrel-Apps für Android und macOS sollen sich mit Titan koppeln lassen und weiterhin über ihre bisherigen Kanäle aktualisiert werden. Die Kompatibilität auf beiden Plattformen ist ein Ziel für die erste Veröffentlichung.
 
-## App Store und Verbindungen zu Umbrel
+Docker-Apps sollen sich auch unterwegs in einem Fenster des Titan-Desktops bedienen lassen. Dafür soll eine einzige HTTPS-Adresse genügen, etwa über einen Cloudflare-Tunnel. Die einzelnen Container brauchen bei diesem Zugriff keine eigene öffentliche Adresse.
 
-Der Store, den man im Desktop sieht, besteht aus mehreren Teilen. Die Oberfläche gehört zum Betriebssystem. Umbrel pflegt die Installationspakete in einem eigenen Git-Repository und die Icons und Screenshots in einer separaten Galerie. Hinzu kommen Inhalte von `apps.umbrel.com` und die Container-Images der jeweiligen App-Anbieter. [App-Katalog](https://github.com/getumbrel/umbrel-apps) · [Bildergalerie](https://github.com/getumbrel/umbrel-apps-gallery) · [Store-Anbindung im Ausgangsstand](https://github.com/getumbrel/umbrel/blob/27292d7044a912a8a845917b7698ad3dfdd2676d/packages/ui/src/features/app-store/constants.ts)
+## Virtuelle Maschinen
 
-**Ziel ist, dass der Titan-Server und seine Weboberfläche im Normalbetrieb keine Anfragen an Umbrel senden.** Dafür müssen unter anderem Update-Prüfung, Signaturschlüssel, Katalog, Bilder und Kartenquellen umgestellt werden. Der Ausgangsstand enthält diese Verbindungen noch. Vor einer entsprechenden Zusage prüft das Projekt die Netzwerkzugriffe von NAS und Browser. Die offiziellen Umbrel-Apps, vom Nutzer installierte Dienste und selbst gewählte KI-Anbieter haben eigene Netzwerkverbindungen.
+Für Home Assistant OS und andere Gastbetriebssysteme sind der Import vorhandener QCOW2-Abbilder und die gezielte Freigabe von NAS-Ordnern über virtiofs geplant. Die umbrelOS-Basis unterstützt bereits die Zuweisung von USB-Geräten, etwa eines Zigbee-Adapters für Home Assistant. [USB-Unterstützung im Ausgangsstand](https://github.com/getumbrel/umbrel/blob/27292d7044a912a8a845917b7698ad3dfdd2676d/packages/umbreld/source/modules/machines/usb-devices.ts)
+
+Für die direkte Zuweisung an eine VM sind drei Geräteklassen vorgesehen.
+
+- **Integrierte Grafik (iGPU)** für Gäste, die die Grafikeinheit des Prozessors nutzen sollen.
+- **Separate Grafikkarten von NVIDIA und AMD** für Grafik- oder Rechenaufgaben im Gast.
+- **Integrierte KI-Beschleuniger (NPU)** für Inferenz im Gast, sofern die Plattform die NPU als isolierbares Gerät bereitstellt.
+
+Bei einer direkten Zuweisung nutzt eine VM das Gerät exklusiv. Nutzt ein Medienserver auf dem NAS dieselbe GPU zum Transcodieren, muss er sie zuvor freigeben. Die Unterstützung hängt vom Gerätemodell, der Firmware, der IOMMU-Gruppierung und dem Treiber im Gast ab. Tests mit konkreten GPU- und NPU-Modellen stehen noch aus. [Linux-Dokumentation zu VFIO und Gerätegruppen](https://docs.kernel.org/driver-api/vfio.html)
+
+## App-Katalog und Netzwerkzugriffe
+
+Umbrel pflegt App-Pakete und Galeriebilder in eigenen Repositories. Die Store-Oberfläche bezieht außerdem Inhalte von `apps.umbrel.com`. Container-Images kommen aus den Registries der jeweiligen Anbieter. [App-Katalog](https://github.com/getumbrel/umbrel-apps) · [Bildergalerie](https://github.com/getumbrel/umbrel-apps-gallery) · [Store-Anbindung im Ausgangsstand](https://github.com/getumbrel/umbrel/blob/27292d7044a912a8a845917b7698ad3dfdd2676d/packages/ui/src/features/app-store/constants.ts)
+
+Ziel ist der Betrieb von Titan-Server und Weboberfläche ohne automatische Anfragen an Umbrel. Der Ausgangsstand verwendet noch Umbrel-Dienste für Update-Prüfung, Signaturschlüssel, Kataloginhalte, Bilder und Karten. Das Projekt wird diese Verbindungen umstellen und die Netzwerkzugriffe von Server und Browser prüfen. Die offiziellen Umbrel-Apps, installierte Dienste und ausgewählte KI-Anbieter können eigene Verbindungen aufbauen.
 
 ## Herkunft, Lizenzen und Weitergabe
 
@@ -26,9 +38,9 @@ Für den von Umbrel übernommenen Betriebssystemcode gilt die **PolyForm Noncomm
 
 Für kommerzielle Angebote wie vorinstallierte Server, kostenpflichtiges Hosting oder bezahlten Support für den Fork verweist Umbrel auf eine gesonderte Vereinbarung. Ansprechpartner für die kommerzielle Nutzung des Umbrel-Codes ist `partner@umbrel.com`. [Lizenzangaben des ursprünglichen Projekts](https://github.com/getumbrel/umbrel/blob/27292d7044a912a8a845917b7698ad3dfdd2676d/README.md#license)
 
-Für Drittsoftware, Container-Images, App-Pakete, Schriften, Logos und Screenshots gelten die Rechte der jeweiligen Urheber und Anbieter. Ein Eintrag im öffentlichen App-Katalog allein erteilt keine pauschale Erlaubnis zur Spiegelung. Vor der Auslieferung eines Images oder Katalogs prüft Titan die tatsächlich enthaltenen Bestandteile, übernimmt vorgeschriebene Hinweise und erfüllt gegebenenfalls Pflichten zur Bereitstellung von Quellcode. Das gilt auch für übernommene TitanOS-Dateien. TitanOS veröffentlicht seinen Code unter der FSL-1.1-ALv2. [TitanOS-Lizenz](https://github.com/ra5on/TitanOS/blob/HEAD/LICENSE.md)
+Für Drittsoftware, Container-Images, App-Pakete, Schriften, Logos und Screenshots gelten die Rechte der jeweiligen Urheber und Anbieter. Ein Eintrag im öffentlichen App-Katalog allein erteilt keine pauschale Erlaubnis zur Spiegelung. Vor der Auslieferung eines Images oder Katalogs prüft Titan die tatsächlich enthaltenen Bestandteile, übernimmt vorgeschriebene Hinweise und erfüllt gegebenenfalls Pflichten zur Bereitstellung von Quellcode.
 
-Die Namen Umbrel und umbrelOS bezeichnen hier die Herkunft der Software und die angestrebte Kompatibilität. Titan wird unabhängig von Umbrel veröffentlicht. Fragen und Fehlerberichte zum Fork gehören in das Titan-Projekt. [Titan auf GitHub](https://github.com/ra5on/Titan)
+Umbrel und umbrelOS bezeichnen das ursprüngliche Projekt und dessen Software. Für Fragen und Fehlerberichte zu Titan ist das Titan-Projekt zuständig. [Titan auf GitHub](https://github.com/ra5on/Titan)
 
 ## Gewährleistung, Haftung und Datensicherung
 
