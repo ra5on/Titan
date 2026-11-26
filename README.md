@@ -2,7 +2,25 @@
 
 Titan ist ein nichtkommerzielles Homeserver-Betriebssystem für Intel- und AMD-Rechner. Dateien, Fotos, Docker-Apps und virtuelle Maschinen lassen sich im Browser verwalten. Die Basis für System und KI-Funktionen ist der umbrelOS-Quellstand `2.1.0-beta.2`. Das Titan-Projekt prüft spätere Änderungen von Umbrel und veröffentlicht eigene, signierte Systemupdates. [Ausgangsstand bei Umbrel](https://github.com/getumbrel/umbrel/tree/27292d7044a912a8a845917b7698ad3dfdd2676d)
 
+[Installation auf SSD oder NVMe](#installation-auf-ssd-oder-nvme) · [Systemansichten](#systemansichten)
+
 ![Titan-Desktop nach dem ersten Login](docs/bilder/desktop.png)
+
+## Systemansichten
+
+Die Aufnahmen stammen aus dem veröffentlichten Titan-Image. Ein Klick auf ein Bild öffnet die große Ansicht.
+
+| Dateiverwaltung | Dateifreigabe im Heimnetz |
+| --- | --- |
+| [![Persönlicher Ordner mit Dokumenten, Downloads, Fotos und Videos](docs/bilder/dateien.png)](docs/bilder/dateien.png) | [![Auswahl zwischen dem gesamten persönlichen Ordner und einzelnen freigegebenen Ordnern](docs/bilder/freigabe.png)](docs/bilder/freigabe.png) |
+
+| Virtuelle Maschinen | Live-Auslastung |
+| --- | --- |
+| [![Betriebssystemauswahl beim Anlegen einer virtuellen Maschine](docs/bilder/maschinen.png)](docs/bilder/maschinen.png) | [![Live-Ansicht mit CPU-Verlauf, Arbeitsspeicher und belegtem Speicherplatz](docs/bilder/auslastung.png)](docs/bilder/auslastung.png) |
+
+| Systemeinstellungen | Speicherverwaltung |
+| --- | --- |
+| [![Einstellungen für Benutzer, Desktop, Sprache und Speicher](docs/bilder/einstellungen.png)](docs/bilder/einstellungen.png) | [![Zustand, Belegung und freier Speicher des Systemlaufwerks](docs/bilder/speicher.png)](docs/bilder/speicher.png) |
 
 ## Installation auf SSD oder NVMe
 
@@ -21,13 +39,9 @@ Für spätere Updates genügt die Systemaktualisierung in den Einstellungen. Tit
 
 Die offiziellen Umbrel-Clients für Android und macOS behalten ihre bisherigen Updatewege. Titan verwendet die Anmelde- und Kopplungsschnittstellen der gemeinsamen Basis. Die Download-Schaltflächen für diese Clients öffnen auf Wunsch die offiziellen Bezugsquellen. Eine vollständige Kopplungsprüfung mit den veröffentlichten Clients auf beiden Plattformen steht aus.
 
-Der integrierte App-Katalog enthält den optionalen Feedreader FreshRSS. Erst wenn du auf **Installieren** klickst, lädt Titan die App auf deinen Server. Weitere kompatible Kataloge lassen sich als Community-Stores hinzufügen. Installierte Apps beziehen ihre Container-Images aus der Registry des jeweiligen Anbieters. Umbrel pflegt seinen eigenen Katalog und die dazugehörige Bildergalerie separat. [Umbrel-App-Pakete](https://github.com/getumbrel/umbrel-apps) · [Bildergalerie](https://github.com/getumbrel/umbrel-apps-gallery)
+Im App-Katalog wählst du aus, welche Docker-Apps auf deinem Server laufen. Weitere kompatible Kataloge lassen sich als Community-Stores hinzufügen. Installierte Apps beziehen ihre Container-Images aus der Registry des jeweiligen Anbieters. Umbrel pflegt seinen eigenen Katalog und die dazugehörige Bildergalerie separat. [Umbrel-App-Pakete](https://github.com/getumbrel/umbrel-apps) · [Bildergalerie](https://github.com/getumbrel/umbrel-apps-gallery)
 
 Als Eigentümer kannst du die Weboberfläche einer laufenden Docker-App im Titan-Desktop öffnen. Dafür startet auf dem Server ein temporärer Browser mit Zugang zu dieser App. Beim ersten Öffnen lädt Titan das Browser-Image aus seiner GitHub-Veröffentlichung und prüft die Prüfsumme. Die Sitzung läuft über dieselbe Webadresse wie der Desktop. Ein Reverse-Proxy oder Cloudflare-Tunnel muss HTTP und WebSocket-Verbindungen an Titan weiterleiten. Für diese Ansicht genügt ein einziges öffentliches Ziel. Mitgliedskonten und reine Tor-Apps verwenden den herkömmlichen App-Aufruf. Der eingeschränkte Browser eignet sich für webbasierte Bedienoberflächen. Eine Sitzung mit einem öffentlichen Cloudflare-Tunnel wurde bisher nicht separat getestet.
-
-![Einrichtungsseite von FreshRSS 1.28.1 in der über Titan übertragenen App-Ansicht](docs/bilder/freshrss.png)
-
-*FreshRSS beim ersten Start, aufgenommen über den lokalen WebSocket-Zugang des Titan-App-Browsers.*
 
 ## Virtuelle Maschinen
 
