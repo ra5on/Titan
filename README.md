@@ -1,8 +1,12 @@
 # Titan
 
-Titan ist ein nichtkommerzielles Homeserver-Betriebssystem für Intel- und AMD-Rechner. Dateien, Fotos, Docker-Apps und virtuelle Maschinen lassen sich im Browser verwalten. Das System basiert auf umbrelOS 2.1. Das Titan-Projekt prüft Änderungen aus dem ursprünglichen Projekt und veröffentlicht eigene, signierte Systemupdates. [Ausgangsstand](https://github.com/getumbrel/umbrel/tree/27292d7044a912a8a845917b7698ad3dfdd2676d)
+Titan ist ein nichtkommerzielles Homeserver-Betriebssystem für Intel- und AMD-Rechner. Dateien, Fotos, Docker-Apps und virtuelle Maschinen lassen sich im Browser verwalten. Die Basis für System und KI-Funktionen ist der umbrelOS-Quellstand `2.1.0-beta.2`. Das Titan-Projekt prüft spätere Änderungen von Umbrel und veröffentlicht eigene, signierte Systemupdates. [Ausgangsstand bei Umbrel](https://github.com/getumbrel/umbrel/tree/27292d7044a912a8a845917b7698ad3dfdd2676d)
+
+![Titan-Desktop nach dem ersten Login](docs/bilder/desktop.png)
 
 ## Installation auf SSD oder NVMe
+
+Für die Erstinstallation brauchst du das komprimierte AMD64-Image (1,95 GB). Die Update-Dateien lädt Titan bei späteren Systemaktualisierungen selbst. [SSD-Image herunterladen](https://github.com/ra5on/Titan/releases/download/0.1/titan-amd64.img.xz) · [Signiertes Manifest und Versionshinweise](https://github.com/ra5on/Titan/releases/tag/0.1)
 
 1. Sichere vorhandene Daten. **Das Schreiben des Images überschreibt die Partitionstabelle und den Inhalt des gewählten Laufwerks.**
 2. Lade für einen x86-64-Rechner mit UEFI die Datei `titan-amd64.img.xz` und das zugehörige `manifest.txt` aus derselben Veröffentlichung. Vergleiche den SHA-256-Wert der komprimierten Datei mit dem Eintrag im Manifest.
@@ -11,11 +15,13 @@ Titan ist ein nichtkommerzielles Homeserver-Betriebssystem für Intel- und AMD-R
 
 Für spätere Updates genügt die Systemaktualisierung in den Einstellungen. Titan prüft die Freigabesignatur und den Hash des für den Rechner vorgesehenen Bundles. Zusammengehörige Teile einer größeren Aktualisierung lädt Titan selbst. Erstelle vor einem Update eine aktuelle Sicherung wichtiger Dateien und VMs. [Veröffentlichungen](https://github.com/ra5on/Titan/releases)
 
+![Deutschsprachige Ersteinrichtung beim ersten Start von der SSD](docs/bilder/einrichtung.png)
+
 ## Apps und Fernzugriff
 
-Die offiziellen Umbrel-Clients für Android und macOS behalten ihre bisherigen Updatewege. Titan verwendet die Anmelde- und Kopplungsschnittstellen der gemeinsamen Basis. Eine vollständige Kopplungsprüfung mit den veröffentlichten Clients auf beiden Plattformen steht aus.
+Die offiziellen Umbrel-Clients für Android und macOS behalten ihre bisherigen Updatewege. Titan verwendet die Anmelde- und Kopplungsschnittstellen der gemeinsamen Basis. Die Download-Schaltflächen für diese Clients öffnen auf Wunsch die offiziellen Bezugsquellen. Eine vollständige Kopplungsprüfung mit den veröffentlichten Clients auf beiden Plattformen steht aus.
 
-Der integrierte App-Katalog enthält FreshRSS. Weitere kompatible Kataloge lassen sich als Community-Stores hinzufügen. Installierte Apps beziehen ihre Container-Images aus der Registry des jeweiligen Anbieters. Umbrel pflegt seinen eigenen Katalog und die dazugehörige Bildergalerie separat. [Umbrel-App-Pakete](https://github.com/getumbrel/umbrel-apps) · [Bildergalerie](https://github.com/getumbrel/umbrel-apps-gallery)
+Der integrierte App-Katalog enthält den optionalen Feedreader FreshRSS. Erst wenn du auf **Installieren** klickst, lädt Titan die App auf deinen Server. Weitere kompatible Kataloge lassen sich als Community-Stores hinzufügen. Installierte Apps beziehen ihre Container-Images aus der Registry des jeweiligen Anbieters. Umbrel pflegt seinen eigenen Katalog und die dazugehörige Bildergalerie separat. [Umbrel-App-Pakete](https://github.com/getumbrel/umbrel-apps) · [Bildergalerie](https://github.com/getumbrel/umbrel-apps-gallery)
 
 Als Eigentümer kannst du die Weboberfläche einer laufenden Docker-App im Titan-Desktop öffnen. Dafür startet auf dem Server ein temporärer Browser mit Zugang zu dieser App. Beim ersten Öffnen lädt Titan das Browser-Image aus seiner GitHub-Veröffentlichung und prüft die Prüfsumme. Die Sitzung läuft über dieselbe Webadresse wie der Desktop. Ein Reverse-Proxy oder Cloudflare-Tunnel muss HTTP und WebSocket-Verbindungen an Titan weiterleiten. Für diese Ansicht genügt ein einziges öffentliches Ziel. Mitgliedskonten und reine Tor-Apps verwenden den herkömmlichen App-Aufruf. Der eingeschränkte Browser eignet sich für webbasierte Bedienoberflächen. Eine Sitzung mit einem öffentlichen Cloudflare-Tunnel wurde bisher nicht separat getestet.
 
@@ -35,6 +41,8 @@ Als Eigentümer kannst du die Weboberfläche einer laufenden Docker-App im Titan
 Home Assistant OS 18.4 wurde aus dem offiziellen QCOW2-Abbild importiert, sektorweise verglichen und mit QEMU und UEFI bis zum Login gestartet. Ein separater Linux-Gast las und schrieb Dateien auf einer virtiofs-Testfreigabe. Bei einer hostseitig schreibgeschützten Freigabe konnte derselbe Gast lesen und erhielt beim Schreibversuch einen Dateisystemfehler. Durchreichung und Treiberbetrieb eines konkreten Coral-Sticks, einer Grafikkarte oder einer integrierten NPU wurden bislang nicht an physischer Hardware bestätigt. [Home Assistant OS](https://github.com/home-assistant/operating-system/releases/tag/18.4) · [VFIO und IOMMU-Gruppen](https://docs.kernel.org/driver-api/vfio.html) · [Coral USB Accelerator](https://coral.ai/docs/accelerator/get-started/)
 
 ## KI und Netzwerkverbindungen
+
+Der Start des veröffentlichten Images, die Einrichtung des Eigentümerkontos und der Aufruf des Desktops wurden mit UEFI und einer virtuellen NVMe geprüft. Im Browser- und Netzwerkmitschnitt dieses Ablaufs gab es keine Anfragen an öffentliche Umbrel-Dienste. Für die Geräteerkennung der offiziellen Clients verwendet Titan im lokalen Netz weiterhin mDNS-Namen wie `umbrel.local`. [Boot- und Browsertest](https://github.com/ra5on/Titan/actions/runs/45718480622)
 
 Suche, Texterkennung und Transkription verwenden lokale Modelle. Bei Bedarf bezieht Titan Modelldateien von ihren Originalquellen und prüft ihre SHA-256-Werte. Für die mit der Gesichtserkennung verwendeten InsightFace-Gewichte beschränkt der Anbieter die öffentliche Freigabe auf nichtkommerzielle Forschung. Diese Gewichte müssen mit den passenden Nutzungsrechten separat bereitgestellt werden. Für externe KI-Agenten steht die MCP-Anbindung der Basis zur Verfügung. [Modellquellen und Prüfsummen](packages/umbreld/source/modules/files/models.json) · [Nutzungsbedingungen von InsightFace](https://github.com/deepinsight/insightface#license)
 
@@ -57,11 +65,11 @@ npm --prefix packages/ui run build
 packages/os/build-titan.sh
 ```
 
-Die fertigen Dateien liegen unter `packages/os/build/titan-<Version>/`. Die Projektverantwortlichen prüfen Änderungen am festgelegten umbrelOS-Ausgangsstand, testen das gebaute Image und signieren Manifest und Versionshinweise mit einem Titan-Freigabeschlüssel. Feed, öffentliche Schlüssel und Release-Dateien müssen für installierte Systeme erreichbar bleiben. [Signierwerkzeug](scripts/titan-sign-release)
+Die fertigen Dateien liegen unter `packages/os/build/titan-<Version>/`. Die Projektverantwortlichen prüfen Änderungen am festgelegten umbrelOS-Ausgangsstand, testen das gebaute Image und signieren Manifest und Versionshinweise mit einem Titan-Freigabeschlüssel. Der Updater und der erste Download des App-Browsers greifen ohne GitHub-Anmeldung zu. Wird das Repository privat, müssen Feed, Schlüssel und Release-Dateien vorher an eine öffentlich erreichbare Adresse umziehen. Der Adresswechsel muss die installierten Geräte über den bisherigen Updatekanal erreichen. [Signierwerkzeug](scripts/titan-sign-release)
 
 ## Herkunft, Lizenzen und Weitergabe
 
-Für den von Umbrel übernommenen Betriebssystemcode gilt die **PolyForm Noncommercial License 1.0.0**. Titan gibt seine Bearbeitungen dieses Codes zu denselben Bedingungen weiter. Die Lizenz erlaubt die Nutzung, Änderung und Weitergabe für die darin beschriebenen nichtkommerziellen Zwecke. Bei jeder Weitergabe von erfasstem Code oder eines fertigen Images müssen die Empfänger den Lizenztext oder dessen URL sowie alle vom Lizenzgeber mitgelieferten Zeilen erhalten, die mit `Required Notice:` beginnen. Der Originaltext ist in diesem Repository enthalten. [Lizenztext](LICENSE.md) · [Umbrels Lizenz-FAQ](https://github.com/getumbrel/umbrel/wiki/License-FAQ)
+Für den von Umbrel übernommenen Betriebssystemcode gilt die **PolyForm Noncommercial License 1.0.0**. Titan gibt seine Bearbeitungen dieses Codes zu denselben Bedingungen weiter. Die Lizenz erlaubt die Nutzung, Änderung und Weitergabe für die darin beschriebenen nichtkommerziellen Zwecke. Bei jeder Weitergabe von erfasstem Code oder eines fertigen Images müssen die Empfänger den Lizenztext oder dessen URL sowie alle vom Lizenzgeber mitgelieferten Zeilen erhalten, die mit `Required Notice:` beginnen. Der Originaltext ist im Repository enthalten und lässt sich während der Ersteinrichtung direkt auf dem Server öffnen. [Lizenztext](LICENSE.md) · [Umbrels Lizenz-FAQ](https://github.com/getumbrel/umbrel/wiki/License-FAQ)
 
 Für kommerzielle Angebote wie vorinstallierte Server, kostenpflichtiges Hosting oder bezahlten Support für den Fork verweist Umbrel auf eine gesonderte Vereinbarung. Ansprechpartner für die kommerzielle Nutzung des Umbrel-Codes ist `partner@umbrel.com`. [Lizenzangaben des ursprünglichen Projekts](https://github.com/getumbrel/umbrel/blob/27292d7044a912a8a845917b7698ad3dfdd2676d/README.md#license)
 
