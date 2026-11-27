@@ -1,5 +1,4 @@
-const ATTENTION_ICON_ATTRIBUTE = 'data-toast-tab-attention'
-export const TAB_ATTENTION_ICON_HREF = '/favicon/favicon-notification.png'
+export const TAB_ATTENTION_ICON_HREF = '/favicon/titan-notification.svg'
 
 export type TabAttentionNotification = {
 	title?: string
@@ -25,10 +24,8 @@ export class TabAttentionController {
 
 		if (!this.notification) {
 			this.originalTitle = document.title
-			const originalIcon =
-				document.querySelector<HTMLLinkElement>("link[rel~='icon'][sizes='32x32']") ??
-				document.querySelector<HTMLLinkElement>(`link[rel~='icon']:not([${ATTENTION_ICON_ATTRIBUTE}])`)
-			this.originalIconHref = originalIcon?.href ?? null
+			this.attentionIcon = document.querySelector<HTMLLinkElement>("link[rel~='icon'][type='image/svg+xml']")
+			this.originalIconHref = this.attentionIcon?.getAttribute('href') ?? null
 			window.addEventListener('focus', this.handleFocus)
 		}
 
@@ -41,26 +38,23 @@ export class TabAttentionController {
 
 		if (this.originalTitle !== null) document.title = this.originalTitle
 		if (this.attentionIcon && this.originalIconHref) this.attentionIcon.href = this.originalIconHref
-		else {
-			this.attentionIcon?.remove()
-			this.attentionIcon = null
-		}
+		else this.attentionIcon?.remove()
 
 		this.notification = null
 		this.originalTitle = null
 		this.originalIconHref = null
+		this.attentionIcon = null
 	}
 
 	private showNotification() {
 		if (!this.notification || this.originalTitle === null) return
-		document.title = `Umbrel: ${this.notification.title}`
+		document.title = `Titan: ${this.notification.title}`
 
 		if (!this.attentionIcon) {
 			this.attentionIcon = document.createElement('link')
 			this.attentionIcon.rel = 'icon'
-			this.attentionIcon.type = 'image/png'
-			this.attentionIcon.sizes = '32x32'
-			this.attentionIcon.setAttribute(ATTENTION_ICON_ATTRIBUTE, '')
+			this.attentionIcon.type = 'image/svg+xml'
+			this.attentionIcon.sizes = 'any'
 			document.head.appendChild(this.attentionIcon)
 		}
 		this.attentionIcon.href = TAB_ATTENTION_ICON_HREF

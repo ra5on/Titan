@@ -22,6 +22,8 @@ vi.mock('@/trpc/trpc', async (importOriginal) => {
 	return {
 		...original,
 		trpcReact: {
+			useUtils: () => ({appStore: {registry: {invalidate: vi.fn()}}}),
+			eventBus: {listen: {useSubscription: vi.fn()}},
 			appStore: {
 				registry: {
 					useQuery: () => ({

@@ -11,4 +11,5 @@ COPY packages/ui/dist /opt/umbreld/ui
 COPY packages/umbreld/source /opt/umbreld/source
 COPY packages/umbreld/package.json /opt/umbreld/package.json
 COPY packages/os/viewer/image.json /opt/umbreld/titan-viewer.json
+COPY packages/os/overlay/etc/issue packages/os/overlay/etc/motd /etc/
 COPY LICENSE.md /usr/share/doc/titan/LICENSE.md

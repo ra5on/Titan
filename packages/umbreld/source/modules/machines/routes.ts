@@ -37,6 +37,7 @@ export default router({
 					diskDirectory: z.string().min(1).optional(),
 					// nat keeps the machine behind Umbrel, bridged puts it directly on the LAN
 					networkMode: z.enum(['nat', 'bridged']).optional(),
+					autostart: z.boolean().optional(),
 					username: z.string().min(1).max(32).optional(),
 					// Only used during OS setup — never part of the machine definition
 					password: z.string().min(1).max(128).optional(),

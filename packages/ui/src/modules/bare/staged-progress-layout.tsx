@@ -1,6 +1,6 @@
 import {AnimatePresence, motion} from 'motion/react'
 
-import UmbrelLogo from '@/components/umbrel-logo'
+import TitanLogo from '@/components/titan-logo'
 import {cn} from '@/lib/utils'
 
 // Full-screen staged-progress layout: a breathing, glowing Umbrel logo above a
@@ -36,7 +36,7 @@ export function StagedProgressLayout({
 				transition={{duration: 2.6, repeat: Infinity, ease: 'easeInOut'}}
 				style={{filter: 'drop-shadow(0 0 24px rgba(255,255,255,0.35))'}}
 			>
-				<UmbrelLogo className='w-[88px]' />
+				<TitanLogo className='w-[68px]' />
 			</motion.div>
 
 			{/* At least a line of the label tall, so swapping labels doesn't move the bar below */}

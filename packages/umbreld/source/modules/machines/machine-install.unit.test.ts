@@ -997,8 +997,8 @@ describe('background machine installation', () => {
 		expect((await machines.list()).find(({id}) => id === machine.id)?.state).toBe('stopped')
 	})
 
-	test('remembers explicit lifecycle state for autostart', async () => {
-		const {machines, filesRoot} = await createMachines()
+	test('keeps explicit boot preferences independent of manual power controls and service startup', async () => {
+		const {machines, root, filesRoot} = await createMachines()
 		const imports = nodePath.join(filesRoot, 'External', 'imports')
 		await fse.ensureDir(imports)
 		await fsp.writeFile(nodePath.join(imports, 'source.img'), 'source')
@@ -1014,16 +1014,28 @@ describe('background machine installation', () => {
 		expect((await machines.list()).find(({id}) => id === machine.id)?.autostart).toBe(true)
 		await machines.updateSettings(machine.id, {autostart: false})
 		await machines.restartMachine(machine.id)
-		expect((await machines.list()).find(({id}) => id === machine.id)?.autostart).toBe(true)
+		expect((await machines.list()).find(({id}) => id === machine.id)?.autostart).toBe(false)
 
 		await machines.stopMachine(machine.id)
-		expect((await machines.list()).find(({id}) => id === machine.id)?.autostart).toBe(false)
-
 		await machines.startMachine(machine.id)
-		expect((await machines.list()).find(({id}) => id === machine.id)?.autostart).toBe(true)
-
-		await machines.forceStopMachine(machine.id)
 		expect((await machines.list()).find(({id}) => id === machine.id)?.autostart).toBe(false)
+		await machines.forceStopMachine(machine.id)
+		await machines.stop()
+
+		const startsBefore = libvirtControls.startCalls.length
+		const {machines: disabled} = await createMachines(root)
+		expect((await disabled.list()).find(({id}) => id === machine.id)).toMatchObject({autostart: false, state: 'stopped'})
+		expect(libvirtControls.startCalls).toHaveLength(startsBefore)
+
+		await disabled.updateSettings(machine.id, {autostart: true})
+		await disabled.startMachine(machine.id)
+		await disabled.stopMachine(machine.id)
+		expect((await disabled.list()).find(({id}) => id === machine.id)?.autostart).toBe(true)
+		await disabled.stop()
+
+		const {machines: enabled} = await createMachines(root)
+		await pWaitFor(async () => (await enabled.list()).some(({id, state}) => id === machine.id && state === 'running'))
+		expect((await enabled.list()).find(({id}) => id === machine.id)?.autostart).toBe(true)
 	})
 
 	test('serializes uninstall behind an in-flight start', async () => {

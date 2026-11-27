@@ -1,6 +1,6 @@
 import {useTranslation} from 'react-i18next'
 
-import UmbrelLogo from '@/components/umbrel-logo'
+import TitanLogo from '@/components/titan-logo'
 import {cn} from '@/lib/utils'
 import {greetingMessage} from '@/modules/desktop/greeting-message'
 
@@ -15,7 +15,7 @@ export function Header({userName, inline = false}: {userName: string; inline?: b
 				className={cn('flex items-center px-4', !inline && 'flex-col')}
 				style={{gap: inline ? '0.5em' : 'calc(var(--home-gap) / 2)', fontSize: 'var(--home-title)'}}
 			>
-				<UmbrelLogo style={{width: inline ? '1.6em' : 'var(--home-logo)'}} />
+				<TitanLogo style={{width: inline ? '1.6em' : 'calc(var(--home-logo) * 0.8)'}} />
 				<h1 className='text-center leading-tight font-bold'>{greetingMessage(name, t)}</h1>
 			</div>
 		</div>

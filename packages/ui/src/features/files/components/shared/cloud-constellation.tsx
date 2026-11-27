@@ -243,8 +243,8 @@ export function CloudLinkDiagram({
 				initial={reducedMotion || !entrance ? false : {opacity: 0, scale: 0.85}}
 				animate={{opacity: 1, scale: 1}}
 				transition={{type: 'spring', stiffness: 300, damping: 24, delay: 0.1}}
-				src='/assets/umbrel-ios.png'
-				alt='umbrelOS'
+				src='/assets/titan-mark.svg'
+				alt='Titan OS'
 				className='size-14 shrink-0 rounded-[13px] object-contain'
 				draggable={false}
 			/>
@@ -470,7 +470,7 @@ export function CloudConstellation({
 								transition={{duration: 7, repeat: Infinity, ease: 'easeInOut'}}
 								className='absolute -inset-8 rounded-full bg-brand/30 blur-3xl'
 							/>
-							<img src='/assets/umbrel-ios.png' alt='' className='relative size-[108px]' draggable={false} />
+							<img src='/assets/titan-mark.svg' alt='' className='relative size-[108px]' draggable={false} />
 						</motion.div>
 					</div>
 				)}

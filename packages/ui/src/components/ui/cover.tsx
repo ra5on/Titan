@@ -21,7 +21,7 @@ import {Button} from '@/components/ui/button'
 import {CoverMessageContent} from '@/components/ui/cover-message'
 import {Spinner} from '@/components/ui/loading'
 import {dialogFooterClass} from '@/components/ui/shared/dialog'
-import UmbrelLogo from '@/components/umbrel-logo'
+import TitanLogo from '@/components/titan-logo'
 import {cn} from '@/lib/utils'
 import {Wallpaper} from '@/providers/wallpaper'
 
@@ -84,8 +84,8 @@ export function Cover({
 					<div className='flex w-full max-w-[340px] shrink-0 animate-in flex-col items-center text-center duration-700 fill-mode-both fade-in'>
 						{/* One box for every mark keeps the title where it is */}
 						<div className='flex h-11 items-center justify-center'>
-							{mark === 'logo' && <UmbrelLogo className='w-22 text-white/90' aria-hidden='true' />}
-							{mark === 'logo-dimmed' && <UmbrelLogo className='w-22 text-white/30' aria-hidden='true' />}
+							{mark === 'logo' && <TitanLogo className='w-22 text-white/90' aria-hidden='true' />}
+							{mark === 'logo-dimmed' && <TitanLogo className='w-22 text-white/30' aria-hidden='true' />}
 							{/* The glyph keeps air around its circle, so it is drawn larger than the box for the
 							    circle itself to stand about as tall as the logo */}
 							{mark === 'warning' && (

@@ -277,7 +277,7 @@ export default function LoginWithUmbrel() {
 													transformOrigin: 'bottom center',
 												}}
 											>
-												<AppIcon src='/assets/umbrel-ios.png' size={84} className='rounded-24 shadow-xl' />
+												<AppIcon src='/assets/titan-mark.svg' size={84} className='rounded-24 shadow-xl' />
 											</div>
 											<div
 												className='absolute top-0 left-1/2'

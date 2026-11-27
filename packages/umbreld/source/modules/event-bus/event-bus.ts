@@ -80,6 +80,7 @@ export const events = [
 	'files:member-shares:change',
 	'apps:member-shares:change',
 	'apps:settings:change',
+	'apps:catalog:change',
 	'apps:state:change',
 	'apps:progress',
 	'backups:backup-progress',
@@ -125,6 +126,7 @@ export type EventTypes = {
 	// Fires after an app settings update reaches a terminal state and the
 	// persisted values are ready to read
 	'apps:settings:change': {appId: string}
+	'apps:catalog:change': Record<string, never>
 	// Fires when an app's lifecycle state changes, with 'not-installed' when
 	// an app disappears (uninstall or failed install)
 	'apps:state:change': {appId: string; state: AppState | 'not-installed'}

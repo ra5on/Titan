@@ -53,7 +53,7 @@ const AREA_ICONS = {
 	machines: '/assets/dock/dock-machines.webp',
 	photos: '/assets/dock/dock-photos.webp',
 	widgets: '/assets/dock/dock-widgets.png',
-	umbrelos: '/assets/umbrel-ios.png',
+	umbrelos: '/assets/titan-mark.svg',
 } as const
 export type ToastArea = keyof typeof AREA_ICONS
 

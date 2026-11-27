@@ -1,19 +1,4 @@
+Titan OS
 
-
-              ,;###GGGGGGGGGGl#Sp
-           ,##GGGlW""^'  '`""%GGGG#S,
-         ,#GGG"                  "lGG#o
-        #GGl^                      '$GG#
-      ,#GGb                          \GGG,
-      lGG"                            "GGG
-     #GGGlGGGl##p,,p##lGGl##p,,p###ll##GGGG
-    !GGGlW"""*GGGGGGG#""""WlGGGGG#W""*WGGGGS
-     ""          "^          '"          ""
-
-- Warning ---------------------------------------------------------------------
-| Terminal access is only enabled for debugging purposes. Any modifications   |
-| made to the umbrelOS system will not be persisted between system restarts.  |
-| For use-cases where you want to run custom software in a Linux environment, |
-| consider running a Machine on your Umbrel, or use an app like Portainer.    |
--------------------------------------------------------------------------------
-
+Der Terminalzugriff ist für die Systemverwaltung und Fehlersuche gedacht.
+Für eigene Dienste stehen virtuelle Maschinen und Container-Apps bereit.

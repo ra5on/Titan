@@ -43,7 +43,7 @@ const showHelp = () =>
 
     Options
         --help                    Shows this help message
-        --data-directory          Your Umbrel data directory
+        --data-directory          Your Titan data directory
         --port                    The port to listen on
         --log-level               The logging intensity: silent|normal|verbose
 		--default-app-store-repo  The default app store repository

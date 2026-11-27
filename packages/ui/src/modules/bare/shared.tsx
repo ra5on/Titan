@@ -1,4 +1,4 @@
-import UmbrelLogo from '@/components/umbrel-logo'
+import TitanLogo from '@/components/titan-logo'
 import {tw} from '@/utils/tw'
 
 export const bareContainerClass = tw`mt-[10vh] flex-1 flex h-full max-w-full flex-col items-center sm:w-auto`
@@ -7,7 +7,7 @@ export const bareTextClass = tw`text-center text-15 font-medium leading-tight -t
 
 export const BareLogoTitle = ({children}: {children: React.ReactNode}) => (
 	<div className='flex flex-col items-center gap-4'>
-		<UmbrelLogo />
+		<TitanLogo />
 		<h1 className={bareTitleClass}>{children}</h1>
 	</div>
 )

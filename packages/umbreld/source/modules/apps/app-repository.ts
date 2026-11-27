@@ -12,7 +12,7 @@ import type Umbreld from '../../index.ts'
 import randomToken from '../utilities/random-token.ts'
 import {type AppRepositoryMeta, type AppManifest, validateManifest} from './schema.ts'
 import {fileURLToPath} from 'node:url'
-import {UMBREL_APP_STORE_REPO} from '../../constants.ts'
+import {OFFICIAL_APP_STORE_GALLERY, OFFICIAL_APP_STORE_REPO, UMBREL_APP_STORE_REPO} from '../../constants.ts'
 
 async function readYaml(path: string) {
 	return yaml.load(await fse.readFile(path, 'utf8'))
@@ -40,9 +40,10 @@ export default class AppRepository {
 		if (!isValidUrl(url)) throw new Error('Invalid URL')
 		this.#umbreld = umbreld
 		this.url = url
-		this.path = url === UMBREL_APP_STORE_REPO
-			? fileURLToPath(new URL('./catalog', import.meta.url))
-			: `${umbreld.dataDirectory}/app-stores/${this.cleanUrl()}`
+		this.path =
+			url === UMBREL_APP_STORE_REPO
+				? fileURLToPath(new URL('./catalog', import.meta.url))
+				: `${umbreld.dataDirectory}/app-stores/${this.cleanUrl()}`
 		const {name} = this.constructor
 		this.logger = umbreld.logger.createChildLogger(name.toLowerCase())
 	}
@@ -138,6 +139,7 @@ export default class AppRepository {
 			this.logger.log(`Newer version of ${this.url} available, updating`)
 			await this.atomicClone()
 			this.logger.log(`Updated ${this.url}!`)
+			if (this.url === OFFICIAL_APP_STORE_REPO) this.#umbreld.eventBus.emit('apps:catalog:change', {})
 		}
 
 		return this.isUpdated()
@@ -149,10 +151,9 @@ export default class AppRepository {
 
 		let meta: AppRepositoryMeta
 
-		// Handle official repo which does not have meta
-		// TODO: Instead of this hack we can probably just add this to the official repo
-		// before we ship this code.
-		if (this.url === UMBREL_APP_STORE_REPO) {
+		// The bundled and official templates share the main Titan storefront.
+		const official = this.url === OFFICIAL_APP_STORE_REPO
+		if (this.url === UMBREL_APP_STORE_REPO || official) {
 			meta = {
 				id: 'umbrel-app-store',
 				name: 'Titan App-Katalog',
@@ -190,7 +191,18 @@ export default class AppRepository {
 			.map((app) => ({
 				...app,
 				appStoreId: meta.id,
-				icon: app.icon ?? '/assets/app-icon-placeholder.svg',
+				gallery: official
+					? app.gallery.map((file) =>
+							/^https?:\/\//i.test(file)
+								? file
+								: `${OFFICIAL_APP_STORE_GALLERY}/${encodeURIComponent(app.id)}/${encodeURIComponent(file)}`,
+						)
+					: app.gallery,
+				icon:
+					app.icon ??
+					(official
+						? `${OFFICIAL_APP_STORE_GALLERY}/${encodeURIComponent(app.id)}/icon.svg`
+						: '/assets/app-icon-placeholder.svg'),
 			}))
 			// Sort apps alphabetically
 			.sort((a: any, b: any) => a.id.localeCompare(b.id))

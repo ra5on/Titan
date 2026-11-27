@@ -77,6 +77,7 @@ const machineDefinitionSchema = z
 		memoryGb: z.number().int().min(1).max(1_024).optional(),
 		username: z.string().optional(),
 		autostart: z.boolean(),
+		autostartOnBoot: z.boolean().optional(),
 		pinned: z.boolean(),
 		createdAt: z.number().int(),
 		firstBootSetup: z

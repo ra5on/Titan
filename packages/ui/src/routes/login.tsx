@@ -13,7 +13,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import UmbrelLogo from '@/components/umbrel-logo'
+import TitanLogo from '@/components/titan-logo'
 import {Layout} from '@/layouts/bare/shared'
 import {cn} from '@/lib/utils'
 import {AccountDock} from '@/modules/auth/account-dock'
@@ -223,7 +223,7 @@ export default function Login() {
 					{/* A lone account's avatar says nothing the greeting doesn't —
 					    show the Umbrel logo instead, like the multi-user picker.
 					    A phone on its side has room for the form only with a smaller one */}
-					<UmbrelLogo className='mb-4 w-32 shrink-0 low:mb-0 low:w-20' />
+					<TitanLogo className='mb-4 w-22 shrink-0 low:mb-0 low:w-14' />
 					<LoginForm
 						account={account}
 						password={password}
@@ -288,7 +288,7 @@ export default function Login() {
 							exit={{opacity: 0, y: -28, height: 0, marginBottom: 0}}
 							transition={{duration: 0.2}}
 						>
-							<UmbrelLogo className='w-32 shrink-0 low:w-20' />
+							<TitanLogo className='w-22 shrink-0 low:w-14' />
 						</motion.div>
 					)}
 				</AnimatePresence>

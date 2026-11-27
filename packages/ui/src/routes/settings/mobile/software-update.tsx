@@ -29,7 +29,7 @@ export function SoftwareUpdateDrawerOrDialog() {
 					<Description>{t('check-for-latest-version')}</Description>
 				</Header>
 				<div className='flex flex-col items-center py-8'>
-					<FadeInImg src='/assets/umbrel-ios.png' className='h-[96px] w-[96px]' />
+					<FadeInImg src='/assets/titan-mark.svg' className='h-[96px] w-[96px]' />
 					<div className='mb-4' />
 					<p className='text-12 -tracking-2 text-white/50'>{t('software-update.current-running')}</p>
 					<p className='text-15 -tracking-4'>{currentVersion || `Titan ${LOADING_DASH}`}</p>

@@ -20,8 +20,8 @@ export function SourceIcon({type, size = 20, className}: {type: IconType; size?:
 		case 'umbrel':
 			return (
 				<img
-					src='/assets/umbrel-ios.png'
-					alt='umbrelOS'
+					src='/assets/titan-mark.svg'
+					alt='Titan OS'
 					style={{...box, borderRadius: Math.round(size * 0.23)}}
 					className={cn('shrink-0', className)}
 					draggable={false}

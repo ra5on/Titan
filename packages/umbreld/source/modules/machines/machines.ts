@@ -1155,7 +1155,7 @@ export default class Machines {
 				await this.#guestApi.start()
 				this.#libvirtActivated = true
 				for (const definition of await this.#store.list()) {
-					if (!definition.autostart) continue
+					if (!(definition.autostartOnBoot ?? definition.autostart) || definition.installSource) continue
 					void this.startMachine(definition.id).catch((error) =>
 						this.logger.error(`Failed to autostart machine ${definition.id}`, error),
 					)
@@ -1664,7 +1664,7 @@ export default class Machines {
 
 	async #view(definition: MachineDefinition): Promise<Machine> {
 		const acceleration = resolveAcceleration(definition.arch, this.#libvirt.kvmAvailable)
-		const {firstBootSetup, installSource, installMedia, seedMedia, bootMedia, ...publicDefinition} = definition
+		const {firstBootSetup, installSource, installMedia, seedMedia, bootMedia, autostartOnBoot, ...publicDefinition} = definition
 		const externalDiskAvailable = await this.#externalDiskAvailable(definition)
 		const state = externalDiskAvailable ? await this.#state(definition) : 'error'
 		const firstBootSetupActive = isFirstBootSetupActive(firstBootSetup, Date.now(), firstBootSetupTimeoutMs(definition))
@@ -1684,6 +1684,7 @@ export default class Machines {
 				: undefined)
 		return {
 			...publicDefinition,
+			autostart: autostartOnBoot ?? definition.autostart,
 			networkMode: definition.networkMode ?? 'nat',
 			ipAddress: machineIpAddressSchema.parse(definition.ipAddress),
 			memoryGb: definition.memoryMb / 1_024,
@@ -2270,6 +2271,7 @@ export default class Machines {
 		arch = hostArchitecture(),
 		platformProfile,
 		networkMode = 'nat',
+		autostart,
 	}: {
 		name: string
 		osId?: string
@@ -2286,6 +2288,7 @@ export default class Machines {
 		arch?: MachineArchitecture
 		platformProfile?: PlatformProfile
 		networkMode?: MachineNetworkMode
+		autostart?: boolean
 	}) {
 		this.#assertBackupIdle()
 		if (!this.#libvirt.available) throw new Error('[virtualization-unavailable]')
@@ -2382,6 +2385,7 @@ export default class Machines {
 			memoryMb: sourceImage?.fixedMemoryMb ?? memoryGb * 1_024,
 			username: unattended ? username : undefined,
 			autostart: true,
+			autostartOnBoot: autostart,
 			pinned: false,
 			createdAt: Date.now(),
 			firstBootSetup: firstBootToken
@@ -2831,7 +2835,7 @@ export default class Machines {
 			}
 			if (diskResize) await this.#libvirt.resizeDisk(definition, diskResize.path, diskResize.sizeGb)
 			if (settings.diskSizeGb !== undefined) definition.diskSizeGb = settings.diskSizeGb
-			if (settings.autostart !== undefined) definition.autostart = settings.autostart
+			if (settings.autostart !== undefined) definition.autostartOnBoot = settings.autostart
 			if (settings.portForwards !== undefined) definition.portForwards = settings.portForwards
 			// Takes effect the next time the machine starts
 			if (settings.networkMode !== undefined) definition.networkMode = settings.networkMode

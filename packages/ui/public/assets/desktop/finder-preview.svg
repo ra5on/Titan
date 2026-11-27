@@ -31,7 +31,7 @@
       <circle cx="411" cy="23" r="5"/><path d="m415 27 4 4"/>
     </g>
     <g font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif">
-      <text x="188" y="28" fill="#eeeef0" font-size="12" font-weight="600">Umbrel</text>
+      <text x="188" y="28" fill="#eeeef0" font-size="12" font-weight="600">Titan</text>
       <g fill="#a3a4aa" font-size="9" font-weight="600">
         <text x="15" y="68">Favorites</text>
         <text x="15" y="166">Locations</text>
@@ -51,7 +51,7 @@
         <rect x="16" y="183" width="13" height="12" rx="2"/>
         <path d="M16 190h13m-3 2.5h.1M20 186h5"/>
       </g>
-      <text x="36" y="193" fill="#fff" font-size="11" font-weight="500">Umbrel</text>
+      <text x="36" y="193" fill="#fff" font-size="11" font-weight="500">Titan</text>
       <path d="m108 187-3 4h6zM105 194h6" fill="#d6e6fc" stroke="#d6e6fc" stroke-width=".6"/>
       <g font-size="10" fill="#e4e4e8" text-anchor="middle">
         <use href="#folder-icon" x="147" y="76"/>

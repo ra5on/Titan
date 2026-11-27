@@ -942,7 +942,7 @@ function AppMoveDiagram({appIcon, destination}: {appIcon?: string; destination: 
 	// diagrams use for the umbrelOS side
 	const destinationIcon =
 		destination === 'internal'
-			? '/assets/umbrel-ios.png'
+			? '/assets/titan-mark.svg'
 			: destination === 'network'
 				? activeNasIcon
 				: externalStorageIcon

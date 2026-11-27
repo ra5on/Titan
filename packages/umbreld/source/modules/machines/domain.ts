@@ -63,6 +63,8 @@ export type MachineDefinition = {
 	memoryMb: number
 	username?: string
 	autostart: boolean
+	// Explicit preference. Older definitions follow their last manual power state.
+	autostartOnBoot?: boolean
 	pinned: boolean
 	createdAt: number
 	firstBootSetup?: FirstBootSetup

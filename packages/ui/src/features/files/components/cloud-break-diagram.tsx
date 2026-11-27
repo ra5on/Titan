@@ -34,8 +34,8 @@ export function CloudBreakDiagram({provider, glyph = 'cross'}: {provider?: strin
 
 			{/* Umbrel side */}
 			<img
-				src='/assets/umbrel-ios.png'
-				alt='umbrelOS'
+				src='/assets/titan-mark.svg'
+				alt='Titan OS'
 				className='size-11 shrink-0 rounded-xl object-contain'
 				draggable={false}
 			/>

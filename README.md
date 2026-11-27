@@ -24,7 +24,7 @@ Die Aufnahmen stammen aus dem veröffentlichten Titan-Image. Ein Klick auf ein B
 
 ## Installation auf SSD oder NVMe
 
-Für die Erstinstallation brauchst du das komprimierte AMD64-Image (1,95 GB). Die Update-Dateien lädt Titan bei späteren Systemaktualisierungen selbst. [SSD-Image herunterladen](https://github.com/ra5on/Titan/releases/download/0.1/titan-amd64.img.xz) · [Signiertes Manifest und Versionshinweise](https://github.com/ra5on/Titan/releases/tag/0.1)
+Für die Erstinstallation brauchst du das komprimierte AMD64-Image. Die Update-Dateien lädt Titan bei späteren Systemaktualisierungen selbst. [SSD-Image herunterladen](https://github.com/ra5on/Titan/releases/latest/download/titan-amd64.img.xz) · [Signiertes Manifest und Versionshinweise](https://github.com/ra5on/Titan/releases/latest)
 
 1. Sichere vorhandene Daten. **Das Schreiben des Images überschreibt die Partitionstabelle und den Inhalt des gewählten Laufwerks.**
 2. Lade für einen x86-64-Rechner mit UEFI die Datei `titan-amd64.img.xz` und das zugehörige `manifest.txt` aus derselben Veröffentlichung. Vergleiche den SHA-256-Wert der komprimierten Datei mit dem Eintrag im Manifest.
@@ -39,7 +39,7 @@ Für spätere Updates genügt die Systemaktualisierung in den Einstellungen. Tit
 
 Die offiziellen Umbrel-Clients für Android und macOS behalten ihre bisherigen Updatewege. Titan verwendet die Anmelde- und Kopplungsschnittstellen der gemeinsamen Basis. Die Download-Schaltflächen für diese Clients öffnen auf Wunsch die offiziellen Bezugsquellen. Eine vollständige Kopplungsprüfung mit den veröffentlichten Clients auf beiden Plattformen steht aus.
 
-Im App-Katalog wählst du aus, welche Docker-Apps auf deinem Server laufen. Weitere kompatible Kataloge lassen sich als Community-Stores hinzufügen. Installierte Apps beziehen ihre Container-Images aus der Registry des jeweiligen Anbieters. Umbrel pflegt seinen eigenen Katalog und die dazugehörige Bildergalerie separat. [Umbrel-App-Pakete](https://github.com/getumbrel/umbrel-apps) · [Bildergalerie](https://github.com/getumbrel/umbrel-apps-gallery)
+Der Titan App-Katalog enthält mitgelieferte Apps und lädt die offiziellen Umbrel-App-Pakete beim ersten Start des Katalogdienstes. App-Icons und Screenshots kommen von der Umbrel-Bildergalerie. Installierte Apps beziehen ihre Container-Images aus den jeweiligen Registrys. Weitere kompatible Kataloge lassen sich als Community-Stores hinzufügen. [Umbrel-App-Pakete](https://github.com/getumbrel/umbrel-apps) · [Bildergalerie](https://github.com/getumbrel/umbrel-apps-gallery)
 
 Als Eigentümer kannst du die Weboberfläche einer laufenden Docker-App im Titan-Desktop öffnen. Dafür startet auf dem Server ein temporärer Browser mit Zugang zu dieser App. Beim ersten Öffnen lädt Titan das Browser-Image aus seiner GitHub-Veröffentlichung und prüft die Prüfsumme. Die Sitzung läuft über dieselbe Webadresse wie der Desktop. Ein Reverse-Proxy oder Cloudflare-Tunnel muss HTTP und WebSocket-Verbindungen an Titan weiterleiten. Für diese Ansicht genügt ein einziges öffentliches Ziel. Mitgliedskonten und reine Tor-Apps verwenden den herkömmlichen App-Aufruf. Der eingeschränkte Browser eignet sich für webbasierte Bedienoberflächen. Eine Sitzung mit einem öffentlichen Cloudflare-Tunnel wurde bisher nicht separat getestet.
 
@@ -48,6 +48,7 @@ Als Eigentümer kannst du die Weboberfläche einer laufenden Docker-App im Titan
 | Funktion | Verwendung und Voraussetzungen |
 | --- | --- |
 | Vorhandenes QCOW2-Abbild | Lege die eigenständige `.qcow2`-Datei in Titan ab und wähle sie beim Anlegen der VM aus. Ein komprimiertes Home-Assistant-OS-Abbild für KVM/OVA muss vorher entpackt werden. Der Import arbeitet mit einer Kopie. Images mit externen Daten- oder Basisdateien werden abgewiesen. |
+| Autostart | Aktiviere pro VM die Einstellung **Autostart**, damit Titan sie beim Systemstart startet. |
 | Ordner teilen | Wähle einen Ordner aus deinem persönlichen Home-Verzeichnis und vergib einen Freigabenamen. Der Gast braucht einen virtiofs-Treiber. In einem Linux-Gast lässt sich beispielsweise die Freigabe `medien` auf ein vorhandenes Verzeichnis mit `mount -t virtiofs medien /mnt/medien` einhängen. Freigaben sind standardmäßig schreibgeschützt. |
 | USB-Geräte | Weise einen USB-Port der VM zu. Das ist unter anderem für Zigbee-Adapter und den Coral USB Accelerator vorgesehen. Der Coral-Stick wechselt beim Laden seiner Firmware die USB-Kennung. Die Zuordnung orientiert sich am physischen Anschluss. |
 | iGPU, NVIDIA-/AMD-GPU, NPU | Der Host braucht KVM und eine aktive IOMMU. Das Gerät muss als unterstützte PCI-Funktion sichtbar und seine vollständige, geeignete IOMMU-Gruppe für `vfio-pci` vorbereitet sein. Ein direkt zugewiesenes Gerät steht dem Gast exklusiv zur Verfügung. Änderungen an der PCI-Zuordnung werden beim nächsten VM-Start wirksam. |
@@ -56,14 +57,14 @@ Home Assistant OS 18.4 wurde aus dem offiziellen QCOW2-Abbild importiert, sektor
 
 ## KI und Netzwerkverbindungen
 
-Der Start des veröffentlichten Images, die Einrichtung des Eigentümerkontos und der Aufruf des Desktops wurden mit UEFI und einer virtuellen NVMe geprüft. Im Browser- und Netzwerkmitschnitt dieses Ablaufs gab es keine Anfragen an öffentliche Umbrel-Dienste. Für die Geräteerkennung der offiziellen Clients verwendet Titan im lokalen Netz weiterhin mDNS-Namen wie `umbrel.local`. [Boot- und Browsertest](https://github.com/ra5on/Titan/actions/runs/45718480622)
+Der Start des veröffentlichten Images von Titan 0.1, die Einrichtung des Eigentümerkontos und der Aufruf des Desktops wurden mit UEFI und einer virtuellen NVMe geprüft. Im Browser- und Netzwerkmitschnitt dieses Ablaufs gab es keine Anfragen an öffentliche Umbrel-Dienste. Für die Geräteerkennung der offiziellen Clients verwendet Titan im lokalen Netz weiterhin mDNS-Namen wie `umbrel.local`. [Boot- und Browsertest](https://github.com/ra5on/Titan/actions/runs/45718480622)
 
 Suche, Texterkennung und Transkription verwenden lokale Modelle. Bei Bedarf bezieht Titan Modelldateien von ihren Originalquellen und prüft ihre SHA-256-Werte. Für die mit der Gesichtserkennung verwendeten InsightFace-Gewichte beschränkt der Anbieter die öffentliche Freigabe auf nichtkommerzielle Forschung. Diese Gewichte müssen mit den passenden Nutzungsrechten separat bereitgestellt werden. Für externe KI-Agenten steht die MCP-Anbindung der Basis zur Verfügung. [Modellquellen und Prüfsummen](packages/umbreld/source/modules/files/models.json) · [Nutzungsbedingungen von InsightFace](https://github.com/deepinsight/insightface#license)
 
 | Funktion | Netzwerkziel |
 | --- | --- |
 | Systemupdates und Schlüssel | Titan-Repository und Titan-Releases auf GitHub. Der Updateabruf übermittelt weder Hardwarekennung noch installierte Version an den Updatekanal. |
-| App-Katalog und Fotos | Der mitgelieferte Katalog und seine Oberfläche werden lokal ausgeliefert. Eine zusätzliche Foto-Kartenquelle kann der Betreiber über `TITAN_MAP_URL` einrichten. |
+| App-Katalog und Fotos | Titan synchronisiert den offiziellen Katalog über GitHub und lädt App-Bilder aus der Umbrel-Bildergalerie. Eine zusätzliche Foto-Kartenquelle kann der Betreiber über `TITAN_MAP_URL` einrichten. |
 | App-Installation und Modelle | Die konfigurierte Container-Registry beziehungsweise die in der Modelldatei genannten Quellen, darunter Hugging Face, ModelScope und GitHub. |
 | Cloud-Konten | Verbindungen gehen zum ausgewählten Dienst. Anbindungen über OAuth erfordern einen eigenen Callback-Dienst und eigene Client-Zugangsdaten. |
 | Native Clients, Community-Stores, installierte Apps und Tunnel | Die jeweiligen Anbieter und die eigene Konfiguration bestimmen deren Netzwerkziele. Ein öffentlicher Tunnel stellt eine Verbindung zum gewählten Tunnelanbieter her. |

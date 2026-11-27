@@ -265,7 +265,7 @@ export function AgentConstellation({
 								transition={{duration: 7, repeat: Infinity, ease: 'easeInOut'}}
 								className='absolute -inset-8 rounded-full bg-brand/30 blur-3xl'
 							/>
-							<img src='/assets/umbrel-ios.png' alt='' className='relative size-[100px]' draggable={false} />
+							<img src='/assets/titan-mark.svg' alt='' className='relative size-[100px]' draggable={false} />
 						</motion.div>
 					</div>
 				)}

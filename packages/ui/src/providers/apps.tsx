@@ -20,7 +20,7 @@ export const systemApps = [
 	{
 		id: 'UMBREL_system',
 		name: 'System',
-		icon: '/assets/umbrel-app.svg',
+		icon: '/assets/titan-mark.svg',
 		systemApp: true,
 		systemAppTo: '/',
 	},

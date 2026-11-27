@@ -1,5 +1,7 @@
 import pRetry from 'p-retry'
 
+import {OFFICIAL_APP_STORE_REPO, UMBREL_APP_STORE_REPO} from '../../constants.ts'
+
 import type Umbreld from '../../index.ts'
 import runEvery from '../utilities/run-every.ts'
 import AppRepository from './app-repository.ts'
@@ -7,6 +9,10 @@ import {isManifestVersionCompatible} from './manifest-compatibility.ts'
 
 type RepositoryRegistry = Awaited<ReturnType<AppRepository['readRegistry']>>
 type RegistryApp = RepositoryRegistry['apps'][number]
+
+function isOfficialAppRepository(url: string) {
+	return /^https:\/\/github\.com\/getumbrel\/umbrel-apps(?:\.git)?\/?$/i.test(url)
+}
 
 // Only app-store presentation and install-planning fields cross the API
 // boundary. Repository manifests are untrusted extensible YAML, so spreading a
@@ -129,10 +135,17 @@ export default class AppStore {
 	}
 
 	async getRepositories() {
-		const repositoryUrls = await this.#umbreld.store.get('appRepositories')
-		const repositories = repositoryUrls.map((url) => new AppRepository(this.#umbreld, url))
+		const repositoryUrls = (await this.#umbreld.store.get('appRepositories')) ?? []
+		const urls =
+			this.defaultAppStoreRepo === UMBREL_APP_STORE_REPO
+				? [
+						UMBREL_APP_STORE_REPO,
+						OFFICIAL_APP_STORE_REPO,
+						...repositoryUrls.filter((url) => url !== UMBREL_APP_STORE_REPO && !isOfficialAppRepository(url)),
+					]
+				: repositoryUrls
 
-		return repositories
+		return urls.map((url) => new AppRepository(this.#umbreld, url))
 	}
 
 	async getDefaultRepository() {
@@ -170,7 +183,19 @@ export default class AppStore {
 	// Public app-store data shared with both owner and member dashboards. Keep
 	// repository locations and arbitrary manifest extensions out of this DTO.
 	async publicRegistry() {
-		return sanitizeRegistry(await this.registry(), this.#umbreld.version)
+		const registry = await this.registry()
+		const bundled = registry.find(({url}) => url === UMBREL_APP_STORE_REPO)
+		const official = registry.find(({url}) => url === OFFICIAL_APP_STORE_REPO)
+		if (bundled && official) {
+			const bundledIds = new Set(bundled.apps.map(({id}) => id))
+			bundled.apps = [...bundled.apps, ...official.apps.filter(({id}) => !bundledIds.has(id))].sort((a, b) =>
+				a.id.localeCompare(b.id),
+			)
+		}
+		return sanitizeRegistry(
+			bundled ? registry.filter(({url}) => url !== OFFICIAL_APP_STORE_REPO) : registry,
+			this.#umbreld.version,
+		)
 	}
 
 	// Resolve duplicate app IDs using repository order. This is the canonical
@@ -187,16 +212,19 @@ export default class AppStore {
 
 	// Repository URLs are management data and remain owner-only.
 	async listRepositories() {
-		return (await this.registry()).map(({url, meta}) => ({
-			url,
-			meta: {id: meta.id, name: meta.name},
-		}))
+		return (await this.registry())
+			.filter(({url}) => this.defaultAppStoreRepo !== UMBREL_APP_STORE_REPO || url !== OFFICIAL_APP_STORE_REPO)
+			.map(({url, meta}) => ({url, meta: {id: meta.id, name: meta.name}}))
 	}
 
 	async addRepository(url: string) {
 		// Check if repo already exists
 		const existingRepositories = await this.getRepositories()
-		if (existingRepositories.some((existingRepo) => existingRepo.url === url)) {
+		if (
+			existingRepositories.some(
+				(repo) => repo.url === url || (repo.url === OFFICIAL_APP_STORE_REPO && isOfficialAppRepository(url)),
+			)
+		) {
 			throw new Error(`Repository ${url} already exists`)
 		}
 
@@ -218,7 +246,10 @@ export default class AppStore {
 	}
 
 	async removeRepository(url: string) {
-		if (this.defaultAppStoreRepo === url) {
+		if (
+			this.defaultAppStoreRepo === url ||
+			(this.defaultAppStoreRepo === UMBREL_APP_STORE_REPO && isOfficialAppRepository(url))
+		) {
 			throw new Error(`Cannot remove default repository`)
 		}
 

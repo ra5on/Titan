@@ -1,9 +1,9 @@
 import {motion, useReducedMotion} from 'motion/react'
-import {useEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {useTranslation} from 'react-i18next'
 import {Link} from 'react-router-dom'
 
-import {UmbrelLogoDraw} from '@/components/umbrel-logo-draw'
+import {TitanLogoReveal} from '@/components/titan-logo-reveal'
 import {useDeviceInfo} from '@/hooks/use-device-info'
 import {useLanguage} from '@/hooks/use-language'
 import {footerClass, primaryButtonProps, SubTitle, Title} from '@/layouts/bare/shared'
@@ -53,6 +53,7 @@ export default function OnboardingStart() {
 	const device = useOnboardingDevice()
 	const reduceMotion = useReducedMotion()
 	const [drawn, setDrawn] = useState(false)
+	const showContent = useCallback(() => setDrawn(true), [])
 
 	// A Raspberry Pi with an external drive attached first gets asked where its
 	// data should live (see external-drive.tsx); everyone else goes to the form
@@ -101,14 +102,14 @@ export default function OnboardingStart() {
 				<div className='grid place-items-center'>
 					<motion.div
 						className='col-start-1 row-start-1'
-						style={{viewTransitionName: 'umbrel-logo'}}
+						style={{viewTransitionName: 'titan-logo'}}
 						animate={drawn && handOffToArtwork ? {opacity: 0, scale: 0.85} : {opacity: 1, scale: 1}}
 						transition={{duration: dur(0.5), delay: dur(0.15), ease: ENTRANCE_EASE}}
 					>
-						<UmbrelLogoDraw
-							className='w-[100px]'
+						<TitanLogoReveal
+							className='w-[76px]'
 							delay={reduceMotion ? 0 : LOGO_DELAY}
-							onComplete={() => setDrawn(true)}
+							onComplete={showContent}
 						/>
 					</motion.div>
 					{handOffToArtwork && (

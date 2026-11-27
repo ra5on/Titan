@@ -20,6 +20,7 @@ import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 import {Input} from '@/components/ui/input'
 import {Spinner} from '@/components/ui/loading'
 import {toast} from '@/components/ui/toast'
+import {Switch} from '@/components/ui/switch'
 import {MachineNetworkModeRow, type MachineNetworkMode} from '@/features/machines/components/machine-network-mode'
 import {
 	MachineUsbDevices,
@@ -76,6 +77,7 @@ export default function MachineSettings() {
 	const [folderChoice, setFolderChoice] = useState<NonNullable<Machine['folderShares']> | null>(null)
 	const [usbChoice, setUsbChoice] = useState<UsbDeviceIdentity[] | null>(null)
 	const [networkModeChoice, setNetworkModeChoice] = useState<MachineNetworkMode | null>(null)
+	const [autostartChoice, setAutostartChoice] = useState<boolean | null>(null)
 	const [isSaving, setIsSaving] = useState(false)
 	const [shutdownDialogOpen, setShutdownDialogOpen] = useState(false)
 
@@ -98,6 +100,7 @@ export default function MachineSettings() {
 	const firmware = firmwareChoice ?? machine.firmware
 	const diskBus = diskBusChoice ?? machine.diskBus ?? 'virtio'
 	const networkMode = networkModeChoice ?? machine.networkMode
+	const autostart = autostartChoice ?? machine.autostart
 	// A bridged machine has its own address on the LAN, so there's nothing for
 	// Umbrel to forward to it
 	const portForwards = networkMode === 'bridged' ? [] : (forwardsChoice ?? machine.portForwards)
@@ -163,6 +166,7 @@ export default function MachineSettings() {
 		(machine.osId === 'custom' && (firmware !== machine.firmware || diskBus !== (machine.diskBus ?? 'virtio'))) ||
 		JSON.stringify(portForwards) !== JSON.stringify(machine.portForwards) ||
 		networkMode !== machine.networkMode ||
+		autostart !== machine.autostart ||
 		usbChanged
 
 	const canSave = sharesValid && dirty && !disabled && !nameEmpty && !nameTaken && diskValid && forwardsValid
@@ -192,6 +196,7 @@ export default function MachineSettings() {
 				...(machine.osId === 'custom' ? {firmware, diskBus} : {}),
 				portForwards,
 				...(networkMode !== machine.networkMode && {networkMode}),
+				...(autostartChoice !== null && {autostart}),
 				...(usbChanged && {usbDevices}),
 				...(pciChanged && {pciGroups: pciChoice}),
 				...(folderChanged && {folderShares: folderChoice}),
@@ -393,6 +398,9 @@ export default function MachineSettings() {
 							</>
 						)}
 
+						<SpecRow label={t('machines.autostart')} note={t('machines.autostart-description')}>
+							<Switch aria-label={t('machines.autostart')} checked={autostart} onCheckedChange={setAutostartChoice} disabled={disabled} />
+						</SpecRow>
 						<MachineNetworkModeRow
 							value={networkMode}
 							onChange={setNetworkModeChoice}
@@ -527,7 +535,7 @@ export default function MachineSettings() {
 														<MoveRight className='size-4 shrink-0 text-white/30' strokeWidth={1.5} />
 														<label className='flex min-w-0 flex-1 cursor-text items-center gap-1.5 pl-2'>
 															<img
-																src='/favicon/favicon-32x32.png'
+																src='/assets/titan-mark.svg'
 																alt=''
 																draggable={false}
 																className='size-4 shrink-0 rounded-[4px]'

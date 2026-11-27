@@ -1,12 +1,12 @@
 import {motion} from 'motion/react'
 import {HTMLProps} from 'react'
 
-import UmbrelLogo from '@/components/umbrel-logo'
+import TitanLogo from '@/components/titan-logo'
 import {cn} from '@/lib/utils'
 import {tw} from '@/utils/tw'
 
-export const UmbrelLogoLarge = () => (
-	<UmbrelLogo className='w-[100px] opacity-85' style={{viewTransitionName: 'umbrel-logo'}} />
+export const TitanLogoLarge = () => (
+	<TitanLogo className='w-[76px] opacity-85' style={{viewTransitionName: 'titan-logo'}} />
 )
 
 export function Title({children, className}: {children: React.ReactNode; className?: string}) {
@@ -103,7 +103,7 @@ export function Layout({
 			>
 				{showLogo && (
 					<motion.div variants={entranceItem}>
-						<UmbrelLogoLarge />
+						<TitanLogoLarge />
 					</motion.div>
 				)}
 				<motion.div variants={entranceItem} className='flex flex-col items-center gap-1.5'>

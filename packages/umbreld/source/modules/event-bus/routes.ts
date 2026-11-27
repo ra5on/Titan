@@ -17,6 +17,7 @@ const memberAllowedEvents = new Set<(typeof events)[number]>([
 	'files:watcher:change',
 	'files:member-shares:change',
 	'apps:member-shares:change',
+	'apps:catalog:change',
 	// Payload-free ping; members refetch their own account-filtered list
 	'notifications:change',
 	'photos:change',

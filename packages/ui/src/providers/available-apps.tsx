@@ -25,6 +25,11 @@ const AppsContext = createContext<AppsContextT | null>(null)
 
 // TODO: put all of this in a hook because trpc won't make multiple calls to the same query
 export function AvailableAppsProvider({children}: {children: React.ReactNode}) {
+	const utils = trpcReact.useUtils()
+	trpcReact.eventBus.listen.useSubscription(
+		{event: 'apps:catalog:change'},
+		{onData: () => void utils.appStore.registry.invalidate()},
+	)
 	const appsQ = trpcReact.appStore.registry.useQuery(undefined, {
 		staleTime: 3 * 60 * 1000, // 3 minutes
 	})
