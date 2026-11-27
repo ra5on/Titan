@@ -193,7 +193,7 @@ export default class DataPools {
 					if (!(await isUnusedDisk(first)) || !(await isUnusedDisk(second)))
 						throw new Error('[data-pool-disks-unavailable]')
 					const paths = devices.map((device) => join(diskDirectory, device))
-					await $`zpool create -o cachefile=none -o ashift=12 -O compression=lz4 -m legacy ${poolName(pool)} mirror ${paths}`
+					await $`zpool create -o cachefile=none -o failmode=continue -o ashift=12 -O compression=lz4 -m legacy ${poolName(pool)} mirror ${paths}`
 				} catch (error) {
 					const result = await $({reject: false})`zpool list -H -o name ${poolName(pool)}`
 					if (result.exitCode !== 0) await this.#umbreld.store.set('dataPools', pools)
