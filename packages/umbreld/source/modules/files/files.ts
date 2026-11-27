@@ -53,6 +53,7 @@ import type {PublishedFileRevision} from './file-index-enrichment.ts'
 import {lookupMimeType} from './mime.ts'
 
 import type Umbreld from '../../index.ts'
+import {dataPoolPathPattern} from '../hardware/data-pools.ts'
 import {OWNER_USER_ID} from '../user/constants.ts'
 
 const ALL_OPERATIONS = [
@@ -277,6 +278,7 @@ export default class Files {
 			)
 
 		// Start submodules
+		await this.#umbreld.hardware.dataPools.start().catch((error) => this.logger.error('Failed to mount data pools', error))
 		await this.watcher.start().catch((error) => this.logger.error(`Failed to start watcher`, error))
 		this.fileIndex.startBackgroundReconciliation()
 		await this.samba.start().catch((error) => this.logger.error(`Failed to start samba`, error))
@@ -897,7 +899,15 @@ export default class Files {
 
 		// Filter out any files that failed to get status
 		const statuses = (await Promise.all(fileJobs)).filter((file) => file !== undefined) as File[]
-		const files = await this.annotateIndexedDirectorySizes(statuses)
+		let files = await this.annotateIndexedDirectorySizes(statuses)
+		if (virtualPath === '/External' && files.some(({path}) => dataPoolPathPattern.test(path))) {
+			const pools = new Map((await this.#umbreld.hardware.dataPools.mountedLocations()).map(({path, name}) => [path, name]))
+			files = files.flatMap((file) => {
+				if (!dataPoolPathPattern.test(file.path)) return [file]
+				const name = pools.get(file.path)
+				return name ? [{...file, name}] : []
+			})
+		}
 
 		return {
 			...directoryDetails,
@@ -2238,6 +2248,7 @@ export default class Files {
 		}
 
 		await assertSystemPathInsideBase(systemPath, basePath, {virtualPath, baseLabel: basePath})
+		if (dataPoolPathPattern.test(virtualPath)) await this.#umbreld.hardware.dataPools.assertMounted(virtualPath)
 
 		// Return the system path as-passed (not the realpath) so we don't resolve
 		// symlinks in the path itself, which would change copy/move semantics.

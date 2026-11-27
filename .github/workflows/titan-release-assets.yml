@@ -83,7 +83,7 @@ jobs:
           name: titan-boot-test
           path: |
             packages/os/build/boot-test/*.png
-            packages/os/build/boot-test/serial.log
+            packages/os/build/boot-test/*-serial.log
             packages/os/build/boot-test/network-hosts.txt
           if-no-files-found: ignore
       - name: Verify the staged manifest and upload its files

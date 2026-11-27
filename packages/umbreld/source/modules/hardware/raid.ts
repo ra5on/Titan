@@ -94,6 +94,7 @@ export function shouldCreateScrubErrorNotification({
 
 export type PoolMutation =
 	| 'RAID setup'
+	| 'additional RAID pool creation'
 	| 'RAID device addition'
 	| 'RAID mirror addition'
 	| 'RAID accelerator addition'
@@ -531,6 +532,10 @@ export default class Raid {
 		} finally {
 			if (this.#activePoolMutation === operation) this.#activePoolMutation = undefined
 		}
+	}
+
+	withAdditionalPoolCreation<T>(job: () => Promise<T>) {
+		return this.#withPoolMutation('additional RAID pool creation', job)
 	}
 
 	async hasConfigStore() {
@@ -1727,8 +1732,10 @@ export default class Raid {
 	// Refuse to touch disks that back the running system (defense in depth - the UI never
 	// offers them, but a repartitioned boot drive is an unrecoverable mistake)
 	async #assertNotSystemDrives(deviceIds: Array<string | undefined>): Promise<void> {
+		const additionalPoolDisks = await this.#umbreld.hardware.dataPools.memberIds()
 		for (const deviceId of deviceIds) {
 			if (!deviceId) continue
+			if (additionalPoolDisks.has(deviceId)) throw new Error('[data-pool-disk-already-in-use]')
 			const devicePath = `/dev/disk/by-umbrel-id/${deviceId}`
 			if (!(await fse.pathExists(devicePath))) throw new Error(`Device not found: ${devicePath}`)
 		}

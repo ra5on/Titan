@@ -70,6 +70,16 @@ export const apps = router({
 			if (apps.length === 0) return []
 		}
 		const torEnabled = await ctx.umbreld.store.get('torEnabled')
+		// Installed package manifests do not include icons added by the catalog.
+		// Resolve those once per list, including for apps installed before this update.
+		let catalog: ReturnType<typeof ctx.appStore.resolvedApps> | undefined
+		const catalogIcon = async (appId: string) => {
+			catalog ??= ctx.appStore.resolvedApps(apps.map(({id}) => id)).catch((error) => {
+				ctx.apps.logger.error('Failed to read app icons from the catalog', error)
+				return new Map()
+			})
+			return (await catalog).get(appId)?.app.icon
+		}
 
 		const appData = await Promise.all(
 			apps.map(async (app) => {
@@ -113,7 +123,7 @@ export const apps = router({
 						id: app.id,
 						name,
 						version,
-						icon: icon ?? '/assets/app-icon-placeholder.svg',
+						icon: icon ?? (await catalogIcon(app.id)) ?? '/assets/app-icon-placeholder.svg',
 						port,
 						path,
 						state: app.state,

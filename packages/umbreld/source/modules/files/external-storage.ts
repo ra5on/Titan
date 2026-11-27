@@ -8,6 +8,7 @@ import {$} from 'execa'
 import PQueue from 'p-queue'
 
 import type Umbreld from '../../index.ts'
+import {dataPoolMountPrefix} from '../hardware/data-pools.ts'
 import {isBlockDeviceOnUsbDevice} from '../machines/usb-devices.ts'
 import {getSystemDiskNames} from '../system/system-disk.ts'
 
@@ -245,7 +246,8 @@ export default class ExternalStorage {
 					try {
 						// Derive mountpoint
 						const externalBaseSystemPath = this.#umbreld.files.getBaseDirectory('/External')
-						const sanitisedLabel = partition.label.replace(/[^a-zA-Z0-9 '\_\-]/g, '')
+						let sanitisedLabel = partition.label.replace(/[^a-zA-Z0-9 '\_\-]/g, '')
+						if (sanitisedLabel.startsWith(dataPoolMountPrefix)) sanitisedLabel = `USB-${sanitisedLabel}`
 						let systemMountpoint = nodePath.join(externalBaseSystemPath, sanitisedLabel)
 
 						// Clean up a left over mount point dir if it's empty and not mounted.
@@ -641,6 +643,7 @@ export default class ExternalStorage {
 		const externalBaseSystemPath = this.#umbreld.files.getBaseDirectory('/External')
 		const mountPoints = await fse.readdir(externalBaseSystemPath)
 		for (const mountPoint of mountPoints) {
+			if (mountPoint.startsWith(dataPoolMountPrefix)) continue
 			try {
 				// Check if any are not currently used and safe to remove
 				const mountPointSystemPath = nodePath.join(externalBaseSystemPath, mountPoint)

@@ -165,11 +165,11 @@ export default class AppStore {
 		}
 	}
 
-	async registry() {
+	async registry(appIds?: readonly string[]) {
 		const repositories = await this.getRepositories()
 		if (!repositories) throw new Error('App store not initialised')
 		const registryPromises = repositories.map((repository) =>
-			repository.readRegistry().catch((error) => {
+			repository.readRegistry(appIds).catch((error) => {
 				this.logger.error(`Failed to read registry from ${repository.url}`, error)
 				return null
 			}),
@@ -200,9 +200,9 @@ export default class AppStore {
 
 	// Resolve duplicate app IDs using repository order. This is the canonical
 	// lookup used by installs, updates, and update-availability checks.
-	async resolvedApps() {
+	async resolvedApps(appIds?: readonly string[]) {
 		const resolvedApps = new Map<string, {app: RegistryApp; repository: RepositoryRegistry}>()
-		for (const repository of await this.registry()) {
+		for (const repository of await this.registry(appIds)) {
 			for (const app of repository.apps) {
 				if (!resolvedApps.has(app.id)) resolvedApps.set(app.id, {app, repository})
 			}

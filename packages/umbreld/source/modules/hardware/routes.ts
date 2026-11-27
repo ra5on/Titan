@@ -8,6 +8,28 @@ const internalStorage = router({
 	getDevices: publicProcedureWhenNoUserExists.query(async ({ctx}) => ctx.umbreld.hardware.internalStorage.getDevices()),
 })
 
+const dataPools = router({
+	list: privateProcedure.query(async ({ctx}) => ctx.umbreld.hardware.dataPools.list()),
+	mountedLocations: privateProcedure.query(async ({ctx}) => ctx.umbreld.hardware.dataPools.mountedLocations()),
+	availableDevices: privateProcedure.query(async ({ctx}) => ctx.umbreld.hardware.dataPools.availableDevices()),
+	create: privateProcedure
+		.input(
+			z.object({
+				name: z.string().trim().min(1).max(48),
+				devices: z.tuple([z.string(), z.string()]),
+				confirmed: z.literal(true),
+			}),
+		)
+		.mutation(async ({ctx, input}) => ctx.umbreld.hardware.dataPools.create(input.name, input.devices)),
+})
+
+const hddStandby = router({
+	list: privateProcedure.query(async ({ctx}) => ctx.umbreld.hardware.hddStandby.list()),
+	set: privateProcedure
+		.input(z.object({devices: z.array(z.string()).min(1).max(64), minutes: z.number().int()}))
+		.mutation(async ({ctx, input}) => ctx.umbreld.hardware.hddStandby.set(input.devices, input.minutes)),
+})
+
 const gpu = router({
 	// Report the graphics controllers currently available.
 	getInfo: privateProcedure.query(async () => getGpuInfo()),
@@ -149,6 +171,8 @@ const umbrelPro = router({
 
 export default router({
 	internalStorage,
+	dataPools,
+	hddStandby,
 	gpu,
 	thunderbolt,
 	raid,

@@ -1,6 +1,6 @@
 // What Storage Manager's screen and its sheets both need
 
-import {useId} from 'react'
+import {useId, type ReactNode} from 'react'
 import {useTranslation} from 'react-i18next'
 import {TbCheck} from 'react-icons/tb'
 
@@ -26,6 +26,7 @@ export type StorageManagerProps = {
 	// The SSD size that suits this machine's memory, for acceleration
 	recommendedSsdSize?: string
 	supportUrl?: string
+	additionalContent?: ReactNode
 }
 
 export const offerLabel = (t: ReturnType<typeof useTranslation>['t'], offer: Offer) =>

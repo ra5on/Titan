@@ -14,6 +14,7 @@ import yaml from 'js-yaml'
 import {z} from 'zod'
 
 import type Umbreld from '../../index.ts'
+import {dataPoolPathPattern} from '../hardware/data-pools.ts'
 import {resolvePciAssignments, type FolderShare} from './host-devices.ts'
 import {snapshotQcow2} from './qcow2-import.ts'
 
@@ -2296,7 +2297,10 @@ export default class Machines {
 		await this.#assertUniqueName(name)
 		const profile = platformProfile ?? defaultPlatformProfile(arch)
 		if (architectureForProfile(profile) !== arch) throw new Error('[machine-platform-architecture-mismatch]')
-		if (osId && (firmware || diskBus || diskDirectory)) throw new Error('[machine-custom-setting-catalog-image]')
+		const location = diskDirectory && nodePath.posix.normalize(diskDirectory)
+		if (osId && (firmware || diskBus || (location && !dataPoolPathPattern.test(location)))) {
+			throw new Error('[machine-custom-setting-catalog-image]')
+		}
 		if (arch === 'arm64' && (firmware === 'bios' || diskBus === 'sata')) {
 			throw new Error('[machine-custom-setting-unsupported-on-arm]')
 		}
@@ -2731,6 +2735,61 @@ export default class Machines {
 				throw new Error(`[app-port-reserved-by-machine] ${machine.name}`)
 			}
 		}
+	}
+
+	async moveDisk(id: string, poolPath: string | null) {
+		return this.#withMachineLock(id, async () => {
+			this.#assertBackupIdle(id)
+			const definition = await this.#definition(id)
+			if (definition.installSource || (await this.#libvirt.state(id)) !== 'stopped') {
+				throw new Error('[machine-not-stopped]')
+			}
+			if (poolPath && !(await this.#umbreld.hardware.dataPools.mountedLocations()).some(({path}) => path === poolPath)) {
+				throw new Error('[data-pool-unavailable]')
+			}
+			if (!definition.diskPath && !poolPath) return this.#view(definition)
+			if (definition.diskPath && nodePath.posix.dirname(definition.diskPath) === poolPath) return this.#view(definition)
+
+			const replacement = {...definition, diskPath: poolPath ? `${poolPath}/${id}.qcow2` : undefined}
+			this.#assertExternalStorageNotBlocked(definition)
+			this.#assertExternalStorageNotBlocked(replacement)
+			const source = await this.#diskSystemPath(definition)
+			const target = await this.#diskSystemPath(replacement)
+			if (!(await fsp.lstat(source)).isFile()) throw new Error('[machine-external-disk-unavailable]')
+			const targetDirectory = nodePath.dirname(target)
+			const temporaryDirectory = await fsp.mkdtemp(nodePath.join(targetDirectory, '.titan-disk-transfer-'))
+			const temporary = nodePath.join(temporaryDirectory, 'disk.qcow2')
+			let linked = false
+			let committed = false
+			const sync = async (path: string) => {
+				const handle = await fsp.open(path, 'r')
+				try {
+					await handle.sync()
+				} finally {
+					await handle.close()
+				}
+			}
+			try {
+				await execa('cp', ['--sparse=always', '--reflink=auto', '--preserve=mode,ownership', '--', source, temporary])
+				await sync(temporary)
+				await this.#diskSystemPath(replacement)
+				// Create the new name without ever replacing an existing disk.
+				await fsp.link(temporary, target)
+				linked = true
+				await sync(targetDirectory)
+				await this.#store.write(replacement)
+				committed = true
+				const definitionDirectory = this.#store.directory(id)
+				await sync(nodePath.join(definitionDirectory, 'machine.yaml'))
+				await sync(definitionDirectory)
+				await fsp.unlink(source).catch((error) => this.logger.error(`Could not clean up the old disk for ${id}`, error))
+			} finally {
+				if (linked && !committed) await fsp.unlink(target).catch(() => {})
+				await fse.remove(temporaryDirectory).catch(() => {})
+			}
+			await this.#emitMachines()
+			return this.#view(replacement)
+		})
 	}
 
 	async updateSettings(

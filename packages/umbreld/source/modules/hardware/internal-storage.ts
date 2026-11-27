@@ -31,6 +31,7 @@ export type SsdDevice = {
 	lifetimeUsed?: number
 	smartStatus: 'healthy' | 'unhealthy' | 'unknown'
 	isSystemDrive?: boolean
+	inAdditionalDataPool?: boolean
 }
 
 export type HddDevice = {
@@ -47,6 +48,7 @@ export type HddDevice = {
 	temperature?: number
 	smartStatus: 'healthy' | 'unhealthy' | 'unknown'
 	isSystemDrive?: boolean
+	inAdditionalDataPool?: boolean
 }
 
 export type StorageDevice = SsdDevice | HddDevice
@@ -60,12 +62,13 @@ type SmartData = {
 }
 
 // Get SMART data for any device using smartctl
-async function getSmartData(devicePath: string): Promise<SmartData> {
+async function getSmartData(devicePath: string, skipStandby: boolean): Promise<SmartData> {
 	try {
 		// smartctl uses exit code bits as status flags (e.g. bit 2 = SMART attributes failing)
 		// so it can return non-zero even on success. We need to accept any exit code and parse
 		// the JSON output regardless.
-		const {stdout} = await $({reject: false})`smartctl -a ${devicePath} --json`
+		const options = skipStandby ? ['-d', 'ata', '-n', 'standby'] : []
+		const {stdout} = await $({reject: false})`smartctl ${options} -a ${devicePath} --json`
 		const data = JSON.parse(stdout)
 
 		// Temperature is reported directly in Celsius
@@ -81,7 +84,8 @@ async function getSmartData(devicePath: string): Promise<SmartData> {
 		}
 
 		// Overall health assessment
-		const smartStatus = data.smart_status?.passed === false ? 'unhealthy' : 'healthy'
+		const smartStatus =
+			typeof data.smart_status?.passed === 'boolean' ? (data.smart_status.passed ? 'healthy' : 'unhealthy') : 'unknown'
 
 		return {temperature, lifetimeUsed, smartStatus}
 	} catch {
@@ -212,7 +216,9 @@ export function isInternalStorageDisk(device: {type?: string; tran?: string | nu
 }
 
 // Get all internal storage devices using lsblk and nvme commands
-export async function getInternalStorageDevices(): Promise<StorageDevice[]> {
+export async function getInternalStorageDevices({readSmart = true}: {readSmart?: boolean} = {}): Promise<
+	StorageDevice[]
+> {
 	type LsBlkDevice = {
 		name: string
 		model?: string
@@ -248,8 +254,10 @@ export async function getInternalStorageDevices(): Promise<StorageDevice[]> {
 			const roundedSize = getRoundedDeviceSize(size)
 			const [smartData, temperatureThresholds, pciSlotNumber] = await Promise.all([
 				// UFS storage doesn't support SMART
-				isUfs ? ({smartStatus: 'unknown'} as SmartData) : getSmartData(devicePath),
-				isNvme
+				isUfs || !readSmart
+					? ({smartStatus: 'unknown'} as SmartData)
+					: getSmartData(devicePath, transport === 'sata' && device.rota === true),
+				isNvme && readSmart
 					? getNvmeTemperatureThresholds(devicePath)
 					: ({} as {temperatureWarning?: number; temperatureCritical?: number}),
 				isNvme ? getDevicePciSlotNumber(device.name).catch(() => undefined) : undefined,
@@ -317,12 +325,17 @@ export default class InternalStorage {
 	}
 
 	// Get all internal storage devices with their info
-	async getDevices(): Promise<StorageDevice[]> {
-		let devices = await getInternalStorageDevices()
+	async getDevices(options?: {readSmart?: boolean}): Promise<StorageDevice[]> {
+		let devices = await getInternalStorageDevices(options)
 
 		// Flag disks that back the running system so they're never offered as RAID storage
 		const systemDiskNames = await getSystemDiskNames(this.#umbreld.dataDirectory)
-		devices = devices.map((device) => ({...device, isSystemDrive: systemDiskNames.has(device.device)}))
+		const additionalPoolDisks = await this.#umbreld.hardware.dataPools.memberIds()
+		devices = devices.map((device) => ({
+			...device,
+			isSystemDrive: systemDiskNames.has(device.device),
+			...(device.id && additionalPoolDisks.has(device.id) ? {inAdditionalDataPool: true} : {}),
+		}))
 
 		// Attach slot numbers on Umbrel Pro
 		if (await this.#umbreld.hardware.umbrelPro.isUmbrelPro()) {

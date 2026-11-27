@@ -4,12 +4,16 @@ import InternalStorage from './internal-storage.ts'
 import Raid from './raid.ts'
 import UmbrelPro from './umbrel-pro.ts'
 import Thunderbolt from './thunderbolt.ts'
+import DataPools from './data-pools.ts'
+import HddStandby from './hdd-standby.ts'
 
 export default class Hardware {
 	#umbreld: Umbreld
 	logger: Umbreld['logger']
 	internalStorage: InternalStorage
 	raid: Raid
+	dataPools: DataPools
+	hddStandby: HddStandby
 	umbrelPro: UmbrelPro
 	thunderbolt: Thunderbolt
 
@@ -20,6 +24,8 @@ export default class Hardware {
 
 		this.internalStorage = new InternalStorage(umbreld)
 		this.raid = new Raid(umbreld)
+		this.dataPools = new DataPools(umbreld)
+		this.hddStandby = new HddStandby(umbreld)
 		this.umbrelPro = new UmbrelPro(umbreld)
 		this.thunderbolt = new Thunderbolt(umbreld)
 	}
@@ -31,6 +37,7 @@ export default class Hardware {
 		await Promise.all([
 			this.internalStorage.start().catch((error) => this.logger.error('Failed to start internal storage', error)),
 			this.raid.start().catch((error) => this.logger.error('Failed to start RAID', error)),
+			this.hddStandby.start(),
 			this.umbrelPro.start().catch((error) => this.logger.error('Failed to start Umbrel Pro', error)),
 			this.thunderbolt.start().catch((error) => this.logger.error('Failed to start Thunderbolt monitor', error)),
 		])
@@ -38,11 +45,13 @@ export default class Hardware {
 
 	async stop() {
 		this.logger.log('Stopping hardware')
+		await this.hddStandby.stop()
 
 		// Stop submodules
 		await Promise.all([
 			this.internalStorage.stop().catch((error) => this.logger.error('Failed to stop internal storage', error)),
 			this.raid.stop().catch((error) => this.logger.error('Failed to stop RAID', error)),
+			this.dataPools.stop().catch((error) => this.logger.error('Failed to stop data pools', error)),
 			this.umbrelPro.stop().catch((error) => this.logger.error('Failed to stop Umbrel Pro', error)),
 			this.thunderbolt.stop().catch((error) => this.logger.error('Failed to stop Thunderbolt monitor', error)),
 		])

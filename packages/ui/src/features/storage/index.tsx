@@ -13,6 +13,8 @@ import {useTemperatureUnit} from '@/hooks/use-temperature-unit'
 import {useGlobalSystemState} from '@/providers/global-system-state'
 import {trpcReact} from '@/trpc/trpc'
 
+import {TitanStorageOptions} from './components/titan-storage-options'
+
 import {missingDrive, toDrive} from './from-umbreld'
 import {RaidStatus, raidStatusLabels, StorageDevice} from './hooks/use-storage'
 import {toSingleHost} from './hooks/use-storage-headline'
@@ -51,6 +53,7 @@ export function ConnectedStorageManager({onShutdown, onRestart}: {onShutdown: ()
 				onRetry={manager.retry}
 				onClose={close}
 				temperatureUnit={temperatureUnit}
+				additionalContent={manager.loading ? undefined : <TitanStorageOptions />}
 			/>
 		)
 	}
@@ -79,6 +82,7 @@ export function ConnectedStorageManager({onShutdown, onRestart}: {onShutdown: ()
 				onRetry={manager.retry}
 				onClose={close}
 				temperatureUnit={temperatureUnit}
+				additionalContent={<TitanStorageOptions />}
 			/>
 		)
 	}
@@ -96,6 +100,7 @@ export function ConnectedStorageManager({onShutdown, onRestart}: {onShutdown: ()
 			// On the rare failure, recommend from the middle of the memory range instead of nothing
 			recommendedSsdSize={memorySizeQ.isLoading ? undefined : recommendedSsdSizeLabel(memorySizeQ.data ?? 16 * 2 ** 30)}
 			supportUrl={links.support}
+			additionalContent={<TitanStorageOptions />}
 		/>
 	)
 }
@@ -171,6 +176,7 @@ function SingleDrive({
 			temperatureUnit={temperatureUnit}
 			supportUrl={links.support}
 			downloadUrl={links.downloads}
+			additionalContent={<TitanStorageOptions />}
 		/>
 	)
 }

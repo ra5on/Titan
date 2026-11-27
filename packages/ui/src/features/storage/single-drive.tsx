@@ -69,6 +69,7 @@ export function SingleDriveManager({
 	temperatureUnit = 'c',
 	supportUrl,
 	downloadUrl,
+	additionalContent,
 }: {
 	host: SingleHost
 	// The drive umbrelOS runs from, when umbreld can see it. It can't see microSD cards, USB
@@ -88,6 +89,7 @@ export function SingleDriveManager({
 	supportUrl?: string
 	// Where umbrelOS can be downloaded, to set up again on other drives
 	downloadUrl?: string
+	additionalContent?: React.ReactNode
 }) {
 	const {t} = useTranslation()
 	const [sheet, setSheet] = useState<Sheet>(null)
@@ -274,6 +276,7 @@ export function SingleDriveManager({
 						)}
 					</div>
 				</div>
+				{additionalContent}
 			</Window>
 
 			<SheetRoot open={sheet !== null} onOpenChange={(isOpen) => !isOpen && setSheet(null)}>
@@ -392,6 +395,7 @@ export function StorageUnreadable({
 	onRetry,
 	onClose,
 	temperatureUnit = 'c',
+	additionalContent,
 }: {
 	// 'no-answer': the requests failed. 'unidentified': the storage isn't running, or what it is
 	// built from couldn't be worked out.
@@ -405,6 +409,7 @@ export function StorageUnreadable({
 	onRetry: () => void
 	onClose: () => void
 	temperatureUnit?: TemperatureUnit
+	additionalContent?: React.ReactNode
 }) {
 	const {t} = useTranslation()
 	const [infoId, setInfoId] = useState<string | null>(null)
@@ -480,6 +485,7 @@ export function StorageUnreadable({
 						)}
 					</>
 				)}
+				{additionalContent}
 			</Window>
 
 			<SheetRoot open={!!info} onOpenChange={(isOpen) => !isOpen && setInfoId(null)}>

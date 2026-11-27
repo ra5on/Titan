@@ -13,6 +13,7 @@ import {SidebarCloud} from '@/features/files/components/sidebar/sidebar-cloud'
 import {SidebarExternalStorage} from '@/features/files/components/sidebar/sidebar-external-storage'
 import {SidebarFavorites} from '@/features/files/components/sidebar/sidebar-favorites'
 import {SidebarHome} from '@/features/files/components/sidebar/sidebar-home'
+import {SidebarItem} from '@/features/files/components/sidebar/sidebar-item'
 import {SidebarMachines} from '@/features/files/components/sidebar/sidebar-machines'
 import {SidebarNetworkStorage} from '@/features/files/components/sidebar/sidebar-network-storage'
 import {SidebarRecents} from '@/features/files/components/sidebar/sidebar-recents'
@@ -23,9 +24,11 @@ import {useExternalStorage} from '@/features/files/hooks/use-external-storage'
 import {useFavorites} from '@/features/files/hooks/use-favorites'
 import {useHomePath, useIsMember} from '@/features/files/hooks/use-home-path'
 import {useMemberShares} from '@/features/files/hooks/use-member-shares'
+import {useNavigate} from '@/features/files/hooks/use-navigate'
 import {useShares} from '@/features/files/hooks/use-shares'
 import {useFilesCapabilities} from '@/features/files/providers/files-capabilities-context'
 import {cn} from '@/lib/utils'
+import {trpcReact} from '@/trpc/trpc'
 import {firstNameFromFullName} from '@/utils/misc'
 
 export function Sidebar({className}: {className?: string}) {
@@ -42,6 +45,11 @@ export function Sidebar({className}: {className?: string}) {
 	const hidden = capabilities.hiddenSidebarItems || {}
 	// Members only have their own home, favorites + trash; hide everything else
 	const isMember = useIsMember()
+	const {data: dataPools = []} = trpcReact.hardware.dataPools.mountedLocations.useQuery(undefined, {
+		enabled: !isMember && !hidden.external,
+		refetchInterval: 15_000,
+	})
+	const {currentPath, navigateToDirectory} = useNavigate()
 
 	// Paths the owner has shared with this member
 	const {sharedWithMe} = useMemberShares()
@@ -129,7 +137,7 @@ export function Sidebar({className}: {className?: string}) {
 						>
 							<SidebarDivider />
 							<SidebarSection label={t('files-sidebar.shared-folders')}>
-								<SidebarShares shares={displayShares} />
+								<SidebarShares shares={displayShares} pools={dataPools} />
 							</SidebarSection>
 						</motion.div>
 					)}
@@ -145,6 +153,16 @@ export function Sidebar({className}: {className?: string}) {
 				) : null}
 
 				{/* External Storage */}
+				{!isMember && !hidden.external && dataPools.length > 0 && (
+					<>
+						<SidebarDivider />
+						<SidebarSection label={t('titan-storage.pools')}>
+							{dataPools.map((pool) => (
+								<SidebarItem key={pool.path} item={{...pool, type: 'external-storage'}} isActive={currentPath === pool.path} onClick={() => navigateToDirectory(pool.path)} />
+							))}
+						</SidebarSection>
+					</>
+				)}
 				<AnimatePresence initial={!isLoadingExternalStorage}>
 					{showExternal && (
 						<motion.div

@@ -50,6 +50,7 @@ import type {Machine} from '@/features/machines/types'
 import {createBrowserUuid} from '@/features/machines/utils'
 import {useCpu} from '@/hooks/use-cpu'
 import {useMemory} from '@/hooks/use-memory'
+import {trpcReact} from '@/trpc/trpc'
 import {t} from '@/utils/i18n'
 
 // Edit a machine's name and resources at /machines/:machineId/settings, in the
@@ -63,6 +64,15 @@ export default function MachineSettings() {
 	const {updateSettings, stop} = useMachineActions()
 	const {threads} = useCpu()
 	const {data: memory} = useMemory()
+	const utils = trpcReact.useUtils()
+	const {data: pools = []} = trpcReact.hardware.dataPools.list.useQuery()
+	const [diskPoolChoice, setDiskPoolChoice] = useState<string>()
+	const moveDisk = trpcReact.machines.moveDisk.useMutation({
+		onSuccess: async () => {
+			await utils.machines.list.invalidate()
+			setDiskPoolChoice(undefined)
+		},
+	})
 
 	const [nameInput, setNameInput] = useState<string | null>(null)
 	const [editingName, setEditingName] = useState(false)
@@ -141,7 +151,9 @@ export default function MachineSettings() {
 	const hasFixedMemory = machine.platformProfile === 'windows-98-x86'
 	const isPowerTransition =
 		machine.state === 'starting' || machine.state === 'stopping' || machine.state === 'restarting'
-	const disabled = isSaving || isInstalling || isPowerTransition
+	const disabled = isSaving || isInstalling || isPowerTransition || moveDisk.isPending
+	const currentPool = pools.find(({path}) => machine.diskPath?.startsWith(`${path}/`))
+	const currentLocation = currentPool?.path ?? (machine.diskPath ? 'external' : '')
 	const shutdownRequiredAfterSave =
 		machine.state === 'running' &&
 		machineSettingsRequireShutdown(machine, {
@@ -283,7 +295,7 @@ export default function MachineSettings() {
 					</span>
 					{machine.diskPath && (
 						<div className='mt-2 rounded-12 border border-amber-400/20 bg-amber-400/10 px-3 py-2.5 text-left text-12 leading-snug text-amber-100/80'>
-							<p className='truncate font-medium'>{machine.diskPath}</p>
+							<p className='truncate font-medium' title={machine.diskPath}>{currentPool?.name ?? machine.diskPath}</p>
 							<p className='mt-1 text-amber-100/60'>{t('machines.external-install-warning')}</p>
 						</div>
 					)}
@@ -361,6 +373,29 @@ export default function MachineSettings() {
 								)}
 							</div>
 						</SpecRow>
+						{(pools.length > 0 || machine.diskPath) && (
+							<SpecRow label={t('titan-storage.machine-location')} note={t('titan-storage.move-stopped')} wide>
+								<div className='flex w-full flex-col items-start gap-2'>
+									<select
+										className='min-h-10 max-w-full rounded-xl border border-white/15 bg-neutral-900 px-3 text-13'
+										aria-label={t('titan-storage.machine-location')}
+										value={diskPoolChoice ?? currentLocation}
+										disabled={disabled || machine.state !== 'stopped' || machine.installPending}
+										onChange={(event) => {setDiskPoolChoice(event.target.value); moveDisk.reset()}}
+									>
+										<option value=''>{t('titan-storage.main-storage')}</option>
+										{pools.map((pool) => <option key={pool.path} value={pool.path} disabled={!pool.mounted}>{pool.name}</option>)}
+										{currentLocation === 'external' && <option value='external' disabled>{machine.diskPath}</option>}
+									</select>
+									{diskPoolChoice !== undefined && diskPoolChoice !== currentLocation && (
+										<Button type='button' disabled={disabled || machine.state !== 'stopped' || machine.installPending} onClick={() => moveDisk.mutate({id: machine.id, poolPath: diskPoolChoice || null})}>
+											{moveDisk.isPending ? t('titan-storage.moving-disk') : t('titan-storage.move-disk')}
+										</Button>
+									)}
+									{moveDisk.isError && <p role='alert' className='text-13 text-red-300'>{t('titan-storage.move-error')} {moveDisk.error.message}</p>}
+								</div>
+							</SpecRow>
+						)}
 						{machine.osId === 'custom' && (
 							<>
 								<SpecRow label={t('machines.firmware')}>

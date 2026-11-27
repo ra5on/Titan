@@ -60,6 +60,7 @@ export default function CreateMachine() {
 	const {osImages, isLoading} = useOsImages()
 	const {capabilities} = useMachineCapabilities()
 	const {machines} = useMachines()
+	const {data: pools = []} = trpcReact.hardware.dataPools.mountedLocations.useQuery()
 	const {create} = useMachineActions()
 	const {threads} = useCpu()
 	const {data: memoryData} = useMemory()
@@ -227,10 +228,10 @@ export default function CreateMachine() {
 				arch: selectedArch,
 				networkMode,
 				autostart,
+				...(diskDirectory ? {diskDirectory} : {}),
 				...(isCustomSource && {
 					firmware: selectedArch === 'arm64' ? 'uefi' : firmware,
 					diskBus: selectedArch === 'arm64' ? 'virtio' : diskBus,
-					...(diskDirectory ? {diskDirectory} : {}),
 				}),
 				...(requiresCredentials ? {username: username.trim(), ...(requiresPassword ? {password} : {})} : {}),
 				...(requiresLicenseKey ? {licenseKey: licenseKey.trim().toUpperCase()} : {}),
@@ -547,6 +548,21 @@ export default function CreateMachine() {
 								</div>
 							</SpecRow>
 						)}
+						{pools.length > 0 && (
+							<SpecRow label={t('titan-storage.machine-location')} note={diskDirectory ? t('machines.external-install-warning') : undefined}>
+								<select
+									className='min-h-10 max-w-full rounded-xl border border-white/15 bg-neutral-900 px-3 text-13'
+									aria-label={t('titan-storage.machine-location')}
+									value={diskDirectory ?? ''}
+									disabled={isCreating}
+									onChange={(event) => setDiskDirectory(event.target.value || undefined)}
+								>
+									<option value=''>{t('titan-storage.main-storage')}</option>
+									{pools.map((pool) => <option key={pool.path} value={pool.path}>{pool.name}</option>)}
+									{diskDirectory && !pools.some(({path}) => path === diskDirectory) && <option value={diskDirectory}>{diskDirectory}</option>}
+								</select>
+							</SpecRow>
+						)}
 						<SpecRow label={t('machines.autostart')} note={t('machines.autostart-description')}>
 							<Switch aria-label={t('machines.autostart')} checked={autostart} onCheckedChange={setAutostart} disabled={isCreating} />
 						</SpecRow>
@@ -604,7 +620,7 @@ export default function CreateMachine() {
 										>
 											<img src='/assets/dock/dock-files.webp' alt='' className='size-4 rounded-[4px]' />
 											<span className='min-w-0 flex-1 truncate'>
-												{diskDirectory ?? t('machines.virtual-disk-location-default')}
+														{pools.find(({path}) => path === diskDirectory)?.name ?? diskDirectory ?? t('machines.virtual-disk-location-default')}
 											</span>
 										</button>
 										{diskDirectory && (

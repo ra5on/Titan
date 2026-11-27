@@ -14,6 +14,7 @@ import AppStore from './modules/apps/app-store.ts'
 import Apps from './modules/apps/apps.ts'
 import Files from './modules/files/files.ts'
 import Hardware from './modules/hardware/hardware.ts'
+import type {DataPool} from './modules/hardware/data-pools.ts'
 import Notifications from './modules/notifications/notifications.ts'
 import EventBus from './modules/event-bus/event-bus.ts'
 import Dbus from './modules/dbus/dbus.ts'
@@ -53,6 +54,8 @@ type StoreSchema = {
 		sharedWith: 'all' | string[]
 	}[]
 	appRepositories: string[]
+	dataPools?: DataPool[]
+	hddStandbyMinutes?: Record<string, number>
 	widgets: string[]
 	shortcuts: {
 		url: string

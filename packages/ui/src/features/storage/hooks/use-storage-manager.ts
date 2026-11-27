@@ -112,7 +112,7 @@ export function useStorageManager() {
 	const finished = useFinished(progress)
 
 	const raid = raidQ.data
-	const devices = devicesQ.data
+	const devices = devicesQ.data?.filter(({inAdditionalDataPool}) => !inAdditionalDataPool)
 	const loading = identity.isLoading || raidQ.isLoading || devicesQ.isLoading
 	// A failed refresh must not throw away what is already on screen, or close a sheet that is open
 	const error =

@@ -146,7 +146,7 @@ export default class AppRepository {
 	}
 
 	// Read registry
-	async readRegistry() {
+	async readRegistry(appIds?: readonly string[]) {
 		// Get repo metadata
 
 		let meta: AppRepositoryMeta
@@ -163,7 +163,11 @@ export default class AppRepository {
 		}
 
 		// Read app manifests
-		const appManifests = await globby(`${this.path}/*/umbrel-app.yml`)
+		const appManifests = appIds
+			? await globby(
+					appIds.filter((id) => /^[a-zA-Z0-9_-]+$/.test(id)).map((id) => `${this.path}/${id}/umbrel-app.yml`),
+				)
+			: await globby(`${this.path}/*/umbrel-app.yml`)
 
 		const parsedManifestsPromises = appManifests.map((manifest) =>
 			readYaml(manifest)

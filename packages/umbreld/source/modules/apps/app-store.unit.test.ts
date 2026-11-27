@@ -6,7 +6,10 @@ import {expect, test, vi} from 'vitest'
 
 import {OFFICIAL_APP_STORE_REPO, UMBREL_APP_STORE_REPO} from '../../constants.ts'
 import type Umbreld from '../../index.ts'
+import type {Context} from '../server/trpc/context.ts'
+import {readManifestInDirectory} from './app.ts'
 import AppStore, {sanitizeRegistry} from './app-store.ts'
+import {apps as appsRouter} from './routes.ts'
 
 test('public registry excludes repository locations and undeclared manifest fields', () => {
 	const registry = [
@@ -53,6 +56,65 @@ test('public registry excludes repository locations and undeclared manifest fiel
 	expect(sanitized[0].apps[0]).not.toHaveProperty('path')
 	expect(sanitized[0].apps[0]).not.toHaveProperty('defaultPassword')
 	expect(sanitized[0].apps[0]).not.toHaveProperty('privateExtension')
+})
+
+test('apps.list returns catalog icons for existing official, bundled and community installs', async () => {
+	const dataDirectory = await mkdtemp(join(tmpdir(), 'titan-installed-icons-'))
+	try {
+		const communityUrl = 'https://github.com/example/community-apps'
+		const logger = {log: vi.fn(), error: vi.fn(), verbose: vi.fn()}
+		const server = {
+			dataDirectory,
+			version: '2.1.0-beta.2',
+			store: {get: async (key: string) => key === 'appRepositories' ? [communityUrl] : undefined},
+			logger: {...logger, createChildLogger: () => logger},
+		} as unknown as Umbreld
+		const store = new AppStore(server, {defaultAppStoreRepo: UMBREL_APP_STORE_REPO})
+		const [bundled, official, community] = await store.getRepositories()
+		await mkdir(community.path, {recursive: true})
+		await writeFile(join(community.path, 'umbrel-app-store.yml'), 'id: community\nname: Community\n')
+		const template = (await readFile(join(bundled.path, 'freshrss/umbrel-app.yml'), 'utf8')).replace(/^icon: .*\n/m, '')
+		const instances = await Promise.all(['freshrss', 'tailscale', 'murmur', 'community-example'].map(async (id) => {
+			const manifest = template.replace(/^id: freshrss$/m, `id: ${id}`)
+			if (id !== 'freshrss') {
+				const repository = id === 'community-example' ? community : official
+				const directory = join(repository.path, id)
+				await mkdir(directory, {recursive: true})
+				const icon = id === 'community-example' ? 'https://example.com/community.svg' : ''
+				await writeFile(join(directory, 'umbrel-app.yml'), icon ? `${manifest}\nicon: ${icon}\n` : manifest)
+			}
+			const directory = join(dataDirectory, 'app-data', id)
+			await mkdir(directory, {recursive: true})
+			await writeFile(join(directory, 'umbrel-app.yml'), id === 'murmur' ? `${manifest}\nicon: https://example.com/murmur.svg\n` : manifest)
+			return {
+				id,
+				readManifest: () => readManifestInDirectory(directory),
+				getSelectedDependencies: async () => [],
+				shouldAutoStart: async () => true,
+				getAppProxyAuth: async () => true,
+				getStorageSettings: async () => [],
+				getEnvironmentSettings: async () => [],
+				store: {get: async () => undefined},
+			}
+		}))
+		const caller = appsRouter.createCaller({
+			umbreld: server,
+			appStore: store,
+			apps: {logger, instances},
+			logger,
+			transport: 'express',
+			dangerouslyBypassAuthentication: true,
+		} as unknown as Context)
+		const icons = Object.fromEntries((await caller.list()).map(({id, icon}) => [id, icon]))
+		expect(icons).toEqual({
+			freshrss: 'https://freshrss.org/images/icon.svg',
+			tailscale: 'https://getumbrel.github.io/umbrel-apps-gallery/tailscale/icon.svg',
+			murmur: 'https://example.com/murmur.svg',
+			'community-example': 'https://example.com/community.svg',
+		})
+	} finally {
+		await rm(dataDirectory, {force: true, recursive: true})
+	}
 })
 
 test('includes official apps once in the Titan storefront and resolves their installation templates', async () => {

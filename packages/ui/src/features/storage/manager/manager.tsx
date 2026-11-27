@@ -160,6 +160,7 @@ export function StorageManager(props: StorageManagerProps) {
 						{props.usb && <UsbDrives {...props.usb} />}
 					</div>
 				</div>
+				{props.additionalContent}
 			</Window>
 
 			<Sheets {...props} view={view} sheet={sheet} setSheet={setSheet} />

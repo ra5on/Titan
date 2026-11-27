@@ -80,6 +80,10 @@ export default router({
 		.input(z.object({id: machineIdSchema}))
 		.mutation(async ({ctx, input}) => ctx.umbreld.machines.uninstall(input.id)),
 
+	moveDisk: privateProcedure
+		.input(z.object({id: machineIdSchema, poolPath: z.string().max(256).nullable()}))
+		.mutation(async ({ctx, input}) => ctx.umbreld.machines.moveDisk(input.id, input.poolPath)),
+
 	updateSettings: privateProcedure
 		.input(
 			z.object({

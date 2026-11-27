@@ -1,7 +1,7 @@
 import {randomBytes} from 'node:crypto'
 import path from 'node:path'
 import {setTimeout as sleep} from 'node:timers/promises'
-import {readFile} from 'node:fs/promises'
+import {readFile, writeFile} from 'node:fs/promises'
 import {createTRPCProxyClient, httpBatchLink} from '@trpc/client'
 import {chromium} from 'playwright'
 
@@ -80,6 +80,9 @@ try {
 	await page.evaluate(() => document.fonts.ready)
 	await page.screenshot({path: path.join(dir, 'desktop.png'), animations: 'disabled'})
 	if (upstream.size) throw new Error('Browser contacted ' + [...upstream].join(', '))
+	if (process.env.TITAN_STORAGE_TEST_PASSWORD_FILE) {
+		await writeFile(process.env.TITAN_STORAGE_TEST_PASSWORD_FILE, password, {mode: 0o600})
+	}
 } finally {
 	await browser.close()
 }

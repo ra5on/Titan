@@ -9,7 +9,7 @@ import {useIsFilesReadOnly} from '@/features/files/providers/files-capabilities-
 import {Share} from '@/features/files/types'
 import {useQueryParams} from '@/hooks/use-query-params'
 
-export function SidebarShares({shares}: {shares: (Share | null)[]}) {
+export function SidebarShares({shares, pools = []}: {shares: (Share | null)[]; pools?: {name: string; path: string}[]}) {
 	const {t} = useTranslation()
 	const {navigateToDirectory, currentPath} = useFilesNavigate()
 	const navigate = useNavigate()
@@ -30,6 +30,7 @@ export function SidebarShares({shares}: {shares: (Share | null)[]}) {
 		<AnimatePresence initial={false}>
 			{shares.map((share: Share | null) => {
 				if (!share) return null
+				const pool = pools.find(({path}) => share.path === path || share.path.startsWith(`${path}/`))
 				return (
 					<motion.div
 						key={`sidebar-share-${share.path}`}
@@ -40,10 +41,10 @@ export function SidebarShares({shares}: {shares: (Share | null)[]}) {
 					>
 						<ContextMenu>
 							<ContextMenuTrigger asChild>
-								<div>
+								<div title={pool && `${share.name} · ${pool.name}`}>
 									<SidebarItem
 										item={{
-											name: share.name,
+											name: pool ? `${share.name} · ${pool.name}` : share.name,
 											path: share.path,
 											type: 'directory',
 										}}
